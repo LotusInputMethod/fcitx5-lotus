@@ -9,6 +9,8 @@ configure_file(
     @ONLY
 )
 
+option(LOTUS_DEBUG "Enable debug logging" ON)
+
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 set(REQUIRED_FCITX_VERSION 5.0.5)

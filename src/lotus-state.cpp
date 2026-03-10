@@ -24,6 +24,7 @@
 #include <sys/un.h>
 
 #include <thread>
+#include "debug.h"
 
 namespace fcitx {
     constexpr int      MAX_SCAN_LENGTH = 15;
@@ -33,10 +34,13 @@ namespace fcitx {
     }
 
     LotusState::LotusState(LotusEngine* engine, InputContext* ic) : engine_(engine), ic_(ic) {
+        LOG("buf=" + oldPreBuffer_);
         setEngine();
     }
 
     void LotusState::setEngine() {
+        LOG("buf=" + oldPreBuffer_);
+        LOG("reset");
         lotusEngine_.reset();
         realMode = modeStringToEnum(engine_->config().mode.value());
 
@@ -54,6 +58,7 @@ namespace fcitx {
             lotusEngine_.reset(NewEngine(engine_->config().inputMethod->data(), engine_->dictionary(), engine_->macroTable()));
         }
         setOption();
+        LOG("buf=" + oldPreBuffer_);
     }
 
     void LotusState::setOption() {
@@ -123,8 +128,9 @@ namespace fcitx {
         }
 
         if (waitAck_) {
+            LOG("buf=" + oldPreBuffer_);
             LOTUS_INFO("Waiting for ack");
-            std::this_thread::sleep_for(std::chrono::milliseconds(count * 5));
+            std::this_thread::sleep_for(std::chrono::milliseconds(count * 7));
         }
     }
 
@@ -143,6 +149,7 @@ namespace fcitx {
     }
 
     bool LotusState::isAutofillCertain(const SurroundingText& s) {
+        LOG("buf=" + oldPreBuffer_);
         if (!s.isValid() || oldPreBuffer_.empty()) {
             return false;
         }
@@ -351,6 +358,7 @@ namespace fcitx {
                 } else if (currentSym == FcitxKey_Return && !emojiBuffer_.empty()) {
                     ic_->commitString(emojiBuffer_);
                     emojiBuffer_.clear();
+                    LOG("reset");
                     updateEmojiPreedit();
                     keyEvent.filterAndAccept();
                 } else {
@@ -362,6 +370,7 @@ namespace fcitx {
             case FcitxKey_Escape: {
                 emojiBuffer_.clear();
                 emojiCandidates_.clear();
+                LOG("reset");
                 ic_->inputPanel().reset();
                 ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
                 keyEvent.filterAndAccept();
@@ -437,11 +446,13 @@ namespace fcitx {
     }
 
     bool LotusState::handleUInputKeyPress(KeyEvent& event, KeySym currentSym, int sleepTime) {
+        LOG("buf=" + oldPreBuffer_);
         if (!is_deleting_.load()) {
             return false;
         }
         if (isBackspace(currentSym)) {
             current_backspace_count_ += 1;
+            LOG("buf=" + oldPreBuffer_);
             if (current_backspace_count_ < expected_backspaces_) {
                 return false; // Allow intermediate backspaces to reach the app to clear autofill/old text.
             }
@@ -456,7 +467,8 @@ namespace fcitx {
             pending_commit_string_   = "";
 
             event.filterAndAccept(); // Filter out the final trigger backspace.
-            replayBufferedKeys();
+            if (std::string(ic_->frontend()) == "dbus")
+                replayBufferedKeys();
             return true;
         }
         return false;
@@ -464,6 +476,7 @@ namespace fcitx {
 
     void LotusState::performReplacement(const std::string& deletedPart, const std::string& addedPart) {
         LOTUS_INFO("Perform replacement: " + deletedPart + " -> " + addedPart); //NOLINT
+        LOG("buf=" + oldPreBuffer_);
         int my_id                = ++current_thread_id_;
         current_backspace_count_ = 0;
         pending_commit_string_   = addedPart;
@@ -480,6 +493,7 @@ namespace fcitx {
         monitor_cv.notify_one();
         send_backspace_uinput(expected_backspaces_);
         LOTUS_INFO("Send " + std::to_string(expected_backspaces_) + " backspaces");
+        LOG("buf=" + oldPreBuffer_);
     }
 
     void LotusState::checkForwardSpecialKey(KeyEvent& keyEvent, KeySym& currentSym) {
@@ -487,6 +501,8 @@ namespace fcitx {
             keyEvent.key().hasModifier()) {
             history_.clear();
             ResetEngine(lotusEngine_.handle());
+            LOG("buf=" + oldPreBuffer_);
+            LOG("clearbuff");
             oldPreBuffer_.clear();
             keyEvent.forward();
             return;
@@ -539,6 +555,7 @@ namespace fcitx {
     }
 
     void LotusState::handleUinputMode(KeyEvent& keyEvent, KeySym currentSym, bool checkEmptyPreedit) {
+        LOG("buf=" + oldPreBuffer_);
         checkForwardSpecialKey(keyEvent, currentSym);
 
         if (uinput_client_fd_ < 0) {
@@ -550,10 +567,13 @@ namespace fcitx {
                 history_.push_back('\b');
                 replayBufferToEngine(history_);
                 UniqueCPtr<char> preeditC(EnginePullPreedit(lotusEngine_.handle()));
+                LOG("buf=" + oldPreBuffer_);
                 oldPreBuffer_ = (preeditC && (*preeditC.get() != 0)) ? preeditC.get() : "";
+                LOG("buf=" + oldPreBuffer_);
             } else {
                 history_.clear();
                 ResetEngine(lotusEngine_.handle());
+                LOG("buf=" + oldPreBuffer_);
                 oldPreBuffer_.clear();
             }
             keyEvent.forward();
@@ -575,7 +595,7 @@ namespace fcitx {
             std::string deletedPart;
             std::string addedPart;
             compareAndSplitStrings(oldPreBuffer_, commitStr, commonPrefix, deletedPart, addedPart);
-
+            LOG("buf=" + oldPreBuffer_);
             if (!deletedPart.empty()) {
                 performReplacement(deletedPart, addedPart);
                 keyEvent.filterAndAccept();
@@ -601,6 +621,7 @@ namespace fcitx {
 
             history_.clear();
             ResetEngine(lotusEngine_.handle());
+            LOG("buf=" + oldPreBuffer_);
             oldPreBuffer_.clear();
 
             return;
@@ -611,6 +632,7 @@ namespace fcitx {
                 UniqueCPtr<char> preeditC(EnginePullPreedit(lotusEngine_.handle()));
                 if (!preeditC || (*preeditC.get() == 0)) {
                     history_.clear();
+                    LOG("buf=" + oldPreBuffer_);
                     oldPreBuffer_.clear();
                     keyEvent.forward();
                 }
@@ -640,6 +662,7 @@ namespace fcitx {
 
             history_.clear();
             ResetEngine(lotusEngine_.handle());
+            LOG("buf=" + oldPreBuffer_);
             oldPreBuffer_.clear();
 
             keyEvent.filterAndAccept();
@@ -684,6 +707,8 @@ namespace fcitx {
 
                 keyEvent.filterAndAccept();
                 performReplacement(deletedPart, addedPart);
+                LOG("buf=" + oldPreBuffer_);
+                LOG("buf=" + preeditStr);
                 oldPreBuffer_ = preeditStr;
             }
         }
@@ -867,6 +892,7 @@ namespace fcitx {
         }
         if (needEngineReset.load() && realMode != LotusMode::Off) {
             LOTUS_INFO("Need engine reset");
+            LOG("buf=" + oldPreBuffer_);
             oldPreBuffer_.clear();
             history_.clear();
             ResetEngine(lotusEngine_.handle());
@@ -889,7 +915,8 @@ namespace fcitx {
             }
             replacement_thread_id_.store(0, std::memory_order_release);
             replacement_start_ms_.store(0, std::memory_order_release);
-            replayBufferedKeys();
+            if (std::string(ic_->frontend()) != "dbus")
+                replayBufferedKeys();
         }
         KeySym currentSym = keyEvent.rawKey().sym();
         if (*engine_->config().autoCapitalizeAfterPunctuation && realMode != LotusMode::Off) {
@@ -993,6 +1020,7 @@ namespace fcitx {
     }
 
     void LotusState::reset() {
+        LOG("buf=" + oldPreBuffer_);
         const auto& surrounding = ic_->surroundingText();
         const auto& text        = surrounding.text();
         size_t      textLen     = utf8::length(text);
@@ -1017,7 +1045,10 @@ namespace fcitx {
             ResetEngine(lotusEngine_.handle());
         }
 
-        clearAllBuffers();
+        LOG("buf=" + oldPreBuffer_);
+        if (std::string(ic_->frontend()) != "dbus")
+            clearAllBuffers();
+        LOG("buf=" + oldPreBuffer_);
 
         switch (realMode) {
             case LotusMode::Preedit: {
@@ -1086,6 +1117,7 @@ namespace fcitx {
         if (is_deleting_.load(std::memory_order_acquire)) {
             return;
         }
+        LOG("buf=" + oldPreBuffer_);
         oldPreBuffer_.clear();
         history_.clear();
         if (!is_deleting_.load(std::memory_order_acquire)) {
@@ -1141,6 +1173,7 @@ namespace fcitx {
                     performReplacement(deletedPart, addedPart);
                     history_.clear();
                     ResetEngine(lotusEngine_.handle());
+                    LOG("buf=" + oldPreBuffer_);
                     oldPreBuffer_.clear();
                     return;
                 }
@@ -1150,6 +1183,7 @@ namespace fcitx {
 
                 history_.clear();
                 ResetEngine(lotusEngine_.handle());
+                LOG("buf=" + oldPreBuffer_);
                 oldPreBuffer_.clear();
                 continue;
             }
@@ -1182,6 +1216,7 @@ namespace fcitx {
                     performReplacement(deletedPart, addedPart);
                     history_.clear();
                     ResetEngine(lotusEngine_.handle());
+                    LOG("buf=" + oldPreBuffer_);
                     oldPreBuffer_.clear();
                     return;
                 }
@@ -1191,6 +1226,7 @@ namespace fcitx {
 
                 history_.clear();
                 ResetEngine(lotusEngine_.handle());
+                LOG("buf=" + oldPreBuffer_);
                 oldPreBuffer_.clear();
                 continue;
             }

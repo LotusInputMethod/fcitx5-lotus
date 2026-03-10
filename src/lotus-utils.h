@@ -18,8 +18,9 @@
 #include <mutex>
 #include <atomic>
 #include <sys/un.h>
+#ifdef LOTUS_DEBUG
 #include <fcitx-utils/log.h>
-
+#endif
 #include "lotus-config.h"
 
 /**
@@ -28,11 +29,17 @@
 #define UNIX_PATH_MAX sizeof(((struct sockaddr_un*)0)->sun_path)
 
 FCITX_DECLARE_LOG_CATEGORY(lotus);
-
+#ifdef LOTUS_DEBUG
 #define LOTUS_DEBUG(msg) FCITX_LOGC(lotus, Debug) << "[DEBUG] " << msg
 #define LOTUS_INFO(msg)  FCITX_LOGC(lotus, Info) << "[INFO] " << msg
 #define LOTUS_WARN(msg)  FCITX_LOGC(lotus, Warn) << "[WARN] " << msg
 #define LOTUS_ERROR(msg) FCITX_LOGC(lotus, Error) << "[ERROR] " << msg
+#else
+#define LOTUS_DEBUG(msg)
+#define LOTUS_INFO(msg)
+#define LOTUS_WARN(msg)
+#define LOTUS_ERROR(msg)
+#endif
 
 // Forward declaration for fcitx types
 using KeySym = uint32_t;

@@ -34,6 +34,7 @@ enum class LogLevel : std::uint8_t {
     NONE
 };
 
+#ifdef LOTUS_DEBUG
 class LotusLogger {
   public:
     // Const
@@ -130,4 +131,22 @@ class LotusLogger {
     std::ofstream         file_;
     std::mutex            mutex_;
 };
+#else
+class LotusLogger {
+  public:
+    static LotusLogger& instance() {
+        static LotusLogger i;
+        return i;
+    }
+    void setLevel(LogLevel) {}
+    bool isEnabled(LogLevel) const {
+        return false;
+    }
+    void log(LogLevel, const std::string&) {}
+    void debug(const std::string&) {}
+    void info(const std::string&) {}
+    void warn(const std::string&) {}
+    void error(const std::string&) {}
+};
+#endif // LOTUS_DEBUG
 #endif // _LOTUS_LOGGER_H_
