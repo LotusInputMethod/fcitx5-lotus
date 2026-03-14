@@ -581,6 +581,9 @@ paru -Rns fcitx5-lotus
 
 ```bash
 sudo apt remove fcitx5-lotus
+sudo rm /etc/apt/sources.list.d/fcitx5-lotus.list
+sudo rm /etc/apt/keyrings/fcitx5-lotus.gpg
+sudo apt update
 ```
 
 </details>
@@ -591,6 +594,9 @@ sudo apt remove fcitx5-lotus
 
 ```bash
 sudo apt remove fcitx5-lotus
+sudo rm /etc/apt/sources.list.d/fcitx5-lotus.list
+sudo rm /etc/apt/keyrings/fcitx5-lotus.gpg
+sudo apt update
 ```
 
 </details>
@@ -601,6 +607,7 @@ sudo apt remove fcitx5-lotus
 
 ```bash
 sudo dnf remove fcitx5-lotus
+sudo rm /etc/yum.repos.d/fcitx5-lotus-*.repo
 ```
 
 </details>
@@ -611,6 +618,7 @@ sudo dnf remove fcitx5-lotus
 
 ```bash
 sudo zypper remove fcitx5-lotus
+sudo zypper removerepo fcitx5-lotus
 ```
 
 </details>
@@ -657,6 +665,15 @@ sudo make uninstall
 ```
 
 </details>
+
+### 🧹 System Cleanup (Optional)
+
+If you want to completely remove shorthand data and configuration:
+
+```bash
+rm -rf ~/.local/share/fcitx5/lotus
+rm -rf ~/.config/fcitx5/conf/lotus.conf
+```
 
 ---
 
