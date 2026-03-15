@@ -725,9 +725,13 @@ namespace fcitx {
     }
 
     std::string LotusEngine::getProgramName(InputContext* ic) {
+        if (!ic) {
+            return "unknown-app";
+        }
         std::string programName = ic->program();
-        if (programName.empty())
-            programName = "unknown-app";
+        if (programName.empty() || programName == "wayland" || programName == "x11") {
+            programName = "ctx_" + std::to_string(reinterpret_cast<uintptr_t>(ic));
+        }
         return programName;
     }
 } // namespace fcitx
