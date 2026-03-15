@@ -19,7 +19,7 @@ BuildRequires:  fcitx5-qt-devel
 BuildRequires:  qt6-base-devel
 BuildRequires:  libinput-devel
 BuildRequires:  systemd-rpm-macros
-BuildRequires:  libudev-devel
+BuildRequires:  systemd-devel
 BuildRequires:  libX11-devel
 
 BuildRequires:  go
