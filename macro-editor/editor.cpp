@@ -69,7 +69,7 @@ namespace fcitx::lotus {
         btnImport_ = new QPushButton(QIcon::fromTheme("document-import"), _("Import"), this);
         btnExport_ = new QPushButton(QIcon::fromTheme("document-export"), _("Export"), this);
 
-        QString btnStyle = "QPushButton { text-align: left; padding: 6px 6px;}";
+        QString btnStyle = "QPushButton { text-align: left; padding: 6px 12px;}";
         btnAdd_->setStyleSheet(btnStyle);
         btnRemove_->setStyleSheet(btnStyle);
         btnMoveUp_->setStyleSheet(btnStyle);

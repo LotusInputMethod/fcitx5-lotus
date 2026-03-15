@@ -75,8 +75,13 @@ namespace fcitx::lotus {
 
         // ── Import / Export row ────────────────────────────────────────────────
         auto* ioLayout = new QHBoxLayout();
-        btnImport_     = new QPushButton(_("Import (TSV)"), this);
-        btnExport_     = new QPushButton(_("Export (TSV)"), this);
+        btnImport_     = new QPushButton(QIcon::fromTheme("document-import"), _("Import"), this);
+        btnExport_     = new QPushButton(QIcon::fromTheme("document-export"), _("Export"), this);
+
+        QString ioBtnStyle = "QPushButton { text-align: left; padding: 6px 12px; }";
+        btnImport_->setStyleSheet(ioBtnStyle);
+        btnExport_->setStyleSheet(ioBtnStyle);
+
         ioLayout->addWidget(btnImport_);
         ioLayout->addWidget(btnExport_);
         ioLayout->addStretch();
