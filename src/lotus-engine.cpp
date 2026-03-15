@@ -168,6 +168,10 @@ namespace fcitx {
             std::filesystem::create_directories(configDir);
         }
         appRulesPath_ = configDir + "/lotus-app-rules.conf";
+        appRulesCtxPath_ = configDir + "/lotus-app-rules-ctx.conf";
+        if (std::filesystem::exists(appRulesCtxPath_)) {
+            std::filesystem::remove(appRulesCtxPath_);
+        }
         loadAppRules();
         toggleActions_ = {versionAction_.get(), charsetAction_.get(), spellCheckAction_.get(), macroAction_.get(), capitalizeMacroAction_.get(), autoNonVnRestoreAction_.get()};
     }
@@ -564,35 +568,47 @@ namespace fcitx {
 
     void LotusEngine::loadAppRules() {
         appRules_.clear();
-        std::ifstream file(appRulesPath_);
-        if (!file.is_open())
-            return;
+        auto loadFromFile = [this](const std::string& path) {
+            std::ifstream file(path);
+            if (!file.is_open())
+                return;
 
-        std::string line;
-        while (std::getline(file, line)) {
-            if (line.empty() || line[0] == '#')
-                continue;
-            auto delimiterPos = line.find('=');
-            if (delimiterPos != std::string::npos) {
-                std::string app  = line.substr(0, delimiterPos);
-                std::string mode = line.substr(delimiterPos + 1);
-                appRules_[app]   = static_cast<LotusMode>(std::stoi(mode));
+            std::string line;
+            while (std::getline(file, line)) {
+                if (line.empty() || line[0] == '#')
+                    continue;
+                auto delimiterPos = line.find('=');
+                if (delimiterPos != std::string::npos) {
+                    std::string app  = line.substr(0, delimiterPos);
+                    std::string mode = line.substr(delimiterPos + 1);
+                    appRules_[app]   = static_cast<LotusMode>(std::stoi(mode));
+                }
             }
-        }
-        file.close();
+            file.close();
+        };
+        loadFromFile(appRulesPath_);
+        loadFromFile(appRulesCtxPath_);
     }
 
     void LotusEngine::saveAppRules() {
-        std::ofstream file(appRulesPath_, std::ios::trunc);
-        if (!file.is_open())
-            return;
+        auto saveToFile = [this](const std::string& path, bool isCtx) {
+            std::ofstream file(path, std::ios::trunc);
+            if (!file.is_open())
+                return;
 
-        file << "# Lotus Per-App Configuration\n";
-        file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Slow), 3 = Uinput (Hardcore), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker\n";
-        for (const auto& pair : appRules_) {
-            file << pair.first << "=" << static_cast<int>(pair.second) << "\n";
-        }
-        file.close();
+            file << "# Lotus Per-App Configuration " << (isCtx ? "(Temporary)" : "") << "\n";
+            file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Slow), 3 = Uinput (Hardcore), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker\n";
+            for (const auto& pair : appRules_) {
+                bool currentIsCtx = (pair.first.find("ctx_") == 0);
+                if (currentIsCtx == isCtx) {
+                    file << pair.first << "=" << static_cast<int>(pair.second) << "\n";
+                }
+            }
+            file.close();
+        };
+
+        saveToFile(appRulesPath_, false);
+        saveToFile(appRulesCtxPath_, true);
     }
 
     void LotusEngine::closeAppModeMenu() {
@@ -730,6 +746,8 @@ namespace fcitx {
         }
         std::string programName = ic->program();
         if (programName.empty() || programName == "wayland" || programName == "x11") {
+            // Fallback: InputContext address-based resolution
+            // This ensures at least per-window separation.
             programName = "ctx_" + std::to_string(reinterpret_cast<uintptr_t>(ic));
         }
         return programName;
