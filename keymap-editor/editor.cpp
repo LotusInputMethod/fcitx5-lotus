@@ -56,8 +56,10 @@ namespace fcitx::lotus {
 
         btnAdd_ = new QPushButton(QIcon::fromTheme("list-add"), "", this);
         btnAdd_->setFixedSize(30, 30);
+        btnAdd_->setAutoDefault(false);
         btnRemove_ = new QPushButton(QIcon::fromTheme("list-remove"), "", this);
         btnRemove_->setFixedSize(30, 30);
+        btnRemove_->setAutoDefault(false);
 
         addLayout->addWidget(inputKey_);
         addLayout->addWidget(comboAction_);
@@ -94,6 +96,8 @@ namespace fcitx::lotus {
         connect(btnImport_, &QPushButton::clicked, this, &KeymapEditor::onImportClicked);
         connect(btnExport_, &QPushButton::clicked, this, &KeymapEditor::onExportClicked);
         connect(tableWidget_, &QTableWidget::cellClicked, this, &KeymapEditor::onRowSelected);
+
+        inputKey_->setFocus();
     }
 
     QString KeymapEditor::title() {

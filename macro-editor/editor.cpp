@@ -105,6 +105,8 @@ namespace fcitx::lotus {
         connect(btnExport_, &QPushButton::clicked, this, &MacroEditor::onExportClicked);
         connect(inputValue_, &QLineEdit::returnPressed, this, &MacroEditor::onAddClicked);
         connect(tableWidget_, &QTableWidget::cellClicked, this, &MacroEditor::onRowSelected);
+
+        updateButtonStates();
     }
 
     // ─── Metadata ────────────────────────────────────────────────────────────
@@ -124,6 +126,7 @@ namespace fcitx::lotus {
         for (int i = 0; i < tableWidget_->rowCount(); ++i) {
             if (tableWidget_->item(i, 0) != nullptr && tableWidget_->item(i, 0)->text() == key) {
                 tableWidget_->item(i, 1)->setText(value);
+                updateButtonStates();
                 emit changed(true);
                 return;
             }
@@ -136,7 +139,16 @@ namespace fcitx::lotus {
         tableWidget_->setItem(row, 0, new QTableWidgetItem(key));
         tableWidget_->setItem(row, 1, new QTableWidgetItem(value));
 
+        updateButtonStates();
         emit changed(true);
+    }
+
+    void MacroEditor::updateButtonStates() {
+        int row      = tableWidget_->currentRow();
+        int rowCount = tableWidget_->rowCount();
+
+        btnMoveUp_->setEnabled(row > 0);
+        btnMoveDown_->setEnabled(row >= 0 && row < rowCount - 1);
     }
 
     // ─── Slots ───────────────────────────────────────────────────────────────
@@ -179,6 +191,7 @@ namespace fcitx::lotus {
             tableWidget_->removeRow(row);
         }
 
+        updateButtonStates();
         emit changed(true);
     }
 
@@ -199,6 +212,7 @@ namespace fcitx::lotus {
         tableWidget_->setItem(row, 1, prevValue);
 
         tableWidget_->setCurrentCell(row - 1, 0);
+        updateButtonStates();
         emit changed(true);
     }
 
@@ -219,6 +233,7 @@ namespace fcitx::lotus {
         tableWidget_->setItem(row, 1, nextValue);
 
         tableWidget_->setCurrentCell(row + 1, 0);
+        updateButtonStates();
         emit changed(true);
     }
 
@@ -228,6 +243,7 @@ namespace fcitx::lotus {
         }
         inputKey_->setText(tableWidget_->item(row, 0)->text());
         inputValue_->setText(tableWidget_->item(row, 1) != nullptr ? tableWidget_->item(row, 1)->text() : QString{});
+        updateButtonStates();
     }
 
     void MacroEditor::onImportClicked() {

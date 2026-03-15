@@ -96,7 +96,11 @@ namespace fcitx::lotus {
          * @param key Abbreviation (trigger key sequence).
          * @param value Expanded output text.
          */
-        void          upsertRow(const QString& key, const QString& value);
+        void upsertRow(const QString& key, const QString& value);
+        /**
+         * @brief Updates the enabled state of Move Up/Down buttons based on current selection.
+         */
+        void          updateButtonStates();
 
         QTableWidget* tableWidget_;
         QLineEdit*    inputKey_;

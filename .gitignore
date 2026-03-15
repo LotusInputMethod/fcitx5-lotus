@@ -36,3 +36,5 @@ refresh-contributor
 # Compiled outputs
 *.so
 lotus-version.h
+# Logs
+*.log
