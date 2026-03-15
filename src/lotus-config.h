@@ -194,9 +194,8 @@ namespace fcitx {
         Option<std::string, InputMethodConstrain, DefaultMarshaller<std::string>, InputMethodAnnotation> inputMethod{
             this, "InputMethod", _("Input Method"), "Telex", InputMethodConstrain(&inputMethod), {}, InputMethodAnnotation()};
         OptionWithAnnotation<std::string, StringListAnnotation> outputCharset{this, "OutputCharset", _("Output Charset"), "Unicode", {}, {}, StringListAnnotation()};
-        Option<bool> spellCheck{this, "SpellCheck", _("Enable Spell Check"), true};
-        Option<bool> enableMacro{this, "EnableMacro", _("Enable Macro"), true};
-        Option<bool> capitalizeMacro{this, "CapitalizeMacro", _("Capitalize Macro"), true};
+        Option<bool> spellCheck{this, "SpellCheck", _("Enable Spell Check"), true}; Option<bool> enableMacro{this, "EnableMacro", _("Enable Macro"), true};
+        Option<bool>                                                                             capitalizeMacro{this, "CapitalizeMacro", _("Capitalize Macro"), true};
 #ifdef ENABLE_MACRO_EDITOR
         ExternalOption macroEditor{this, "MacroEditor", _("Macro"), "fcitx://config/addon/lotus/lotus-macros"};
 #else

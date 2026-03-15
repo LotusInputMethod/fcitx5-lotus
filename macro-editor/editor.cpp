@@ -62,12 +62,12 @@ namespace fcitx::lotus {
         // ── Sidebar (Buttons on the right) ───────────────────────────────────
         auto* sidebarLayout = new QVBoxLayout();
 
-        btnAdd_ = new QPushButton(QIcon::fromTheme("list-add"), _("Add"), this);
-        btnRemove_ = new QPushButton(QIcon::fromTheme("list-remove"), _("Remove"), this);
-        btnMoveUp_ = new QPushButton(QIcon::fromTheme("go-up"), _("Up"), this);
+        btnAdd_      = new QPushButton(QIcon::fromTheme("list-add"), _("Add"), this);
+        btnRemove_   = new QPushButton(QIcon::fromTheme("list-remove"), _("Remove"), this);
+        btnMoveUp_   = new QPushButton(QIcon::fromTheme("go-up"), _("Up"), this);
         btnMoveDown_ = new QPushButton(QIcon::fromTheme("go-down"), _("Down"), this);
-        btnImport_ = new QPushButton(QIcon::fromTheme("document-import"), _("Import"), this);
-        btnExport_ = new QPushButton(QIcon::fromTheme("document-export"), _("Export"), this);
+        btnImport_   = new QPushButton(QIcon::fromTheme("document-import"), _("Import"), this);
+        btnExport_   = new QPushButton(QIcon::fromTheme("document-export"), _("Export"), this);
 
         QString btnStyle = "QPushButton { text-align: left; padding: 6px 12px;}";
         btnAdd_->setStyleSheet(btnStyle);
