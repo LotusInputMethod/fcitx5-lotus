@@ -76,6 +76,16 @@ namespace fcitx::lotus {
         void onExportClicked();
 
         /**
+         * @brief Moves the currently selected row up.
+         */
+        void onMoveUpClicked();
+
+        /**
+         * @brief Moves the currently selected row down.
+         */
+        void onMoveDownClicked();
+
+        /**
          * @brief Populates the input fields when a row is selected.
          */
         void onRowSelected(int row, int column);
@@ -93,6 +103,8 @@ namespace fcitx::lotus {
         QLineEdit*    inputValue_;
         QPushButton*  btnAdd_;
         QPushButton*  btnRemove_;
+        QPushButton*  btnMoveUp_;
+        QPushButton*  btnMoveDown_;
         QPushButton*  btnImport_;
         QPushButton*  btnExport_;
     };

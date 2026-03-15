@@ -62,7 +62,7 @@ namespace fcitx {
         FcitxBambooEngineOption option = {
             .autoNonVnRestore    = *engine_->config().autoNonVnRestore,
             .ddFreeStyle         = *engine_->config().ddFreeStyle,
-            .macroEnabled        = *engine_->config().macro,
+            .macroEnabled        = *engine_->config().enableMacro,
             .autoCapitalizeMacro = *engine_->config().capitalizeMacro,
             .spellCheckWithDicts = *engine_->config().spellCheck,
             .outputCharset       = engine_->config().outputCharset->data(),

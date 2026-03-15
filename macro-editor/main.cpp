@@ -12,7 +12,7 @@ namespace fcitx::lotus {
     MacroEditorPlugin::MacroEditorPlugin(QObject* parent) : FcitxQtConfigUIPlugin(parent) {}
 
     FcitxQtConfigUIWidget* MacroEditorPlugin::create(const QString& key) {
-        if (key == "macro") {
+        if (key == "lotus-macros") {
             auto* editor = new MacroEditor; //NOLINT
             editor->load();
             return editor;

@@ -148,7 +148,7 @@ namespace fcitx {
         config_.outputCharset.annotation().setList(charsets);
 
         initToggleAction(spellCheckAction_, config_.spellCheck, "lotus-spellcheck", "tools-check-spelling", _("Enable Spell Check"), _("Spell Check"), uiManager);
-        initToggleAction(macroAction_, config_.macro, "lotus-macro", "document-edit", _("Enable Macro"), _("Macro"), uiManager);
+        initToggleAction(macroAction_, config_.enableMacro, "lotus-macro", "document-edit", _("Enable Macro"), _("Macro"), uiManager);
         initToggleAction(capitalizeMacroAction_, config_.capitalizeMacro, "lotus-capitalizemacro", "format-text-uppercase", _("Capitalize Macro"), _("Capitalize Macro"),
                          uiManager);
         initToggleAction(autoNonVnRestoreAction_, config_.autoNonVnRestore, "lotus-autonvnrestore", "edit-undo", _("Auto Restore Keys With Invalid Wwords"),
@@ -214,7 +214,7 @@ namespace fcitx {
     const Configuration* LotusEngine::getSubConfig(const std::string& path) const {
         if (path == "custom_keymap")
             return &customKeymap_;
-        if (path == "macro") {
+        if (path == "lotus-macros") {
             return &macroTables_;
         }
         return nullptr;
@@ -231,7 +231,7 @@ namespace fcitx {
         refreshOption();
         updateCharsetAction(nullptr);
         updateAction(nullptr, spellCheckAction_, config_.spellCheck, _("Spell Check"));
-        updateAction(nullptr, macroAction_, config_.macro, _("Macro"));
+        updateAction(nullptr, macroAction_, config_.enableMacro, _("Macro"));
         updateAction(nullptr, capitalizeMacroAction_, config_.capitalizeMacro, _("Capitalize Macro"));
         updateAction(nullptr, autoNonVnRestoreAction_, config_.autoNonVnRestore, _("Auto Non-VN Restore"));
     }
@@ -245,7 +245,7 @@ namespace fcitx {
             safeSaveAsIni(customKeymap_, CustomKeymapFile);
             refreshEngine();
 #endif
-        } else if (path == "macro") {
+        } else if (path == "lotus-macros") {
 #ifdef ENABLE_MACRO_EDITOR
             FCITX_UNUSED(config);
 #else

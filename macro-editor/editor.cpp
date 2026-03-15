@@ -16,8 +16,11 @@
 #include <QHeaderView>
 #include <QIcon>
 #include <QLabel>
+#include <QList>
 #include <QMessageBox>
+#include <QSet>
 #include <QTextStream>
+#include <algorithm>
 #include <qtmetamacros.h>
 
 namespace fcitx::lotus {
@@ -34,19 +37,15 @@ namespace fcitx::lotus {
         inputKey_->setPlaceholderText(_("Abbreviation (e.g. kg)"));
         inputValue_->setPlaceholderText(_("Full text (e.g. khô gà)"));
 
-        btnAdd_ = new QPushButton(QIcon::fromTheme("list-add"), "", this);
-        btnAdd_->setFixedSize(30, 30);
-        btnRemove_ = new QPushButton(QIcon::fromTheme("list-remove"), "", this);
-        btnRemove_->setFixedSize(30, 30);
-
         inputLayout->addWidget(new QLabel(_("Key:"), this));
         inputLayout->addWidget(inputKey_, 1);
         inputLayout->addWidget(new QLabel(_("Value:"), this));
         inputLayout->addWidget(inputValue_, 2);
-        inputLayout->addWidget(btnAdd_);
-        inputLayout->addWidget(btnRemove_);
 
         mainLayout->addLayout(inputLayout);
+
+        // ── Main Content (Table + Sidebar) ───────────────────────────────────
+        auto* contentLayout = new QHBoxLayout();
 
         // ── Table ────────────────────────────────────────────────────────────
         tableWidget_->setHorizontalHeaderLabels({_("Abbr."), _("Text")});
@@ -56,23 +55,47 @@ namespace fcitx::lotus {
         tableWidget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
         tableWidget_->setAlternatingRowColors(true);
 
-        mainLayout->addWidget(tableWidget_);
+        contentLayout->addWidget(tableWidget_);
 
-        // ── Import / Export row ──────────────────────────────────────────────
-        auto* ioLayout = new QHBoxLayout();
-        btnImport_     = new QPushButton(_("Import (TSV)"), this);
-        btnExport_     = new QPushButton(_("Export (TSV)"), this);
-        ioLayout->addWidget(btnImport_);
-        ioLayout->addWidget(btnExport_);
-        ioLayout->addStretch();
+        // ── Sidebar (Buttons on the right) ───────────────────────────────────
+        auto* sidebarLayout = new QVBoxLayout();
 
-        mainLayout->addLayout(ioLayout);
+        btnAdd_ = new QPushButton(QIcon::fromTheme("list-add"), _("Add"), this);
+        btnRemove_ = new QPushButton(QIcon::fromTheme("list-remove"), _("Remove"), this);
+        btnMoveUp_ = new QPushButton(QIcon::fromTheme("go-up"), _("Up"), this);
+        btnMoveDown_ = new QPushButton(QIcon::fromTheme("go-down"), _("Down"), this);
+        btnImport_ = new QPushButton(QIcon::fromTheme("document-import"), _("Import"), this);
+        btnExport_ = new QPushButton(QIcon::fromTheme("document-export"), _("Export"), this);
+
+        QString btnStyle = "QPushButton { text-align: left; padding-left: 8px; }";
+        btnAdd_->setStyleSheet(btnStyle);
+        btnRemove_->setStyleSheet(btnStyle);
+        btnMoveUp_->setStyleSheet(btnStyle);
+        btnMoveDown_->setStyleSheet(btnStyle);
+        btnImport_->setStyleSheet(btnStyle);
+        btnExport_->setStyleSheet(btnStyle);
+
+        sidebarLayout->addWidget(btnAdd_);
+        sidebarLayout->addWidget(btnRemove_);
+        sidebarLayout->addSpacing(10);
+        sidebarLayout->addWidget(btnMoveUp_);
+        sidebarLayout->addWidget(btnMoveDown_);
+        sidebarLayout->addStretch();
+        sidebarLayout->addWidget(btnImport_);
+        sidebarLayout->addWidget(btnExport_);
+
+        contentLayout->addLayout(sidebarLayout);
+
+        mainLayout->addLayout(contentLayout);
 
         // ── Connections ──────────────────────────────────────────────────────
         connect(btnAdd_, &QPushButton::clicked, this, &MacroEditor::onAddClicked);
         connect(btnRemove_, &QPushButton::clicked, this, &MacroEditor::onRemoveClicked);
+        connect(btnMoveUp_, &QPushButton::clicked, this, &MacroEditor::onMoveUpClicked);
+        connect(btnMoveDown_, &QPushButton::clicked, this, &MacroEditor::onMoveDownClicked);
         connect(btnImport_, &QPushButton::clicked, this, &MacroEditor::onImportClicked);
         connect(btnExport_, &QPushButton::clicked, this, &MacroEditor::onExportClicked);
+        connect(inputValue_, &QLineEdit::returnPressed, this, &MacroEditor::onAddClicked);
         connect(tableWidget_, &QTableWidget::cellClicked, this, &MacroEditor::onRowSelected);
     }
 
@@ -123,11 +146,72 @@ namespace fcitx::lotus {
     }
 
     void MacroEditor::onRemoveClicked() {
-        int row = tableWidget_->currentRow();
-        if (row >= 0) {
-            tableWidget_->removeRow(row);
-            emit changed(true);
+        auto selectedRanges = tableWidget_->selectedRanges();
+        if (selectedRanges.isEmpty()) {
+            return;
         }
+
+        // Collect all row indices from all selected ranges
+        QSet<int> rowsToDelete;
+        for (const auto& range : selectedRanges) {
+            for (int i = range.topRow(); i <= range.bottomRow(); ++i) {
+                rowsToDelete.insert(i);
+            }
+        }
+
+        if (rowsToDelete.isEmpty()) {
+            return;
+        }
+
+        // Convert to list and sort descending to prevent index shifting
+        QList<int> sortedRows = rowsToDelete.values();
+        std::sort(sortedRows.begin(), sortedRows.end(), std::greater<int>());
+
+        for (int row : sortedRows) {
+            tableWidget_->removeRow(row);
+        }
+
+        emit changed(true);
+    }
+
+    void MacroEditor::onMoveUpClicked() {
+        int row = tableWidget_->currentRow();
+        if (row <= 0) {
+            return;
+        }
+
+        auto* keyItem   = tableWidget_->takeItem(row, 0);
+        auto* valueItem = tableWidget_->takeItem(row, 1);
+        auto* prevKey   = tableWidget_->takeItem(row - 1, 0);
+        auto* prevValue = tableWidget_->takeItem(row - 1, 1);
+
+        tableWidget_->setItem(row - 1, 0, keyItem);
+        tableWidget_->setItem(row - 1, 1, valueItem);
+        tableWidget_->setItem(row, 0, prevKey);
+        tableWidget_->setItem(row, 1, prevValue);
+
+        tableWidget_->setCurrentCell(row - 1, 0);
+        emit changed(true);
+    }
+
+    void MacroEditor::onMoveDownClicked() {
+        int row = tableWidget_->currentRow();
+        if (row < 0 || row >= tableWidget_->rowCount() - 1) {
+            return;
+        }
+
+        auto* keyItem   = tableWidget_->takeItem(row, 0);
+        auto* valueItem = tableWidget_->takeItem(row, 1);
+        auto* nextKey   = tableWidget_->takeItem(row + 1, 0);
+        auto* nextValue = tableWidget_->takeItem(row + 1, 1);
+
+        tableWidget_->setItem(row + 1, 0, keyItem);
+        tableWidget_->setItem(row + 1, 1, valueItem);
+        tableWidget_->setItem(row, 0, nextKey);
+        tableWidget_->setItem(row, 1, nextValue);
+
+        tableWidget_->setCurrentCell(row + 1, 0);
+        emit changed(true);
     }
 
     void MacroEditor::onRowSelected(int row, int /*column*/) {
