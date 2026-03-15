@@ -214,7 +214,7 @@ namespace fcitx {
     const Configuration* LotusEngine::getSubConfig(const std::string& path) const {
         if (path == "custom_keymap")
             return &customKeymap_;
-        if (path == "lotus-macros") {
+        if (path == "lotus-macro") {
             return &macroTables_;
         }
         return nullptr;
@@ -245,7 +245,7 @@ namespace fcitx {
             safeSaveAsIni(customKeymap_, CustomKeymapFile);
             refreshEngine();
 #endif
-        } else if (path == "lotus-macros") {
+        } else if (path == "lotus-macro") {
 #ifdef ENABLE_MACRO_EDITOR
             FCITX_UNUSED(config);
 #else

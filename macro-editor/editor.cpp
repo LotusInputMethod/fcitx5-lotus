@@ -298,7 +298,7 @@ namespace fcitx::lotus {
             return;
         }
 
-        QString path = QFileDialog::getSaveFileName(this, _("Export Macros"), "lotus-macros.tsv", _("Tab-separated (*.tsv *.txt);;All files (*)"));
+        QString path = QFileDialog::getSaveFileName(this, _("Export Macros"), "lotus-macro.tsv", _("Tab-separated (*.tsv *.txt);;All files (*)"));
 
         if (path.isEmpty()) {
             return;
