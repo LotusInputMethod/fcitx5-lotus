@@ -167,7 +167,7 @@ namespace fcitx {
         if (!std::filesystem::exists(configDir)) {
             std::filesystem::create_directories(configDir);
         }
-        appRulesPath_ = configDir + "/lotus-app-rules.conf";
+        appRulesPath_    = configDir + "/lotus-app-rules.conf";
         appRulesCtxPath_ = configDir + "/lotus-app-rules-ctx.conf";
         if (std::filesystem::exists(appRulesCtxPath_)) {
             std::filesystem::remove(appRulesCtxPath_);
