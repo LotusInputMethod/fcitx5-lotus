@@ -539,7 +539,11 @@ The input method automatically saves the most recently used typing mode for each
 
 ### 3. Quick Phrase
 
-Lotus is compatible with Fcitx5’s built-in **Quick Phrase** (default shortcut `Super` + `` ` ``). It allows you to quickly type Emojis or special characters by entering keywords.
+Lotus is compatible with Fcitx5’s built-in **Quick Phrase** (default shortcut `Super` + `` ` ``). You can quickly input:
+
+- **LaTeX**: Math symbols (e.g., `\alpha` → `α`).
+- **Emoji Code**: Emoji characters (e.g., `:smile:` → `😄`).
+- **Emoji**: Kaomoji-style phrases (e.g., `smile` → `(・∀・)`).
 
 ### 4. Reset typing state
 

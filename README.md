@@ -536,7 +536,11 @@ Bộ gõ sẽ tự động lưu chế độ gõ đã dùng gần nhất cho từ
 
 ### 3. Chỉnh sửa nhanh (Quick Phrase)
 
-Lotus tương thích với tính năng **Quick Phrase** có sẵn của Fcitx5 (mặc định dùng `Super` + `` ` ``). Bạn có thể gõ nhanh Emoji hoặc ký tự đặc biệt bằng cách nhập từ khóa.
+Lotus tương thích với tính năng **Quick Phrase** có sẵn của Fcitx5 (mặc định dùng `Super` + `` ` ``). Bạn có thể nhập nhanh:
+
+- **LaTeX**: Ký tự toán học (vd: `\alpha` → `α`).
+- **Emoji Code**: Biểu tượng cảm xúc (vd: `:smile:` → `😄`).
+- **Emoji**: Các đoạn văn bản mẫu hoặc Kaomoji (vd: `smile` → `(・∀・)`).
 
 ### 4. Đặt lại trạng thái đang gõ
 
