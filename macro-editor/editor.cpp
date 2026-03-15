@@ -29,8 +29,12 @@ namespace fcitx::lotus {
 
     MacroEditor::MacroEditor(QWidget* parent) :
         FcitxQtConfigUIWidget(parent), tableWidget_(new QTableWidget(0, 2, this)), inputKey_(new QLineEdit(this)), inputValue_(new QLineEdit(this)) {
+        setMinimumWidth(600);
+        setMinimumHeight(400);
+        auto* mainLayout = new QHBoxLayout(this);
 
-        auto* mainLayout = new QVBoxLayout(this);
+        // ── Left Column (Inputs + Table) ─────────────────────────────────────
+        auto* leftColumn = new QVBoxLayout();
 
         // ── Input row ────────────────────────────────────────────────────────
         auto* inputLayout = new QHBoxLayout();
@@ -42,10 +46,7 @@ namespace fcitx::lotus {
         inputLayout->addWidget(new QLabel(_("Value:"), this));
         inputLayout->addWidget(inputValue_, 2);
 
-        mainLayout->addLayout(inputLayout);
-
-        // ── Main Content (Table + Sidebar) ───────────────────────────────────
-        auto* contentLayout = new QHBoxLayout();
+        leftColumn->addLayout(inputLayout);
 
         // ── Table ────────────────────────────────────────────────────────────
         tableWidget_->setHorizontalHeaderLabels({_("Abbr."), _("Text")});
@@ -55,7 +56,8 @@ namespace fcitx::lotus {
         tableWidget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
         tableWidget_->setAlternatingRowColors(true);
 
-        contentLayout->addWidget(tableWidget_);
+        leftColumn->addWidget(tableWidget_);
+        mainLayout->addLayout(leftColumn);
 
         // ── Sidebar (Buttons on the right) ───────────────────────────────────
         auto* sidebarLayout = new QVBoxLayout();
@@ -67,13 +69,21 @@ namespace fcitx::lotus {
         btnImport_ = new QPushButton(QIcon::fromTheme("document-import"), _("Import"), this);
         btnExport_ = new QPushButton(QIcon::fromTheme("document-export"), _("Export"), this);
 
-        QString btnStyle = "QPushButton { text-align: left; padding-left: 8px; }";
+        QString btnStyle = "QPushButton { text-align: left; padding: 6px 6px;}";
         btnAdd_->setStyleSheet(btnStyle);
         btnRemove_->setStyleSheet(btnStyle);
         btnMoveUp_->setStyleSheet(btnStyle);
         btnMoveDown_->setStyleSheet(btnStyle);
         btnImport_->setStyleSheet(btnStyle);
         btnExport_->setStyleSheet(btnStyle);
+
+        // Use fixed size policy for buttons to prevent unwanted stretching
+        btnAdd_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+        btnRemove_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+        btnMoveUp_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+        btnMoveDown_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+        btnImport_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+        btnExport_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 
         sidebarLayout->addWidget(btnAdd_);
         sidebarLayout->addWidget(btnRemove_);
@@ -84,9 +94,7 @@ namespace fcitx::lotus {
         sidebarLayout->addWidget(btnImport_);
         sidebarLayout->addWidget(btnExport_);
 
-        contentLayout->addLayout(sidebarLayout);
-
-        mainLayout->addLayout(contentLayout);
+        mainLayout->addLayout(sidebarLayout);
 
         // ── Connections ──────────────────────────────────────────────────────
         connect(btnAdd_, &QPushButton::clicked, this, &MacroEditor::onAddClicked);
