@@ -25,6 +25,7 @@
 #include <fstream>
 
 #include <fcntl.h>
+#include <sstream>
 
 namespace fcitx {
     constexpr const char* CharsetActionPrefix = "lotus-charset-";
@@ -167,11 +168,7 @@ namespace fcitx {
         if (!std::filesystem::exists(configDir)) {
             std::filesystem::create_directories(configDir);
         }
-        appRulesPath_    = configDir + "/lotus-app-rules.conf";
-        appRulesCtxPath_ = configDir + "/lotus-app-rules-ctx.conf";
-        if (std::filesystem::exists(appRulesCtxPath_)) {
-            std::filesystem::remove(appRulesCtxPath_);
-        }
+        appRulesPath_ = configDir + "/lotus-app-rules.conf";
         loadAppRules();
         toggleActions_ = {versionAction_.get(), charsetAction_.get(), spellCheckAction_.get(), macroAction_.get(), capitalizeMacroAction_.get(), autoNonVnRestoreAction_.get()};
     }
@@ -430,7 +427,7 @@ namespace fcitx {
                     break;
                 }
                 case FcitxKey_r: {
-                    if (appRules_.erase(currentConfigureApp_) > 0) {
+                    if (appRules_.erase(currentConfigureApp_) > 0 && !isStartsWith(currentConfigureApp_, "ctx_")) {
                         saveAppRules();
                     }
                     selectedMode  = globalMode_;
@@ -465,7 +462,9 @@ namespace fcitx {
                 LOTUS_INFO("Selected mode: " + modeEnumToString(selectedMode));
                 if (selectedMode != LotusMode::Emoji) {
                     appRules_[currentConfigureApp_] = selectedMode;
-                    saveAppRules();
+                    if (!isStartsWith(currentConfigureApp_, "ctx_")) {
+                        saveAppRules();
+                    }
                 }
                 selectionMade = true;
             }
@@ -568,47 +567,37 @@ namespace fcitx {
 
     void LotusEngine::loadAppRules() {
         appRules_.clear();
-        auto loadFromFile = [this](const std::string& path) {
-            std::ifstream file(path);
-            if (!file.is_open())
-                return;
+        std::ifstream file(appRulesPath_);
+        if (!file.is_open())
+            return;
 
-            std::string line;
-            while (std::getline(file, line)) {
-                if (line.empty() || line[0] == '#')
-                    continue;
-                auto delimiterPos = line.find('=');
-                if (delimiterPos != std::string::npos) {
-                    std::string app  = line.substr(0, delimiterPos);
-                    std::string mode = line.substr(delimiterPos + 1);
-                    appRules_[app]   = static_cast<LotusMode>(std::stoi(mode));
-                }
+        std::string line;
+        while (std::getline(file, line)) {
+            if (line.empty() || line[0] == '#')
+                continue;
+            auto delimiterPos = line.find('=');
+            if (delimiterPos != std::string::npos) {
+                std::string app  = line.substr(0, delimiterPos);
+                std::string mode = line.substr(delimiterPos + 1);
+                appRules_[app]   = static_cast<LotusMode>(std::stoi(mode));
             }
-            file.close();
-        };
-        loadFromFile(appRulesPath_);
-        loadFromFile(appRulesCtxPath_);
+        }
+        file.close();
     }
 
     void LotusEngine::saveAppRules() {
-        auto saveToFile = [this](const std::string& path, bool isCtx) {
-            std::ofstream file(path, std::ios::trunc);
-            if (!file.is_open())
-                return;
+        std::ofstream file(appRulesPath_, std::ios::trunc);
+        if (!file.is_open())
+            return;
 
-            file << "# Lotus Per-App Configuration " << (isCtx ? "(Temporary)" : "") << "\n";
-            file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Slow), 3 = Uinput (Hardcore), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker\n";
-            for (const auto& pair : appRules_) {
-                bool currentIsCtx = (pair.first.find("ctx_") == 0);
-                if (currentIsCtx == isCtx) {
-                    file << pair.first << "=" << static_cast<int>(pair.second) << "\n";
-                }
+        file << "# Lotus Per-App Configuration\n";
+        file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Slow), 3 = Uinput (Hardcore), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker\n";
+        for (const auto& pair : appRules_) {
+            if (!isStartsWith(pair.first, "ctx_")) {
+                file << pair.first << "=" << static_cast<int>(pair.second) << "\n";
             }
-            file.close();
-        };
-
-        saveToFile(appRulesPath_, false);
-        saveToFile(appRulesCtxPath_, true);
+        }
+        file.close();
     }
 
     void LotusEngine::closeAppModeMenu() {
@@ -643,7 +632,9 @@ namespace fcitx {
             return [this, mode, cleanup](InputContext* ic) {
                 if (mode != LotusMode::Emoji) {
                     appRules_[currentConfigureApp_] = mode;
-                    saveAppRules();
+                    if (!isStartsWith(currentConfigureApp_, "ctx_")) {
+                        saveAppRules();
+                    }
                 }
 
                 cleanup(ic);
@@ -665,7 +656,7 @@ namespace fcitx {
         candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(LotusMode::Off, _("[e] OFF")), applyMode(LotusMode::Off)));
 
         candidateList->append(std::make_unique<AppModeCandidateWord>(Text(_("[r] Default Typing")), [this, cleanup](InputContext* ic) {
-            if (appRules_.erase(currentConfigureApp_) > 0) {
+            if (appRules_.erase(currentConfigureApp_) > 0 && !isStartsWith(currentConfigureApp_, "ctx_")) {
                 saveAppRules();
             }
             setMode(globalMode_, ic);
@@ -741,14 +732,16 @@ namespace fcitx {
     }
 
     std::string LotusEngine::getProgramName(InputContext* ic) {
-        if (!ic) {
+        if (ic == nullptr) {
             return "unknown-app";
         }
         std::string programName = ic->program();
         if (programName.empty() || programName == "wayland" || programName == "x11") {
             // Fallback: InputContext address-based resolution
             // This ensures at least per-window separation.
-            programName = "ctx_" + std::to_string(reinterpret_cast<uintptr_t>(ic));
+            std::ostringstream oss;
+            oss << "ctx_" << static_cast<const void*>(ic);
+            programName = oss.str();
         }
         return programName;
     }

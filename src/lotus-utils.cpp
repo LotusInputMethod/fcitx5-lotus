@@ -74,3 +74,11 @@ int compareAndSplitStrings(const std::string& A, const std::string& B, std::stri
     addedPart    = B.substr(j);
     return (deletedPart.empty() && addedPart.empty()) ? 1 : 2;
 }
+
+bool isStartsWith(const std::string& str, const std::string& prefix) {
+#if __cplusplus >= 202002L
+    return str.starts_with(prefix);
+#else
+    return str.substr(0, prefix.size()) == prefix;
+#endif
+}

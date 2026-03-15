@@ -87,6 +87,14 @@ bool isBackspace(uint32_t sym);
 int compareAndSplitStrings(const std::string& A, const std::string& B, std::string& commonPrefix, std::string& deletedPart, std::string& addedPart);
 
 /**
+ * @brief Checks if string starts with prefix.
+ * @param str String to check.
+ * @param prefix Prefix to check.
+ * @return True if string starts with prefix.
+ */
+bool isStartsWith(const std::string& str, const std::string& prefix);
+
+/**
  * @brief Key event entry for replay buffer.
  */
 struct KeyEntry {
