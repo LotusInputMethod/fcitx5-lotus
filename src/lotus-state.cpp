@@ -191,8 +191,8 @@ namespace fcitx {
         return false;
     }
 
-    void LotusState::handlePreeditMode(KeyEvent& keyEvent, KeySym currentSym) {
-        if (EngineProcessKeyEvent(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states()) != 0U)
+    void LotusState::handlePreeditMode(KeyEvent& keyEvent) {
+        if (EngineProcessKeyEvent(lotusEngine_.handle(), keyEvent.rawKey().sym(), keyEvent.rawKey().states()) != 0U)
             keyEvent.filterAndAccept();
         if (auto commit = UniqueCPtr<char>(EnginePullCommit(lotusEngine_.handle()))) {
             if (commit && (*commit.get() != 0)) {
@@ -236,12 +236,13 @@ namespace fcitx {
         ic_->inputPanel().setAuxDown(Text(status));
     }
 
-    void LotusState::handleEmojiMode(KeyEvent& keyEvent, KeySym currentSym) {
+    void LotusState::handleEmojiMode(KeyEvent& keyEvent) {
         if (keyEvent.key().hasModifier()) {
             keyEvent.forward();
             return;
         }
 
+        const KeySym currentSym = keyEvent.rawKey().sym();
 
         auto         baseList   = ic_->inputPanel().candidateList();
         auto         commonList = std::dynamic_pointer_cast<CommonCandidateList>(baseList);
@@ -623,20 +624,10 @@ namespace fcitx {
                 if (!preeditC || (*preeditC.get() == 0)) {
                     history_.clear();
                     oldPreBuffer_.clear();
-                    if (currentSym != keyEvent.rawKey().sym()) {
-                        ic_->commitString(Key::keySymToUTF8(currentSym));
-                        keyEvent.filterAndAccept();
-                    } else {
-                        keyEvent.forward();
-                    }
-                }
-            } else {
-                 if (currentSym != keyEvent.rawKey().sym()) {
-                    ic_->commitString(Key::keySymToUTF8(currentSym));
-                    keyEvent.filterAndAccept();
-                } else {
                     keyEvent.forward();
                 }
+            } else {
+                 keyEvent.forward();
             }
             return;
         }
@@ -903,12 +894,6 @@ namespace fcitx {
             return;
         KeySym currentSym = keyEvent.rawKey().sym();
 
-        if (currentSym >= FcitxKey_a && currentSym <= FcitxKey_z) {
-            if (shouldAutoCapitalize()) {
-                currentSym = static_cast<KeySym>(FcitxKey_A + (currentSym - FcitxKey_a));
-            }
-        }
-
         switch (realMode) {
             case LotusMode::Uinput: {
                 handleUinputMode(keyEvent, currentSym, true, 20);
@@ -919,15 +904,20 @@ namespace fcitx {
                 break;
             }
             case LotusMode::SurroundingText: {
+                if (currentSym >= FcitxKey_a && currentSym <= FcitxKey_z) {
+                    if (shouldAutoCapitalize()) {
+                        currentSym = static_cast<KeySym>(FcitxKey_A + (currentSym - FcitxKey_a));
+                    }
+                }
                 handleSurroundingText(keyEvent, currentSym);
                 break;
             }
             case LotusMode::Preedit: {
-                handlePreeditMode(keyEvent, currentSym);
+                handlePreeditMode(keyEvent);
                 break;
             }
             case LotusMode::Emoji: {
-                handleEmojiMode(keyEvent, currentSym);
+                handleEmojiMode(keyEvent);
                 break;
             }
             case LotusMode::Smooth: {

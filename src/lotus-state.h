@@ -136,9 +136,8 @@ namespace fcitx {
         /**
          * @brief Handles key events in preedit mode.
          * @param keyEvent The key event to process.
-         * @param currentSym The potentially modified key symbol.
          */
-        void handlePreeditMode(KeyEvent& keyEvent, KeySym currentSym);
+        void handlePreeditMode(KeyEvent& keyEvent);
 
         /**
          * @brief Updates emoji page status in candidate list.
@@ -149,9 +148,8 @@ namespace fcitx {
         /**
          * @brief Handles key events in emoji mode.
          * @param keyEvent The key event to process.
-         * @param currentSym The potentially modified key symbol.
          */
-        void handleEmojiMode(KeyEvent& keyEvent, KeySym currentSym);
+        void handleEmojiMode(KeyEvent& keyEvent);
 
         /**
          * @brief Updates preedit display for emoji mode.
