@@ -773,12 +773,7 @@ namespace fcitx {
             bool processed = EngineProcessKeyEvent(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states()) != 0U;
 
             if (!processed) {
-                if (currentSym != keyEvent.rawKey().sym()) {
-                    ic->commitString(Key::keySymToUTF8(currentSym));
-                    keyEvent.filterAndAccept();
-                } else {
-                    keyEvent.forward();
-                }
+                forwardOrCommit(keyEvent, currentSym);
                 ResetEngine(lotusEngine_.handle());
                 return;
             }
@@ -846,12 +841,16 @@ namespace fcitx {
             ResetEngine(lotusEngine_.handle());
             keyEvent.filterAndAccept();
         } else {
-            if (currentSym != keyEvent.rawKey().sym()) {
-                ic->commitString(Key::keySymToUTF8(currentSym));
-                keyEvent.filterAndAccept();
-            } else {
-                keyEvent.forward();
-            }
+            forwardOrCommit(keyEvent, currentSym);
+        }
+    }
+
+    void LotusState::forwardOrCommit(KeyEvent& keyEvent, KeySym currentSym) {
+        if (currentSym != keyEvent.rawKey().sym()) {
+            ic_->commitString(Key::keySymToUTF8(currentSym));
+            keyEvent.filterAndAccept();
+        } else {
+            keyEvent.forward();
         }
     }
 

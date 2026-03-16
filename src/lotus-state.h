@@ -209,6 +209,13 @@ namespace fcitx {
         bool shouldAutoCapitalize();
 
         /**
+         * @brief Forwards the key event or commits the modified symbol.
+         * @param keyEvent The key event.
+         * @param currentSym The potentially modified key symbol.
+         */
+        void forwardOrCommit(KeyEvent& keyEvent, KeySym currentSym);
+
+        /**
          * @brief Replays keystrokes buffered during replacement.
          *
          * When is_deleting_ is true, non-special keystrokes are buffered
