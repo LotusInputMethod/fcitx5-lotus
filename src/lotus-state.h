@@ -93,14 +93,26 @@ namespace fcitx {
         CGoObject               lotusEngine_;
         std::string             oldPreBuffer_;
         std::string             history_;
+        std::string             recentCommitted_;
         int                     expected_backspaces_     = 0;
         int                     current_backspace_count_ = 0;
         std::string             pending_commit_string_;
-        std::atomic<int>        current_thread_id_{0};
+        LotusMode               realMode_ = LotusMode::Smooth;
+        std::atomic<bool>       is_deleting_{false};
         std::string             emojiBuffer_;
         std::vector<EmojiEntry> emojiCandidates_;
         bool                    waitAck_ = false;
         std::vector<KeyEntry>   buffered_keys_; ///< Keystrokes buffered during replacement
+        std::atomic<int>        current_thread_id_{0};
+        std::atomic<int>        replacement_thread_id_{0};
+        std::atomic<int64_t>    replacement_start_ms_{0};
+        std::atomic<bool>       needFallbackCommit_{false};
+        std::atomic<bool>       needEngineReset_{false};
+        unsigned int            realtextLen_ = 0;
+        std::mutex              monitor_mutex_;
+        std::condition_variable monitor_cv_;
+        std::atomic<bool>       monitor_stop_requested_{false};
+        std::thread             monitor_thread_;
 
         /**
          * @brief Connects to the uinput server.

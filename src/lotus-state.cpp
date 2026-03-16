@@ -1094,6 +1094,11 @@ namespace fcitx {
             return true;
         }
 
+        // Also capitalize after a newline
+        if (lookback.find('\n', lastNonSpace) != std::string_view::npos) {
+            return true;
+        }
+
         return false;
     }
 
