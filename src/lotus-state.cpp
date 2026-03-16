@@ -627,7 +627,7 @@ namespace fcitx {
                     keyEvent.forward();
                 }
             } else {
-                 keyEvent.forward();
+                keyEvent.forward();
             }
             return;
         }
@@ -1068,7 +1068,7 @@ namespace fcitx {
             return true;
         }
 
-        std::string lookback = text.substr(0, cursor);
+        std::string lookback     = text.substr(0, cursor);
         size_t      lastNonSpace = lookback.find_last_not_of(" \t\r\n");
         if (lastNonSpace == std::string::npos) {
             return true;
@@ -1082,7 +1082,7 @@ namespace fcitx {
             } else {
                 wordStart++;
             }
-            std::string word = lookback.substr(wordStart, lastNonSpace - wordStart + 1);
+            std::string                                  word = lookback.substr(wordStart, lastNonSpace - wordStart + 1);
 
             static const std::unordered_set<std::string> abbreviations = {"Mr.", "Ms.", "Dr.", "etc.", "vs.", "Mrs.", "Prof.", "St.", "Sr.", "Jr."};
             if (abbreviations.count(word)) {
