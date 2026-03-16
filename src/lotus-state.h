@@ -136,8 +136,9 @@ namespace fcitx {
         /**
          * @brief Handles key events in preedit mode.
          * @param keyEvent The key event to process.
+         * @param currentSym The potentially modified key symbol.
          */
-        void handlePreeditMode(KeyEvent& keyEvent);
+        void handlePreeditMode(KeyEvent& keyEvent, KeySym currentSym);
 
         /**
          * @brief Updates emoji page status in candidate list.
@@ -148,8 +149,9 @@ namespace fcitx {
         /**
          * @brief Handles key events in emoji mode.
          * @param keyEvent The key event to process.
+         * @param currentSym The potentially modified key symbol.
          */
-        void handleEmojiMode(KeyEvent& keyEvent);
+        void handleEmojiMode(KeyEvent& keyEvent, KeySym currentSym);
 
         /**
          * @brief Updates preedit display for emoji mode.
@@ -198,8 +200,15 @@ namespace fcitx {
         /**
          * @brief Handles processing normal key events.
          * @param keyEvent The key event.
+         * @param currentSym The potentially modified key symbol.
         */
-        void processNormalKey(KeyEvent& keyEvent);
+        void processNormalKey(KeyEvent& keyEvent, KeySym currentSym);
+
+        /**
+         * @brief Checks if auto-capitalization should be performed.
+         * @return True if next character should be capitalized.
+         */
+        bool shouldAutoCapitalize();
 
         /**
          * @brief Replays keystrokes buffered during replacement.

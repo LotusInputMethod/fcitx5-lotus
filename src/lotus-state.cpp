@@ -22,6 +22,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <unordered_set>
 
 #include <thread>
 
@@ -190,8 +191,8 @@ namespace fcitx {
         return false;
     }
 
-    void LotusState::handlePreeditMode(KeyEvent& keyEvent) {
-        if (EngineProcessKeyEvent(lotusEngine_.handle(), keyEvent.rawKey().sym(), keyEvent.rawKey().states()) != 0U)
+    void LotusState::handlePreeditMode(KeyEvent& keyEvent, KeySym currentSym) {
+        if (EngineProcessKeyEvent(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states()) != 0U)
             keyEvent.filterAndAccept();
         if (auto commit = UniqueCPtr<char>(EnginePullCommit(lotusEngine_.handle()))) {
             if (commit && (*commit.get() != 0)) {
@@ -235,13 +236,12 @@ namespace fcitx {
         ic_->inputPanel().setAuxDown(Text(status));
     }
 
-    void LotusState::handleEmojiMode(KeyEvent& keyEvent) {
+    void LotusState::handleEmojiMode(KeyEvent& keyEvent, KeySym currentSym) {
         if (keyEvent.key().hasModifier()) {
             keyEvent.forward();
             return;
         }
 
-        const KeySym currentSym = keyEvent.rawKey().sym();
 
         auto         baseList   = ic_->inputPanel().candidateList();
         auto         commonList = std::dynamic_pointer_cast<CommonCandidateList>(baseList);
@@ -623,6 +623,18 @@ namespace fcitx {
                 if (!preeditC || (*preeditC.get() == 0)) {
                     history_.clear();
                     oldPreBuffer_.clear();
+                    if (currentSym != keyEvent.rawKey().sym()) {
+                        ic_->commitString(Key::keySymToUTF8(currentSym));
+                        keyEvent.filterAndAccept();
+                    } else {
+                        keyEvent.forward();
+                    }
+                }
+            } else {
+                 if (currentSym != keyEvent.rawKey().sym()) {
+                    ic_->commitString(Key::keySymToUTF8(currentSym));
+                    keyEvent.filterAndAccept();
+                } else {
                     keyEvent.forward();
                 }
             }
@@ -731,7 +743,7 @@ namespace fcitx {
         size_t             textLen = utf8::lengthValidated(text);
 
         if (textLen == utf8::INVALID_LENGTH || cursor <= 0 || cursor > textLen) {
-            processNormalKey(keyEvent);
+            processNormalKey(keyEvent, currentSym);
             return;
         }
 
@@ -761,16 +773,21 @@ namespace fcitx {
             std::string oldWord(startIter, endIter);
 
             if (oldWord.empty()) {
-                processNormalKey(keyEvent);
+                processNormalKey(keyEvent, currentSym);
                 return;
             }
 
             EngineRebuildFromText(lotusEngine_.handle(), oldWord.c_str());
 
-            bool processed = EngineProcessKeyEvent(lotusEngine_.handle(), keyEvent.rawKey().sym(), keyEvent.rawKey().states()) != 0U;
+            bool processed = EngineProcessKeyEvent(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states()) != 0U;
 
             if (!processed) {
-                keyEvent.forward();
+                if (currentSym != keyEvent.rawKey().sym()) {
+                    ic->commitString(Key::keySymToUTF8(currentSym));
+                    keyEvent.filterAndAccept();
+                } else {
+                    keyEvent.forward();
+                }
                 ResetEngine(lotusEngine_.handle());
                 return;
             }
@@ -817,10 +834,10 @@ namespace fcitx {
         }
     }
 
-    void LotusState::processNormalKey(KeyEvent& keyEvent) {
+    void LotusState::processNormalKey(KeyEvent& keyEvent, KeySym currentSym) {
         auto* ic = keyEvent.inputContext();
         ResetEngine(lotusEngine_.handle());
-        bool processed = EngineProcessKeyEvent(lotusEngine_.handle(), keyEvent.rawKey().sym(), keyEvent.rawKey().states()) != 0U;
+        bool processed = EngineProcessKeyEvent(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states()) != 0U;
         if (processed) {
             auto        commitPtr  = UniqueCPtr<char>(EnginePullCommit(lotusEngine_.handle()));
             auto        preeditPtr = UniqueCPtr<char>(EnginePullPreedit(lotusEngine_.handle()));
@@ -838,7 +855,12 @@ namespace fcitx {
             ResetEngine(lotusEngine_.handle());
             keyEvent.filterAndAccept();
         } else {
-            keyEvent.forward();
+            if (currentSym != keyEvent.rawKey().sym()) {
+                ic->commitString(Key::keySymToUTF8(currentSym));
+                keyEvent.filterAndAccept();
+            } else {
+                keyEvent.forward();
+            }
         }
     }
 
@@ -879,7 +901,13 @@ namespace fcitx {
         }
         if (keyEvent.rawKey().check(FcitxKey_Shift_L) || keyEvent.rawKey().check(FcitxKey_Shift_R))
             return;
-        const KeySym currentSym = keyEvent.rawKey().sym();
+        KeySym currentSym = keyEvent.rawKey().sym();
+
+        if (currentSym >= FcitxKey_a && currentSym <= FcitxKey_z) {
+            if (shouldAutoCapitalize()) {
+                currentSym = static_cast<KeySym>(FcitxKey_A + (currentSym - FcitxKey_a));
+            }
+        }
 
         switch (realMode) {
             case LotusMode::Uinput: {
@@ -895,11 +923,11 @@ namespace fcitx {
                 break;
             }
             case LotusMode::Preedit: {
-                handlePreeditMode(keyEvent);
+                handlePreeditMode(keyEvent, currentSym);
                 break;
             }
             case LotusMode::Emoji: {
-                handleEmojiMode(keyEvent);
+                handleEmojiMode(keyEvent, currentSym);
                 break;
             }
             case LotusMode::Smooth: {
@@ -1019,6 +1047,61 @@ namespace fcitx {
 
     bool LotusState::isEmptyHistory() {
         return history_.empty();
+    }
+
+    bool LotusState::shouldAutoCapitalize() {
+        if (!*engine_->config().autoCapitalization) {
+            return false;
+        }
+
+        auto flags = ic_->capabilityFlags();
+        if (flags.test(CapabilityFlag::Password) || flags.test(CapabilityFlag::Sensitive)) {
+            return false;
+        }
+        // Fcitx 5 usually has NoAutoUpper (check if it compiles, otherwise it's fine to omit or use raw value)
+        // If not available, we can rely on standard flags.
+
+        if (!ic_->capabilityFlags().test(CapabilityFlag::SurroundingText)) {
+            LOTUS_DEBUG("AutoCap: Surrounding text not supported");
+            return false;
+        }
+
+        const auto& surrounding = ic_->surroundingText();
+        if (!surrounding.isValid()) {
+            return false;
+        }
+
+        std::string  text   = surrounding.text();
+        unsigned int cursor = surrounding.cursor();
+
+        if (cursor == 0) {
+            return true;
+        }
+
+        std::string lookback = text.substr(0, cursor);
+        size_t      lastNonSpace = lookback.find_last_not_of(" \t\r\n");
+        if (lastNonSpace == std::string::npos) {
+            return true;
+        }
+
+        char lastChar = lookback[lastNonSpace];
+        if (lastChar == '.' || lastChar == '!' || lastChar == '?') {
+            size_t wordStart = lookback.find_last_of(" \t\r\n", lastNonSpace > 0 ? lastNonSpace - 1 : 0);
+            if (wordStart == std::string::npos) {
+                wordStart = 0;
+            } else {
+                wordStart++;
+            }
+            std::string word = lookback.substr(wordStart, lastNonSpace - wordStart + 1);
+
+            static const std::unordered_set<std::string> abbreviations = {"Mr.", "Ms.", "Dr.", "etc.", "vs.", "Mrs.", "Prof.", "St.", "Sr.", "Jr."};
+            if (abbreviations.count(word)) {
+                return false;
+            }
+            return true;
+        }
+
+        return false;
     }
 
     void LotusState::replayBufferedKeys() {

@@ -199,6 +199,7 @@ namespace fcitx {
         Option<bool> autoNonVnRestore{this, "AutoNonVnRestore", _("Auto Restore Keys With Invalid Words"), true};
         Option<bool> modernStyle{this, "ModernStyle", _("Use oà, uý (Instead Of òa, úy)"), true};
         Option<bool> freeMarking{this, "FreeMarking", _("Allow Type With More Freedom"), true};
+        Option<bool> autoCapitalization{this, "AutoCapitalization", _("Auto Capitalization"), false};
         Option<bool> ddFreeStyle{this, "DdFreeStyle", _("Allow dd To Produce đ When Auto Restore Keys With Invalid Words Is On"), true};
         Option<bool> fixUinputWithAck{this, "FixUinputWithAck", _("Fix Uinput Mode With Ack"), false};
         Option<bool> useLotusIcons{this, "UseLotusIcons", _("Use Lotus Status Icons"), false};
