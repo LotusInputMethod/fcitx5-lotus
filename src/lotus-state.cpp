@@ -1068,7 +1068,7 @@ namespace fcitx {
             return true;
         }
 
-        std::string lookback     = text.substr(0, cursor);
+        std::string_view lookback(text.data(), cursor);
         size_t      lastNonSpace = lookback.find_last_not_of(" \t\r\n");
         if (lastNonSpace == std::string::npos) {
             return true;
@@ -1082,9 +1082,9 @@ namespace fcitx {
             } else {
                 wordStart++;
             }
-            std::string                                  word = lookback.substr(wordStart, lastNonSpace - wordStart + 1);
+            std::string_view word(&lookback[wordStart], lastNonSpace - wordStart + 1);
 
-            static const std::unordered_set<std::string> abbreviations = {"Mr.", "Ms.", "Dr.", "etc.", "vs.", "Mrs.", "Prof.", "St.", "Sr.", "Jr."};
+            static const std::unordered_set<std::string_view> abbreviations = {"Mr.", "Ms.", "Dr.", "etc.", "vs.", "Mrs.", "Prof.", "St.", "Sr.", "Jr."};
             if (abbreviations.count(word)) {
                 return false;
             }
