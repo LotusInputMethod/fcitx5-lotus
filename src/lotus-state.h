@@ -163,7 +163,7 @@ namespace fcitx {
          * @param sleepTime Delay in microseconds.
          * @return True if event was handled.
          */
-        bool handleUInputKeyPress(KeyEvent& event, KeySym currentSym, int sleepTime);
+        bool handleUInputKeyPress(KeyEvent& event, int sleepTime);
 
         /**
          * @brief Performs text replacement via uinput.
@@ -177,7 +177,7 @@ namespace fcitx {
          * @param keyEvent The key event.
          * @param currentSym Current key symbol (may be modified).
          */
-        void checkForwardSpecialKey(KeyEvent& keyEvent, KeySym& currentSym);
+        void checkForwardSpecialKey(KeyEvent& keyEvent);
 
         /**
          * @brief Handles uinput mode processing.
@@ -186,21 +186,21 @@ namespace fcitx {
          * @param checkEmptyPreedit Whether to check for empty preedit.
          * @param sleepTime Delay in microseconds.
          */
-        void handleUinputMode(KeyEvent& keyEvent, KeySym currentSym, bool checkEmptyPreedit, int sleepTime);
+        void handleUinputMode(KeyEvent& keyEvent, bool checkEmptyPreedit, int sleepTime);
 
         /**
          * @brief Handles surrounding text mode.
          * @param keyEvent The key event.
          * @param currentSym Current key symbol.
          */
-        void handleSurroundingText(KeyEvent& keyEvent, KeySym currentSym);
+        void handleSurroundingText(KeyEvent& keyEvent);
 
         /**
          * @brief Handles processing normal key events.
          * @param keyEvent The key event.
          * @param currentSym The potentially modified key symbol.
         */
-        void processNormalKey(KeyEvent& keyEvent, KeySym currentSym);
+        void processNormalKey(KeyEvent& keyEvent);
 
         /**
          * @brief Checks if auto-capitalization should be performed.
@@ -213,7 +213,7 @@ namespace fcitx {
          * @param keyEvent The key event.
          * @param currentSym The potentially modified key symbol.
          */
-        void forwardOrCommit(KeyEvent& keyEvent, KeySym currentSym);
+        void forwardOrCommit(KeyEvent& keyEvent);
 
         /**
          * @brief Replays keystrokes buffered during replacement.
