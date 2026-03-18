@@ -202,16 +202,8 @@ namespace fcitx {
         Option<bool> ddFreeStyle{this, "DdFreeStyle", _("Allow dd To Produce đ When Auto Restore Keys With Invalid Words Is On"), true};
         Option<bool> fixUinputWithAck{this, "FixUinputWithAck", _("Fix Uinput Mode With Ack"), false};
         Option<bool> useLotusIcons{this, "UseLotusIcons", _("Use Lotus Status Icons"), false};
-#ifdef ENABLE_MACRO_EDITOR
-        ExternalOption macroEditor{this, "MacroEditor", _("Macro"), "fcitx://config/addon/lotus/lotus-macro"};
-#else
         SubConfigOption macroEditor{this, "MacroEditor", _("Macro"), "fcitx://config/addon/lotus/lotus-macro"};
-#endif
-#ifdef ENABLE_KEYMAP_EDITOR
-        ExternalOption customKeymapUI{this, "CustomKeymapUI", _("Custom Keymap"), "fcitx://config/addon/lotus/custom_keymap"};
-#else
         SubConfigOption customKeymap{this, "CustomKeymap", _("Custom Keymap"), "fcitx://config/addon/lotus/custom_keymap"};
-#endif
         KeyListOption modeMenuKey{
             this, "ModeMenuKey", _("Mode Menu Hotkey"), {Key("grave")}, KeyListConstrain({KeyConstrainFlag::AllowModifierLess, KeyConstrainFlag::AllowModifierOnly})};);
 

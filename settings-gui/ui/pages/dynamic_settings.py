@@ -14,14 +14,41 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QFrame,
     QRadioButton,
+    QComboBox,
     QButtonGroup,
     QGridLayout,
     QSizePolicy,
 )
-from PySide6.QtCore import Qt
-from i18n import _
-from core.dbus_handler import LotusDBusHandler
 from ui.components import HotkeyCaptureWidget
+from enum import Enum
+from i18n import _
+
+
+class SettingsCategory(Enum):
+    GENERAL = "general"
+    APPEARANCE = "appearance"
+    TYPING = "typing"
+    SHORTCUTS = "shortcuts"
+    INTERFACE = "interface"
+
+
+# Mapping of settings keys to categories and groups
+SETTINGS_MAP = {
+    SettingsCategory.GENERAL: {
+        "HOTKEYS": ["ModeMenuKey"],
+        "INPUT METHOD": ["InputMethod", "Mode", "OutputCharset"],
+    },
+    SettingsCategory.APPEARANCE: {
+        "THEME & ICONS": ["UseLotusIcons"],
+    },
+    SettingsCategory.TYPING: {
+        "SPELLING & CORRECTIONS": ["SpellCheck", "AutoNonVnRestore", "DdFreeStyle"],
+        "TYPING OPTIONS": ["ModernStyle", "FreeMarking", "FixUinputWithAck"],
+    },
+    SettingsCategory.SHORTCUTS: {
+        "SHORTCUTS": ["ModeMenuKey"],
+    }
+}
 
 
 class CardWidget(QFrame):
@@ -30,36 +57,26 @@ class CardWidget(QFrame):
     def __init__(self, title: str, parent=None):
         super().__init__(parent)
         self.setObjectName("SettingCard")
-        self.setStyleSheet(
-            """
-            QFrame#SettingCard {
-                background-color: palette(base);
-                border: 1px solid palette(alternate-base);
-                border-radius: 10px;
-            }
-        """
-        )
 
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(20, 15, 20, 15)
-        self.main_layout.setSpacing(10)
+        self.main_layout.setContentsMargins(16, 16, 16, 16)
+        self.main_layout.setSpacing(12)
 
-        title_label = QLabel(title)
-        font = title_label.font()
-        font.setBold(True)
-        title_label.setFont(font)
-
-        self.main_layout.addWidget(title_label)
+        if title:
+            title_label = QLabel(title)
+            title_label.setObjectName("CardTitle")
+            self.main_layout.addWidget(title_label)
 
         self.content_layout = QVBoxLayout()
-        self.content_layout.setSpacing(12)
+        self.content_layout.setSpacing(10)
         self.main_layout.addLayout(self.content_layout)
 
 
 class DynamicSettingsPage(QWidget):
-    def __init__(self, dbus_handler: LotusDBusHandler, parent=None):
+    def __init__(self, dbus_handler: LotusDBusHandler, category: SettingsCategory = SettingsCategory.GENERAL, parent=None):
         super().__init__(parent)
         self.dbus = dbus_handler
+        self.category = category
         self.current_values = {}
         self.button_groups = []
 
@@ -99,46 +116,45 @@ class DynamicSettingsPage(QWidget):
         if not metadata_list:
             return
 
-        hotkey_items = []
-        im_items = []
-        charset_items = []
-        option_items = []
-
+        # Flat map all items for easy lookup
+        all_metadata = {}
         for group in metadata_list:
             for item in group[1]:
-                k = item[0]
-                if k == "ModeMenuKey":
-                    hotkey_items.append(item)
-                elif k == "InputMethod" or k == "Mode":
-                    im_items.append(item)
-                elif k == "OutputCharset":
-                    charset_items.append(item)
-                elif item[1] == "Boolean":
-                    option_items.append(item)
+                all_metadata[item[0]] = item
 
-        if hotkey_items:
-            card_hk = CardWidget(_("Mode Menu Hotkey"))
-            for item in hotkey_items:
-                self._render_hotkey(item, card_hk.content_layout)
-            self.container_layout.addWidget(card_hk)
+        # Render based on SETTINGS_MAP
+        title_text = self.category.name.capitalize()
+        title = QLabel(_(title_text))
+        title.setObjectName("CategoryTitle")
+        self.container_layout.addWidget(title)
 
-        if im_items:
-            card_im = CardWidget(_("Input Method"))
-            for item in im_items:
-                self._render_radio_group(item, card_im.content_layout, columns=1)
-            self.container_layout.addWidget(card_im)
+        category_groups = SETTINGS_MAP.get(self.category, {})
+        for group_name, keys in category_groups.items():
+            header = QLabel(_(group_name))
+            header.setObjectName("GroupHeader")
+            self.container_layout.addWidget(header)
+            
+            card = CardWidget("")
+            found_any = False
+            for k in keys:
+                item = all_metadata.get(k)
+                if not item:
+                    continue
+                
+                found_any = True
+                type_str = item[1]
+                if k == "ModeMenuKey" or type_str == "Hotkey":
+                    self._render_hotkey(item, card.content_layout)
+                elif "Enum" in item[4]:
+                    self._render_combobox(item, card.content_layout)
+                elif type_str == "Boolean":
+                    self._render_checkbox(item, card.content_layout)
+            
+            if found_any:
+                self.container_layout.addWidget(card)
 
-        if charset_items:
-            card_cs = CardWidget(_("Output Charset"))
-            for item in charset_items:
-                self._render_radio_group(item, card_cs.content_layout, columns=2)
-            self.container_layout.addWidget(card_cs)
-
-        if option_items:
-            card_opt = CardWidget(_("Options"))
-            for item in option_items:
-                self._render_checkbox(item, card_opt.content_layout)
-            self.container_layout.addWidget(card_opt)
+        if self.category == SettingsCategory.INTERFACE and not category_groups:
+             self.container_layout.addWidget(QLabel(_("No interface settings available yet.")))
 
         self.container_layout.addStretch()
 
@@ -150,15 +166,47 @@ class DynamicSettingsPage(QWidget):
 
         row_layout = QHBoxLayout()
         row_layout.addWidget(QLabel(_(label)))
+        row_layout.addStretch()
 
         hk_btn = HotkeyCaptureWidget(hotkey_str)
-        hk_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        hk_btn.setMinimumWidth(150)
+        hk_btn.setFixedWidth(200)
         hk_btn.textChanged.connect(
             lambda text, k=key: self.update_config(k, {"0": text})
         )
 
         row_layout.addWidget(hk_btn)
+        layout.addLayout(row_layout)
+
+    def _render_combobox(self, item, layout):
+        key, type_str, label, default, annotations = item
+        val = str(self.current_values.get(key, default))
+
+        if "Enum" not in annotations:
+            return
+
+        row_layout = QHBoxLayout()
+        row_layout.addWidget(QLabel(_(label)))
+        row_layout.addStretch()
+
+        combo = QComboBox()
+        combo.setFixedWidth(200)
+        enum_dict = annotations.get("Enum", {})
+        sorted_keys = sorted(
+            enum_dict.keys(), key=lambda x: int(x) if str(x).isdigit() else x
+        )
+
+        for k in sorted_keys:
+            rb_text = str(enum_dict[k])
+            combo.addItem(_(rb_text), rb_text)
+
+        idx = combo.findData(val)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+
+        combo.currentTextChanged.connect(
+            lambda text, k=key: self.update_config(k, combo.currentData())
+        )
+        row_layout.addWidget(combo)
         layout.addLayout(row_layout)
 
     def _render_radio_group(self, item, layout, columns=1):
@@ -169,7 +217,6 @@ class DynamicSettingsPage(QWidget):
             return
 
         subtitle = QLabel(f"<b>{_(label)}</b>")
-        subtitle.setStyleSheet("color: palette(text); padding-top: 5px;")
         if label != "Output Charset":
             layout.addWidget(subtitle)
 
@@ -221,6 +268,31 @@ class DynamicSettingsPage(QWidget):
         )
         layout.addWidget(cb)
 
+    def restore_defaults(self):
+        """Resets current values to engine defaults."""
+        config_data = self.dbus.get_config()
+        if not config_data:
+            return
+
+        metadata_list = config_data.get("metadata", [])
+        new_values = {}
+        for group in metadata_list:
+            for item in group[1]:
+                key, type_str, label, default, annotations = item
+                new_values[key] = default
+        
+        self.current_values = new_values
+        self.load_config()
+
+    def save_data(self, quiet=False):
+        """Commits all staged changes to DBus."""
+        if self.current_values:
+            self.dbus.set_config(self.current_values)
+
     def update_config(self, key: str, new_value):
+        """Updates internal state and notifies parent window of change."""
         self.current_values[key] = new_value
-        self.dbus.set_config(self.current_values)
+        # Notify the parent window (LotusSettingsWindow) if it exists
+        main_win = self.window()
+        if hasattr(main_win, "on_changed"):
+            main_win.on_changed()

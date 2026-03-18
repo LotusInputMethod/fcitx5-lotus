@@ -27,6 +27,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from i18n import _
 from core.file_handler import Fcitx5ConfigHandler
+from ui.pages.base_editor import BaseEditorPage
+from ui.pages.dynamic_settings import CardWidget
 
 BAMBOO_ACTIONS = [
     ("XoaDauThanh", "Xóa dấu thanh"),
@@ -221,7 +223,7 @@ PRESETS = {
 }
 
 
-class KeymapEditorPage(QWidget):
+class KeymapEditorPage(BaseEditorPage):
     """UI for editing Lotus custom keymap."""
 
     def __init__(self, config_handler: Fcitx5ConfigHandler, parent=None):
@@ -232,52 +234,56 @@ class KeymapEditorPage(QWidget):
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(30, 20, 30, 20)
+        main_layout.setSpacing(15)
 
-        # Preset layout
+        title = QLabel(_("Keymap"))
+        title.setObjectName("CategoryTitle")
+        main_layout.addWidget(title)
+
+        # Preset card
+        preset_card = CardWidget("")
         preset_layout = QHBoxLayout()
-        preset_layout.addWidget(QLabel(_("Original Input Method")))
+        preset_layout.addWidget(QLabel(_("Original Input Method:")))
 
         self.combo_preset = QComboBox()
         self.combo_preset.addItems(PRESETS.keys())
         preset_layout.addWidget(self.combo_preset)
 
         btn_load_preset = QPushButton(
-            QIcon.fromTheme("document-import"), _("Import From Existing Keymap")
+            QIcon.fromTheme("document-import"), _("Apply Preset")
         )
         btn_load_preset.clicked.connect(self.on_load_preset)
         preset_layout.addWidget(btn_load_preset)
         preset_layout.addStretch()
-        main_layout.addLayout(preset_layout)
+        preset_card.content_layout.addLayout(preset_layout)
+        main_layout.addWidget(preset_card)
 
-        # Separator
-        line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setFrameShadow(QFrame.Sunken)
-        main_layout.addWidget(line)
+        # Editor card
+        editor_card = CardWidget("")
+        editor_layout = QVBoxLayout()
+        editor_card.content_layout.addLayout(editor_layout)
+        main_layout.addWidget(editor_card)
 
         # Input Area
         input_layout = QHBoxLayout()
         self.input_key = QLineEdit()
         self.input_key.setPlaceholderText(_("Key (Example: s)"))
         self.input_key.setMaxLength(1)
+        self.input_key.setClearButtonEnabled(True)
 
         self.combo_action = QComboBox()
         for action_code, action_name in BAMBOO_ACTIONS:
             self.combo_action.addItem(action_name, action_code)
 
-        btn_add = QPushButton(QIcon.fromTheme("list-add"), "")
-        btn_add.setFixedSize(30, 30)
+        btn_add = QPushButton(QIcon.fromTheme("list-add"), _("Add"))
+        btn_add.setToolTip(_("Add / Update Keymap"))
         btn_add.clicked.connect(self.on_add)
-
-        btn_remove = QPushButton(QIcon.fromTheme("list-remove"), "")
-        btn_remove.setFixedSize(30, 30)
-        btn_remove.clicked.connect(self.on_remove)
 
         input_layout.addWidget(self.input_key)
         input_layout.addWidget(self.combo_action)
         input_layout.addWidget(btn_add)
-        input_layout.addWidget(btn_remove)
-        main_layout.addLayout(input_layout)
+        editor_layout.addLayout(input_layout)
 
         # Table
         self.table = QTableWidget(0, 2)
@@ -288,30 +294,30 @@ class KeymapEditorPage(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.table.setAlternatingRowColors(
-            true if hasattr(Qt, "AlternatingRowColors") else True
-        )  # fallback for style
+        self.table.setAlternatingRowColors(True)
+        self.apply_table_style()
         self.table.cellClicked.connect(self.on_row_selected)
-        main_layout.addWidget(self.table)
+        editor_layout.addWidget(self.table)
 
-        # IO Layout
-        io_layout = QHBoxLayout()
+        # 3. Bottom Toolbar Layout
+        toolbar_layout = QHBoxLayout()
+        toolbar_layout.setContentsMargins(0, 5, 0, 0)
+
+        btn_remove = QPushButton(QIcon.fromTheme("list-remove"), _("Remove"))
+        btn_remove.setToolTip(_("Remove selected row"))
+        btn_remove.clicked.connect(self.on_remove)
+
         btn_import = QPushButton(QIcon.fromTheme("document-import"), _("Import"))
         btn_export = QPushButton(QIcon.fromTheme("document-export"), _("Export"))
-        btn_save = QPushButton(_("Save to File"))
-
-        btn_import.setStyleSheet("text-align: left; padding: 6px 12px;")
-        btn_export.setStyleSheet("text-align: left; padding: 6px 12px;")
-
         btn_import.clicked.connect(self.on_import)
         btn_export.clicked.connect(self.on_export)
-        btn_save.clicked.connect(self.save_data)
 
-        io_layout.addWidget(btn_import)
-        io_layout.addWidget(btn_export)
-        io_layout.addStretch()
-        io_layout.addWidget(btn_save)
-        main_layout.addLayout(io_layout)
+        toolbar_layout.addWidget(btn_remove)
+        toolbar_layout.addStretch()
+        toolbar_layout.addWidget(btn_import)
+        toolbar_layout.addWidget(btn_export)
+
+        editor_layout.addLayout(toolbar_layout)
 
     def load_data(self):
         """Loads data from the INI file."""
@@ -320,7 +326,11 @@ class KeymapEditorPage(QWidget):
         for item in data:
             self._add_row(item.get("Key", ""), item.get("Value", ""))
 
-    def save_data(self):
+    def restore_defaults(self):
+        """Reloads data from file, discarding temporary changes."""
+        self.load_data()
+
+    def save_data(self, quiet=False):
         """Saves current table to the INI file."""
         data = []
         for row in range(self.table.rowCount()):
@@ -329,13 +339,10 @@ class KeymapEditorPage(QWidget):
 
             if not key_item or not combo_widget:
                 continue
-
-            key = key_item.text()
-            val = combo_widget.currentData()
-            data.append({"Key": key, "Value": val})
-
+            data.append({"Key": key_item.text(), "Value": combo_widget.currentData()})
         self.handler.write_array_config(self.handler.keymap_file, "CustomKeymap", data)
-        QMessageBox.information(self, _("Success"), _("Keymap saved successfully."))
+        if not quiet:
+            QMessageBox.information(self, _("Success"), _("Keymap saved successfully."))
 
     def on_add(self):
         """Adds a new keymap entry."""
@@ -352,12 +359,7 @@ class KeymapEditorPage(QWidget):
                 return
 
         self._add_row(key, self.combo_action.currentData())
-
-    def on_remove(self):
-        """Removes the selected row."""
-        row = self.table.currentRow()
-        if row >= 0:
-            self.table.removeRow(row)
+        self._on_item_changed()
 
     def on_load_preset(self):
         """Loads a predefined set of keymaps."""
@@ -365,9 +367,7 @@ class KeymapEditorPage(QWidget):
         reply = QMessageBox.question(
             self,
             _("Confirm"),
-            _(
-                "This operation will delete all existing keys on the current keymap and replace them with the input method "
-            )
+            _("This operation will replace all existing keys with ")
             + preset_name
             + _(". Are you sure?"),
             QMessageBox.Yes | QMessageBox.No,
@@ -376,18 +376,15 @@ class KeymapEditorPage(QWidget):
             return
 
         self.table.setRowCount(0)
-        preset_data = PRESETS.get(preset_name, [])
-        for key, action_code in preset_data:
+        for key, action_code in PRESETS.get(preset_name, []):
             self._add_row(key, action_code)
+        self._on_item_changed()
 
     def _add_row(self, key: str, action_code: str):
         """Helper to insert a row and properly set the combobox."""
         row = self.table.rowCount()
         self.table.insertRow(row)
-
-        key_item = QTableWidgetItem(key)
-        self.table.setItem(row, 0, key_item)
-
+        self.table.setItem(row, 0, QTableWidgetItem(key))
         cell_combo = QComboBox()
         for code, name in BAMBOO_ACTIONS:
             cell_combo.addItem(name, code)
@@ -396,6 +393,7 @@ class KeymapEditorPage(QWidget):
         if idx >= 0:
             cell_combo.setCurrentIndex(idx)
 
+        cell_combo.currentIndexChanged.connect(self._on_item_changed)
         self.table.setCellWidget(row, 1, cell_combo)
 
     def on_row_selected(self, row, column):
@@ -425,40 +423,30 @@ class KeymapEditorPage(QWidget):
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Cannot open file for reading: {e}")
             return
-
-        imported = 0
-        skipped = 0
+        imported = skipped = 0
         confirmed = False
-
         for line in lines:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-
-            parts = line.split("\t")
-            if len(parts) < 2:
-                parts = line.split(",")
-
+            parts = line.split("\t") if "\t" in line else line.split(",")
             if len(parts) < 2:
                 skipped += 1
                 continue
-
-            key = parts[0].strip()
-            action_code = parts[1].strip()
+            key, action_code = parts[0].strip(), parts[1].strip()
             if not key or not action_code:
                 skipped += 1
                 continue
-
             if not confirmed and self.table.rowCount() > 0:
-                reply = QMessageBox.question(
-                    self,
-                    _("Confirm Import"),
-                    _(
-                        "The current keymap list is not empty. Imported entries will be merged (existing keys will be updated). Continue?"
-                    ),
-                    QMessageBox.Yes | QMessageBox.No,
-                )
-                if reply == QMessageBox.No:
+                if (
+                    QMessageBox.question(
+                        self,
+                        _("Confirm Import"),
+                        _("Merge imported entries?"),
+                        QMessageBox.Yes | QMessageBox.No,
+                    )
+                    == QMessageBox.No
+                ):
                     return
                 confirmed = True
             else:
@@ -512,13 +500,8 @@ class KeymapEditorPage(QWidget):
                 for row in range(self.table.rowCount()):
                     key_item = self.table.item(row, 0)
                     combo = self.table.cellWidget(row, 1)
-                    if not key_item or not combo:
-                        continue
-
-                    key = key_item.text()
-                    action = combo.currentData()
-                    f.write(f"{key}\t{action}\n")
-
+                    if key_item and combo:
+                        f.write(f"{key_item.text()}\t{combo.currentData()}\n")
             QMessageBox.information(
                 self,
                 _("Export Complete"),

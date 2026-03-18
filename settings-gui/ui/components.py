@@ -11,6 +11,7 @@ import ctypes
 import ctypes.util
 from PySide6.QtWidgets import QPushButton
 from PySide6.QtCore import Qt, Signal
+from i18n import _
 
 libxkb = None
 libxkb_path = ctypes.util.find_library("xkbcommon")
@@ -42,9 +43,17 @@ class HotkeyCaptureWidget(QPushButton):
 
     def __init__(self, current_key="", parent=None):
         super().__init__(parent)
-        self.setText(current_key if current_key else "None")
+        self.setText(current_key if current_key else _("None"))
         self.setCheckable(True)
         self.current_key = current_key
+        self.setObjectName("HotkeyButton")
+        self.toggled.connect(self._on_toggled)
+
+    def _on_toggled(self, checked):
+        if checked:
+            self.setText(_("[ Recording... ]"))
+        else:
+            self.setText(self.current_key if self.current_key else _("None"))
 
     def keyPressEvent(self, event):
         """Captures the key press when button is checked."""
