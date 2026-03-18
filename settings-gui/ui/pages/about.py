@@ -14,7 +14,7 @@ from i18n import _
 try:
     from version import __version__
 except ImportError:
-    __version__ = "1.4.2" # Fallback for local development
+    __version__ = "dev version" # Fallback for local development
 
 class AboutPage(QWidget):
     def __init__(self, parent=None):
@@ -61,7 +61,7 @@ class AboutPage(QWidget):
         title.setObjectName("AboutTitle")
         layout.addWidget(title, alignment=Qt.AlignCenter)
 
-        version = QLabel(_(f"Version {__version__} (Stable)"))
+        version = QLabel(_(f"Version {__version__}"))
         version.setObjectName("VersionTag")
         version.setAlignment(Qt.AlignCenter)
         version.setStyleSheet("""

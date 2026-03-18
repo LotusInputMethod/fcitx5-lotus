@@ -5,4 +5,4 @@
 Auto-generated version file by CMake.
 """
 
-__version__ = "@PROJECT_VERSION@"
+__version__ = "@PROJECT_VERSION@ (Stable)"
