@@ -44,6 +44,26 @@ class LotusSettingsWindow(QMainWindow):
 
         self._setup_ui()
         self._setup_window_size()
+        self._apply_global_styles()
+        self.update_reset_button_state()
+
+    def update_reset_button_state(self):
+        any_modified = any(
+            hasattr(self.content_stack.widget(i), "is_modified_from_default")
+            and self.content_stack.widget(i).is_modified_from_default()
+            for i in range(self.content_stack.count())
+        )
+        self.btn_reset.setEnabled(any_modified)
+
+    def _apply_global_styles(self):
+        self.setStyleSheet("""
+            QLabel#CategoryTitle {
+                font-size: 22px;
+            }
+            QLabel#AboutTitle {
+                font-size: 26px;
+            }
+        """)
 
     def _setup_ui(self):
         central_widget = QWidget()
@@ -106,23 +126,25 @@ class LotusSettingsWindow(QMainWindow):
         bar_layout.setContentsMargins(20, 12, 20, 12)
         bar_layout.setSpacing(10)
 
-        self.btn_reset = QPushButton(_("Restore Defaults"))
+        bar_layout.addSpacing(180)
+
+        self.btn_reset = QPushButton(QIcon.fromTheme("edit-undo"), _("&Reset"))
         self.btn_reset.clicked.connect(self.on_restore_defaults)
         bar_layout.addWidget(self.btn_reset)
 
         bar_layout.addStretch()
 
-        self.btn_cancel = QPushButton(_("Cancel"))
+        self.btn_cancel = QPushButton(QIcon.fromTheme("dialog-cancel"), _("&Cancel"))
         self.btn_cancel.setEnabled(False)
         self.btn_cancel.clicked.connect(self.on_cancel)
         bar_layout.addWidget(self.btn_cancel)
 
-        self.btn_apply = QPushButton(_("Apply"))
+        self.btn_apply = QPushButton(QIcon.fromTheme("document-save"), _("&Apply"))
         self.btn_apply.setEnabled(False)
         self.btn_apply.clicked.connect(lambda: self.on_save_all(quiet=True))
         bar_layout.addWidget(self.btn_apply)
 
-        self.btn_ok = QPushButton(_("OK"))
+        self.btn_ok = QPushButton(QIcon.fromTheme("dialog-ok"), _("&OK"))
         self.btn_ok.setObjectName("Primary")
         self.btn_ok.clicked.connect(self.on_ok)
         bar_layout.addWidget(self.btn_ok)
@@ -181,12 +203,14 @@ class LotusSettingsWindow(QMainWindow):
                 page = self.content_stack.widget(i)
                 if hasattr(page, "restore_defaults"):
                     page.restore_defaults()
+            # After reset, we definitely have "unsaved changes" relative to previous
             self.on_changed()
 
     def on_changed(self):
         """Enables the apply and cancel buttons when changes are detected."""
         self.btn_apply.setEnabled(True)
         self.btn_cancel.setEnabled(True)
+        self.update_reset_button_state()
 
     def on_save_all(self, quiet=False):
         """Triggers save on all pages that support it."""
@@ -197,6 +221,7 @@ class LotusSettingsWindow(QMainWindow):
 
         self.btn_apply.setEnabled(False)
         self.btn_cancel.setEnabled(False)
+        self.update_reset_button_state()
         if not quiet:
             from PySide6.QtWidgets import QMessageBox
 
@@ -217,6 +242,7 @@ class LotusSettingsWindow(QMainWindow):
 
         self.btn_apply.setEnabled(False)
         self.btn_cancel.setEnabled(False)
+        self.update_reset_button_state()
 
     def _on_sidebar_changed(self, index):
         item = self.sidebar.item(index)
@@ -228,6 +254,7 @@ class LotusSettingsWindow(QMainWindow):
             widget = item.data(Qt.UserRole + 1)
             if widget:
                 self.content_stack.setCurrentWidget(widget)
+            self.update_reset_button_state()
         elif role == "header":
             # Don't allow selecting headers, move to next item
             if index + 1 < self.sidebar.count():

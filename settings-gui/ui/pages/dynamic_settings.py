@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 from ui.components import HotkeyCaptureWidget
+from core.dbus_handler import LotusDBusHandler
 from enum import Enum
 from i18n import _
 
@@ -100,63 +101,84 @@ class DynamicSettingsPage(QWidget):
         self.layout.addWidget(self.scroll)
 
     def load_config(self):
-        while self.container_layout.count():
-            item = self.container_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        self.button_groups.clear()
+        self.blockSignals(True)
+        try:
+            while self.container_layout.count():
+                item = self.container_layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+            self.button_groups.clear()
 
-        config_data = self.dbus.get_config()
-        if not config_data:
-            self.container_layout.addWidget(QLabel(_("Failed to load configuration.")))
-            return
+            config_data = self.dbus.get_config()
+            if not config_data:
+                self.container_layout.addWidget(QLabel(_("Failed to load configuration.")))
+                return
 
-        self.current_values = config_data.get("values", {})
-        metadata_list = config_data.get("metadata", [])
-        if not metadata_list:
-            return
+            self.current_values = config_data.get("values", {})
+            metadata_list = config_data.get("metadata", [])
+            if not metadata_list:
+                return
 
-        # Flat map all items for easy lookup
-        all_metadata = {}
-        for group in metadata_list:
-            for item in group[1]:
-                all_metadata[item[0]] = item
+            # Flat map all items for easy lookup
+            self.all_metadata = {}
+            for group in metadata_list:
+                for item in group[1]:
+                    self.all_metadata[item[0]] = item
 
-        # Render based on SETTINGS_MAP
-        title_text = self.category.name.capitalize()
-        title = QLabel(_(title_text))
-        title.setObjectName("CategoryTitle")
-        self.container_layout.addWidget(title)
+            # Render based on SETTINGS_MAP
+            title_text = self.category.name.capitalize()
+            title = QLabel(_(title_text))
+            title.setObjectName("CategoryTitle")
+            self.container_layout.addWidget(title)
 
-        category_groups = SETTINGS_MAP.get(self.category, {})
-        for group_name, keys in category_groups.items():
-            header = QLabel(_(group_name))
-            header.setObjectName("GroupHeader")
-            self.container_layout.addWidget(header)
-            
-            card = CardWidget("")
-            found_any = False
-            for k in keys:
-                item = all_metadata.get(k)
-                if not item:
-                    continue
+            category_groups = SETTINGS_MAP.get(self.category, {})
+            for group_name, keys in category_groups.items():
+                # Convert ALL CAPS to Title Case
+                header_text = group_name.title() if group_name.isupper() else group_name
+                header = QLabel(_(header_text))
+                header.setObjectName("GroupHeader")
+                self.container_layout.addWidget(header)
                 
-                found_any = True
-                type_str = item[1]
-                if k == "ModeMenuKey" or type_str == "Hotkey":
-                    self._render_hotkey(item, card.content_layout)
-                elif "Enum" in item[4]:
-                    self._render_combobox(item, card.content_layout)
-                elif type_str == "Boolean":
-                    self._render_checkbox(item, card.content_layout)
-            
-            if found_any:
-                self.container_layout.addWidget(card)
+                card = CardWidget("")
+                found_any = False
+                for k in keys:
+                    item = self.all_metadata.get(k)
+                    if not item:
+                        continue
+                    
+                    found_any = True
+                    type_str = item[1]
+                    if k == "ModeMenuKey" or type_str == "Hotkey":
+                        self._render_hotkey(item, card.content_layout)
+                    elif "Enum" in item[4]:
+                        self._render_combobox(item, card.content_layout)
+                    elif type_str == "Boolean":
+                        self._render_checkbox(item, card.content_layout)
+                
+                if found_any:
+                    self.container_layout.addWidget(card)
 
-        if self.category == SettingsCategory.INTERFACE and not category_groups:
-             self.container_layout.addWidget(QLabel(_("No interface settings available yet.")))
+            if self.category == SettingsCategory.INTERFACE and not category_groups:
+                self.container_layout.addWidget(QLabel(_("No interface settings available yet.")))
 
-        self.container_layout.addStretch()
+            self.container_layout.addStretch()
+        finally:
+            self.blockSignals(False)
+
+    def is_modified_from_default(self):
+        if not hasattr(self, "all_metadata"):
+            return False
+        for key, val in self.current_values.items():
+            meta = self.all_metadata.get(key)
+            if meta:
+                default_val = meta[3]
+                # Handle cases where default_val might be a dict (like hotkeys)
+                if isinstance(default_val, dict) and isinstance(val, dict):
+                    if str(val.get("0")) != str(default_val.get("0")):
+                        return True
+                elif str(val) != str(default_val):
+                    return True
+        return False
 
     def _render_hotkey(self, item, layout):
         key, type_str, label, default, annotations = item
@@ -270,19 +292,23 @@ class DynamicSettingsPage(QWidget):
 
     def restore_defaults(self):
         """Resets current values to engine defaults."""
-        config_data = self.dbus.get_config()
-        if not config_data:
-            return
+        self.blockSignals(True)
+        try:
+            config_data = self.dbus.get_config()
+            if not config_data:
+                return
 
-        metadata_list = config_data.get("metadata", [])
-        new_values = {}
-        for group in metadata_list:
-            for item in group[1]:
-                key, type_str, label, default, annotations = item
-                new_values[key] = default
-        
-        self.current_values = new_values
-        self.load_config()
+            metadata_list = config_data.get("metadata", [])
+            new_values = {}
+            for group in metadata_list:
+                for item in group[1]:
+                    key, type_str, label, default, annotations = item
+                    new_values[key] = default
+            
+            self.current_values = new_values
+            self.load_config()
+        finally:
+            self.blockSignals(False)
 
     def save_data(self, quiet=False):
         """Commits all staged changes to DBus."""

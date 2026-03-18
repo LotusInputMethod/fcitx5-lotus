@@ -321,14 +321,23 @@ class KeymapEditorPage(BaseEditorPage):
 
     def load_data(self):
         """Loads data from the INI file."""
-        self.table.setRowCount(0)
-        data = self.handler.read_array_config(self.handler.keymap_file, "CustomKeymap")
-        for item in data:
-            self._add_row(item.get("Key", ""), item.get("Value", ""))
+        self.blockSignals(True)
+        try:
+            self.table.setRowCount(0)
+            data = self.handler.read_array_config(self.handler.keymap_file, "CustomKeymap")
+            for item in data:
+                self._add_row(item.get("Key", ""), item.get("Value", ""))
+        finally:
+            self.blockSignals(False)
 
     def restore_defaults(self):
-        """Reloads data from file, discarding temporary changes."""
-        self.load_data()
+        """Clears all custom keymap entries, restoring to default."""
+        self.table.setRowCount(0)
+        self._on_item_changed()
+
+    def is_modified_from_default(self):
+        """Returns True if the keymap table has any entries."""
+        return self.table.rowCount() > 0
 
     def save_data(self, quiet=False):
         """Saves current table to the INI file."""

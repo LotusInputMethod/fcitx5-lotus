@@ -140,25 +140,45 @@ class MacroEditorPage(BaseEditorPage):
         self.update_button_states()
 
     def load_data(self):
-        # Load global macro settings via DBus
-        config_data = self.dbus.get_config()
-        if config_data:
-            values = config_data.get("values", {})
-            self.cb_enable.setChecked(
-                str(values.get("EnableMacro", "True")).lower() == "true"
-            )
-            self.cb_capitalize.setChecked(
-                str(values.get("CapitalizeMacro", "True")).lower() == "true"
-            )
+        self.blockSignals(True)
+        try:
+            # Load global macro settings via DBus
+            config_data = self.dbus.get_config()
+            if config_data:
+                values = config_data.get("values", {})
+                self.cb_enable.setChecked(
+                    str(values.get("EnableMacro", "True")).lower() == "true"
+                )
+                self.cb_capitalize.setChecked(
+                    str(values.get("CapitalizeMacro", "True")).lower() == "true"
+                )
 
-        self.table.setRowCount(0)
-        data = self.handler.read_array_config(self.handler.macro_file, "Macro")
-        for item in data:
-            self.upsert_row(item.get("Key", ""), item.get("Value", ""))
+            self.table.setRowCount(0)
+            data = self.handler.read_array_config(self.handler.macro_file, "Macro")
+            for item in data:
+                self.upsert_row(item.get("Key", ""), item.get("Value", ""))
+        finally:
+            self.blockSignals(False)
 
     def restore_defaults(self):
-        """Reloads data from file, discarding temporary changes."""
-        self.load_data()
+        """Resets macros to default (empty table, enabled checkboxes)."""
+        self.blockSignals(True)
+        try:
+            self.cb_enable.setChecked(True)
+            self.cb_capitalize.setChecked(True)
+            self.table.setRowCount(0)
+            self._on_item_changed()
+        finally:
+            self.blockSignals(False)
+
+    def is_modified_from_default(self):
+        """Returns True if the macro table has entries or checkboxes are changed from default."""
+        # Default state: table is empty, both checkboxes are True.
+        return (
+            self.table.rowCount() > 0
+            or not self.cb_enable.isChecked()
+            or not self.cb_capitalize.isChecked()
+        )
 
     def save_data(self, quiet=False):
         # Save global macro settings via DBus
@@ -200,12 +220,6 @@ class MacroEditorPage(BaseEditorPage):
         self.table.setItem(row, 1, QTableWidgetItem(value))
         self.update_button_states()
         self._on_item_changed()
-
-    def update_button_states(self):
-        row = self.table.currentRow()
-        count = self.table.rowCount()
-        self.btn_up.setEnabled(row > 0)
-        self.btn_down.setEnabled(0 <= row < count - 1)
 
     def on_add(self):
         key = self.input_key.text().strip()

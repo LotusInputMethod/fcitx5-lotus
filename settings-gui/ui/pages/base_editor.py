@@ -32,13 +32,14 @@ class BaseEditorPage(QWidget):
         self.table = None
 
     def apply_table_style(self):
-        """Applies modern styling to the table."""
+        """Applies modern styling to the table and connects signals."""
         if not self.table:
             return
 
         self.table.setFocusPolicy(Qt.NoFocus)
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
+        self.table.itemSelectionChanged.connect(self.update_button_states)
 
         self.table.setStyleSheet(
             """
@@ -70,15 +71,23 @@ class BaseEditorPage(QWidget):
         main_win = self.window()
         if hasattr(main_win, "on_changed"):
             main_win.on_changed()
+        self.update_button_states()
 
     def update_button_states(self):
         """Standard button state update logic."""
-        if not hasattr(self, "btn_up") or not hasattr(self, "btn_down") or not self.table:
+        if not self.table:
             return
+
         row = self.table.currentRow()
         count = self.table.rowCount()
-        self.btn_up.setEnabled(row > 0)
-        self.btn_down.setEnabled(0 <= row < count - 1)
+        selected = len(self.table.selectedRanges()) > 0
+
+        if hasattr(self, "btn_up"):
+            self.btn_up.setEnabled(row > 0)
+        if hasattr(self, "btn_down"):
+            self.btn_down.setEnabled(0 <= row < count - 1)
+        if hasattr(self, "btn_remove"):
+            self.btn_remove.setEnabled(selected)
 
     def _swap_rows(self, row1, row2):
         """Swaps two rows in the table, preserving widgets if any."""

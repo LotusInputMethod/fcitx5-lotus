@@ -64,12 +64,23 @@ class AboutPage(QWidget):
         version = QLabel(_(f"Version {__version__} (Stable)"))
         version.setObjectName("VersionTag")
         version.setAlignment(Qt.AlignCenter)
+        version.setStyleSheet("""
+            QLabel#VersionTag {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
+                border-radius: 10px;
+                padding: 2px 10px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+        """)
         layout.addWidget(version, alignment=Qt.AlignCenter)
 
         desc = QLabel(_("A state-of-the-art Vietnamese input method engine for Linux, designed for speed, stability, and a premium user experience."))
         desc.setWordWrap(True)
         desc.setAlignment(Qt.AlignCenter)
         desc.setObjectName("AboutDescription")
+        desc.setMinimumHeight(60)
         layout.addWidget(desc, alignment=Qt.AlignCenter)
 
         # GitHub Project Link
