@@ -842,6 +842,22 @@ namespace fcitx {
         }
     }
 
+    void LotusState::handleDoubleSpaceReplacement() {
+        switch (realMode) {
+            case LotusMode::SurroundingText:
+            case LotusMode::Preedit: {
+                ic_->deleteSurroundingText(-1, 1);
+                ic_->commitString(". ");
+                LOTUS_INFO("Commit: . ");
+                break;
+            }
+            default: { // Uinput, Smooth, etc.
+                performReplacement(" ", ". ");
+                break;
+            }
+        }
+    }
+
     void LotusState::keyEvent(KeyEvent& keyEvent) {
         if (!lotusEngine_ || keyEvent.isRelease())
             return;
@@ -861,6 +877,7 @@ namespace fcitx {
             ResetEngine(lotusEngine_.handle());
             is_deleting_.store(false);
             current_backspace_count_ = 0;
+            isPrevSpace_             = false;
             needEngineReset.store(false);
         }
 
@@ -877,9 +894,20 @@ namespace fcitx {
             replacement_start_ms_.store(0, std::memory_order_release);
             replayBufferedKeys();
         }
-        if (keyEvent.rawKey().check(FcitxKey_Shift_L) || keyEvent.rawKey().check(FcitxKey_Shift_R))
-            return;
         const KeySym currentSym = keyEvent.rawKey().sym();
+        if (*engine_->config().doubleSpaceToPeriod && realMode != LotusMode::Off) {
+            if (currentSym == FcitxKey_space) {
+                if (isPrevSpace_) {
+                    keyEvent.filterAndAccept();
+                    handleDoubleSpaceReplacement();
+                    isPrevSpace_ = false;
+                    return;
+                }
+                isPrevSpace_ = true;
+            } else {
+                isPrevSpace_ = false;
+            }
+        }
 
         switch (realMode) {
             case LotusMode::Uinput: {
@@ -923,6 +951,7 @@ namespace fcitx {
         is_deleting_.store(false);
 
         if (lotusEngine_) {
+            isPrevSpace_ = false;
             if (realMode == LotusMode::Preedit) {
                 EngineCommitPreedit(lotusEngine_.handle());
                 UniqueCPtr<char> commit(EnginePullCommit(lotusEngine_.handle()));
