@@ -915,7 +915,7 @@ namespace fcitx {
             }
             replacement_thread_id_.store(0, std::memory_order_release);
             replacement_start_ms_.store(0, std::memory_order_release);
-            if (std::string(ic_->frontend()) != "dbus")
+            if (std::string(ic_->frontend()) != "dbus" && ic_->surroundingText().isValid())
                 replayBufferedKeys();
         }
         KeySym currentSym = keyEvent.rawKey().sym();

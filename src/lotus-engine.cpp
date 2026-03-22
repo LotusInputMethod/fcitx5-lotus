@@ -320,7 +320,8 @@ namespace fcitx {
         FCITX_UNUSED(entry);
         auto* ic = event.inputContext();
         LOG("frontend: " + std::string(ic->frontend()));
-        std::string              isdbus = std::string(ic->frontend());
+        const bool               surrvalid = ic->surroundingText().isValid();
+        std::string              isdbus    = std::string(ic->frontend());
         static std::atomic<bool> mouseThreadStarted{false};
         if (!mouseThreadStarted.exchange(true))
             startMouseReset();
@@ -362,8 +363,8 @@ namespace fcitx {
             }
         }
         LOG("activate event type: " + std::to_string(static_cast<uint32_t>(event.type())));
-        if (event.type() == EventType::InputContextFocusIn && isdbus == "dbus") {
-            ;
+        if (event.type() == EventType::InputContextFocusIn && isdbus == "dbus" && !surrvalid) {
+            LOG("bushjt");
         } else {
             state->clearAllBuffers();
         }
@@ -579,16 +580,17 @@ namespace fcitx {
 
     void LotusEngine::deactivate(const InputMethodEntry& entry, InputContextEvent& event) {
         FCITX_UNUSED(entry);
-        auto*       ic     = event.inputContext();
-        auto*       state  = ic->propertyFor(&factory_);
-        std::string isdbus = std::string(ic->frontend());
+        auto*       ic        = event.inputContext();
+        auto*       state     = ic->propertyFor(&factory_);
+        std::string isdbus    = std::string(ic->frontend());
+        const bool  surrvalid = ic->surroundingText().isValid();
         LOG("Frontend: " + std::string(ic->frontend()));
         if (realMode == LotusMode::Preedit && event.type() != EventType::InputContextFocusOut) {
             state->commitBuffer();
         } else {
             LOG("Deactivate event type: " + std::to_string(static_cast<uint32_t>(event.type())));
-            if (event.type() == EventType::InputContextFocusOut && isdbus == "dbus") {
-                ;
+            if (event.type() == EventType::InputContextFocusOut && isdbus == "dbus" && !surrvalid) {
+                LOG("bushjt");
             } else {
                 LOG("clearAllBuffers");
                 state->clearAllBuffers();
