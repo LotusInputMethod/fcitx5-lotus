@@ -95,7 +95,8 @@ Mọi thành viên tham gia đóng góp cho dự án này đều phải tuân th
 ```sh
 #!/bin/bash
 shopt -s globstar nullglob
-clang-format -i src/**/*.{cpp,hpp}
+clang-format -i src/**/*.{cpp,h}
+clang-format -i server/**/*.{cpp,h}
 ```
 
 ## Quy trình Pull Request
