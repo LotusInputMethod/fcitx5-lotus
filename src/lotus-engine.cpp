@@ -338,14 +338,15 @@ namespace fcitx {
 
         auto* state = ic->propertyFor(&factory_);
 
-        state->waitAck_ = false;
-        if (*config_.fixUinputWithAck) {
-            if (targetMode == LotusMode::Uinput || targetMode == LotusMode::UinputHC || targetMode == LotusMode::Smooth) {
+        state->waitAck_    = false;
+        state->isTerminal_ = false;
+        if (targetMode == LotusMode::Uinput || targetMode == LotusMode::UinputHC || targetMode == LotusMode::Smooth) {
 #if __cplusplus >= 202002L
-                std::ranges::transform(appName, appName.begin(), ::tolower);
+            std::ranges::transform(appName, appName.begin(), ::tolower);
 #else
-                std::transform(appName.begin(), appName.end(), appName.begin(), ::tolower);
+            std::transform(appName.begin(), appName.end(), appName.begin(), ::tolower);
 #endif
+            if (*config_.fixUinputWithAck) {
                 for (const auto& ackApp : ack_apps) {
                     if (appName.find(ackApp) != std::string::npos) {
                         state->waitAck_ = true;
@@ -354,11 +355,20 @@ namespace fcitx {
                     }
                 }
             }
+
+            for (const auto& termApp : terminal_apps) {
+                if (appName.find(termApp) != std::string::npos) {
+                    state->isTerminal_ = true;
+                    LOTUS_INFO(termApp + " detected as terminal");
+                    break;
+                }
+            }
         }
 
-        state->clearAllBuffers();
-        is_deleting_.store(false);
-        needEngineReset.store(false);
+        if (!is_deleting_.load(std::memory_order_acquire)) {
+            state->clearAllBuffers();
+            needEngineReset.store(false);
+        }
         if (targetMode == LotusMode::Emoji) {
             state->updateEmojiPreedit();
         } else {
@@ -571,9 +581,10 @@ namespace fcitx {
         if (realMode == LotusMode::Preedit && event.type() != EventType::InputContextFocusOut) {
             state->commitBuffer();
         } else {
-            state->clearAllBuffers();
-            is_deleting_.store(false);
-            needEngineReset.store(false);
+            if (!is_deleting_.load(std::memory_order_acquire)) {
+                state->clearAllBuffers();
+                needEngineReset.store(false);
+            }
             ic->inputPanel().reset();
             ic->updateUserInterface(UserInterfaceComponent::InputPanel);
             ic->updatePreedit();

@@ -448,7 +448,8 @@ namespace fcitx {
             is_deleting_.store(false);
             replacement_start_ms_.store(0, std::memory_order_release);
             replacement_thread_id_.store(0, std::memory_order_release);
-            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+            int actualSleep = isTerminal_ ? std::max(sleepTime, 25) : sleepTime;
+            std::this_thread::sleep_for(std::chrono::milliseconds(actualSleep));
             ic_->commitString(pending_commit_string_);
             LOTUS_INFO("Commit: " + pending_commit_string_);
             expected_backspaces_     = 0;
