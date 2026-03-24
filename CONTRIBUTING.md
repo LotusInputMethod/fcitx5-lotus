@@ -90,6 +90,13 @@ Mọi thành viên tham gia đóng góp cho dự án này đều phải tuân th
 
 - Tuân thủ file [`.clang-format`](.clang-format) trong repository
 - Khuyến khích chạy lệnh `clang-format` để định dạng code trước khi commit, hoặc sử dụng các plugin clang-format của các IDE
+- Nếu muốn nhanh thì nên thêm .git/hooks/pre-commit
+
+```sh
+#!/bin/bash
+shopt -s globstar nullglob
+clang-format -i src/**/*.{cpp,hpp}
+```
 
 ## Quy trình Pull Request
 
