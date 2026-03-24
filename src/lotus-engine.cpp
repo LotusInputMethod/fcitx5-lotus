@@ -152,6 +152,7 @@ namespace fcitx {
                          uiManager);
         initToggleAction(autoNonVnRestoreAction_, config_.autoNonVnRestore, "lotus-autonvnrestore", "edit-undo", _("Auto Restore Keys With Invalid Wwords"),
                          _("Auto Non-VN Restore"), uiManager);
+        initToggleAction(w2uAction_, config_.w2u, "lotus-w2u", "edit-select-all", _("Type w to Produce ư"), _("W to ư"), uiManager);
         initToggleAction(enableDictionaryAction_, config_.enableDictionary, "lotus-dictionary", "accessories-dictionary", _("Enable Custom Dictionary"), _("Custom Dictionary"),
                          uiManager);
 
@@ -181,8 +182,9 @@ namespace fcitx {
 #ifndef DISABLE_VERSION_ACTION
             versionAction_.get(),
 #endif
-            charsetAction_.get(),          spellCheckAction_.get(),       macroAction_.get(),   capitalizeMacroAction_.get(),
-            autoNonVnRestoreAction_.get(), enableDictionaryAction_.get(), settingsAction_.get()};
+            charsetAction_.get(), spellCheckAction_.get(),       macroAction_.get(),   capitalizeMacroAction_.get(), autoNonVnRestoreAction_.get(),
+            enableDictionaryAction_.get(), settingsAction_.get()};
+
         emptyCustomKeymap_.customKeymap.setValue(std::vector<lotusKeymap>{});
     }
 
@@ -291,6 +293,7 @@ namespace fcitx {
         updateAction(nullptr, macroAction_, config_.enableMacro, _("Macro"));
         updateAction(nullptr, capitalizeMacroAction_, config_.capitalizeMacro, _("Capitalize Macro"));
         updateAction(nullptr, autoNonVnRestoreAction_, config_.autoNonVnRestore, _("Auto Non-VN Restore"));
+        updateAction(nullptr, w2uAction_, config_.w2u, _("W to ư"));
         updateAction(nullptr, enableDictionaryAction_, config_.enableDictionary, _("Custom Dictionary"));
     }
 

@@ -20,6 +20,7 @@ import (
 			const char *outputCharset;
 			bool modernStyle;
 			bool freeMarking;
+			bool w2u;
 		} FcitxBambooEngineOption;
 	*/
 	"C"
@@ -32,6 +33,7 @@ import (
 import (
 	"bufio"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -111,6 +113,12 @@ func EngineSetOption(engine uintptr, option *C.FcitxBambooEngineOption) {
 		flags |= bamboo.EfreeToneMarking
 	} else {
 		flags &= ^bamboo.EfreeToneMarking
+	}
+
+	if bool(option.w2u) {
+		flags |= bamboo.Ew2uEnabled
+	} else {
+		flags &= ^bamboo.Ew2uEnabled
 	}
 	bambooEngine.preeditor.SetFlag(flags)
 }
@@ -249,14 +257,39 @@ func GetCharsetNames() **C.char {
 
 //export GetInputMethodNames
 func GetInputMethodNames() **C.char {
+	order := map[string]int{
+		"Telex":                   0,
+		"VNI":                     1,
+		"Telex 2":                 2,
+		"Telex + VNI":             3,
+		"Telex + VNI + VIQR":      4,
+		"VIQR":                    5,
+		"Microsoft layout":        6,
+		"VNI Bàn phím tiếng Pháp": 7,
+	}
 	names := make([]string, len(bamboo.InputMethodDefinitions))
 	i := 0
 	for imName := range bamboo.InputMethodDefinitions {
 		names[i] = imName
 		i++
 	}
+	sort.Slice(names, func(i, j int) bool {
+		oi, oki := order[names[i]]
+		oj, okj := order[names[j]]
+		if oki && okj {
+			return oi < oj
+		}
+		if oki {
+			return true
+		}
+		if okj {
+			return false
+		}
+		return names[i] < names[j]
+	})
 	return toCStringArray(names)
 }
+
 
 //export NewDictionary
 func NewDictionary(fd uintptr) uintptr {

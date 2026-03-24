@@ -28,7 +28,10 @@ type FcitxBambooEngine struct {
 	commitText              string
 	shouldRestoreKeyStrokes bool
 	outputCharset           string
+	w2u                     bool
 }
+
+
 
 const (
 	FcitxShiftMask   = 1 << 0

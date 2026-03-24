@@ -68,7 +68,9 @@ namespace fcitx {
             .outputCharset       = engine_->config().outputCharset->data(),
             .modernStyle         = *engine_->config().modernStyle,
             .freeMarking         = *engine_->config().freeMarking,
+            .w2u                 = *engine_->config().w2u,
         };
+
         EngineSetOption(lotusEngine_.handle(), &option);
     }
 
