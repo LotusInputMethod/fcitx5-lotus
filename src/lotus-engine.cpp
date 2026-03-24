@@ -335,7 +335,7 @@ namespace fcitx {
 
         const LotusMode targetMode = getAppRule(appName);
         LOTUS_INFO("Target mode: " + modeEnumToString(targetMode));
-        reloadConfig();
+
         updateCharsetAction(event.inputContext());
 
         setMode(targetMode, event.inputContext());
