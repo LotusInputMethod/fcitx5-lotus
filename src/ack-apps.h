@@ -20,4 +20,6 @@
  *
  * Chromium-based browsers that need special handling for text replacement.
  */
-static std::vector<std::string> ack_apps = {"chrome", "chromium", "brave", "edge", "vivaldi", "opera", "coccoc", "cromite", "helium", "thorium", "slimjet", "yandex"};
+static std::vector<std::string> ack_apps = {
+    "chrome", "chromium", "brave", "edge", "vivaldi", "opera", "coccoc", "cromite", "helium", "thorium", "slimjet", "yandex",
+};

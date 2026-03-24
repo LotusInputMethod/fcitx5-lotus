@@ -366,7 +366,8 @@ namespace fcitx {
         if (event.type() == EventType::InputContextFocusIn && isdbus == "dbus" && !surrvalid) {
             LOG("bushjt");
         } else {
-            state->clearAllBuffers();
+            if (surrvalid)
+                state->clearAllBuffers();
         }
         is_deleting_.store(false);
         needEngineReset.store(false);
@@ -592,8 +593,10 @@ namespace fcitx {
             if (event.type() == EventType::InputContextFocusOut && isdbus == "dbus" && !surrvalid) {
                 LOG("bushjt");
             } else {
-                LOG("clearAllBuffers");
-                state->clearAllBuffers();
+                if (surrvalid) {
+                    LOG("clearAllBuffers");
+                    state->clearAllBuffers();
+                }
             }
 
             is_deleting_.store(false);
