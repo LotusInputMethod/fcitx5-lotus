@@ -130,7 +130,7 @@ namespace fcitx {
         if (waitAck_) {
             LOG("buf=" + oldPreBuffer_);
             LOTUS_INFO("Waiting for ack");
-            std::this_thread::sleep_for(std::chrono::milliseconds(count * 7));
+            std::this_thread::sleep_for(std::chrono::milliseconds(count * 1));
         }
     }
 
@@ -473,10 +473,10 @@ namespace fcitx {
             if (surr.isValid() && static_cast<unsigned int>(surr.cursor()) == realtextLen) {
                 ; // NGON
             } else {
-                // Retry x3 (3 ms each), khi can (cho bon l chromium,electron)
+                // Retry x3 (2 ms each), khi can (cho bon l chromium,electron)
                 // Khong ron dau
                 for (int retry = 0; retry < 3; ++retry) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(3));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
                     const auto& surr2 = ic_->surroundingText();
                     if (surr2.isValid() && static_cast<unsigned int>(surr2.cursor()) == realtextLen) {
                         break;
