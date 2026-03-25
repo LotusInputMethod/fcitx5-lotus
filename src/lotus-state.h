@@ -101,11 +101,11 @@ namespace fcitx {
         std::vector<EmojiEntry> emojiCandidates_;
         bool                    waitAck_ = false;
         std::vector<KeyEntry>   buffered_keys_; ///< Keystrokes buffered during replacement
-        bool                    isPrevSpace_       = false;
-        bool                    shouldCapitalize_  = false;
-        bool                    isPrevPunctuation_ = false;
-        size_t                  prevSurrSuffixLen_ = 0; ///< Previous suffix length
-
+        bool                    isPrevSpace_        = false;
+        bool                    shouldCapitalize_   = false;
+        bool                    isPrevPunctuation_  = false;
+        size_t                  prevSurrSuffixLen_  = 0; ///< Previous suffix length
+        int64_t                 lastDeactivateTime_ = 0;
         /**
          * @brief Connects to the uinput server.
          * @return True if connection successful.

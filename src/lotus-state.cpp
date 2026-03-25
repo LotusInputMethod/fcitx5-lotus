@@ -150,14 +150,16 @@ namespace fcitx {
 
     bool LotusState::isAutofillCertain(const SurroundingText& s) {
         LOG("buf=\"" + oldPreBuffer_ + "\"");
+        const unsigned int cursor = s.cursor();
+        const unsigned int anchor = s.anchor();
+        LOG("cur=" + std::to_string(cursor));
+        LOG("anc=" + std::to_string(anchor));
         if (!s.isValid() || oldPreBuffer_.empty()) {
             return false;
         }
 
-        const unsigned int cursor  = s.cursor();
-        const unsigned int anchor  = s.anchor();
-        const auto&        text    = s.text();
-        const size_t       textLen = utf8::length(text);
+        const auto&  text    = s.text();
+        const size_t textLen = utf8::length(text);
 
         // Fix that surrounding text is delay update
         const size_t buffLen       = utf8::length(oldPreBuffer_);
@@ -170,8 +172,6 @@ namespace fcitx {
         const bool sameprefix = pb != std::string::npos && pb >= rangeStart && pb <= static_cast<size_t>(cursor);
 
         LOG("surr=\"" + text + "\"");
-        LOG("cur=" + std::to_string(cursor));
-        LOG("anc=" + std::to_string(anchor));
         LOG("sameprefix=" + std::to_string(sameprefix));
         // Detect browser autofill/autocomplete suggestions via selection.
         if (cursor != anchor) {
@@ -468,6 +468,12 @@ namespace fcitx {
             replacement_start_ms_.store(0, std::memory_order_release);
             replacement_thread_id_.store(0, std::memory_order_release);
             std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+            // Validate surr cursor pos should match realtextLen after all BS applied
+            const auto& surr = ic_->surroundingText();
+            if (surr.isValid() && static_cast<unsigned int>(surr.cursor()) != realtextLen) {
+                // APP L
+                std::this_thread::sleep_for(std::chrono::milliseconds(30));
+            }
             ic_->commitString(pending_commit_string_);
             LOTUS_INFO("Commit: " + pending_commit_string_);
             expected_backspaces_     = 0;
@@ -507,6 +513,10 @@ namespace fcitx {
     void LotusState::checkForwardSpecialKey(KeyEvent& keyEvent, KeySym& currentSym) {
         if (keyEvent.key().isCursorMove() || currentSym == FcitxKey_Tab || currentSym == FcitxKey_KP_Tab || currentSym == FcitxKey_ISO_Left_Tab || currentSym == FcitxKey_Escape ||
             keyEvent.key().hasModifier()) {
+            is_deleting_.store(false, std::memory_order_release);
+            expected_backspaces_     = 0;
+            current_backspace_count_ = 0;
+            pending_commit_string_.clear();
             history_.clear();
             ResetEngine(lotusEngine_.handle());
             LOG("buf=" + oldPreBuffer_);
@@ -910,6 +920,11 @@ namespace fcitx {
             shouldCapitalize_        = false;
             isPrevPunctuation_       = false;
             needEngineReset.store(false);
+        }
+
+        if (g_mouse_clicked.load(std::memory_order_relaxed) && !is_deleting_.load()) {
+            g_mouse_clicked.store(false, std::memory_order_relaxed);
+            clearAllBuffers();
         }
 
         if (needFallbackCommit.load(std::memory_order_acquire)) {
