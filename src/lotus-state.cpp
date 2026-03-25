@@ -470,9 +470,18 @@ namespace fcitx {
             std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
             // Validate surr cursor pos should match realtextLen after all BS applied
             const auto& surr = ic_->surroundingText();
-            if (surr.isValid() && static_cast<unsigned int>(surr.cursor()) != realtextLen) {
-                // APP L
-                std::this_thread::sleep_for(std::chrono::milliseconds(30));
+            if (surr.isValid() && static_cast<unsigned int>(surr.cursor()) == realtextLen) {
+                ; // NGON
+            } else {
+                // Retry x3 (3 ms each), khi can (cho bon l chromium,electron)
+                // Khong ron dau
+                for (int retry = 0; retry < 3; ++retry) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(3));
+                    const auto& surr2 = ic_->surroundingText();
+                    if (surr2.isValid() && static_cast<unsigned int>(surr2.cursor()) == realtextLen) {
+                        break;
+                    }
+                }
             }
             ic_->commitString(pending_commit_string_);
             LOTUS_INFO("Commit: " + pending_commit_string_);
@@ -481,8 +490,8 @@ namespace fcitx {
             pending_commit_string_   = "";
 
             event.filterAndAccept(); // Filter out the final trigger backspace.
-            if (std::string(ic_->frontend()) == "dbus")
-                replayBufferedKeys();
+            // if (std::string(ic_->frontend()) == "dbus")
+            //     replayBufferedKeys();
             return true;
         }
         return false;
@@ -938,8 +947,8 @@ namespace fcitx {
             }
             replacement_thread_id_.store(0, std::memory_order_release);
             replacement_start_ms_.store(0, std::memory_order_release);
-            if (std::string(ic_->frontend()) != "dbus" && ic_->surroundingText().isValid())
-                replayBufferedKeys();
+            // if (std::string(ic_->frontend()) != "dbus" && ic_->surroundingText().isValid())
+            //     replayBufferedKeys();
         }
         KeySym currentSym = keyEvent.rawKey().sym();
         if (*engine_->config().autoCapitalizeAfterPunctuation && realMode != LotusMode::Off) {
@@ -1163,7 +1172,7 @@ namespace fcitx {
     bool LotusState::isEmptyHistory() {
         return history_.empty();
     }
-
+    /*
     void LotusState::replayBufferedKeys() {
         LOTUS_INFO("Starting replay buffered keys");
         if (buffered_keys_.empty()) {
@@ -1292,5 +1301,5 @@ namespace fcitx {
             }
         }
         LOTUS_INFO("Replay buffered keys done");
-    }
+    }*/
 } // namespace fcitx
