@@ -192,8 +192,8 @@ int main(int argc, char* argv[]) {
     sigaction(SIGINT, &sa, nullptr);
 
     while (g_running.load(std::memory_order_acquire)) {
-        //int poll_timeout = (pending_backspaces > 0) ? 1 : -1;
-        int ret = poll(fds.data(), fds.size(), -1);
+        int poll_timeout = (pending_backspaces > 0) ? 1 : -1;
+        int ret          = poll(fds.data(), fds.size(), poll_timeout);
 
         if (ret < 0) {
             if (errno == EINTR) {
@@ -202,9 +202,11 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        while (pending_backspaces > 0) {
-            send_single_backspace();
-            --pending_backspaces;
+        if (ret == 0) {
+            if (pending_backspaces > 0) {
+                send_single_backspace();
+                --pending_backspaces;
+            }
         }
 
         libinput_dispatch(li);
