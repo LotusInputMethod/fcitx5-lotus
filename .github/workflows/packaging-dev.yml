@@ -13,35 +13,27 @@ jobs:
         include:
           - distro: debian:12
             codename: bookworm
-            parallel: 2
             enable_qt: 'OFF'
           - distro: debian:13
             codename: trixie
-            parallel: 4
             enable_qt: 'ON'
           - distro: debian:testing
             codename: testing
-            parallel: 4
             enable_qt: 'ON'
           - distro: debian:unstable
             codename: sid
-            parallel: 4
             enable_qt: 'ON'
           - distro: ubuntu:22.04
             codename: jammy
-            parallel: 1
             enable_qt: 'OFF'
           - distro: ubuntu:24.04
             codename: noble
-            parallel: 2
             enable_qt: 'OFF'
           - distro: ubuntu:25.04
             codename: plucky
-            parallel: 4
             enable_qt: 'ON'
           - distro: ubuntu:25.10
             codename: questing
-            parallel: 4
             enable_qt: 'ON'
 
     runs-on: ubuntu-latest
@@ -57,7 +49,6 @@ jobs:
       - name: Build DEB
         uses: jtdor/build-deb-action@v1
         env:
-          DEB_BUILD_OPTIONS: parallel=${{ matrix.parallel }}
           DEB_BUILD_PROFILES: ${{ matrix.enable_qt == 'OFF' && 'noqut' || '' }}
         with:
           docker-image: ${{ matrix.distro }}
