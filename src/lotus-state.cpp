@@ -609,8 +609,8 @@ namespace fcitx {
             compareAndSplitStrings(oldPreBuffer_, commitStr, commonPrefix, deletedPart, addedPart);
 
             if (!deletedPart.empty()) {
-                performReplacement(deletedPart, addedPart);
                 keyEvent.filterAndAccept();
+                performReplacement(deletedPart, addedPart);
             } else {
                 bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
                 if (!addedPart.empty() && (keyUtf8 != addedPart || wasAutoCapitalized)) {
@@ -663,6 +663,7 @@ namespace fcitx {
             std::string addedPart;
             compareAndSplitStrings(oldPreBuffer_, commitStr, commonPrefix, deletedPart, addedPart);
 
+            keyEvent.filterAndAccept();
             if (!deletedPart.empty()) {
                 performReplacement(deletedPart, addedPart);
             } else if (!addedPart.empty()) {
@@ -674,7 +675,6 @@ namespace fcitx {
             ResetEngine(lotusEngine_.handle());
             oldPreBuffer_.clear();
 
-            keyEvent.filterAndAccept();
             return;
         }
 
