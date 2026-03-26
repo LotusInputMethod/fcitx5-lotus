@@ -1,6 +1,3 @@
-%global _lto_cflags %nil
-%global optflags %(echo "%{optflags}" | sed 's/-g[^ ]*//g')
-
 Name:           fcitx5-lotus
 Version:        1.7.0
 Release:        1
