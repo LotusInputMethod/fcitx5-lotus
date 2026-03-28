@@ -159,43 +159,54 @@ namespace fcitx {
         const unsigned int cursor  = s.cursor();
         const unsigned int anchor  = s.anchor();
         const auto&        text    = s.text();
-        const size_t       textLen = utf8::length(text);
+        const size_t       textCharLen = utf8::lengthValidated(text);
+
+        if (textCharLen == utf8::INVALID_LENGTH || cursor > textCharLen || anchor > textCharLen) {
+            return false;
+        }
+
+        // Convert char to byte offsets for std::string functions
+        const size_t cursorByte = fcitx::utf8::ncharByteLength(text.begin(), cursor);
+        const size_t anchorByte = fcitx::utf8::ncharByteLength(text.begin(), anchor);
 
         // Fix that surrounding text is delay update
-        const size_t buffLen       = utf8::length(oldPreBuffer_);
+        const size_t buffByteLen   = oldPreBuffer_.size();
         const size_t pb            = text.find(oldPreBuffer_);
-        size_t       rangeStart    = buffLen >= static_cast<size_t>(cursor) ? 0 : static_cast<size_t>(cursor) - buffLen;
-        size_t       currSuffixLen = textLen > static_cast<size_t>(cursor) ? textLen - static_cast<size_t>(cursor) : 0;
+        size_t       rangeStartByte = buffByteLen >= cursorByte ? 0 : cursorByte - buffByteLen;
+        size_t       currSuffixLen = textCharLen > static_cast<size_t>(cursor) ? textCharLen - static_cast<size_t>(cursor) : 0;
+        
         if (prevSurrSuffixLen_ != currSuffixLen && cursor < realtextLen.load(std::memory_order_acquire))
             realtextLen.store(cursor, std::memory_order_release);
         prevSurrSuffixLen_    = currSuffixLen;
-        const bool sameprefix = pb != std::string::npos && pb >= rangeStart && pb <= static_cast<size_t>(cursor);
+        const bool sameprefix = pb != std::string::npos && pb >= rangeStartByte && pb <= cursorByte;
 
         // Detect browser autofill/autocomplete suggestions via selection.
         if (cursor != anchor) {
-            unsigned int selectionStart = std::min(anchor, cursor);
-            unsigned int selectionEnd   = std::max(anchor, cursor);
+            unsigned int selectionStartChar = std::min(anchor, cursor);
+            unsigned int selectionEndChar   = std::max(anchor, cursor);
+            size_t       selectionStartByte = std::min(anchorByte, cursorByte);
+            size_t       selectionEndByte   = std::max(anchorByte, cursorByte);
 
             // Only consider it browser autofill if the selection starts at the cursor
             // and extends to the end of the line (common address bar behavior).
-            if (selectionStart >= cursor || (selectionStart < cursor && selectionEnd > cursor)) {
+            if (selectionStartChar >= cursor || (selectionStartChar < cursor && selectionEndChar > cursor)) {
                 if (!sameprefix)
                     return false;
                 // If the selection contains a newline, it's likely a multiline editor (AI ghost text),
                 // not a single-line URL/Search bar.
-                size_t p = text.find('\n', selectionStart);
-                return p == std::string::npos || p >= static_cast<size_t>(selectionEnd);
+                size_t p = text.find('\n', selectionStartByte);
+                return p == std::string::npos || p >= selectionEndByte;
             }
         }
 
-        if (textLen == static_cast<size_t>(cursor)) {
-            realtextLen.store(textLen, std::memory_order_release);
+        if (textCharLen == static_cast<size_t>(cursor)) {
+            realtextLen.store(textCharLen, std::memory_order_release);
             return false;
         }
 
         // Heuristic: rapid text growth in a single-line context.
         // Applied only when no newline is present after the cursor to distinguish from AI text in editors.
-        if (textLen > static_cast<size_t>(cursor) && cursor == realtextLen.load(std::memory_order_acquire) && text.find('\n', cursor) == std::string::npos && sameprefix)
+        if (textCharLen > static_cast<size_t>(cursor) && cursor == realtextLen.load(std::memory_order_acquire) && text.find('\n', cursorByte) == std::string::npos && sameprefix)
             return true;
 
         for (auto v = realtextLen.load(std::memory_order_acquire); v < cursor && !realtextLen.compare_exchange_weak(v, cursor, std::memory_order_acq_rel);)
