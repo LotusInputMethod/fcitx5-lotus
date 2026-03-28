@@ -189,7 +189,7 @@ namespace fcitx {
 
             // Only consider it browser autofill if the selection starts at the cursor
             // and extends to the end of the line (common address bar behavior).
-            if (selectionStartChar >= cursor || (selectionStartChar < cursor && selectionEndChar > cursor)) {
+            if (anchor >= cursor) {
                 if (!sameprefix)
                     return false;
                 // If the selection contains a newline, it's likely a multiline editor (AI ghost text),
