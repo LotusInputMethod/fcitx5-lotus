@@ -156,9 +156,9 @@ namespace fcitx {
             return false;
         }
 
-        const unsigned int cursor  = s.cursor();
-        const unsigned int anchor  = s.anchor();
-        const auto&        text    = s.text();
+        const unsigned int cursor      = s.cursor();
+        const unsigned int anchor      = s.anchor();
+        const auto&        text        = s.text();
         const size_t       textCharLen = utf8::lengthValidated(text);
 
         if (textCharLen == utf8::INVALID_LENGTH || cursor > textCharLen || anchor > textCharLen) {
@@ -170,11 +170,11 @@ namespace fcitx {
         const size_t anchorByte = fcitx::utf8::ncharByteLength(text.begin(), anchor);
 
         // Fix that surrounding text is delay update
-        const size_t buffByteLen   = oldPreBuffer_.size();
-        const size_t pb            = text.find(oldPreBuffer_);
+        const size_t buffByteLen    = oldPreBuffer_.size();
+        const size_t pb             = text.find(oldPreBuffer_);
         size_t       rangeStartByte = buffByteLen >= cursorByte ? 0 : cursorByte - buffByteLen;
-        size_t       currSuffixLen = textCharLen > static_cast<size_t>(cursor) ? textCharLen - static_cast<size_t>(cursor) : 0;
-        
+        size_t       currSuffixLen  = textCharLen > static_cast<size_t>(cursor) ? textCharLen - static_cast<size_t>(cursor) : 0;
+
         if (prevSurrSuffixLen_ != currSuffixLen && cursor < realtextLen.load(std::memory_order_acquire))
             realtextLen.store(cursor, std::memory_order_release);
         prevSurrSuffixLen_    = currSuffixLen;
