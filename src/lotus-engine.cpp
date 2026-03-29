@@ -184,7 +184,8 @@ namespace fcitx {
 #ifndef DISABLE_VERSION_ACTION
             versionAction_.get(),
 #endif
-            charsetAction_.get(), spellCheckAction_.get(), macroAction_.get(), capitalizeMacroAction_.get(), autoNonVnRestoreAction_.get()};
+            charsetAction_.get(),          spellCheckAction_.get(),       macroAction_.get(),   capitalizeMacroAction_.get(),
+            autoNonVnRestoreAction_.get(), enableDictionaryAction_.get(), settingsAction_.get()};
     }
 
     void LotusEngine::initToggleAction(std::unique_ptr<SimpleAction>& action, Option<bool>& option, const std::string& actionId, const std::string& iconName,
@@ -318,6 +319,19 @@ namespace fcitx {
             refreshEngine();
         } else if (path == "app_rules") {
             appRulesTables_.load(config, true);
+            {
+                std::lock_guard<std::mutex> lock(appRulesMutex_);
+                for (auto it = appRules_.begin(); it != appRules_.end();) {
+                    if (!isStartsWith(it->first, "ctx_")) {
+                        it = appRules_.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+                for (const auto& rule : *appRulesTables_.rules) {
+                    appRules_[*rule.app] = static_cast<LotusMode>(*rule.mode);
+                }
+            }
             saveAppRules();
             refreshEngine();
         }
@@ -638,7 +652,16 @@ namespace fcitx {
     }
 
     void LotusEngine::loadAppRules() {
-        appRules_.clear();
+        {
+            std::lock_guard<std::mutex>                lock(appRulesMutex_);
+            std::unordered_map<std::string, LotusMode> ctxRules;
+            for (const auto& [app, mode] : appRules_) {
+                if (isStartsWith(app, "ctx_")) {
+                    ctxRules[app] = mode;
+                }
+            }
+            appRules_ = std::move(ctxRules);
+        }
         auto loadFromFile = [this](const std::string& path) {
             std::ifstream file(path);
             if (!file.is_open())
@@ -650,16 +673,18 @@ namespace fcitx {
                     continue;
                 auto delimiterPos = line.find('=');
                 if (delimiterPos != std::string::npos) {
-                    std::string app  = line.substr(0, delimiterPos);
-                    std::string mode = line.substr(delimiterPos + 1);
-                    appRules_[app]   = static_cast<LotusMode>(std::stoi(mode));
+                    std::string                 app  = line.substr(0, delimiterPos);
+                    std::string                 mode = line.substr(delimiterPos + 1);
+                    std::lock_guard<std::mutex> lock(appRulesMutex_);
+                    appRules_[app] = static_cast<LotusMode>(std::stoi(mode));
                 }
             }
             file.close();
         };
         loadFromFile(appRulesPath_);
 
-        std::vector<lotusAppRule> rules;
+        std::lock_guard<std::mutex> lock(appRulesMutex_);
+        std::vector<lotusAppRule>   rules;
         for (const auto& pair : appRules_) {
             if (pair.first.find("ctx_") == 0)
                 continue;
@@ -678,6 +703,7 @@ namespace fcitx {
 
         file << "# Lotus Per-App Configuration\n";
         file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Slow), 3 = Uinput (Hardcore), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker\n";
+        std::lock_guard<std::mutex> lock(appRulesMutex_);
         for (const auto& pair : appRules_) {
             bool currentIsCtx = (pair.first.find("ctx_") == 0);
             if (!currentIsCtx) {
@@ -688,15 +714,19 @@ namespace fcitx {
     }
 
     LotusMode LotusEngine::getAppRule(const std::string& appName) const {
-        for (const auto& rule : *appRulesTables_.rules) {
-            if (*rule.app == appName) {
-                return static_cast<LotusMode>(*rule.mode);
-            }
+        std::lock_guard<std::mutex> lock(appRulesMutex_);
+        auto                        it = appRules_.find(appName);
+        if (it != appRules_.end()) {
+            return it->second;
         }
         return modeStringToEnum(config_.mode.value());
     }
 
     void LotusEngine::setAppRule(const std::string& appName, LotusMode mode) {
+        {
+            std::lock_guard<std::mutex> lock(appRulesMutex_);
+            appRules_[appName] = mode;
+        }
         auto rules = *appRulesTables_.rules;
 
         bool found = false;
@@ -715,7 +745,6 @@ namespace fcitx {
             rules.push_back(std::move(newRule));
         }
 
-        appRules_[appName] = mode;
         appRulesTables_.rules.setValue(std::move(rules));
     }
 
