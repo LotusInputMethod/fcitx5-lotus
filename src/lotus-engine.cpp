@@ -718,7 +718,7 @@ namespace fcitx {
         file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Slow), 3 = Uinput (Hardcore), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker\n";
         std::lock_guard<std::mutex> lock(appRulesMutex_);
         for (const auto& pair : appRules_) {
-            bool currentIsCtx = (pair.first.find("ctx_") == 0);
+            bool currentIsCtx = isStartsWith(pair.first, "ctx_");
             if (!currentIsCtx) {
                 file << pair.first << "=" << static_cast<int>(pair.second) << "\n";
             }
@@ -886,14 +886,16 @@ namespace fcitx {
     }
 
     std::string LotusEngine::getProgramName(InputContext* ic) {
-        if (!ic) {
+        if (ic == nullptr) {
             return "unknown-app";
         }
         std::string programName = ic->program();
         if (programName.empty() || programName == "wayland" || programName == "x11") {
             // Fallback: InputContext address-based resolution
             // This ensures at least per-window separation.
-            programName = "ctx_" + std::to_string(reinterpret_cast<uintptr_t>(ic));
+            std::ostringstream oss;
+            oss << "ctx_" << static_cast<const void*>(ic);
+            programName = oss.str();
         }
         return programName;
     }

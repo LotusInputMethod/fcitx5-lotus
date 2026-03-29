@@ -115,7 +115,7 @@ std::string get_current_username() {
 }
 
 uid_t get_uid_for_user(const std::string& username) {
-    struct passwd  pw_buf;
+    struct passwd  pw_buf{};
     struct passwd* pw = nullptr;
     char           buf[1024];
     int            res = getpwnam_r(username.c_str(), &pw_buf, buf, sizeof(buf), &pw);
