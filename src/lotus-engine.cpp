@@ -100,6 +100,7 @@ namespace fcitx {
     LotusEngine::LotusEngine(Instance* instance) : instance_(instance), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
         const char* desktop = std::getenv("XDG_CURRENT_DESKTOP");
         isGnome_            = (desktop != nullptr) && std::string(desktop).find("GNOME") != std::string::npos;
+        // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
         startMonitoring();
         Init();
         {
@@ -663,23 +664,32 @@ namespace fcitx {
             appRules_ = std::move(ctxRules);
         }
         auto loadFromFile = [this](const std::string& path) {
+            if (path.empty()) {
+                LOTUS_WARN("App rules path is empty, skipping load");
+                return;
+            }
             std::ifstream file(path);
             if (!file.is_open())
                 return;
 
-            std::string line;
+            std::unordered_map<std::string, LotusMode> tempRules;
+            std::string                                line;
             while (std::getline(file, line)) {
                 if (line.empty() || line[0] == '#')
                     continue;
                 auto delimiterPos = line.find('=');
                 if (delimiterPos != std::string::npos) {
-                    std::string                 app  = line.substr(0, delimiterPos);
-                    std::string                 mode = line.substr(delimiterPos + 1);
-                    std::lock_guard<std::mutex> lock(appRulesMutex_);
-                    appRules_[app] = static_cast<LotusMode>(std::stoi(mode));
+                    std::string app  = line.substr(0, delimiterPos);
+                    std::string mode = line.substr(delimiterPos + 1);
+                    tempRules[app]   = static_cast<LotusMode>(std::stoi(mode));
                 }
             }
             file.close();
+
+            std::lock_guard<std::mutex> lock(appRulesMutex_);
+            for (const auto& [app, mode] : tempRules) {
+                appRules_[app] = mode;
+            }
         };
         loadFromFile(appRulesPath_);
 
@@ -697,6 +707,7 @@ namespace fcitx {
     }
 
     void LotusEngine::saveAppRules() const {
+        // Method is const but locks mutable appRulesMutex_ to safely read appRules_ state
         std::ofstream file(appRulesPath_, std::ios::trunc);
         if (!file.is_open())
             return;
@@ -723,11 +734,9 @@ namespace fcitx {
     }
 
     void LotusEngine::setAppRule(const std::string& appName, LotusMode mode) {
-        {
-            std::lock_guard<std::mutex> lock(appRulesMutex_);
-            appRules_[appName] = mode;
-        }
-        auto rules = *appRulesTables_.rules;
+        std::lock_guard<std::mutex> lock(appRulesMutex_);
+        appRules_[appName] = mode;
+        auto rules         = *appRulesTables_.rules;
 
         bool found = false;
         for (auto& rule : rules) {
