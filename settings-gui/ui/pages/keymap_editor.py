@@ -298,13 +298,15 @@ class KeymapEditorPage(BaseEditorPage):
         for action_code, action_name in BAMBOO_ACTIONS:
             self.combo_action.addItem(action_name, action_code)
 
-        btn_add = QPushButton(QIcon.fromTheme("list-add"), _("Add"))
-        btn_add.setToolTip(_("Add / Update Keymap"))
-        btn_add.clicked.connect(self.on_add)
+        self.btn_add = QPushButton(QIcon.fromTheme("list-add"), _("Add"))
+        self.btn_add.setToolTip(_("Add Keymap"))
+        self.btn_add.clicked.connect(self.on_add)
+        self.input_key.textChanged.connect(self._update_add_button_icon)
+        self.combo_action.currentIndexChanged.connect(self._update_add_button_icon)
 
         input_layout.addWidget(self.input_key)
         input_layout.addWidget(self.combo_action)
-        input_layout.addWidget(btn_add)
+        input_layout.addWidget(self.btn_add)
         editor_layout.addLayout(input_layout)
 
         # Table
@@ -435,7 +437,30 @@ class KeymapEditorPage(BaseEditorPage):
                 return
 
         self._add_row(key, self.combo_action.currentData())
+        self.input_key.clear()
+        self._update_add_button_icon()
+        self.input_key.setFocus()
         self._on_item_changed()
+
+    def _update_add_button_icon(self, *_args):
+        """Changes the Add button icon to Update if key exists."""
+        key = self.input_key.text().strip()
+
+        # Disable button if key is empty
+        self.btn_add.setEnabled(bool(key))
+
+        found = any(
+            self.table.item(r, 0) and self.table.item(r, 0).text() == key
+            for r in range(self.table.rowCount())
+        )
+        if found:
+            self.btn_add.setIcon(QIcon.fromTheme("document-save"))
+            self.btn_add.setText(_("Update"))
+            self.btn_add.setToolTip(_("Update Keymap"))
+        else:
+            self.btn_add.setIcon(QIcon.fromTheme("list-add"))
+            self.btn_add.setText(_("Add"))
+            self.btn_add.setToolTip(_("Add Keymap"))
 
     def on_load_preset(self):
         """Loads a predefined set of keymaps."""
@@ -481,6 +506,8 @@ class KeymapEditorPage(BaseEditorPage):
         cell_combo = self.table.cellWidget(row, 1)
         if cell_combo:
             self.combo_action.setCurrentIndex(cell_combo.currentIndex())
+
+        self._update_add_button_icon()
 
     def do_import(self):
         """Imports keymap from a TSV file."""
