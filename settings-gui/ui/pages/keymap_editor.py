@@ -421,22 +421,32 @@ class KeymapEditorPage(BaseEditorPage):
             self.table.setRowHidden(row, search_text not in key and search_text not in action)
 
     def on_add(self):
-        """Adds a new keymap entry."""
+        """Adds or updates a keymap entry."""
         key = self.input_key.text().strip()
         if not key:
             return
 
-        # Check for update
-        row = self._find_row_by_key(key)
-        if row is not None:
-            combo = self.table.cellWidget(row, 1)
-            if combo:
-                combo.setCurrentIndex(self.combo_action.currentIndex())
-            return
-
-        self._add_row(key, self.combo_action.currentData())
+        self.upsert_row(key, self.combo_action.currentData())
         self.input_key.clear()
         self.input_key.setFocus()
+
+    def upsert_row(self, key: str, action_code: str):
+        """Adds or updates a row in the keymap table."""
+        row = self._find_row_by_key(key)
+        if row is not None:
+            # Update existing
+            cell_combo = self.table.cellWidget(row, 1)
+            if cell_combo:
+                idx = cell_combo.findData(action_code)
+                if idx >= 0:
+                    cell_combo.setCurrentIndex(idx)
+            self._on_item_changed()
+            return
+
+        # Insert new
+        self._add_row(key, action_code)
+        self.on_search_changed()
+        self.update_button_states()
         self._on_item_changed()
 
     def _find_row_by_key(self, key: str) -> int | None:
