@@ -294,7 +294,6 @@ class DictEditorPage(BaseEditorPage):
 
         self.upsert_row(word)
         self.input_word.clear()
-        self._update_add_button_icon()
         self.input_word.setFocus()
 
     def _update_add_button_icon(self):

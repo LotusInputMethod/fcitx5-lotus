@@ -302,7 +302,6 @@ class KeymapEditorPage(BaseEditorPage):
         self.btn_add.setToolTip(_("Add Keymap"))
         self.btn_add.clicked.connect(self.on_add)
         self.input_key.textChanged.connect(self._update_add_button_icon)
-        self.combo_action.currentIndexChanged.connect(self._update_add_button_icon)
 
         input_layout.addWidget(self.input_key)
         input_layout.addWidget(self.combo_action)
@@ -428,19 +427,25 @@ class KeymapEditorPage(BaseEditorPage):
             return
 
         # Check for update
-        for row in range(self.table.rowCount()):
-            item = self.table.item(row, 0)
-            if item and item.text() == key:
-                combo = self.table.cellWidget(row, 1)
-                if combo:
-                    combo.setCurrentIndex(self.combo_action.currentIndex())
-                return
+        row = self._find_row_by_key(key)
+        if row is not None:
+            combo = self.table.cellWidget(row, 1)
+            if combo:
+                combo.setCurrentIndex(self.combo_action.currentIndex())
+            return
 
         self._add_row(key, self.combo_action.currentData())
         self.input_key.clear()
-        self._update_add_button_icon()
         self.input_key.setFocus()
         self._on_item_changed()
+
+    def _find_row_by_key(self, key: str) -> int | None:
+        """Finds row index for a given key. Returns None if not found."""
+        for r in range(self.table.rowCount()):
+            item = self.table.item(r, 0)
+            if item and item.text() == key:
+                return r
+        return None
 
     def _update_add_button_icon(self, *_args):
         """Changes the Add button icon to Update if key exists."""
@@ -449,10 +454,7 @@ class KeymapEditorPage(BaseEditorPage):
         # Disable button if key is empty
         self.btn_add.setEnabled(bool(key))
 
-        found = any(
-            self.table.item(r, 0) and self.table.item(r, 0).text() == key
-            for r in range(self.table.rowCount())
-        )
+        found = self._find_row_by_key(key) is not None
         if found:
             self.btn_add.setIcon(QIcon.fromTheme("document-save"))
             self.btn_add.setText(_("Update"))
@@ -506,8 +508,6 @@ class KeymapEditorPage(BaseEditorPage):
         cell_combo = self.table.cellWidget(row, 1)
         if cell_combo:
             self.combo_action.setCurrentIndex(cell_combo.currentIndex())
-
-        self._update_add_button_icon()
 
     def do_import(self):
         """Imports keymap from a TSV file."""

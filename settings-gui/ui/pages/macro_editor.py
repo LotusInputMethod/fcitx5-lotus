@@ -323,16 +323,24 @@ class MacroEditorPage(BaseEditorPage):
         self.dbus.set_sub_config_list("lotus-macro", "Macro", data)
         self.initial_state = self._get_current_state()
 
+    def _find_row_by_key(self, key: str) -> int | None:
+        """Finds row index for a given key. Returns None if not found."""
+        for r in range(self.table.rowCount()):
+            item = self.table.item(r, 0)
+            if item and item.text() == key:
+                return r
+        return None
+
     def upsert_row(self, key: str, value: str, sort: bool = True):
         # Update existing
-        for row in range(self.table.rowCount()):
-            if self.table.item(row, 0) and self.table.item(row, 0).text() == key:
-                self.table.item(row, 1).setText(value)
-                self._apply_row_highlight(row, key)
-                if sort:
-                    self.on_search_changed()  # Re-apply filter
-                self.update_button_states()
-                return
+        row = self._find_row_by_key(key)
+        if row is not None:
+            self.table.item(row, 1).setText(value)
+            self._apply_row_highlight(row, key)
+            if sort:
+                self.on_search_changed()  # Re-apply filter
+            self.update_button_states()
+            return
 
         # Insert new
         row = self.table.rowCount()
@@ -420,7 +428,6 @@ class MacroEditorPage(BaseEditorPage):
         self.upsert_row(key, val)
         self.input_key.clear()
         self.input_val.clear()
-        self._update_add_button_icon()
         self.input_key.setFocus()
 
     def _update_add_button_icon(self):
@@ -440,10 +447,7 @@ class MacroEditorPage(BaseEditorPage):
         # Disable button if key is invalid, empty, or value is empty
         self.btn_add.setEnabled(not is_invalid and bool(key) and bool(val))
 
-        found = any(
-            self.table.item(r, 0) and self.table.item(r, 0).text() == key
-            for r in range(self.table.rowCount())
-        )
+        found = self._find_row_by_key(key) is not None
         if found:
             self.btn_add.setIcon(QIcon.fromTheme("document-save"))
             self.btn_add.setText(_("Update"))
