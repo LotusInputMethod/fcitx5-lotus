@@ -58,7 +58,7 @@ class BackupPage(QWidget):
 
         self.import_desc = QLabel(
             _(
-                "Save your configurations to a JSON file, or restore them from a .lotusbak file. Select what you want to include:"
+                "Save and restore your configurations via JSON files. Select the components you wish to include:"
             )
         )
         self.import_desc.setWordWrap(True)
@@ -134,13 +134,13 @@ class BackupPage(QWidget):
             return
 
         default_filename = (
-            f"lotus-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.lotusbak"
+            f"lotus-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
         )
         path, _filter = QFileDialog.getSaveFileName(
             self,
             _("Export Backup"),
             os.path.join(os.path.expanduser("~"), default_filename),
-            _("Lotus Backup (*.lotusbak);;All Files (*)"),
+            _("JSON Backup (*.json);;All Files (*)"),
         )
         if not path:
             return
@@ -194,7 +194,7 @@ class BackupPage(QWidget):
             self,
             _("Select Backup File"),
             os.path.expanduser("~"),
-            _("Lotus Backup (*.lotusbak);;All Files (*)"),
+            _("JSON Backup (*.json);;All Files (*)"),
         )
         if not path:
             return
