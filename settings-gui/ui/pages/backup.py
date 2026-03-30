@@ -58,7 +58,7 @@ class BackupPage(QWidget):
 
         self.import_desc = QLabel(
             _(
-                "Save and restore your configurations via JSON files. Select the components you wish to include:"
+                "Save or restore your configurations via JSON files. Select the components you wish to include:"
             )
         )
         self.import_desc.setWordWrap(True)
