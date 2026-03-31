@@ -17,6 +17,7 @@ import (
 
 type FcitxBambooEngine struct {
 	preeditor               bamboo.IEngine
+	appendingKeySet         map[rune]struct{}
 	macroTable              *MacroTable
 	dictionary              map[string]bool
 	autoNonVnRestore        bool
@@ -208,6 +209,14 @@ func (e *FcitxBambooEngine) getBambooInputMode() bamboo.Mode {
 	return bamboo.VietnameseMode
 }
 
+func (e *FcitxBambooEngine) rebuildAppendingKeySet() {
+	keys := e.preeditor.GetInputMethod().AppendingKeys
+	e.appendingKeySet = make(map[rune]struct{}, len(keys))
+	for _, k := range keys {
+		e.appendingKeySet[k] = struct{}{}
+	}
+}
+
 func inKeyList(list []rune, key rune) bool {
 	for _, s := range list {
 		if s == key {
@@ -225,7 +234,10 @@ func (e *FcitxBambooEngine) toUpper(keyRune rune) rune {
 		'}': ']',
 	}
 
-	if upperSpecialKey, found := keyMapping[keyRune]; found && inKeyList(e.preeditor.GetInputMethod().AppendingKeys, keyRune) {
+	if upperSpecialKey, found := keyMapping[keyRune]; found {
+		if _, ok := e.appendingKeySet[keyRune]; !ok {
+			return keyRune
+		}
 		keyRune = upperSpecialKey
 	}
 	return keyRune
@@ -272,7 +284,7 @@ func (e *FcitxBambooEngine) getCommitText(keyVal, state uint32) (string, bool) {
 			keyRune = e.toUpper(keyRune)
 		}
 		e.preeditor.ProcessKey(keyRune, e.getBambooInputMode())
-		if inKeyList(e.preeditor.GetInputMethod().AppendingKeys, keyRune) {
+		if _, ok := e.appendingKeySet[keyRune]; ok {
 			var newText string
 			if e.shouldFallbackToEnglish(true) {
 				newText = e.getProcessedString(bamboo.EnglishMode)

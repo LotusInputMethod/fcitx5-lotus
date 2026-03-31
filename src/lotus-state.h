@@ -107,6 +107,8 @@ namespace fcitx {
         bool                    isPrevPunctuation_  = false;
         int64_t                 lastDeactivateTime_ = 0;
         bool                    wa_chromium_flag    = false;
+        bool                    surrtp              = false;
+        bool                    everHadValidSurr_   = false;
 
         /**
          * @brief Connects to the uinput server.
@@ -125,7 +127,7 @@ namespace fcitx {
          * @param count Number of backspaces to send.
          */
         void send_backspace_uinput(int count) const;
-
+        void send_backspace_forward(int count) const;
         /**
          * @brief Checks if autofill is certain for surrounding text.
          * @param s The surrounding text.
@@ -171,7 +173,7 @@ namespace fcitx {
          * @param deletedPart Text to delete.
          * @param addedPart Text to insert.
          */
-        void performReplacement(const std::string& deletedPart, const std::string& addedPart);
+        bool performReplacement(const std::string& deletedPart, const std::string& addedPart);
 
         /**
          * @brief Handles the double space to period replacement.

@@ -6,18 +6,25 @@
  */
 
 /**
- * @file ack-apps.h
+ * @file app_quirks.h
  * @brief List of applications requiring acknowledgment workaround.
  *
  * These browsers need special handling for uinput mode to work correctly.
  */
 
 #include <string>
-#include <vector>
+#include <string_view>
 
 /**
  * @brief List of application names requiring ACK workaround.
  *
  * Chromium-based browsers that need special handling for text replacement.
  */
-static std::vector<std::string> ack_apps = {"chrome", "chromium", "brave", "edge", "vivaldi", "opera", "coccoc", "cromite", "helium", "thorium", "slimjet", "yandex"};
+inline constexpr std::array<std::string_view, 12> ack_apps = {"chrome", "chromium", "brave",  "edge",    "vivaldi", "opera",
+                                                              "coccoc", "cromite",  "helium", "thorium", "slimjet", "yandex"};
+
+/**
+ * @brief List of application names have goood support surrowding text
+ *
+ */
+inline constexpr std::array<std::string_view, 1> surrtp_apps = {"soffice"};

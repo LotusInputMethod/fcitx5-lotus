@@ -158,6 +158,7 @@ func NewEngine(name *C.cchar, dictHandle uintptr, tableHandle uintptr) uintptr {
 		timeFormat:              "%H:%M",
 		dateFormat:              "%d/%m/%Y",
 	}
+	engine.rebuildAppendingKeySet()
 	return uintptr(cgo.NewHandle(engine))
 }
 
@@ -201,7 +202,7 @@ func NewCustomEngine(definition **C.char, dictHandle uintptr, tableHandle uintpt
 		timeFormat:              "%H:%M",
 		dateFormat:              "%d/%m/%Y",
 	}
-
+	engine.rebuildAppendingKeySet()
 	return uintptr(cgo.NewHandle(engine))
 }
 

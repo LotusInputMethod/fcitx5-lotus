@@ -12,7 +12,7 @@
 #include "lotus-candidates.h"
 #include "lotus-monitor.h"
 #include "lotus-utils.h"
-#include "ack-apps.h"
+#include "app_quirks.h"
 #include <sys/socket.h>
 #include <utility>
 #ifndef DISABLE_VERSION_ACTION
@@ -376,6 +376,7 @@ namespace fcitx {
         // TODO: Properly fixes instead ugly WA
         state->wa_chromium_flag = false;
 
+        state->surrtp   = false;
         state->waitAck_ = false;
         if (*config_.fixUinputWithAck) {
             if (targetMode == LotusMode::Uinput || targetMode == LotusMode::UinputHC || targetMode == LotusMode::Smooth) {
@@ -388,9 +389,15 @@ namespace fcitx {
                     if (appName.find(ackApp) != std::string::npos) {
                         if (is_dbus) {
                             state->waitAck_ = true;
-                            LOTUS_INFO(ackApp + " detected, waiting for ack");
+                            LOTUS_INFO(std::string(ackApp) + " detected, waiting for ack");
                         }
                         state->wa_chromium_flag = true;
+                        break;
+                    }
+                }
+                for (const auto& _App : surrtp_apps) {
+                    if (appName.find(_App) != std::string::npos) {
+                        state->surrtp = true;
                         break;
                     }
                 }
@@ -611,11 +618,10 @@ namespace fcitx {
     }
 
     void LotusEngine::deactivate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
-        auto*      ic              = event.inputContext();
-        auto*      state           = ic->propertyFor(&factory_);
-        const bool surrvalid       = ic->surroundingText().isValid();
-        const bool is_dbus         = getFrontendName(ic) == "dbus";
-        state->lastDeactivateTime_ = now_ms();
+        auto*      ic        = event.inputContext();
+        auto*      state     = ic->propertyFor(&factory_);
+        const bool surrvalid = ic->surroundingText().isValid();
+        const bool is_dbus   = getFrontendName(ic) == "dbus";
         if (realMode == LotusMode::Preedit && event.type() != EventType::InputContextFocusOut) {
             state->commitBuffer();
         } else {

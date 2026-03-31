@@ -117,9 +117,7 @@ namespace fcitx {
             LOTUS_ERROR("Cannot send backspace since cannot connect to uinput server");
             return;
         }
-
         ssize_t n = send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
-
         if (n < 0) {
             LOTUS_WARN("Failed to send backspace: " + std::string(strerror(errno)));
             int old_fd = uinput_client_fd_.exchange(-1);
@@ -136,6 +134,16 @@ namespace fcitx {
             LOTUS_INFO("Waiting for ack");
             std::this_thread::sleep_for(std::chrono::milliseconds(count * 5));
         }
+    }
+
+    void LotusState::send_backspace_forward(int count) const {
+        if (count <= 0)
+            return;
+        for (int i = 0; i < count - 1; ++i) {
+            ic_->forwardKey(Key(FcitxKey_BackSpace, KeyState::NoState), false);
+            ic_->forwardKey(Key(FcitxKey_BackSpace, KeyState::NoState), true);
+        }
+        send_backspace_uinput(0); // trigger 1bs to make all bs prev release
     }
 
     bool LotusState::isAutofillCertain(const SurroundingText& s) {
@@ -451,16 +459,16 @@ namespace fcitx {
             replacement_thread_id_.store(0, std::memory_order_release);
             std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
             // Validate surr cursor pos should match realtextLen after all BS applied
-            const auto& surr = ic_->surroundingText();
-            if (surr.isValid() && surr.cursor() == realtextLen.load(std::memory_order_acquire)) {
-                LOTUS_INFO("Skip retry");
-            } else {
-                // Retry x3 (2 ms each), khi can (chromium,electron,...)
-                for (int retry = 0; retry < 3; ++retry) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-                    const auto& surr2 = ic_->surroundingText();
-                    if (surr2.isValid() && surr2.cursor() == realtextLen.load(std::memory_order_acquire)) {
-                        break;
+            if (waitAck_) {
+                const auto& surr = ic_->surroundingText();
+                if (!surr.isValid() || surr.cursor() != realtextLen.load(std::memory_order_acquire)) {
+                    // Retry x5 (1 ms each), khi can (chromium,electron,...)
+                    for (int retry = 0; retry < 5; ++retry) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                        const auto& surr2 = ic_->surroundingText();
+                        if (surr2.isValid() && surr2.cursor() == realtextLen.load(std::memory_order_acquire)) {
+                            break;
+                        }
                     }
                 }
             }
@@ -471,31 +479,68 @@ namespace fcitx {
             pending_commit_string_   = "";
 
             event.filterAndAccept(); // Filter out the final trigger backspace.
-            if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
-                replayBufferedKeys(); // Does we need drop this?
+            //if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
+            //  replayBufferedKeys(); // Does we need drop this?
             return true;
         }
         return false;
     }
 
-    void LotusState::performReplacement(const std::string& deletedPart, const std::string& addedPart) {
+    bool LotusState::performReplacement(const std::string& deletedPart, const std::string& addedPart) {
         LOTUS_INFO("Perform replacement: " + deletedPart + " -> " + addedPart); //NOLINT
         int my_id                = ++current_thread_id_;
         current_backspace_count_ = 0;
         pending_commit_string_   = addedPart;
         const auto& surrounding  = ic_->surroundingText();
-        // Enable Autofill detection for all frontends (Wayland/IBus).
-        // This fixes the "toôi" duplication bug in Chromium-based search bars.
-        // The isAutofillCertain function has been optimized to differentiate
-        // between browser autofill and AI ghost text.
-        int autofillOffset   = isAutofillCertain(surrounding) ? 1 : 0;
+        LOTUS_INFO("surroundingText: \"" + surrounding.text() + "\"");
+        int autofillOffset = isAutofillCertain(surrounding) ? 1 : 0;
+        // This is bushjt wa
+        if (wa_chromium_flag && !autofillOffset) {
+            if (surrounding.isValid())
+                everHadValidSurr_ = true;
+            bool surroundingCapable = ic_->capabilityFlags().test(CapabilityFlag::SurroundingText);
+            if (!everHadValidSurr_ && surroundingCapable && !oldPreBuffer_.empty())
+                autofillOffset = 1;
+        }
+
+        LOTUS_INFO("surroundingText: \"" + surrounding.text() + "\"");
         expected_backspaces_ = static_cast<int>(utf8::length(deletedPart)) + 1 + autofillOffset;
-        replacement_thread_id_.store(my_id, std::memory_order_release);
-        replacement_start_ms_.store(now_ms(), std::memory_order_release);
-        is_deleting_.store(true, std::memory_order_release);
-        monitor_cv.notify_one();
-        send_backspace_uinput(expected_backspaces_);
-        LOTUS_INFO("Send " + std::to_string(expected_backspaces_) + " backspaces");
+        // Use deleteSurroundingText for apps that support it for smooth typing
+        if (surrtp // Lmfao, only this work :>
+            && surrounding.isValid() && ic_->capabilityFlags().test(CapabilityFlag::SurroundingText) &&
+            (surrounding.text()).back() != '\n' // firefox and discord insert '\n' into surrounding cause bug
+            && !(autofillOffset)                // TODO: Guard, remove this when bug of surrounding is fixes
+        ) {
+            auto      cur     = static_cast<size_t>(surrounding.cursor());
+            const int bsCount = static_cast<int>(utf8::length(deletedPart));
+            if (autofillOffset) {
+                int surrLen       = static_cast<int>(utf8::length(surrounding.text()));
+                int realLen       = static_cast<int>(cur);
+                int suggestionLen = surrLen - realLen;
+                // delete suggestion tail
+                if (suggestionLen > 0)
+                    ic_->deleteSurroundingText(0, 1);
+                // delete addedPart
+                if (bsCount > 0)
+                    ic_->deleteSurroundingText(-bsCount, static_cast<unsigned int>(bsCount));
+            } else {
+                if (bsCount > 0) {
+                    ic_->deleteSurroundingText(-bsCount, static_cast<unsigned int>(bsCount));
+                }
+            }
+            ic_->commitString(addedPart);
+            //clearAllBuffers();
+            return true;
+        } else {
+            replacement_thread_id_.store(my_id, std::memory_order_release);
+            replacement_start_ms_.store(now_ms(), std::memory_order_release);
+            is_deleting_.store(true, std::memory_order_release);
+            monitor_cv.notify_one();
+            //send_backspace_forward(expected_backspaces_ - 1);
+            send_backspace_uinput(expected_backspaces_);
+            LOTUS_INFO("Send " + std::to_string(expected_backspaces_) + " backspaces");
+        }
+        return false;
     }
 
     bool LotusState::checkForwardSpecialKey(KeyEvent& keyEvent, KeySym& currentSym) {
@@ -600,8 +645,9 @@ namespace fcitx {
             compareAndSplitStrings(oldPreBuffer_, commitStr, commonPrefix, deletedPart, addedPart);
 
             if (!deletedPart.empty()) {
-                performReplacement(deletedPart, addedPart);
                 keyEvent.filterAndAccept();
+                if (performReplacement(deletedPart, addedPart))
+                    keyEvent.forward();
             } else {
                 bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
                 if (!addedPart.empty() && (keyUtf8 != addedPart || wasAutoCapitalized)) {
@@ -655,6 +701,7 @@ namespace fcitx {
         if (wa_chromium_flag)
             keyEvent.filterAndAccept();
 
+        LOTUS_INFO("surroundingText: \"" + ic_->surroundingText().text() + "\"");
         if (compareAndSplitStrings(oldPreBuffer_, preeditStr, commonPrefix, deletedPart, addedPart) != 0) {
             if (deletedPart.empty()) {
                 bool isCommit           = false;
@@ -669,6 +716,21 @@ namespace fcitx {
                             isCommit = true;
                         }
                     }
+                    if (!wa_chromium_flag)
+                        if (!isCommit) {
+                            keyEvent.forward();
+                            bool hasMultibyte = false;
+                            for (unsigned char c : oldPreBuffer_)
+                                if (c > 0x7F) {
+                                    hasMultibyte = true;
+                                    break;
+                                }
+                            if (!hasMultibyte && utf8::length(oldPreBuffer_) > 8) {
+                                ResetEngine(lotusEngine_.handle());
+                                hasHistory_ = false;
+                                oldPreBuffer_.clear();
+                            }
+                        }
                 }
                 if (!wa_chromium_flag && !isCommit) {
                     keyEvent.forward();
@@ -689,7 +751,8 @@ namespace fcitx {
 
                 if (!wa_chromium_flag)
                     keyEvent.filterAndAccept();
-                performReplacement(deletedPart, addedPart);
+                if (performReplacement(deletedPart, addedPart))
+                    keyEvent.forward();
                 oldPreBuffer_ = preeditStr;
             }
         }
@@ -903,8 +966,8 @@ namespace fcitx {
             }
             replacement_thread_id_.store(0, std::memory_order_release);
             replacement_start_ms_.store(0, std::memory_order_release);
-            if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
-                replayBufferedKeys(); // Does we need drop this?
+            //if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
+            //   replayBufferedKeys(); // Does we need drop this?
         }
         KeySym currentSym = keyEvent.rawKey().sym();
         if (*engine_->config().autoCapitalizeAfterPunctuation && realMode != LotusMode::Off) {
@@ -1095,17 +1158,16 @@ namespace fcitx {
             return;
         }
         oldPreBuffer_.clear();
-        hasHistory_ = false;
-        if (!is_deleting_.load(std::memory_order_acquire)) {
-            expected_backspaces_     = 0;
-            current_backspace_count_ = 0;
-            pending_commit_string_.clear();
-        }
+        hasHistory_              = false;
+        expected_backspaces_     = 0;
+        current_backspace_count_ = 0;
+        pending_commit_string_.clear();
         emojiBuffer_.clear();
         emojiCandidates_.clear();
         buffered_keys_.clear();
         shouldCapitalize_  = false;
         isPrevPunctuation_ = false;
+        everHadValidSurr_  = false;
         if (lotusEngine_)
             ResetEngine(lotusEngine_.handle());
     }
@@ -1113,14 +1175,13 @@ namespace fcitx {
     bool LotusState::isEmptyHistory() const {
         return !hasHistory_;
     }
-
+    /*
     void LotusState::replayBufferedKeys() {
         LOTUS_INFO("Starting replay buffered keys");
         if (buffered_keys_.empty()) {
             return;
         }
         auto keys = std::move(buffered_keys_);
-        buffered_keys_.clear();
         for (size_t i = 0; i < keys.size(); ++i) {
             auto        sym     = static_cast<KeySym>(keys[i].sym);
             uint32_t    state   = keys[i].state;
@@ -1199,6 +1260,7 @@ namespace fcitx {
                         }
                     }
                     performReplacement(deletedPart, addedPart);
+
                     oldPreBuffer_ = preeditStr;
                     return;
                 }
@@ -1206,4 +1268,5 @@ namespace fcitx {
         }
         LOTUS_INFO("Replay buffered keys done");
     }
+*/
 } // namespace fcitx
