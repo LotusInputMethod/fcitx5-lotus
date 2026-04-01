@@ -804,34 +804,33 @@ namespace fcitx {
         struct ModeInfo {
             LotusMode   mode;
             std::string label;
+            KeySym      key;
             bool        visible;
         };
 
         std::vector<ModeInfo> allModes = {
-            {LotusMode::Smooth, _("Uinput (Smooth)"), *config_.showModeSmooth},
-            {LotusMode::Uinput, _("Uinput (Slow)"), *config_.showModeUinput},
-            {LotusMode::UinputHC, _("Uinput (Hardcore)"), *config_.showModeUinputHC},
-            {LotusMode::SurroundingText, _("Surrounding Text"), *config_.showModeSurroundingText},
-            {LotusMode::Preedit, _("Preedit"), *config_.showModePreedit},
-            {LotusMode::Emoji, _("Emoji Picker"), *config_.showModeEmoji},
-            {LotusMode::Minecraft, _("Minecraft"), *config_.showModeMinecraft},
-            {LotusMode::Off, _("OFF"), *config_.showModeOff},
+            {LotusMode::Smooth, _("Uinput (Smooth)"), FcitxKey_1, *config_.showModeSmooth},
+            {LotusMode::Uinput, _("Uinput (Slow)"), FcitxKey_2, *config_.showModeUinput},
+            {LotusMode::UinputHC, _("Uinput (Hardcore)"), FcitxKey_3, *config_.showModeUinputHC},
+            {LotusMode::SurroundingText, _("Surrounding Text"), FcitxKey_4, *config_.showModeSurroundingText},
+            {LotusMode::Preedit, _("Preedit"), FcitxKey_q, *config_.showModePreedit},
+            {LotusMode::Emoji, _("Emoji Picker"), FcitxKey_w, *config_.showModeEmoji},
+            {LotusMode::Minecraft, _("Minecraft"), FcitxKey_e, *config_.showModeMinecraft},
+            {LotusMode::Off, _("OFF"), FcitxKey_r, *config_.showModeOff},
         };
-
-        std::vector<KeySym> keys = {FcitxKey_1, FcitxKey_2, FcitxKey_3, FcitxKey_4, FcitxKey_q, FcitxKey_w, FcitxKey_e, FcitxKey_r};
 
         candidateList->append(std::make_unique<DisplayOnlyCandidateWord>(Text(_("App: ") + currentConfigureApp_)));
 
-        size_t keyIdx              = 0;
-        int    activeSelectionIdx  = -1;
-        int    currentCandidateIdx = 1;
+        int activeSelectionIdx  = -1;
+        int currentCandidateIdx = 1;
+
+        modeMenuMapping_.clear();
 
         for (const auto& info : allModes) {
-            if (info.visible && keyIdx < keys.size()) {
-                KeySym key = keys[keyIdx++];
-                modeMenuMapping_.emplace_back(key, info.mode);
+            if (info.visible) {
+                modeMenuMapping_.emplace_back(info.key, info.mode);
 
-                std::string keyLabel = "[" + Key::keySymToUTF8(key) + "] ";
+                std::string keyLabel = "[" + Key::keySymToUTF8(info.key) + "] ";
                 candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(info.mode, keyLabel + info.label), applyMode(info.mode)));
 
                 if (info.mode == realMode) {
