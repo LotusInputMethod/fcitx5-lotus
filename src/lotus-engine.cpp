@@ -165,6 +165,7 @@ namespace fcitx {
             charsetMenu_->addAction(action);
         }
         config_.outputCharset.annotation().setList(charsets);
+        lastEnableOSK_ = false;
 
         initToggleAction(spellCheckAction_, config_.spellCheck, "lotus-spellcheck", "tools-check-spelling", _("Enable Spell Check"), _("Spell Check"), uiManager);
         initToggleAction(macroAction_, config_.enableMacro, "lotus-macro", "document-edit", _("Enable Macro"), _("Macro"), uiManager);
@@ -174,6 +175,18 @@ namespace fcitx {
                          _("Auto Non-VN Restore"), uiManager);
         initToggleAction(enableDictionaryAction_, config_.enableDictionary, "lotus-dictionary", "accessories-dictionary", _("Enable Custom Dictionary"), _("Custom Dictionary"),
                          uiManager);
+
+        oskAction_ = std::make_unique<SimpleAction>();
+        oskAction_->setIcon("input-keyboard");
+        connections_.emplace_back(oskAction_->connect<SimpleAction::Activated>([this](InputContext* ic) {
+            config_.enableOSK.setValue(!config_.enableOSK.value());
+            saveConfig();
+            populateConfig();
+            if (ic != nullptr) {
+                oskAction_->update(ic);
+            }
+        }));
+        uiManager.registerAction("lotus-osk", oskAction_.get());
 
         settingsAction_ = std::make_unique<SimpleAction>();
         settingsAction_->setShortText(_("Settings"));
@@ -200,7 +213,7 @@ namespace fcitx {
         appRulesPath_ = configDir + "/lotus-app-rules.conf";
         loadAppRules();
         toggleActions_ = {charsetAction_.get(),          spellCheckAction_.get(),       macroAction_.get(),   capitalizeMacroAction_.get(),
-                          autoNonVnRestoreAction_.get(), enableDictionaryAction_.get(), settingsAction_.get()};
+                          autoNonVnRestoreAction_.get(), enableDictionaryAction_.get(), oskAction_.get(), settingsAction_.get()};
     }
 
     void LotusEngine::initToggleAction(std::unique_ptr<SimpleAction>& action, Option<bool>& option, const std::string& actionId, const std::string& iconName,
@@ -320,6 +333,17 @@ namespace fcitx {
         updateAction(nullptr, capitalizeMacroAction_, config_.capitalizeMacro, _("Capitalize Macro"));
         updateAction(nullptr, autoNonVnRestoreAction_, config_.autoNonVnRestore, _("Auto Non-VN Restore"));
         updateAction(nullptr, enableDictionaryAction_, config_.enableDictionary, _("Custom Dictionary"));
+
+        bool currentOSK = config_.enableOSK.value();
+        if (currentOSK != lastEnableOSK_) {
+            if (currentOSK) {
+                triggerOSK(true);
+            } else {
+                triggerOSK(false);
+            }
+            lastEnableOSK_ = currentOSK;
+        }
+        updateAction(nullptr, oskAction_, config_.enableOSK, _("OSK"));
     }
 
     void LotusEngine::setSubConfig(const std::string& path, const RawConfig& config) {
@@ -371,6 +395,12 @@ namespace fcitx {
         std::string appName = getProgramName(ic);
         LOTUS_INFO("App name: " + appName);
 
+        // If focus shifts to OSK, ignore it to prevent flicker/hide loop
+        if (appName == "lotus-osk" || appName == "Lotus OSK") {
+            LOTUS_INFO("Focus is on OSK, ignore activate");
+            return;
+        }
+
         const LotusMode targetMode = getAppRule(appName);
         LOTUS_INFO("Target mode: " + modeEnumToString(targetMode));
 
@@ -412,7 +442,7 @@ namespace fcitx {
         }
         if (event.type() == EventType::InputContextFocusIn && is_dbus && !surrvalid) {
             LOTUS_INFO("Skip clearAllBuffers");
-        } else if (surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100) {
+        } else if (!oskVisible_ && surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100) {
             state->clearAllBuffers();
         }
         is_deleting_.store(false);
@@ -426,6 +456,9 @@ namespace fcitx {
         }
         for (const auto& action : toggleActions_) {
             statusArea.addAction(StatusGroup::InputMethod, action);
+        }
+        if (config_.enableOSK.value() && !oskVisible_) {
+            triggerOSK(true);
         }
     }
 
@@ -600,6 +633,15 @@ namespace fcitx {
 
     void LotusEngine::reset(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
         LOTUS_INFO("Reset engine");
+
+        // If OSK is active, strictly avoid resetting on FocusOut/Reset during transitions
+        if (config_.enableOSK.value() && oskVisible_) {
+            if (event.type() == EventType::InputContextFocusOut || event.type() == EventType::InputContextReset) {
+                LOTUS_INFO("Ignoring Reset event because OSK is active");
+                return;
+            }
+        }
+
         auto* state = event.inputContext()->propertyFor(&factory_);
         if (!state->isEmptyHistory() && event.type() != EventType::InputContextFocusOut) {
             return;
@@ -611,6 +653,14 @@ namespace fcitx {
     }
 
     void LotusEngine::deactivate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
+        if (config_.enableOSK.value()) {
+            // Grace period to avoid hiding OSK immediately after it took focus
+            if (now_ms() - lastOskTriggerTime_ > 500) {
+                triggerOSK(false);
+            } else {
+                LOTUS_INFO("Grace period: skip hide OSK");
+            }
+        }
         auto*      ic              = event.inputContext();
         auto*      state           = ic->propertyFor(&factory_);
         const bool surrvalid       = ic->surroundingText().isValid();
@@ -953,4 +1003,25 @@ namespace fcitx {
         }
         return programName;
     }
+
+    void LotusEngine::triggerOSK(bool show) {
+        if (show == oskVisible_)
+            return;
+        oskVisible_ = show;
+
+        if (show) {
+            lastOskTriggerTime_ = now_ms();
+        }
+        LOTUS_INFO("Triggering OSK " << (show ? "show" : "hide") << " via DBus...");
+
+        if (fork() == 0) {
+            // Child process
+            std::string method = show ? "app.lotus.Osk.Controller1.Show" : "app.lotus.Osk.Controller1.Hide";
+
+            execlp("dbus-send", "dbus-send", "--session", "--type=method_call", "--dest=app.lotus.Osk", "/app/lotus/Osk/Controller", method.c_str(), nullptr);
+
+            _exit(1);
+        }
+    }
+
 } // namespace fcitx

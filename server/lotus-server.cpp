@@ -15,6 +15,7 @@
 #include <signal.h>
 #include <limits.h>
 #include <unistd.h>
+#include <glob.h>
 
 std::atomic<bool> g_running{true};
 
@@ -52,8 +53,12 @@ bool UinputDevice::initialize() {
         return false;
     guard_.reset(fd);
 
-    if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0 || ioctl(fd, UI_SET_KEYBIT, KEY_BACKSPACE) < 0) {
+    if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0) {
         return false;
+    }
+    // Enable all common keys
+    for (int i = 0; i < KEY_MAX; ++i) {
+        ioctl(fd, UI_SET_KEYBIT, i);
     }
 
     struct uinput_setup usetup{};
@@ -81,6 +86,17 @@ void UinputDevice::send_backspace() {
     ev[2].code  = KEY_BACKSPACE;
     ev[2].value = 0; // Release
     // Zero-initialize ev[3] via {} set this event to SYN_REPORT
+    write(guard_.get(), ev, sizeof(ev));
+}
+
+void UinputDevice::send_key(uint32_t code, uint32_t value) {
+    if (!guard_.is_valid())
+        return;
+    struct input_event ev[2]{};
+    ev[0].type  = EV_KEY;
+    ev[0].code  = static_cast<uint16_t>(code);
+    ev[0].value = static_cast<int32_t>(value);
+    // ev[1] is SYN_REPORT
     write(guard_.get(), ev, sizeof(ev));
 }
 
@@ -303,7 +319,7 @@ int main(int argc, char* argv[]) {
                             exe_path[ret] = '\0'; // NOLINT
                         }
 
-                        if (strcmp(exe_path, "/usr/bin/fcitx5") == 0) {
+                        if (strcmp(exe_path, "/usr/bin/fcitx5") == 0 || strcmp(exe_path, "/usr/bin/lotus-osk") == 0) {
                             authorized = true;
                         } else {
                             LotusLogger::instance().warn("Unauthorized executable connection attempt to keyboard socket from: " + std::string(exe_path));
@@ -327,13 +343,44 @@ int main(int argc, char* argv[]) {
 
         // handle connect from addon
         if (fds[KB_CLIENT_INDEX].fd >= 0 && (fds[KB_CLIENT_INDEX].revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
-            int     count = 0;
-            ssize_t n     = recv(fds[KB_CLIENT_INDEX].fd, &count, sizeof(count), 0);
+            LotusKeyCommand cmd{};
+            ssize_t         n = recv(fds[KB_CLIENT_INDEX].fd, &cmd, sizeof(cmd), 0);
             if (n <= 0) {
                 LotusLogger::instance().warn("Keyboard client disconnected or connection error");
                 kb_client_fd.reset(-1);
                 fds[KB_CLIENT_INDEX].fd = -1;
-            } else {
+            } else if (static_cast<size_t>(n) == sizeof(cmd)) {
+                if (cmd.type == 0) { // Backspace count
+                    pending_backspaces += cmd.code - 1;
+                    uinput.send_backspace();
+                } else if (cmd.type == 1) { // Universal key
+                    uinput.send_key(cmd.code, cmd.value);
+                } else if (cmd.type == 2) { // Query CapsLock
+                    int    state = 0;
+                    glob_t g;
+                    if (glob("/sys/class/leds/*capslock/brightness", 0, nullptr, &g) == 0) {
+                        for (size_t i = 0; i < g.gl_pathc; ++i) {
+                            int fd = open(g.gl_pathv[i], O_RDONLY);
+                            if (fd >= 0) {
+                                char    buf[16];
+                                ssize_t r = read(fd, buf, sizeof(buf) - 1);
+                                close(fd);
+                                if (r > 0) {
+                                    buf[r] = '\0';
+                                    if (atoi(buf) > 0) {
+                                        state = 1;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        globfree(&g);
+                    }
+                    send(fds[KB_CLIENT_INDEX].fd, &state, sizeof(state), MSG_NOSIGNAL);
+                }
+            } else if (static_cast<size_t>(n) == sizeof(int)) {
+                // Legacy support for plain int (backspace count)
+                int count = *reinterpret_cast<int*>(&cmd); // NOLINT
                 pending_backspaces += count - 1;
                 uinput.send_backspace();
             }

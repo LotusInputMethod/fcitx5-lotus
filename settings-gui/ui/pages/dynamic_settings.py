@@ -30,6 +30,7 @@ class SettingsCategory(Enum):
     TYPING = "typing"
     SHORTCUTS = "shortcuts"
     INTERFACE = "interface"
+    ACCESSIBILITY = "accessibility"
 
 
 # Mapping of settings keys to categories and groups
@@ -57,6 +58,9 @@ SETTINGS_MAP = {
     },
     SettingsCategory.SHORTCUTS: {
         "SHORTCUTS": ["ModeMenuKey"],
+    },
+    SettingsCategory.ACCESSIBILITY: {
+        "ACCESSIBILITY": ["EnableOSK"],
     }
 }
 

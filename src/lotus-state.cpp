@@ -880,16 +880,21 @@ namespace fcitx {
             expected_backspaces_     = 0;
         }
         if (needEngineReset.load() && realMode != LotusMode::Off) {
-            LOTUS_INFO("Need engine reset");
-            oldPreBuffer_.clear();
-            hasHistory_ = false;
-            ResetEngine(lotusEngine_.handle());
-            is_deleting_.store(false);
-            current_backspace_count_ = 0;
-            isPrevSpace_             = false;
-            shouldCapitalize_        = false;
-            isPrevPunctuation_       = false;
-            needEngineReset.store(false);
+            if (getFrontendName(ic_) == "dbus") {
+                // Ignore mouse-click reset for OSK (dbus)
+                needEngineReset.store(false);
+            } else {
+                LOTUS_INFO("Need engine reset");
+                oldPreBuffer_.clear();
+                hasHistory_ = false;
+                ResetEngine(lotusEngine_.handle());
+                is_deleting_.store(false);
+                current_backspace_count_ = 0;
+                isPrevSpace_             = false;
+                shouldCapitalize_        = false;
+                isPrevPunctuation_       = false;
+                needEngineReset.store(false);
+            }
         }
 
         if (g_mouse_clicked.load(std::memory_order_acquire) && !is_deleting_.load(std::memory_order_acquire)) {

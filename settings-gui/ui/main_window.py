@@ -202,6 +202,13 @@ class LotusSettingsWindow(QMainWindow):
             ),
         )
         self._add_page(
+            _("Accessibility"),
+            "preferences-desktop-accessibility",
+            DynamicSettingsPage(
+                self.dbus_handler, category=SettingsCategory.ACCESSIBILITY
+            ),
+        )
+        self._add_page(
             _("Backup"),
             "document-save-as",
             BackupPage(self.dbus_handler),

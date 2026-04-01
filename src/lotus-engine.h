@@ -210,6 +210,7 @@ namespace fcitx {
         std::unique_ptr<SimpleAction>              capitalizeMacroAction_;
         std::unique_ptr<SimpleAction>              autoNonVnRestoreAction_;
         std::unique_ptr<SimpleAction>              enableDictionaryAction_;
+        std::unique_ptr<SimpleAction>              oskAction_;
         std::unique_ptr<SimpleAction>              settingsAction_;
         std::vector<SimpleAction*>                 toggleActions_;
         std::vector<ScopedConnection>              connections_;
@@ -223,6 +224,9 @@ namespace fcitx {
         bool                                  isGnome_ = false;
         mutable std::mutex                    appRulesMutex_;
         std::unordered_map<KeySym, LotusMode> modeMenuMapping_;
+        bool                                  lastEnableOSK_      = false;
+        uint64_t                              lastOskTriggerTime_ = 0;
+        bool                                  oskVisible_         = false;
 
         /**
          * @brief Refreshes the bamboo engine with current settings.
@@ -325,10 +329,17 @@ namespace fcitx {
         static std::string getProgramName(InputContext* ic);
 
         /**
+        /**
          * @brief Detects if the system is in dark mode.
          * @return true if dark mode, false if light mode or detection failed.
          */
         static bool isDarkMode();
+
+        /**
+         * @brief Triggers OSK via DBus
+         * @param show True to show, false to hide
+         */
+        void triggerOSK(bool show);
     };
 
     /**

@@ -34,7 +34,12 @@ add_subdirectory(src)
 add_subdirectory(data)
 add_subdirectory(server)
 add_subdirectory(misc)
-add_subdirectory(settings-gui)
+add_subdirectory(lotus-osk)
+
+if(ENABLE_QT)
+    target_compile_definitions(lotus PRIVATE DISABLE_VERSION_ACTION)
+    add_subdirectory(settings-gui)
+endif(ENABLE_QT)
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in"

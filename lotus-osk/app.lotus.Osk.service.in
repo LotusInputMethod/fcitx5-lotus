@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=app.lotus.Osk
+Exec=/usr/bin/lotus-osk
