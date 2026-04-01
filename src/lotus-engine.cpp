@@ -45,12 +45,11 @@ namespace fcitx {
             case FcitxKey_1:
             case FcitxKey_2:
             case FcitxKey_3:
+            case FcitxKey_4:
             case FcitxKey_q:
             case FcitxKey_w:
             case FcitxKey_e:
-            case FcitxKey_a:
-            case FcitxKey_s:
-            case FcitxKey_d:
+            case FcitxKey_r:
             case FcitxKey_Escape:
             case FcitxKey_Tab:
             case FcitxKey_ISO_Left_Tab:
@@ -819,7 +818,7 @@ namespace fcitx {
             {LotusMode::Off, _("OFF"), *config_.showModeOff},
         };
 
-        std::vector<KeySym> keys = {FcitxKey_1, FcitxKey_2, FcitxKey_3, FcitxKey_q, FcitxKey_w, FcitxKey_e, FcitxKey_a, FcitxKey_s, FcitxKey_d};
+        std::vector<KeySym> keys = {FcitxKey_1, FcitxKey_2, FcitxKey_3, FcitxKey_4, FcitxKey_q, FcitxKey_w, FcitxKey_e, FcitxKey_r};
 
         candidateList->append(std::make_unique<DisplayOnlyCandidateWord>(Text(_("App: ") + currentConfigureApp_)));
 
