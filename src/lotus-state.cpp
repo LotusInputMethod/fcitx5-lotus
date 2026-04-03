@@ -1020,7 +1020,7 @@ namespace fcitx {
             return;
         }
 
-        clearCommonState();
+        clearCommonState(getFrontendName(ic_) != "dbus");
         if (lotusEngine_) {
             if (realMode == LotusMode::Preedit && isFocusOut) {
                 EngineCommitPreedit(lotusEngine_.handle());
@@ -1091,15 +1091,17 @@ namespace fcitx {
         }
     }
 
-    void LotusState::clearCommonState() {
-        oldPreBuffer_.clear();
-        hasHistory_              = false;
+    void LotusState::clearCommonState(bool clearHistory) {
+        if (clearHistory) {
+            oldPreBuffer_.clear();
+            hasHistory_ = false;
+            emojiBuffer_.clear();
+            emojiCandidates_.clear();
+            buffered_keys_.clear();
+        }
         expected_backspaces_     = 0;
         current_backspace_count_ = 0;
         pending_commit_string_.clear();
-        emojiBuffer_.clear();
-        emojiCandidates_.clear();
-        buffered_keys_.clear();
         isPrevSpace_       = false;
         shouldCapitalize_  = false;
         isPrevPunctuation_ = false;

@@ -109,9 +109,10 @@ namespace fcitx {
         bool                    wa_chromium_flag    = false;
 
         /**
-         * @brief Clears common state variables Shared by reset() and clearAllBuffers().
+         * @brief Clears common state variables shared by reset() and clearAllBuffers().
+         * @param clearHistory If true, also clears the typing history (oldPreBuffer_, etc.).
          */
-        void clearCommonState();
+        void clearCommonState(bool clearHistory = true);
 
         /**
          * @brief Connects to the uinput server.
