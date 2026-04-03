@@ -1020,16 +1020,7 @@ namespace fcitx {
             return;
         }
 
-        isPrevSpace_       = false;
-        shouldCapitalize_  = false;
-        isPrevPunctuation_ = false;
-        needEngineReset.store(false, std::memory_order_release);
-        needFallbackCommit.store(false, std::memory_order_release);
-        replacement_start_ms_.store(0, std::memory_order_release);
-        replacement_thread_id_.store(0, std::memory_order_release);
-        g_mouse_clicked.store(false, std::memory_order_release);
-        current_thread_id_ = 0;
-
+        clearCommonState();
         if (lotusEngine_) {
             if (realMode == LotusMode::Preedit && isFocusOut) {
                 EngineCommitPreedit(lotusEngine_.handle());
@@ -1041,8 +1032,6 @@ namespace fcitx {
             }
             ResetEngine(lotusEngine_.handle());
         }
-        if (getFrontendName(ic_) != "dbus")
-            clearAllBuffers();
 
         switch (realMode) {
             case LotusMode::Preedit: {
@@ -1102,18 +1091,12 @@ namespace fcitx {
         }
     }
 
-    void LotusState::clearAllBuffers() {
-        LOTUS_DEBUG("Clear all buffers");
-        if (is_deleting_.load(std::memory_order_acquire)) {
-            return;
-        }
+    void LotusState::clearCommonState() {
         oldPreBuffer_.clear();
-        hasHistory_ = false;
-        if (!is_deleting_.load(std::memory_order_acquire)) {
-            expected_backspaces_     = 0;
-            current_backspace_count_ = 0;
-            pending_commit_string_.clear();
-        }
+        hasHistory_              = false;
+        expected_backspaces_     = 0;
+        current_backspace_count_ = 0;
+        pending_commit_string_.clear();
         emojiBuffer_.clear();
         emojiCandidates_.clear();
         buffered_keys_.clear();
@@ -1125,8 +1108,15 @@ namespace fcitx {
         replacement_start_ms_.store(0, std::memory_order_release);
         replacement_thread_id_.store(0, std::memory_order_release);
         g_mouse_clicked.store(false, std::memory_order_release);
-        current_thread_id_ = 0;
+        current_thread_id_.store(0, std::memory_order_release);
+    }
 
+    void LotusState::clearAllBuffers() {
+        LOTUS_DEBUG("Clear all buffers");
+        if (is_deleting_.load(std::memory_order_acquire)) {
+            return;
+        }
+        clearCommonState();
         if (lotusEngine_)
             ResetEngine(lotusEngine_.handle());
     }

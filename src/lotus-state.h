@@ -109,6 +109,11 @@ namespace fcitx {
         bool                    wa_chromium_flag    = false;
 
         /**
+         * @brief Clears common state variables Shared by reset() and clearAllBuffers().
+         */
+        void clearCommonState();
+
+        /**
          * @brief Connects to the uinput server.
          * @return True if connection successful.
          */
