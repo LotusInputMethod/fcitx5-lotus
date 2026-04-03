@@ -1110,6 +1110,7 @@ namespace fcitx {
         emojiBuffer_.clear();
         emojiCandidates_.clear();
         buffered_keys_.clear();
+        isPrevSpace_       = false;
         shouldCapitalize_  = false;
         isPrevPunctuation_ = false;
         if (lotusEngine_)
