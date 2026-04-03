@@ -1020,10 +1020,17 @@ namespace fcitx {
             return;
         }
 
+        isPrevSpace_       = false;
+        shouldCapitalize_  = false;
+        isPrevPunctuation_ = false;
+        needEngineReset.store(false, std::memory_order_release);
+        needFallbackCommit.store(false, std::memory_order_release);
+        replacement_start_ms_.store(0, std::memory_order_release);
+        replacement_thread_id_.store(0, std::memory_order_release);
+        g_mouse_clicked.store(false, std::memory_order_release);
+        current_thread_id_ = 0;
+
         if (lotusEngine_) {
-            isPrevSpace_       = false;
-            shouldCapitalize_  = false;
-            isPrevPunctuation_ = false;
             if (realMode == LotusMode::Preedit && isFocusOut) {
                 EngineCommitPreedit(lotusEngine_.handle());
                 UniqueCPtr<char> commit(EnginePullCommit(lotusEngine_.handle()));
@@ -1113,6 +1120,13 @@ namespace fcitx {
         isPrevSpace_       = false;
         shouldCapitalize_  = false;
         isPrevPunctuation_ = false;
+        needEngineReset.store(false, std::memory_order_release);
+        needFallbackCommit.store(false, std::memory_order_release);
+        replacement_start_ms_.store(0, std::memory_order_release);
+        replacement_thread_id_.store(0, std::memory_order_release);
+        g_mouse_clicked.store(false, std::memory_order_release);
+        current_thread_id_ = 0;
+
         if (lotusEngine_)
             ResetEngine(lotusEngine_.handle());
     }
