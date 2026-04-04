@@ -758,7 +758,6 @@ namespace fcitx {
 
     void LotusEngine::showAppModeMenu(InputContext* ic) {
         isSelectingAppMode_ = true;
-        modeMenuMapping_.clear();
 
         auto candidateList = std::make_unique<CommonCandidateList>();
 
