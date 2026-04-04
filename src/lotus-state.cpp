@@ -990,10 +990,6 @@ namespace fcitx {
                 handleUinputMode(keyEvent, currentSym, true);
                 break;
             }
-            case LotusMode::UinputHC: {
-                handleUinputMode(keyEvent, currentSym, false);
-                break;
-            }
             case LotusMode::SurroundingText: {
                 handleSurroundingText(keyEvent, currentSym);
                 break;
@@ -1047,7 +1043,6 @@ namespace fcitx {
             }
             case LotusMode::SurroundingText:
             case LotusMode::Uinput:
-            case LotusMode::UinputHC:
             case LotusMode::Smooth:
             case LotusMode::Minecraft: {
                 ic_->inputPanel().reset();
@@ -1081,7 +1076,6 @@ namespace fcitx {
                 break;
             }
             case LotusMode::Uinput:
-            case LotusMode::UinputHC:
             case LotusMode::Smooth:
             case LotusMode::SurroundingText:
             case LotusMode::Minecraft: {

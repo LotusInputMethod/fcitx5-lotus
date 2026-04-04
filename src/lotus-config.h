@@ -19,6 +19,7 @@
 #include <fcitx-config/configuration.h>
 #include <fcitx-utils/i18n.h>
 #include <fcitx-utils/stringutils.h>
+#include <unordered_map>
 
 namespace fcitx {
 
@@ -29,7 +30,6 @@ namespace fcitx {
         Off             = 0,
         Smooth          = 1,
         Uinput          = 2,
-        UinputHC        = 3,
         SurroundingText = 4,
         Preedit         = 5,
         Emoji           = 6,
@@ -48,7 +48,6 @@ namespace fcitx {
             case LotusMode::Uinput: return "Uinput (Slow)";
             case LotusMode::SurroundingText: return "Surrounding Text";
             case LotusMode::Preedit: return "Preedit";
-            case LotusMode::UinputHC: return "Uinput (Hardcore)";
             case LotusMode::Emoji: return "Emoji Picker";
             case LotusMode::Smooth: return "Uinput (Smooth)";
             case LotusMode::Minecraft: return "Minecraft";
@@ -67,7 +66,6 @@ namespace fcitx {
             {"Uinput (Slow)", LotusMode::Uinput},
             {"Surrounding Text", LotusMode::SurroundingText},
             {"Preedit", LotusMode::Preedit},
-            {"Uinput (Hardcore)", LotusMode::UinputHC},
             {"Emoji Picker", LotusMode::Emoji},
             {"Uinput (Smooth)", LotusMode::Smooth},
             {"Minecraft", LotusMode::Minecraft},
@@ -156,7 +154,7 @@ namespace fcitx {
          * @brief Initializes with default mode list.
          */
         ModeListAnnotation() {
-            list_ = {"Uinput (Smooth)", "Uinput (Slow)", "Surrounding Text", "Preedit", "Uinput (Hardcore)", "OFF", "Minecraft"};
+            list_ = {"Uinput (Smooth)", "Uinput (Slow)", "Surrounding Text", "Preedit", "OFF", "Minecraft", "Emoji Picker"};
         }
     };
 
@@ -234,7 +232,6 @@ namespace fcitx {
         Option<bool> enableDictionary{this, "EnableDictionary", _("Enable Custom Dictionary"), false};
         Option<bool> enableCustomKeymap{this, "EnableCustomKeymap", _("Enable Custom Keymap"), false};
         Option<bool> showModeSmooth{this, "ShowModeSmooth", _("Show Uinput (Smooth)"), true}; Option<bool> showModeUinput{this, "ShowModeUinput", _("Show Uinput (Slow)"), true};
-        Option<bool> showModeUinputHC{this, "ShowModeUinputHC", _("Show Uinput (Hardcore)"), true};
         Option<bool> showModeSurroundingText{this, "ShowModeSurroundingText", _("Show Surrounding Text"), true};
         Option<bool> showModeMinecraft{this, "ShowModeMinecraft", _("Show Minecraft"), true}; Option<bool> showModePreedit{this, "ShowModePreedit", _("Show Preedit"), true};
         Option<bool> showModeEmoji{this, "ShowModeEmoji", _("Show Emoji Picker"), true}; Option<bool> showModeOff{this, "ShowModeOff", _("Show OFF"), true};

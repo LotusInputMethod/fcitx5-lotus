@@ -41,7 +41,6 @@ SETTINGS_MAP = {
         "LOADABLE MODES": [
             "ShowModeSmooth",
             "ShowModeUinput",
-            "ShowModeUinputHC",
             "ShowModeSurroundingText",
             "ShowModePreedit",
             "ShowModeEmoji",

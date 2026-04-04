@@ -222,10 +222,10 @@ namespace fcitx {
         bool                                       isSelectingAppMode_ = false;
         std::string                                currentConfigureApp_;
         FCITX_ADDON_DEPENDENCY_LOADER(emoji, instance_->addonManager());
-        std::unique_ptr<EmojiLoader>              emojiLoader_;
-        bool                                      isGnome_ = false;
-        mutable std::mutex                        appRulesMutex_;
-        std::vector<std::pair<KeySym, LotusMode>> modeMenuMapping_;
+        std::unique_ptr<EmojiLoader>          emojiLoader_;
+        bool                                  isGnome_ = false;
+        mutable std::mutex                    appRulesMutex_;
+        std::unordered_map<KeySym, LotusMode> modeMenuMapping_;
 
         /**
          * @brief Refreshes the bamboo engine with current settings.
