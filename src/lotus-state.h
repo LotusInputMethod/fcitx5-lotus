@@ -112,7 +112,7 @@ namespace fcitx {
          * @brief Clears common state variables shared by reset() and clearAllBuffers().
          * @param clearHistory If true, also clears the typing history (oldPreBuffer_, etc.).
          */
-        void clearCommonState(bool clearHistory = true);
+        void clearCommonState(bool clearHistory = true, bool fullReset = true);
 
         /**
          * @brief Connects to the uinput server.

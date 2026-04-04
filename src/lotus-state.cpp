@@ -1015,12 +1015,11 @@ namespace fcitx {
         const auto& surrounding = ic_->surroundingText();
         const auto& text        = surrounding.text();
         size_t      textLen     = utf8::length(text);
-        realtextLen.store(textLen, std::memory_order_release);
+        realtextLen.store(textLen, std::memory_order_relaxed);
         if (is_deleting_.load(std::memory_order_acquire)) {
             return;
         }
 
-        clearCommonState(getFrontendName(ic_) != "dbus");
         if (lotusEngine_) {
             if (realMode == LotusMode::Preedit && isFocusOut) {
                 EngineCommitPreedit(lotusEngine_.handle());
@@ -1033,190 +1032,194 @@ namespace fcitx {
             ResetEngine(lotusEngine_.handle());
         }
 
-        switch (realMode) {
-            case LotusMode::Preedit: {
-                ic_->inputPanel().reset();
-                ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
-                ic_->updatePreedit();
-                break;
-            }
-            case LotusMode::SurroundingText:
-            case LotusMode::Uinput:
-            case LotusMode::UinputHC:
-            case LotusMode::Smooth:
-            case LotusMode::Minecraft: {
-                ic_->inputPanel().reset();
-                break;
-            }
-            case LotusMode::Emoji: {
-                ic_->inputPanel().reset();
-                ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
-                ic_->updatePreedit();
-                break;
-            }
-            default: {
-                break;
-            }
-        }
+        clearCommonState(getFrontendName(ic_) != "dbus", true);
     }
 
-    void LotusState::commitBuffer() {
-        switch (realMode) {
-            case LotusMode::Preedit: {
-                ic_->inputPanel().reset();
-                if (lotusEngine_) {
-                    EngineCommitPreedit(lotusEngine_.handle());
-                    UniqueCPtr<char> commit(EnginePullCommit(lotusEngine_.handle()));
-                    if (commit && (*commit.get() != 0))
-                        ic_->commitString(commit.get());
-                    ResetEngine(lotusEngine_.handle());
-                }
-                ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
-                ic_->updatePreedit();
-                break;
+    switch (realMode) {
+        case LotusMode::Preedit: {
+            ic_->inputPanel().reset();
+            ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
+            ic_->updatePreedit();
+            break;
+        }
+        case LotusMode::SurroundingText:
+        case LotusMode::Uinput:
+        case LotusMode::UinputHC:
+        case LotusMode::Smooth:
+        case LotusMode::Minecraft: {
+            ic_->inputPanel().reset();
+            break;
+        }
+        case LotusMode::Emoji: {
+            ic_->inputPanel().reset();
+            ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
+            ic_->updatePreedit();
+            break;
+        }
+        default: {
+            break;
+        }
+    }
+}
+
+void LotusState::commitBuffer() {
+    switch (realMode) {
+        case LotusMode::Preedit: {
+            ic_->inputPanel().reset();
+            if (lotusEngine_) {
+                EngineCommitPreedit(lotusEngine_.handle());
+                UniqueCPtr<char> commit(EnginePullCommit(lotusEngine_.handle()));
+                if (commit && (*commit.get() != 0))
+                    ic_->commitString(commit.get());
+                ResetEngine(lotusEngine_.handle());
             }
-            case LotusMode::Uinput:
-            case LotusMode::UinputHC:
-            case LotusMode::Smooth:
-            case LotusMode::SurroundingText:
-            case LotusMode::Minecraft: {
-                if (lotusEngine_) {
-                    ResetEngine(lotusEngine_.handle());
-                }
-                break;
+            ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
+            ic_->updatePreedit();
+            break;
+        }
+        case LotusMode::Uinput:
+        case LotusMode::UinputHC:
+        case LotusMode::Smooth:
+        case LotusMode::SurroundingText:
+        case LotusMode::Minecraft: {
+            if (lotusEngine_) {
+                ResetEngine(lotusEngine_.handle());
             }
-            default: {
-                break;
-            }
+            break;
+        }
+        default: {
+            break;
         }
     }
+}
 
-    void LotusState::clearCommonState(bool clearHistory) {
-        if (clearHistory) {
-            oldPreBuffer_.clear();
-            hasHistory_ = false;
-            emojiBuffer_.clear();
-            emojiCandidates_.clear();
-            buffered_keys_.clear();
-        }
-        expected_backspaces_     = 0;
-        current_backspace_count_ = 0;
-        pending_commit_string_.clear();
-        isPrevSpace_       = false;
-        shouldCapitalize_  = false;
-        isPrevPunctuation_ = false;
-        needEngineReset.store(false, std::memory_order_release);
-        needFallbackCommit.store(false, std::memory_order_release);
-        replacement_start_ms_.store(0, std::memory_order_release);
-        replacement_thread_id_.store(0, std::memory_order_release);
-        g_mouse_clicked.store(false, std::memory_order_release);
-        current_thread_id_.store(0, std::memory_order_release);
-    }
-
-    void LotusState::clearAllBuffers() {
-        LOTUS_DEBUG("Clear all buffers");
-        if (is_deleting_.load(std::memory_order_acquire)) {
-            return;
-        }
-        clearCommonState();
-        if (lotusEngine_)
-            ResetEngine(lotusEngine_.handle());
-    }
-
-    bool LotusState::isEmptyHistory() const {
-        return !hasHistory_;
-    }
-
-    void LotusState::replayBufferedKeys() {
-        LOTUS_INFO("Starting replay buffered keys");
-        if (buffered_keys_.empty()) {
-            return;
-        }
-        auto keys = std::move(buffered_keys_);
+void LotusState::clearCommonState(bool clearHistory, bool fullReset) {
+    if (clearHistory) {
+        oldPreBuffer_.clear();
+        hasHistory_ = false;
+        emojiBuffer_.clear();
+        emojiCandidates_.clear();
         buffered_keys_.clear();
-        for (size_t i = 0; i < keys.size(); ++i) {
-            auto        sym     = static_cast<KeySym>(keys[i].sym);
-            uint32_t    state   = keys[i].state;
-            std::string keyUtf8 = Key::keySymToUTF8(sym);
-            if (keyUtf8.empty()) {
-                continue;
-            }
+    }
+    expected_backspaces_     = 0;
+    current_backspace_count_ = 0;
+    pending_commit_string_.clear();
+    shouldCapitalize_  = false;
+    isPrevPunctuation_ = false;
 
-            bool processed = EngineProcessKeyEvent(lotusEngine_.handle(), sym, state) != 0U;
+    if (fullReset) {
+        isPrevSpace_ = false;
+        needEngineReset.store(false, std::memory_order_relaxed);
+        needFallbackCommit.store(false, std::memory_order_relaxed);
+        replacement_start_ms_.store(0, std::memory_order_relaxed);
+        replacement_thread_id_.store(0, std::memory_order_relaxed);
+        g_mouse_clicked.store(false, std::memory_order_relaxed);
+        current_thread_id_.store(0, std::memory_order_relaxed);
+    }
+}
 
-            auto commitF = UniqueCPtr<char>(EnginePullCommit(lotusEngine_.handle()));
-            if (commitF && (*commitF.get() != 0)) {
-                std::string commitStr = commitF.get();
-                std::string commonPrefix;
-                std::string deletedPart;
-                std::string addedPart;
-                compareAndSplitStrings(oldPreBuffer_, commitStr, commonPrefix, deletedPart, addedPart);
+void LotusState::clearAllBuffers() {
+    LOTUS_DEBUG("Clear all buffers");
+    if (is_deleting_.load(std::memory_order_acquire)) {
+        return;
+    }
+    clearCommonState(true, false);
+}
 
-                if (!deletedPart.empty()) {
-                    // Re-buffer remaining keys for next replay cycle.
-                    for (size_t j = i + 1; j < keys.size(); ++j) {
-                        if (buffered_keys_.size() < MAX_BUFFERED_KEYS) {
-                            buffered_keys_.push_back(keys[j]);
-                        }
+bool LotusState::isEmptyHistory() const {
+    return !hasHistory_;
+}
+
+void LotusState::replayBufferedKeys() {
+    LOTUS_INFO("Starting replay buffered keys");
+    if (buffered_keys_.empty()) {
+        return;
+    }
+    auto keys = std::move(buffered_keys_);
+    buffered_keys_.clear();
+    for (size_t i = 0; i < keys.size(); ++i) {
+        auto        sym     = static_cast<KeySym>(keys[i].sym);
+        uint32_t    state   = keys[i].state;
+        std::string keyUtf8 = Key::keySymToUTF8(sym);
+        if (keyUtf8.empty()) {
+            continue;
+        }
+
+        bool processed = EngineProcessKeyEvent(lotusEngine_.handle(), sym, state) != 0U;
+
+        auto commitF = UniqueCPtr<char>(EnginePullCommit(lotusEngine_.handle()));
+        if (commitF && (*commitF.get() != 0)) {
+            std::string commitStr = commitF.get();
+            std::string commonPrefix;
+            std::string deletedPart;
+            std::string addedPart;
+            compareAndSplitStrings(oldPreBuffer_, commitStr, commonPrefix, deletedPart, addedPart);
+
+            if (!deletedPart.empty()) {
+                // Re-buffer remaining keys for next replay cycle.
+                for (size_t j = i + 1; j < keys.size(); ++j) {
+                    if (buffered_keys_.size() < MAX_BUFFERED_KEYS) {
+                        buffered_keys_.push_back(keys[j]);
                     }
-                    performReplacement(deletedPart, addedPart);
-                    hasHistory_ = false;
-                    ResetEngine(lotusEngine_.handle());
-                    oldPreBuffer_.clear();
-                    return;
                 }
-                if (!addedPart.empty()) {
-                    ic_->commitString(addedPart);
-                }
-
+                performReplacement(deletedPart, addedPart);
                 hasHistory_ = false;
                 ResetEngine(lotusEngine_.handle());
                 oldPreBuffer_.clear();
-                continue;
+                return;
+            }
+            if (!addedPart.empty()) {
+                ic_->commitString(addedPart);
             }
 
-            if (!processed) {
-                ic_->commitString(keyUtf8);
-                continue;
-            }
+            hasHistory_ = false;
+            ResetEngine(lotusEngine_.handle());
+            oldPreBuffer_.clear();
+            continue;
+        }
 
-            hasHistory_ = true;
-            realtextLen.fetch_add(1, std::memory_order_acq_rel);
+        if (!processed) {
+            ic_->commitString(keyUtf8);
+            continue;
+        }
 
-            UniqueCPtr<char> preeditC(EnginePullPreedit(lotusEngine_.handle()));
-            std::string      preeditStr = (preeditC && (*preeditC.get() != 0)) ? preeditC.get() : "";
+        hasHistory_ = true;
+        realtextLen.fetch_add(1, std::memory_order_acq_rel);
 
-            std::string      commonPrefix;
-            std::string      deletedPart;
-            std::string      addedPart;
-            if (compareAndSplitStrings(oldPreBuffer_, preeditStr, commonPrefix, deletedPart, addedPart) != 0) {
-                if (deletedPart.empty()) {
-                    if (!addedPart.empty()) {
-                        ic_->commitString(addedPart);
-                        oldPreBuffer_ = preeditStr;
-                    }
-                } else {
-                    if (uinput_client_fd_ < 0) {
-                        ic_->commitString(keyUtf8);
-                        continue;
-                    }
+        UniqueCPtr<char> preeditC(EnginePullPreedit(lotusEngine_.handle()));
+        std::string      preeditStr = (preeditC && (*preeditC.get() != 0)) ? preeditC.get() : "";
 
-                    if (is_deleting_.load()) {
-                        is_deleting_.store(false, std::memory_order_release);
-                    }
-
-                    // Re-buffer remaining keys for next replay cycle.
-                    for (size_t j = i + 1; j < keys.size(); ++j) {
-                        if (buffered_keys_.size() < MAX_BUFFERED_KEYS) {
-                            buffered_keys_.push_back(keys[j]);
-                        }
-                    }
-                    performReplacement(deletedPart, addedPart);
+        std::string      commonPrefix;
+        std::string      deletedPart;
+        std::string      addedPart;
+        if (compareAndSplitStrings(oldPreBuffer_, preeditStr, commonPrefix, deletedPart, addedPart) != 0) {
+            if (deletedPart.empty()) {
+                if (!addedPart.empty()) {
+                    ic_->commitString(addedPart);
                     oldPreBuffer_ = preeditStr;
-                    return;
                 }
+            } else {
+                if (uinput_client_fd_ < 0) {
+                    ic_->commitString(keyUtf8);
+                    continue;
+                }
+
+                if (is_deleting_.load()) {
+                    is_deleting_.store(false, std::memory_order_release);
+                }
+
+                // Re-buffer remaining keys for next replay cycle.
+                for (size_t j = i + 1; j < keys.size(); ++j) {
+                    if (buffered_keys_.size() < MAX_BUFFERED_KEYS) {
+                        buffered_keys_.push_back(keys[j]);
+                    }
+                }
+                performReplacement(deletedPart, addedPart);
+                oldPreBuffer_ = preeditStr;
+                return;
             }
         }
-        LOTUS_INFO("Replay buffered keys done");
     }
+    LOTUS_INFO("Replay buffered keys done");
+}
 } // namespace fcitx
