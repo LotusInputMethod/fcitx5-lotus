@@ -403,9 +403,9 @@ class ModeManagerPage(QWidget):
         global_layout.addWidget(QLabel(_("Global Default Mode:")))
         self.combo_global_mode = QComboBox()
         global_modes = [
-            MODE_OFF, MODE_SMOOTH, MODE_SLOW,
-            MODE_SURROUNDING, MODE_PREEDIT, MODE_EMOJI,
-            MODE_MINECRAFT
+            MODE_SMOOTH, MODE_SLOW, MODE_SURROUNDING,
+            MODE_PREEDIT, MODE_EMOJI, MODE_MINECRAFT,
+            MODE_OFF
         ]
         for m in global_modes:
             self.combo_global_mode.addItem(_(MODE_INFO[m]["title"]), MODE_INFO[m]["title"])
@@ -437,11 +437,10 @@ class ModeManagerPage(QWidget):
         self.mode_cards = {}
         
         grid_modes = [
-            MODE_DEFAULT, MODE_OFF,
             MODE_SMOOTH, MODE_SLOW,
-            MODE_SURROUNDING,
-            MODE_PREEDIT, MODE_EMOJI,
-            MODE_MINECRAFT
+            MODE_SURROUNDING, MODE_PREEDIT,
+            MODE_EMOJI, MODE_MINECRAFT,
+            MODE_OFF, MODE_DEFAULT
         ]
         for i, m in enumerate(grid_modes):
             card = ModeCard(m)
