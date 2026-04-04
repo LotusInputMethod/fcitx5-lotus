@@ -403,8 +403,8 @@ class ModeManagerPage(QWidget):
         global_layout.addWidget(QLabel(_("Global Default Mode:")))
         self.combo_global_mode = QComboBox()
         global_modes = [
-            MODE_SMOOTH, MODE_SLOW, MODE_SURROUNDING,
-            MODE_PREEDIT, MODE_EMOJI, MODE_MINECRAFT,
+            MODE_SMOOTH, MODE_SLOW, MODE_MINECRAFT,
+            MODE_SURROUNDING, MODE_PREEDIT, MODE_EMOJI,
             MODE_OFF
         ]
         for m in global_modes:
@@ -438,8 +438,8 @@ class ModeManagerPage(QWidget):
         
         grid_modes = [
             MODE_SMOOTH, MODE_SLOW,
-            MODE_SURROUNDING, MODE_PREEDIT,
-            MODE_EMOJI, MODE_MINECRAFT,
+            MODE_MINECRAFT, MODE_SURROUNDING,
+            MODE_PREEDIT, MODE_EMOJI,
             MODE_OFF, MODE_DEFAULT
         ]
         for i, m in enumerate(grid_modes):
@@ -777,7 +777,7 @@ class ModeManagerPage(QWidget):
             with open(path, "w", encoding="utf-8") as f:
                 f.write("# Lotus Application Rules Table\n")
                 f.write("# Format: application_name<TAB>mode_id\n")
-                f.write("# Modes: 0=Off, 1=Uinput(Smooth), 2=Uinput(Slow), 4=Surrounding, 5=Preedit, 6=Emoji Picker, 8=Minecraft\n")
+                f.write("# Modes: 0=Off, 1=Uinput(Smooth), 2=Uinput(Slow), 3=Legacy(HC), 4=Surrounding, 5=Preedit, 6=Emoji Picker, 8=Minecraft\n")
                 for app, mode in sorted(self.app_rules.items()):
                     f.write(f"{app}\t{mode}\n")
             QMessageBox.information(

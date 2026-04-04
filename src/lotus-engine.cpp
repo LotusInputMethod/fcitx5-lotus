@@ -529,7 +529,16 @@ namespace fcitx {
             if (selectedMode != LotusMode::NoMode) {
                 LOTUS_INFO("Selected mode: " + modeEnumToString(selectedMode));
                 if (selectedMode != LotusMode::Emoji) {
-                    setAppRule(currentConfigureApp_, selectedMode);
+                    if (it->first == FcitxKey_r) { // Default Typing key (R)
+                        std::lock_guard<std::mutex> lock(appRulesMutex_);
+                        appRules_.erase(currentConfigureApp_);
+                        // Remove from the configuration object too
+                        auto rules = *appRulesTables_.rules;
+                        rules.erase(std::remove_if(rules.begin(), rules.end(), [this](const auto& rule) { return *rule.app == currentConfigureApp_; }), rules.end());
+                        appRulesTables_.rules.setValue(std::move(rules));
+                    } else {
+                        setAppRule(currentConfigureApp_, selectedMode);
+                    }
                     if (!isStartsWith(currentConfigureApp_, "ctx_")) {
                         saveAppRules();
                     }
@@ -808,12 +817,15 @@ namespace fcitx {
         std::vector<ModeInfo> allModes = {
             {LotusMode::Smooth, _("Uinput (Smooth)"), FcitxKey_1, *config_.showModeSmooth},
             {LotusMode::Uinput, _("Uinput (Slow)"), FcitxKey_2, *config_.showModeUinput},
-            {LotusMode::SurroundingText, _("Surrounding Text"), FcitxKey_3, *config_.showModeSurroundingText},
+            {LotusMode::Minecraft, _("Minecraft"), FcitxKey_3, *config_.showModeMinecraft},
+            {LotusMode::SurroundingText, _("Surrounding Text"), FcitxKey_4, *config_.showModeSurroundingText},
             {LotusMode::Preedit, _("Preedit"), FcitxKey_q, *config_.showModePreedit},
             {LotusMode::Emoji, _("Emoji Picker"), FcitxKey_w, *config_.showModeEmoji},
-            {LotusMode::Minecraft, _("Minecraft"), FcitxKey_e, *config_.showModeMinecraft},
-            {LotusMode::Off, _("OFF"), FcitxKey_r, *config_.showModeOff},
+            {LotusMode::Off, _("OFF"), FcitxKey_e, *config_.showModeOff},
         };
+
+        const LotusMode defaultMode = modeStringToEnum(config_.mode.value());
+        allModes.push_back({defaultMode, _("Default Typing"), FcitxKey_r, true}); // Add reset option
 
         candidateList->append(std::make_unique<DisplayOnlyCandidateWord>(Text(_("App: ") + currentConfigureApp_)));
 
@@ -831,6 +843,12 @@ namespace fcitx {
 
                 if (info.mode == realMode) {
                     activeSelectionIdx = currentCandidateIdx;
+                } else if (info.mode == defaultMode && info.label == _("Default Typing") && getAppRule(currentConfigureApp_) == defaultMode) {
+                    // This is technically tricky because getAppRule returns the global default if no rule exists.
+                    // If we are at global default, highlight "Default Typing".
+                    if (appRules_.find(currentConfigureApp_) == appRules_.end()) {
+                        activeSelectionIdx = currentCandidateIdx;
+                    }
                 }
                 currentCandidateIdx++;
             }
@@ -864,6 +882,9 @@ namespace fcitx {
     }
 
     void LotusEngine::setMode(LotusMode mode, InputContext* ic) {
+        if (mode == LotusMode::UinputHC) {
+            mode = LotusMode::Uinput; // Fallback for legacy Hardcore mode (Slow)
+        }
         realMode = mode;
         if (ic != nullptr) {
             ic->updateUserInterface(UserInterfaceComponent::StatusArea);
