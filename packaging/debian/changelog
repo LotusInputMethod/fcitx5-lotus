@@ -1,8 +1,5 @@
-fcitx5-lotus (1.8.1-1) unstable; urgency=medium
+fcitx5-lotus (1.9.0-1) unstable; urgency=medium
 
-  * Fix some bug in preedit mode
-  * Add black icons option for Breeze icon theme
-  * Fix bug duplicated character in chromium-based in wayland
-  * Fix bug lag when hold a key in uinput mode
+  * Add minecraft mode
 
- -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Mon, 30 Mar 2026 22:04:00 +0700
+ -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Wed, 1 Apr 2026 21:27:00 +0700

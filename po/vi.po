@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: fcitx5-lotus\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-30 20:49+0700\n"
-"PO-Revision-Date: 2026-03-30 21:55+0700\n"
+"POT-Creation-Date: 2026-04-01 20:48+0700\n"
+"PO-Revision-Date: 2026-04-01 20:50+0700\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: vi\n"
@@ -18,118 +18,146 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "X-Generator: Poedit 3.8\n"
 
-#: src/lotus-config.h:195
+#: src/lotus-config.h:159
+msgid "Uinput (Smooth)"
+msgstr "Uinput (Mượt)"
+
+#: src/lotus-config.h:159
+msgid "Uinput (Slow)"
+msgstr "Uinput (Chậm)"
+
+#: src/lotus-config.h:159
+msgid "Surrounding Text"
+msgstr "Văn bản xung quanh"
+
+#: src/lotus-config.h:159
+msgid "Preedit"
+msgstr "Gạch chân"
+
+#: src/lotus-config.h:159
+msgid "Uinput (Hardcore)"
+msgstr "Uinput (Cứng)"
+
+#: src/lotus-config.h:159
+msgid "OFF"
+msgstr "Tắt"
+
+#: src/lotus-config.h:159
+msgid "Minecraft"
+msgstr "Minecraft"
+
+#: src/lotus-config.h:198
 msgid "Key"
 msgstr "Phím"
 
-#: src/lotus-config.h:195
+#: src/lotus-config.h:198
 msgid "Value"
 msgstr "Giá trị"
 
-#: src/lotus-config.h:199 src/lotus-config.h:235 src/lotus-engine.cpp:152
+#: src/lotus-config.h:202 src/lotus-config.h:238 src/lotus-engine.cpp:152
 #: src/lotus-engine.cpp:305
 msgid "Macro"
 msgstr "Gõ tắt"
 
-#: src/lotus-config.h:203 src/lotus-config.h:236
+#: src/lotus-config.h:206 src/lotus-config.h:239
 msgid "Custom Keymap"
 msgstr "Keymap tuỳ chỉnh"
 
-#: src/lotus-config.h:205
+#: src/lotus-config.h:208
 msgid "App"
 msgstr "App"
 
-#: src/lotus-config.h:205 src/lotus-config.h:216
+#: src/lotus-config.h:208 src/lotus-config.h:219
 msgid "Mode"
 msgstr "Chế độ"
 
-#: src/lotus-config.h:208
+#: src/lotus-config.h:211
 msgid "Rules"
 msgstr "Quy tắc"
 
-#: src/lotus-config.h:218
+#: src/lotus-config.h:221
 msgid "Input Method"
 msgstr "Kiểu gõ"
 
-#: src/lotus-config.h:219
+#: src/lotus-config.h:222
 msgid "Output Charset"
 msgstr "Bảng mã"
 
-#: src/lotus-config.h:220 src/lotus-engine.cpp:151
+#: src/lotus-config.h:223 src/lotus-engine.cpp:151
 msgid "Enable Spell Check"
 msgstr "Bật kiểm tra chính tả"
 
-#: src/lotus-config.h:220 src/lotus-engine.cpp:152
+#: src/lotus-config.h:223 src/lotus-engine.cpp:152
 msgid "Enable Macro"
 msgstr "Bật gõ tắt"
 
-#: src/lotus-config.h:221 src/lotus-engine.cpp:153 src/lotus-engine.cpp:306
+#: src/lotus-config.h:224 src/lotus-engine.cpp:153 src/lotus-engine.cpp:306
 msgid "Capitalize Macro"
 msgstr "Gõ tắt chữ hoa"
 
-#: src/lotus-config.h:222
+#: src/lotus-config.h:225
 msgid ""
 "Auto capitalize after sentence-ending punctuation (. ! ? Enter) "
 "(experimental)"
 msgstr "Tự động ghi hoa sau dấu câu (. ! ? Enter) (thử nghiệm)"
 
-#: src/lotus-config.h:223
+#: src/lotus-config.h:226
 msgid "Double Space to Period (experimental)"
 msgstr "Phím cách 2 lần để chấm câu (thử nghiệm)"
 
-#: src/lotus-config.h:224
+#: src/lotus-config.h:227
 msgid "Type w to Produce ư"
 msgstr "Gõ w thành ư"
 
-#: src/lotus-config.h:224 src/lotus-engine.cpp:155
+#: src/lotus-config.h:227 src/lotus-engine.cpp:155
 msgid "Auto Restore Keys With Invalid Words"
 msgstr "Tự động khôi phục phím với từ sai"
 
-#: src/lotus-config.h:225
+#: src/lotus-config.h:228
 msgid "Use oà, uý (Instead Of òa, úy)"
 msgstr "Sử dụng oà, uý (Thay vì òa, úy)"
 
-#: src/lotus-config.h:226
+#: src/lotus-config.h:229
 msgid "Allow Type With More Freedom"
 msgstr "Cho phép gõ dấu tự do"
 
-#: src/lotus-config.h:227
+#: src/lotus-config.h:230
 msgid "Allow dd To Produce đ When Auto Restore Keys With Invalid Words Is On"
 msgstr "Cho phép gõ dd thành đ khi bật Tự động khôi phục với từ sai"
 
-#: src/lotus-config.h:228
+#: src/lotus-config.h:231
 msgid "Fix Uinput Mode With Ack"
 msgstr "Sửa lỗi chế độ Uinput với Ack"
 
-#: src/lotus-config.h:229
+#: src/lotus-config.h:232
 msgid "Use Lotus Status Icons"
 msgstr "Sử dụng biểu tượng trạng thái Lotus"
 
-#: src/lotus-config.h:230
+#: src/lotus-config.h:233
 msgid "Use Black Default Icons"
 msgstr "Sử dụng biểu tượng đen mặc định"
 
-#: src/lotus-config.h:231 src/lotus-engine.cpp:157
+#: src/lotus-config.h:234 src/lotus-engine.cpp:157
 msgid "Enable Custom Dictionary"
 msgstr "Bật từ điển tuỳ chỉnh"
 
-#: src/lotus-config.h:232
+#: src/lotus-config.h:235
 msgid "Enable Custom Keymap"
 msgstr "Bật keymap tuỳ chỉnh"
 
-#: src/lotus-config.h:233
+#: src/lotus-config.h:236
 msgid "Time Format ($TIME in macro)"
 msgstr "Định dạng giờ ($TIME trong gõ tắt)"
 
-#: src/lotus-config.h:234
+#: src/lotus-config.h:237
 msgid "Date Format ($DATE in macro)"
 msgstr "Định dạng ngày ($DATE trong macro)"
 
-#: src/lotus-config.h:237
+#: src/lotus-config.h:240
 msgid "App Rules"
 msgstr "Quy tắc ứng dụng"
 
-#: src/lotus-config.h:238
+#: src/lotus-config.h:241
 msgid "Mode Menu Hotkey"
 msgstr "Phím tắt menu chế độ gõ"
 
@@ -153,47 +181,51 @@ msgstr "Từ điển tuỳ chỉnh"
 msgid "Settings"
 msgstr "Cài đặt"
 
-#: src/lotus-engine.cpp:826
+#: src/lotus-engine.cpp:830
 msgid "App: "
 msgstr "App: "
 
-#: src/lotus-engine.cpp:827
+#: src/lotus-engine.cpp:831
 msgid "[1] Uinput (Smooth)"
 msgstr "[1] Uinput (Mượt)"
 
-#: src/lotus-engine.cpp:828
+#: src/lotus-engine.cpp:832
 msgid "[2] Uinput (Slow)"
 msgstr "[2] Uinput (Chậm)"
 
-#: src/lotus-engine.cpp:829
+#: src/lotus-engine.cpp:833
 msgid "[3] Uinput (Hardcore)"
 msgstr "[3] Uinput (Cứng)"
 
-#: src/lotus-engine.cpp:830
+#: src/lotus-engine.cpp:834
 msgid "[4] Surrounding Text"
 msgstr "[4] Văn bản xung quanh"
 
-#: src/lotus-engine.cpp:831
+#: src/lotus-engine.cpp:835
+msgid "[5] Minecraft"
+msgstr "[5] Minecraft"
+
+#: src/lotus-engine.cpp:836
 msgid "[q] Preedit"
 msgstr "[q] Gạch chân"
 
-#: src/lotus-engine.cpp:832
+#: src/lotus-engine.cpp:837
 msgid "[w] Emoji Picker"
 msgstr "[w] Chọn Emoji"
 
-#: src/lotus-engine.cpp:833
+#: src/lotus-engine.cpp:838
 msgid "[e] OFF"
 msgstr "[e] Tắt"
 
-#: src/lotus-engine.cpp:835
+#: src/lotus-engine.cpp:840
 msgid "[r] Default Typing"
 msgstr "[r] Chế độ gõ mặc định"
 
-#: src/lotus-engine.cpp:847
+#: src/lotus-engine.cpp:852
 msgid "Type"
 msgstr "Gõ"
 
-#: src/lotus-engine.cpp:899
+#: src/lotus-engine.cpp:905
 msgid "Lotus - Off"
 msgstr "Lotus - Tắt"
 
@@ -264,8 +296,8 @@ msgstr "Thành công"
 msgid "Debug logs exported successfully to:\n"
 msgstr "Nhật ký gỡ lỗi được xuất thành công vào:\n"
 
-#: settings-gui/ui/pages/about.py:208 settings-gui/ui/pages/mode_manager.py:705
-#: settings-gui/ui/pages/mode_manager.py:788
+#: settings-gui/ui/pages/about.py:208 settings-gui/ui/pages/mode_manager.py:709
+#: settings-gui/ui/pages/mode_manager.py:792
 #: settings-gui/ui/pages/backup.py:188 settings-gui/ui/pages/backup.py:242
 #: settings-gui/ui/pages/backup.py:314 settings-gui/ui/pages/dict_editor.py:247
 #: settings-gui/ui/pages/dict_editor.py:355
@@ -281,145 +313,145 @@ msgstr "Lỗi"
 msgid "Failed to export logs:\n"
 msgstr "Xuất nhật ký gỡ lỗi thất bại\n"
 
-#: settings-gui/ui/pages/mode_manager.py:118
-#: settings-gui/ui/pages/mode_manager.py:131
-#: settings-gui/ui/pages/mode_manager.py:374
+#: settings-gui/ui/pages/mode_manager.py:120
+#: settings-gui/ui/pages/mode_manager.py:133
+#: settings-gui/ui/pages/mode_manager.py:376
 msgid "Add Application"
 msgstr "Thêm ứng dụng"
 
-#: settings-gui/ui/pages/mode_manager.py:133
+#: settings-gui/ui/pages/mode_manager.py:135
 msgid "Assign a specific input mode to an application"
 msgstr "Gán một chế độ gõ cụ thể cho một ứng dụng"
 
-#: settings-gui/ui/pages/mode_manager.py:148
+#: settings-gui/ui/pages/mode_manager.py:150
 msgid "Search process name..."
 msgstr "Tìm tên tiến trình..."
 
-#: settings-gui/ui/pages/mode_manager.py:152
+#: settings-gui/ui/pages/mode_manager.py:154
 msgid "Refresh Process List"
 msgstr "Làm mới danh sách tiến trình"
 
-#: settings-gui/ui/pages/mode_manager.py:166
+#: settings-gui/ui/pages/mode_manager.py:168
 msgid "Running"
 msgstr "Đang chạy"
 
-#: settings-gui/ui/pages/mode_manager.py:172
+#: settings-gui/ui/pages/mode_manager.py:174
 msgid "Enter application name or path..."
 msgstr "Nhập tên ứng dụng hoặc đường dẫn..."
 
-#: settings-gui/ui/pages/mode_manager.py:176
+#: settings-gui/ui/pages/mode_manager.py:178
 msgid "Manual input"
 msgstr "Nhập thủ công"
 
-#: settings-gui/ui/pages/mode_manager.py:180
+#: settings-gui/ui/pages/mode_manager.py:182
 msgid "No application selected"
 msgstr "Không có ứng dụng được chọn"
 
-#: settings-gui/ui/pages/mode_manager.py:183 settings-gui/ui/main_window.py:140
+#: settings-gui/ui/pages/mode_manager.py:185 settings-gui/ui/main_window.py:140
 msgid "&Cancel"
 msgstr "&Huỷ"
 
-#: settings-gui/ui/pages/mode_manager.py:186
+#: settings-gui/ui/pages/mode_manager.py:188
 msgid "&Add"
 msgstr "&Thêm"
 
-#: settings-gui/ui/pages/mode_manager.py:322
+#: settings-gui/ui/pages/mode_manager.py:324
 msgid "Selected:"
 msgstr "Được chọn:"
 
-#: settings-gui/ui/pages/mode_manager.py:363
+#: settings-gui/ui/pages/mode_manager.py:365
 msgid "Search applications..."
 msgstr "Tìm ứng dụng..."
 
-#: settings-gui/ui/pages/mode_manager.py:375
+#: settings-gui/ui/pages/mode_manager.py:377
 #: settings-gui/ui/pages/dict_editor.py:135
 #: settings-gui/ui/pages/keymap_editor.py:329
 #: settings-gui/ui/pages/macro_editor.py:201
 msgid "Remove"
 msgstr "Xoá"
 
-#: settings-gui/ui/pages/mode_manager.py:396 settings-gui/ui/main_window.py:170
+#: settings-gui/ui/pages/mode_manager.py:398 settings-gui/ui/main_window.py:170
 msgid "Applications"
 msgstr "Ứng dụng"
 
-#: settings-gui/ui/pages/mode_manager.py:403
+#: settings-gui/ui/pages/mode_manager.py:405
 msgid "Global Default Mode:"
 msgstr "Chế độ toàn cục mặc định:"
 
-#: settings-gui/ui/pages/mode_manager.py:425
+#: settings-gui/ui/pages/mode_manager.py:428
 msgid "Select an application"
 msgstr "Tìm một ứng dụng"
 
-#: settings-gui/ui/pages/mode_manager.py:655
+#: settings-gui/ui/pages/mode_manager.py:659
 msgid "Confirm Remove"
 msgstr "Xác nhận xoá"
 
-#: settings-gui/ui/pages/mode_manager.py:656
+#: settings-gui/ui/pages/mode_manager.py:660
 msgid "Are you sure you want to remove rules for this application?"
 msgstr "Bạn có chắc chắn muốn xoá quy tắc cho ứng dụng này?"
 
-#: settings-gui/ui/pages/mode_manager.py:694
+#: settings-gui/ui/pages/mode_manager.py:698
 msgid "Import Application Rules"
 msgstr "Nhập quy tắc ứng dụng"
 
-#: settings-gui/ui/pages/mode_manager.py:696
-#: settings-gui/ui/pages/mode_manager.py:770
+#: settings-gui/ui/pages/mode_manager.py:700
+#: settings-gui/ui/pages/mode_manager.py:774
 #: settings-gui/ui/pages/dict_editor.py:403
 #: settings-gui/ui/pages/keymap_editor.py:604
 #: settings-gui/ui/pages/macro_editor.py:534
 msgid "Tab-separated (*.tsv);;Text files (*.txt);;All files (*)"
 msgstr "Phân cách tab (*.tsv);; Tệp văn bản (*txt);; Tất cả tệp (*)"
 
-#: settings-gui/ui/pages/mode_manager.py:705
+#: settings-gui/ui/pages/mode_manager.py:709
 msgid "Cannot open file for reading:"
 msgstr "Không thể mở tệp để đọc:"
 
-#: settings-gui/ui/pages/mode_manager.py:735
+#: settings-gui/ui/pages/mode_manager.py:739
 #: settings-gui/ui/pages/dict_editor.py:368
 #: settings-gui/ui/pages/keymap_editor.py:557
 #: settings-gui/ui/pages/macro_editor.py:503
 msgid "Confirm Import"
 msgstr "Xác nhận nhập"
 
-#: settings-gui/ui/pages/mode_manager.py:736
+#: settings-gui/ui/pages/mode_manager.py:740
 msgid "Merge imported application rules?"
 msgstr "Gộp các quy tắc ứng dụng đã nhập?"
 
-#: settings-gui/ui/pages/mode_manager.py:754
+#: settings-gui/ui/pages/mode_manager.py:758
 #: settings-gui/ui/pages/dict_editor.py:389
 #: settings-gui/ui/pages/keymap_editor.py:588
 #: settings-gui/ui/pages/macro_editor.py:520
 msgid "Import Complete"
 msgstr "Nhập thành công"
 
-#: settings-gui/ui/pages/mode_manager.py:755
+#: settings-gui/ui/pages/mode_manager.py:759
 #, python-brace-format
 msgid "Imported {} rules, skipped {} invalid lines."
 msgstr "Nhập {} quy tắc, bỏ qua {} dòng không hợp lệ."
 
-#: settings-gui/ui/pages/mode_manager.py:762
+#: settings-gui/ui/pages/mode_manager.py:766
 #: settings-gui/ui/pages/dict_editor.py:396
 #: settings-gui/ui/pages/keymap_editor.py:596
 #: settings-gui/ui/pages/macro_editor.py:527
 msgid "Export"
 msgstr "Xuất"
 
-#: settings-gui/ui/pages/mode_manager.py:762
+#: settings-gui/ui/pages/mode_manager.py:766
 msgid "The application rules list is empty, nothing to export."
 msgstr "Danh sách quy tắc ứng dụng đang rỗng, không có gì để xuất."
 
-#: settings-gui/ui/pages/mode_manager.py:768
+#: settings-gui/ui/pages/mode_manager.py:772
 msgid "Export Application Rules"
 msgstr "Xuất quy tắc ứng dụng"
 
-#: settings-gui/ui/pages/mode_manager.py:784
+#: settings-gui/ui/pages/mode_manager.py:788
 #: settings-gui/ui/pages/dict_editor.py:414
 #: settings-gui/ui/pages/keymap_editor.py:621
 #: settings-gui/ui/pages/macro_editor.py:548
 msgid "Export Complete"
 msgstr "Xuất hoàn tất"
 
-#: settings-gui/ui/pages/mode_manager.py:785
+#: settings-gui/ui/pages/mode_manager.py:789
 #, python-brace-format
 msgid ""
 "Exported {} rules to:\n"
@@ -428,17 +460,9 @@ msgstr ""
 "Xuất {} quy tắc vào:\n"
 "{}"
 
-#: settings-gui/ui/pages/mode_manager.py:788
+#: settings-gui/ui/pages/mode_manager.py:792
 msgid "Cannot open file for writing:"
 msgstr "Không thể mở file để ghi:"
-
-#: settings-gui/ui/pages/dynamic_settings.py:117
-msgid "Failed to load configuration."
-msgstr "Tải cấu hình thất bại."
-
-#: settings-gui/ui/pages/dynamic_settings.py:165
-msgid "No interface settings available yet."
-msgstr "Không có cài đặt nào hiện khả dụng."
 
 #: settings-gui/ui/pages/backup.py:52
 msgid "Backup & Restore"
@@ -651,6 +675,14 @@ msgstr ""
 #, python-brace-format
 msgid "Cannot open file for writing: {}"
 msgstr "Không thể mở file để ghi: {}"
+
+#: settings-gui/ui/pages/dynamic_settings.py:117
+msgid "Failed to load configuration."
+msgstr "Tải cấu hình thất bại."
+
+#: settings-gui/ui/pages/dynamic_settings.py:165
+msgid "No interface settings available yet."
+msgstr "Không có cài đặt nào hiện khả dụng."
 
 #: settings-gui/ui/pages/keymap_editor.py:242
 #: settings-gui/ui/main_window.py:185

@@ -1,66 +1,71 @@
 {
   lib,
   stdenv,
+  buildGoModule,
   fetchFromGitHub,
   cmake,
   extra-cmake-modules,
-  pkg-config,
-  go,
-  gettext,
-  hicolor-icon-theme,
   fcitx5,
+  gettext,
+  go,
+  hicolor-icon-theme,
   libinput,
   libx11,
-  udev,
-  qt6,
+  pkg-config,
   python3,
+  qt6,
+  udev,
 }:
 stdenv.mkDerivation rec {
   pname = "fcitx5-lotus";
-  version = "1.8.1";
+  version = "1.9.0";
 
   src = fetchFromGitHub {
     owner = "LotusInputMethod";
     repo = "fcitx5-lotus";
     rev = "v${version}";
     fetchSubmodules = true;
-    sha256 = "sha256-k64/ZR+3GOGLs1jKm+5ZQ3yC9KyGIa6bp7GReB8T5Qc=";
+    hash = "sha256-rTs5Rt6+rwRkNEMTDSZ1NtXA0l0LcFZuaeViLM7B7Tc=";
   };
 
   nativeBuildInputs = [
     cmake
     extra-cmake-modules
-    pkg-config
-    go
     gettext
+    go
     hicolor-icon-theme
+    pkg-config
     qt6.wrapQtAppsHook
-    (python3.withPackages (ps: with ps; [
-      pyside6
-      dbus-python
-    ]))
   ];
 
   buildInputs = [
     fcitx5
     libinput
     libx11
-    udev
+    (python3.withPackages (ps: with ps; [
+      pyside6
+      dbus-python
+    ]))
     qt6.qtbase
+    udev
   ];
+
+  vendorDir = (buildGoModule {
+    pname = "fcitx5-lotus-go-modules";
+    inherit version src;
+    modRoot = "bamboo";
+    vendorHash = "sha256-i/1p4V6DTXUVj2NYvNytpESW0chfcdTjt/UpRXjqaAk=";
+  }).goModules;
 
   preConfigure = ''
     export GOCACHE=$TMPDIR/go-cache
     export GOPATH=$TMPDIR/go
 
-    cd bamboo
-    go mod vendor
-    cd ..
+    rm -rf bamboo/vendor
+    cp -r $vendorDir bamboo/vendor
   '';
 
   cmakeFlags = [
-    "-DCMAKE_INSTALL_PREFIX=${placeholder "out"}"
-    "-DCMAKE_INSTALL_LIBDIR=lib"
     "-DGO_FLAGS=-mod=vendor"
     "-DINSTALL_OPENRC=OFF"
   ];
