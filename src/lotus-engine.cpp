@@ -848,7 +848,11 @@ namespace fcitx {
                 } else if (info.mode == defaultMode && info.label == _("Default Typing") && getAppRule(currentConfigureApp_) == defaultMode) {
                     // This is technically tricky because getAppRule returns the global default if no rule exists.
                     // If we are at global default, highlight "Default Typing".
+#if __cplusplus >= 202002L
                     if (!appRules_.contains(currentConfigureApp_)) {
+#else
+                    if (appRules_.find(currentConfigureApp_) == appRules_.end()) {
+#endif
                         activeSelectionIdx = currentCandidateIdx;
                     }
                 }
