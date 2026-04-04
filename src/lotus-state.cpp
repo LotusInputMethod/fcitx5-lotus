@@ -113,28 +113,39 @@ namespace fcitx {
     }
 
     void LotusState::send_backspace_uinput(int count) const {
-        if (uinput_client_fd_ < 0 && !connect_uinput_server()) {
-            LOTUS_ERROR("Cannot send backspace since cannot connect to uinput server");
+        if (uinput_client_fd_ < 0 || count <= 0) {
+            return;
+        }
+        send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
+    }
+
+    void LotusState::backspace_timer_cb() {
+        if (bs_state_ == BackspaceState::IDLE || uinput_client_fd_ < 0) {
             return;
         }
 
-        ssize_t n = send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
-
-        if (n < 0) {
-            LOTUS_WARN("Failed to send backspace: " + std::string(strerror(errno)));
-            int old_fd = uinput_client_fd_.exchange(-1);
-            if (old_fd != -1) {
-                close(old_fd);
+        if (bs_state_ == BackspaceState::PRESS) {
+            int cmd = -1; // PRESS
+            send(uinput_client_fd_, &cmd, sizeof(cmd), MSG_NOSIGNAL);
+            bs_state_ = BackspaceState::RELEASE;
+            bs_timer_ = engine_->instance()->eventLoop().addTimeEvent(CLOCK_MONOTONIC, fcitx::now(CLOCK_MONOTONIC) + 5000, 0, [this](EventSourceTime*, uint64_t) {
+                backspace_timer_cb();
+                return false;
+            });
+        } else if (bs_state_ == BackspaceState::RELEASE) {
+            int cmd = -2; // RELEASE
+            send(uinput_client_fd_, &cmd, sizeof(cmd), MSG_NOSIGNAL);
+            injected_backspaces_++;
+            if (injected_backspaces_ < expected_backspaces_) {
+                bs_state_ = BackspaceState::PRESS;
+                bs_timer_ = engine_->instance()->eventLoop().addTimeEvent(CLOCK_MONOTONIC, fcitx::now(CLOCK_MONOTONIC) + 10000, 0, [this](EventSourceTime*, uint64_t) {
+                    backspace_timer_cb();
+                    return false;
+                });
+            } else {
+                bs_state_ = BackspaceState::IDLE;
+                bs_timer_.reset();
             }
-            if (connect_uinput_server()) {
-                LOTUS_INFO("Reconnected to uinput server successfully");
-                send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
-            }
-        }
-
-        if (waitAck_) {
-            LOTUS_INFO("Waiting for ack");
-            std::this_thread::sleep_for(std::chrono::milliseconds(count * 5));
         }
     }
 
@@ -497,8 +508,10 @@ namespace fcitx {
         replacement_start_ms_.store(now_ms(), std::memory_order_release);
         is_deleting_.store(true, std::memory_order_release);
         monitor_cv.notify_one();
-        send_backspace_uinput(expected_backspaces_);
-        LOTUS_INFO("Send " + std::to_string(expected_backspaces_) + " backspaces");
+        injected_backspaces_ = 0;
+        bs_state_            = BackspaceState::PRESS;
+        backspace_timer_cb();
+        LOTUS_INFO("Started timer-based injection of " + std::to_string(expected_backspaces_) + " backspaces");
     }
 
     bool LotusState::checkForwardSpecialKey(KeyEvent& keyEvent, KeySym& currentSym) {
@@ -866,8 +879,18 @@ namespace fcitx {
     }
 
     void LotusState::keyEvent(KeyEvent& keyEvent) {
-        if (!lotusEngine_ || keyEvent.isRelease())
+        if (!lotusEngine_)
             return;
+
+        KeySym currentSym = keyEvent.rawKey().sym();
+        if (keyEvent.isRelease()) {
+            if (is_deleting_.load(std::memory_order_acquire)) {
+                if (!isBackspace(currentSym) && buffered_keys_.size() < MAX_BUFFERED_KEYS) {
+                    buffered_keys_.push_back({.sym = currentSym, .state = keyEvent.rawKey().states(), .isRelease = true});
+                }
+            }
+            return;
+        }
         if (uinput_client_fd_ < 0) {
             LOTUS_WARN("Cannot connect to uinput server, reconnecting....");
             connect_uinput_server();
@@ -909,7 +932,7 @@ namespace fcitx {
             if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
                 replayBufferedKeys(); // Does we need drop this?
         }
-        KeySym currentSym = keyEvent.rawKey().sym();
+        currentSym = keyEvent.rawKey().sym();
         if (*engine_->config().autoCapitalizeAfterPunctuation && realMode != LotusMode::Off) {
             // Ignore auto-capitalize side-effects if we're processing automated replacement backspaces
             bool isAutomatedBackspace = is_deleting_.load(std::memory_order_acquire) && isBackspace(currentSym);
@@ -961,7 +984,7 @@ namespace fcitx {
                 std::string keyUtf8Check = Key::keySymToUTF8(currentSym);
                 if (!keyUtf8Check.empty() && buffered_keys_.size() < MAX_BUFFERED_KEYS) {
                     LOTUS_WARN("Typing so fast, add key to queue");
-                    buffered_keys_.push_back({.sym = currentSym, .state = keyEvent.rawKey().states()});
+                    buffered_keys_.push_back({.sym = currentSym, .state = keyEvent.rawKey().states(), .isRelease = false});
                 }
                 keyEvent.filterAndAccept();
             }
@@ -1032,6 +1055,8 @@ namespace fcitx {
             ResetEngine(lotusEngine_.handle());
         }
 
+        clearCommonState(getFrontendName(ic_) != "dbus", true);
+
         switch (realMode) {
             case LotusMode::Preedit: {
                 ic_->inputPanel().reset();
@@ -1057,7 +1082,6 @@ namespace fcitx {
                 break;
             }
         }
-        clearCommonState(getFrontendName(ic_) != "dbus", true);
     }
 
     void LotusState::commitBuffer() {
@@ -1106,13 +1130,19 @@ namespace fcitx {
         isPrevPunctuation_ = false;
 
         if (fullReset) {
-            isPrevSpace_ = false;
-            needEngineReset.store(false, std::memory_order_relaxed);
-            needFallbackCommit.store(false, std::memory_order_relaxed);
-            replacement_start_ms_.store(0, std::memory_order_relaxed);
-            replacement_thread_id_.store(0, std::memory_order_relaxed);
-            g_mouse_clicked.store(false, std::memory_order_relaxed);
-            current_thread_id_.store(0, std::memory_order_relaxed);
+            if (bs_timer_) {
+                bs_timer_->setEnabled(false);
+                bs_timer_.reset();
+            }
+            bs_state_            = BackspaceState::IDLE;
+            injected_backspaces_ = 0;
+            isPrevSpace_         = false;
+            needEngineReset.store(false, std::memory_order_release);
+            needFallbackCommit.store(false, std::memory_order_release);
+            replacement_start_ms_.store(0, std::memory_order_release);
+            replacement_thread_id_.store(0, std::memory_order_release);
+            g_mouse_clicked.store(false, std::memory_order_release);
+            current_thread_id_.store(0, std::memory_order_release);
         }
     }
 

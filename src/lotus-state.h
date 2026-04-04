@@ -21,6 +21,7 @@
 
 #include <cstddef>
 #include <fcitx-utils/misc.h>
+#include <fcitx-utils/event.h>
 #include <fcitx/inputcontext.h>
 
 #include <atomic>
@@ -101,12 +102,20 @@ namespace fcitx {
         std::string             emojiBuffer_;
         std::vector<EmojiEntry> emojiCandidates_;
         bool                    waitAck_ = false;
-        std::vector<KeyEntry>   buffered_keys_; ///< Keystrokes buffered during replacement
-        bool                    isPrevSpace_        = false;
-        bool                    shouldCapitalize_   = false;
-        bool                    isPrevPunctuation_  = false;
-        int64_t                 lastDeactivateTime_ = 0;
-        bool                    wa_chromium_flag    = false;
+        enum class BackspaceState {
+            IDLE,
+            PRESS,
+            RELEASE
+        };
+        BackspaceState                   bs_state_ = BackspaceState::IDLE;
+        std::unique_ptr<EventSourceTime> bs_timer_;
+        int                              injected_backspaces_ = 0;
+        std::vector<KeyEntry>            buffered_keys_; ///< Keystrokes buffered during replacement
+        bool                             isPrevSpace_        = false;
+        bool                             shouldCapitalize_   = false;
+        bool                             isPrevPunctuation_  = false;
+        int64_t                          lastDeactivateTime_ = 0;
+        bool                             wa_chromium_flag    = false;
 
         /**
          * @brief Clears common state variables shared by reset() and clearAllBuffers().
@@ -131,6 +140,7 @@ namespace fcitx {
          * @param count Number of backspaces to send.
          */
         void send_backspace_uinput(int count) const;
+        void backspace_timer_cb();
 
         /**
          * @brief Checks if autofill is certain for surrounding text.

@@ -75,6 +75,7 @@ class UinputDevice {
     UinputDevice& operator=(UinputDevice&&)      = default;
 
     bool          initialize();
+    void          send_key(uint16_t code, int value);
     void          send_backspace();
     int           get_fd() const {
         return guard_.get();

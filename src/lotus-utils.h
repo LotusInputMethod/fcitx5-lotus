@@ -104,8 +104,9 @@ std::string getFrontendName(fcitx::InputContext* ic);
  * @brief Key event entry for replay buffer.
  */
 struct KeyEntry {
-    uint32_t sym;   ///< Key symbol
-    uint32_t state; ///< Key state (modifiers)
+    uint32_t sym;       ///< Key symbol
+    uint32_t state;     ///< Key state (modifiers)
+    bool     isRelease; ///< Whether this is a key release event
 };
 
 #endif // _FCITX5_LOTUS_UTILS_H_

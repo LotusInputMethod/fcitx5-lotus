@@ -69,19 +69,20 @@ bool UinputDevice::initialize() {
     return true;
 }
 
-void UinputDevice::send_backspace() {
+void UinputDevice::send_key(uint16_t code, int value) {
     if (!guard_.is_valid())
         return;
-    struct input_event ev[4]{};
+    struct input_event ev[2]{};
     ev[0].type  = EV_KEY;
-    ev[0].code  = KEY_BACKSPACE;
-    ev[0].value = 1; // Press
-    // Zero-initialize ev[1] via {} set this event to SYN_REPORT
-    ev[2].type  = EV_KEY;
-    ev[2].code  = KEY_BACKSPACE;
-    ev[2].value = 0; // Release
-    // Zero-initialize ev[3] via {} set this event to SYN_REPORT
+    ev[0].code  = code;
+    ev[0].value = value;
+    // ev[1] is SYN_REPORT due to zero-init
     write(guard_.get(), ev, sizeof(ev));
+}
+
+void UinputDevice::send_backspace() {
+    send_key(KEY_BACKSPACE, 1);
+    send_key(KEY_BACKSPACE, 0);
 }
 
 LibinputContext::LibinputContext(const struct libinput_interface* interface) : udev_(udev_new()) {
@@ -334,8 +335,14 @@ int main(int argc, char* argv[]) {
                 kb_client_fd.reset(-1);
                 fds[KB_CLIENT_INDEX].fd = -1;
             } else {
-                pending_backspaces += count - 1;
-                uinput.send_backspace();
+                if (count == -1) {
+                    uinput.send_key(KEY_BACKSPACE, 1);
+                } else if (count == -2) {
+                    uinput.send_key(KEY_BACKSPACE, 0);
+                } else {
+                    pending_backspaces += count - 1;
+                    uinput.send_backspace();
+                }
             }
         }
 
