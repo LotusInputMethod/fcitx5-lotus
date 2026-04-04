@@ -529,7 +529,7 @@ namespace fcitx {
             if (selectedMode != LotusMode::NoMode) {
                 LOTUS_INFO("Selected mode: " + modeEnumToString(selectedMode));
                 if (selectedMode != LotusMode::Emoji) {
-                    if (it->first == FcitxKey_r) { // Default Typing key (R)
+                    if (keySym == FcitxKey_r) { // Default Typing key (R)
                         std::lock_guard<std::mutex> lock(appRulesMutex_);
                         appRules_.erase(currentConfigureApp_);
                         // Remove from the configuration object too
