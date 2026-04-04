@@ -756,38 +756,6 @@ class ModeManagerPage(QWidget):
             _("Imported {} rules, skipped {} invalid lines.").format(imported, skipped),
         )
 
-    def do_export(self):
-        """Exports current app rules to a TSV file."""
-        if not self.app_rules:
-            QMessageBox.information(
-                self, _("Export"), _("The application rules list is empty, nothing to export.")
-            )
-            return
-
-        path, _filter = QFileDialog.getSaveFileName(
-            self,
-            _("Export Application Rules"),
-            "lotus-app-rules.tsv",
-            _("Tab-separated (*.tsv);;Text files (*.txt);;All files (*)"),
-        )
-        if not path:
-            return
-
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write("# Lotus Application Rules Table\n")
-                f.write("# Format: application_name<TAB>mode_id\n")
-                f.write("# Modes: 0=Off, 1=Uinput(Smooth), 2=Uinput(Slow), 3=Legacy(HC), 4=Surrounding, 5=Preedit, 6=Emoji Picker, 8=Minecraft\n")
-                for app, mode in sorted(self.app_rules.items()):
-                    f.write(f"{app}\t{mode}\n")
-            QMessageBox.information(
-                self,
-                _("Export Complete"),
-                _("Exported {} rules to:\n{}").format(len(self.app_rules), path),
-            )
-        except Exception as e:
-            QMessageBox.warning(self, _("Error"), f"{_('Cannot open file for writing:')} {e}")
-
     def save_data(self):
         try:
             if self.combo_global_mode.currentData() != self.original_global_mode:

@@ -568,6 +568,8 @@ namespace fcitx {
             LOTUS_INFO("Mode menu key pressed");
             currentConfigureApp_ = getProgramName(ic);
             g_mouse_clicked.store(false, std::memory_order_release);
+            std::string appName = getProgramName(ic);
+            setMode(getAppRule(appName), ic);
             showAppModeMenu(ic);
             keyEvent.filterAndAccept();
             return;
@@ -846,7 +848,7 @@ namespace fcitx {
                 } else if (info.mode == defaultMode && info.label == _("Default Typing") && getAppRule(currentConfigureApp_) == defaultMode) {
                     // This is technically tricky because getAppRule returns the global default if no rule exists.
                     // If we are at global default, highlight "Default Typing".
-                    if (appRules_.find(currentConfigureApp_) == appRules_.end()) {
+                    if (!appRules_.contains(currentConfigureApp_)) {
                         activeSelectionIdx = currentCandidateIdx;
                     }
                 }
@@ -882,9 +884,6 @@ namespace fcitx {
     }
 
     void LotusEngine::setMode(LotusMode mode, InputContext* ic) {
-        if (mode == LotusMode::UinputHC) {
-            mode = LotusMode::Uinput; // Fallback for legacy Hardcore mode (Slow)
-        }
         realMode = mode;
         if (ic != nullptr) {
             ic->updateUserInterface(UserInterfaceComponent::StatusArea);

@@ -588,38 +588,3 @@ class KeymapEditorPage(BaseEditorPage):
             _("Import Complete"),
             _("Imported {} entries, skipped {} invalid lines.").format(imported, skipped),
         )
-
-    def do_export(self):
-        """Exports the current table to a TSV file."""
-        if self.table.rowCount() == 0:
-            QMessageBox.information(
-                self, _("Export"), _("The keymap list is empty, nothing to export.")
-            )
-            return
-
-        path, _filter = QFileDialog.getSaveFileName(
-            self,
-            _("Export Keymap"),
-            "lotus-keymap.tsv",
-            _("Tab-separated (*.tsv);;Text files (*.txt);;All files (*)"),
-        )
-        if not path:
-            return
-
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write("# Lotus Keymap Table\n")
-                f.write("# Format: key<TAB>action_code\n")
-
-                for row in range(self.table.rowCount()):
-                    key_item = self.table.item(row, 0)
-                    combo = self.table.cellWidget(row, 1)
-                    if key_item and combo:
-                        f.write(f"{key_item.text()}\t{combo.currentData()}\n")
-            QMessageBox.information(
-                self,
-                _("Export Complete"),
-                _("Exported {} entries to:\n{}").format(self.table.rowCount(), path),
-            )
-        except (IOError, OSError, UnicodeDecodeError) as e:
-            QMessageBox.warning(self, _("Error"), _("Cannot open file for writing: {}").format(e))

@@ -520,33 +520,3 @@ class MacroEditorPage(BaseEditorPage):
             _("Import Complete"),
             _("Imported {} entries, skipped {} invalid lines.").format(imported, skipped),
         )
-
-    def do_export(self):
-        if self.table.rowCount() == 0:
-            QMessageBox.information(
-                self, _("Export"), _("The macro list is empty, nothing to export.")
-            )
-            return
-        path, _filter = QFileDialog.getSaveFileName(
-            self,
-            _("Export Macros"),
-            "lotus-macro.tsv",
-            _("Tab-separated (*.tsv);;Text files (*.txt);;All files (*)"),
-        )
-        if not path:
-            return
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write("# Lotus Macro Table\n# Format: shorthand<TAB>expanded text\n")
-                for row in range(self.table.rowCount()):
-                    key_item = self.table.item(row, 0)
-                    val_item = self.table.item(row, 1)
-                    if key_item and val_item and key_item.text():
-                        f.write(f"{key_item.text()}\t{val_item.text()}\n")
-            QMessageBox.information(
-                self,
-                _("Export Complete"),
-                _("Exported {} entries to:\n{}").format(self.table.rowCount(), path),
-            )
-        except (IOError, OSError, UnicodeDecodeError) as e:
-            QMessageBox.warning(self, _("Error"), _("Cannot open file for writing: {}").format(e))

@@ -19,7 +19,6 @@
 #include <fcitx-config/configuration.h>
 #include <fcitx-utils/i18n.h>
 #include <fcitx-utils/stringutils.h>
-#include <unordered_map>
 
 namespace fcitx {
 
@@ -30,7 +29,6 @@ namespace fcitx {
         Off             = 0,
         Smooth          = 1,
         Uinput          = 2,
-        UinputHC        = 3,
         SurroundingText = 4,
         Preedit         = 5,
         Emoji           = 6,
@@ -50,7 +48,6 @@ namespace fcitx {
             case LotusMode::SurroundingText: return "Surrounding Text";
             case LotusMode::Preedit: return "Preedit";
             case LotusMode::Emoji: return "Emoji Picker";
-            case LotusMode::UinputHC: return "Uinput (Hardcore)";
             case LotusMode::Smooth: return "Uinput (Smooth)";
             case LotusMode::Minecraft: return "Minecraft";
             default: return "";
@@ -70,7 +67,6 @@ namespace fcitx {
             {"Preedit", LotusMode::Preedit},
             {"Emoji Picker", LotusMode::Emoji},
             {"Uinput (Smooth)", LotusMode::Smooth},
-            {"Uinput (Hardcore)", LotusMode::UinputHC},
             {"Minecraft", LotusMode::Minecraft},
         };
         auto it = modeMap.find(mode);

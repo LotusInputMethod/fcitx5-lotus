@@ -242,7 +242,6 @@ namespace fcitx {
 
         auto baseList   = ic_->inputPanel().candidateList();
         auto commonList = std::dynamic_pointer_cast<CommonCandidateList>(baseList);
-
         if (commonList && currentSym >= FcitxKey_1 && currentSym <= FcitxKey_9) {
             int offset      = currentSym - FcitxKey_1;
             int globalIndex = (commonList->currentPage() * commonList->pageSize()) + offset;
