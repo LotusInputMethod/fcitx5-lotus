@@ -101,7 +101,9 @@ namespace fcitx {
         std::atomic<int>        current_thread_id_{0};
         std::string             emojiBuffer_;
         std::vector<EmojiEntry> emojiCandidates_;
-        bool                    waitAck_ = false;
+        bool                    waitAck_       = false;
+        static constexpr int    CMD_BS_PRESS   = -1;
+        static constexpr int    CMD_BS_RELEASE = -2;
         enum class BackspaceState {
             IDLE,
             PRESS,
@@ -139,7 +141,7 @@ namespace fcitx {
          * @brief Sends backspace key events via uinput.
          * @param count Number of backspaces to send.
          */
-        void send_backspace_uinput(int count) const;
+        bool send_backspace_uinput(int count);
         void backspace_timer_cb();
 
         /**

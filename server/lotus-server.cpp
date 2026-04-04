@@ -335,11 +335,11 @@ int main(int argc, char* argv[]) {
                 kb_client_fd.reset(-1);
                 fds[KB_CLIENT_INDEX].fd = -1;
             } else {
-                if (count == -1) {
+                if (count == CMD_BS_PRESS) {
                     uinput.send_key(KEY_BACKSPACE, 1);
-                } else if (count == -2) {
+                } else if (count == CMD_BS_RELEASE) {
                     uinput.send_key(KEY_BACKSPACE, 0);
-                } else {
+                } else if (count > 0) {
                     pending_backspaces += count - 1;
                     uinput.send_backspace();
                 }

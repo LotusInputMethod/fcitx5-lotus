@@ -131,6 +131,8 @@ class LibinputContext {
  * @brief Maximum length of Unix socket paths.
 */
 #define UNIX_PATH_MAX sizeof(((struct sockaddr_un*)0)->sun_path)
+static constexpr int CMD_BS_PRESS   = -1;
+static constexpr int CMD_BS_RELEASE = -2;
 
 /**
  * @brief Global flag to control server running state.

@@ -112,29 +112,38 @@ namespace fcitx {
         return connect_uinput_server() ? uinput_client_fd_.load(std::memory_order_acquire) : -1;
     }
 
-    void LotusState::send_backspace_uinput(int count) const {
-        if (uinput_client_fd_ < 0 || count <= 0) {
-            return;
+    bool LotusState::send_backspace_uinput(int count) {
+        if (uinput_client_fd_ < 0) {
+            return false;
         }
-        send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
+        ssize_t sent = send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
+        return sent == sizeof(count);
     }
 
     void LotusState::backspace_timer_cb() {
-        if (bs_state_ == BackspaceState::IDLE || uinput_client_fd_ < 0) {
+        if (bs_state_ == BackspaceState::IDLE) {
             return;
         }
 
         if (bs_state_ == BackspaceState::PRESS) {
-            int cmd = -1; // PRESS
-            send(uinput_client_fd_, &cmd, sizeof(cmd), MSG_NOSIGNAL);
+            if (!send_backspace_uinput(CMD_BS_PRESS)) {
+                LOTUS_WARN("Failed to send backspace PRESS, aborting timer");
+                bs_state_ = BackspaceState::IDLE;
+                bs_timer_.reset();
+                return;
+            }
             bs_state_ = BackspaceState::RELEASE;
             bs_timer_ = engine_->instance()->eventLoop().addTimeEvent(CLOCK_MONOTONIC, fcitx::now(CLOCK_MONOTONIC) + 5000, 0, [this](EventSourceTime*, uint64_t) {
                 backspace_timer_cb();
                 return false;
             });
         } else if (bs_state_ == BackspaceState::RELEASE) {
-            int cmd = -2; // RELEASE
-            send(uinput_client_fd_, &cmd, sizeof(cmd), MSG_NOSIGNAL);
+            if (!send_backspace_uinput(CMD_BS_RELEASE)) {
+                LOTUS_WARN("Failed to send backspace RELEASE, aborting timer");
+                bs_state_ = BackspaceState::IDLE;
+                bs_timer_.reset();
+                return;
+            }
             injected_backspaces_++;
             if (injected_backspaces_ < expected_backspaces_) {
                 bs_state_ = BackspaceState::PRESS;
@@ -1137,12 +1146,13 @@ namespace fcitx {
             bs_state_            = BackspaceState::IDLE;
             injected_backspaces_ = 0;
             isPrevSpace_         = false;
-            needEngineReset.store(false, std::memory_order_release);
-            needFallbackCommit.store(false, std::memory_order_release);
-            replacement_start_ms_.store(0, std::memory_order_release);
-            replacement_thread_id_.store(0, std::memory_order_release);
-            g_mouse_clicked.store(false, std::memory_order_release);
-            current_thread_id_.store(0, std::memory_order_release);
+            needEngineReset.store(false, std::memory_order_relaxed);
+            needFallbackCommit.store(false, std::memory_order_relaxed);
+            replacement_start_ms_.store(0, std::memory_order_relaxed);
+            replacement_thread_id_.store(0, std::memory_order_relaxed);
+            g_mouse_clicked.store(false, std::memory_order_relaxed);
+            current_thread_id_.store(0, std::memory_order_relaxed);
+            is_deleting_.store(false, std::memory_order_relaxed);
         }
     }
 
