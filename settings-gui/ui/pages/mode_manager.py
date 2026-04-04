@@ -42,7 +42,7 @@ MODE_MINECRAFT = 8
 MODE_DEFAULT = -1  # UI special value for "Use Global Default"
 
 MODE_INFO = {
-    MODE_DEFAULT: {"title": "Default", "icon": "preferences-system"},
+    MODE_DEFAULT: {"title": "Default Typing", "icon": "preferences-system"},
     MODE_OFF: {"title": "OFF", "icon": "input-keyboard"},
     MODE_SMOOTH: {"title": "Uinput (Smooth)", "icon": "input-keyboard"},
     MODE_SLOW: {"title": "Uinput (Slow)", "icon": "input-keyboard"},

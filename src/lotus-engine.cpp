@@ -825,7 +825,7 @@ namespace fcitx {
         };
 
         const LotusMode defaultMode = modeStringToEnum(config_.mode.value());
-        allModes.push_back({defaultMode, _("Default Typing"), FcitxKey_r, true}); // Add reset option
+        allModes.push_back({defaultMode, _("Default Typing"), FcitxKey_r, *config_.showModeDefault}); // Add reset option
 
         candidateList->append(std::make_unique<DisplayOnlyCandidateWord>(Text(_("App: ") + currentConfigureApp_)));
 
