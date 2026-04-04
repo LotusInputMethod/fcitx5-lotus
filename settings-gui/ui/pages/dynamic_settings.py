@@ -41,11 +41,12 @@ SETTINGS_MAP = {
         "LOADABLE MODES": [
             "ShowModeSmooth",
             "ShowModeUinput",
+            "ShowModeMinecraft",
             "ShowModeSurroundingText",
             "ShowModePreedit",
             "ShowModeEmoji",
-            "ShowModeMinecraft",
             "ShowModeOff",
+            "ShowModeDefault",
         ],
     },
     SettingsCategory.APPEARANCE: {
