@@ -34,12 +34,18 @@ add_subdirectory(src)
 add_subdirectory(data)
 add_subdirectory(server)
 add_subdirectory(misc)
-add_subdirectory(lotus-osk)
+option(ENABLE_QT "Enable Qt-based components like OSK" ON)
 
 if(ENABLE_QT)
-    target_compile_definitions(lotus PRIVATE DISABLE_VERSION_ACTION)
-    add_subdirectory(settings-gui)
-endif(ENABLE_QT)
+    find_package(Qt6 COMPONENTS Core Gui Widgets WaylandClient DBus QUIET)
+    if(Qt6_FOUND)
+        add_subdirectory(lotus-osk)
+        target_compile_definitions(lotus PRIVATE DISABLE_VERSION_ACTION)
+    else()
+        message(WARNING "Qt6 not found. Disabling lotus-osk.")
+    endif()
+endif()
+add_subdirectory(settings-gui)
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in"
