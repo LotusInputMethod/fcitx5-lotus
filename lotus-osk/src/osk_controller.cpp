@@ -51,12 +51,18 @@ void OSKController::connectToServer() {
         m_socketFd = -1;
     } else {
         qDebug() << "Connected to lotus-server socket";
+        if (m_notifier) {
+            m_notifier->setEnabled(false);
+            delete m_notifier;
+        }
         m_notifier = new QSocketNotifier(m_socketFd, QSocketNotifier::Read, this);
         connect(m_notifier, &QSocketNotifier::activated, this, &OSKController::handleSocketActivated);
     }
 }
 
 OSKController::~OSKController() {
+    if (m_notifier)
+        m_notifier->setEnabled(false);
     delete m_notifier;
     if (m_socketFd >= 0)
         close(m_socketFd);
@@ -109,7 +115,7 @@ void OSKController::notifyServerVisibility() {
     }
 }
 
-void OSKController::sendKey(uint /*keyval*/, bool isRelease, uint keycode, bool /*shift*/) {
+void OSKController::sendKey(bool isRelease, uint keycode) {
     // Key events are sent via the uinput socket to lotus-server, which injects
     // them as real hardware key events through /dev/uinput.
     if (m_socketFd < 0)
@@ -124,8 +130,11 @@ void OSKController::sendKey(uint /*keyval*/, bool isRelease, uint keycode, bool 
         if (send(m_socketFd, &cmd, sizeof(cmd), MSG_NOSIGNAL) != sizeof(cmd)) {
             close(m_socketFd);
             m_socketFd = -1;
-            delete m_notifier;
-            m_notifier = nullptr;
+            if (m_notifier) {
+                m_notifier->setEnabled(false);
+                delete m_notifier;
+                m_notifier = nullptr;
+            }
         }
     }
 }
@@ -144,8 +153,11 @@ void OSKController::queryCapsLockState() {
     if (send(m_socketFd, &cmd, sizeof(cmd), MSG_NOSIGNAL) != sizeof(cmd)) {
         close(m_socketFd);
         m_socketFd = -1;
-        delete m_notifier;
-        m_notifier = nullptr;
+        if (m_notifier) {
+            m_notifier->setEnabled(false);
+            delete m_notifier;
+            m_notifier = nullptr;
+        }
     }
 }
 

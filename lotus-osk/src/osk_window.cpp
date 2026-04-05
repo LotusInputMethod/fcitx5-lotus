@@ -76,7 +76,7 @@ void OSKWindow::showEvent(QShowEvent* event) {
     if (tempFile.open()) {
         tempFile.write(script.toUtf8());
         tempFile.close();
-        msg << tempFile.fileName() << script;
+        msg << tempFile.fileName() << "lotus-osk-keep-above";
     } else {
         qWarning() << "Failed to create temporary file for KWin script";
         return;
@@ -303,7 +303,7 @@ void OSKWindow::setupLayout() {
 
                 // Also send physical CapsLock to the system
                 auto info = getKeyInfo(key);
-                m_controller->sendKey(info.first, false, info.second);
+                m_controller->sendKey(false, info.second);
                 return;
             }
             if (key == "Shift") {
@@ -311,8 +311,8 @@ void OSKWindow::setupLayout() {
                 if (m_shiftActive && m_capsLockActive) {
                     m_capsLockActive = false;
                     auto info        = getKeyInfo("CapsLock");
-                    m_controller->sendKey(info.first, false, info.second);
-                    m_controller->sendKey(info.first, true, info.second);
+                    m_controller->sendKey(false, info.second);
+                    m_controller->sendKey(true, info.second);
                 }
                 updateKeyLabels();
                 return;
@@ -320,14 +320,14 @@ void OSKWindow::setupLayout() {
 
             auto info = getKeyInfo(key);
             if (m_shiftActive) {
-                m_controller->sendKey(0, false, 42); // Left Shift press
+                m_controller->sendKey(false, 42); // Left Shift press
             }
-            m_controller->sendKey(info.first, false, info.second, false);
+            m_controller->sendKey(false, info.second);
         });
         connect(btn, &QPushButton::released, this, [this, key, getKeyInfo]() {
             if (key == "CapsLock") {
                 auto info = getKeyInfo(key);
-                m_controller->sendKey(info.first, true, info.second);
+                m_controller->sendKey(true, info.second);
                 return;
             }
             if (key == "Hide" || key == "Shift") {
@@ -335,9 +335,9 @@ void OSKWindow::setupLayout() {
             }
 
             auto info = getKeyInfo(key);
-            m_controller->sendKey(info.first, true, info.second, false);
+            m_controller->sendKey(true, info.second);
             if (m_shiftActive) {
-                m_controller->sendKey(0, true, 42); // Left Shift release
+                m_controller->sendKey(true, 42); // Left Shift release
                 m_shiftActive = false;
                 updateKeyLabels();
             }

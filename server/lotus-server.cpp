@@ -81,11 +81,15 @@ void UinputDevice::send_backspace() {
     ev[0].type  = EV_KEY;
     ev[0].code  = KEY_BACKSPACE;
     ev[0].value = 1; // Press
-    // Zero-initialize ev[1] via {} set this event to SYN_REPORT
+    ev[1].type  = EV_SYN;
+    ev[1].code  = SYN_REPORT;
+    ev[1].value = 0;
     ev[2].type  = EV_KEY;
     ev[2].code  = KEY_BACKSPACE;
     ev[2].value = 0; // Release
-    // Zero-initialize ev[3] via {} set this event to SYN_REPORT
+    ev[3].type  = EV_SYN;
+    ev[3].code  = SYN_REPORT;
+    ev[3].value = 0;
     write(guard_.get(), ev, sizeof(ev));
 }
 
@@ -96,7 +100,9 @@ void UinputDevice::send_key(uint32_t code, uint32_t value) {
     ev[0].type  = EV_KEY;
     ev[0].code  = static_cast<uint16_t>(code);
     ev[0].value = static_cast<int32_t>(value);
-    // ev[1] is SYN_REPORT
+    ev[1].type  = EV_SYN;
+    ev[1].code  = SYN_REPORT;
+    ev[1].value = 0;
     write(guard_.get(), ev, sizeof(ev));
 }
 
@@ -422,7 +428,8 @@ int main(int argc, char* argv[]) {
                 }
             } else if (static_cast<size_t>(n) == sizeof(int)) {
                 // Legacy support for plain int (backspace count)
-                int count = *reinterpret_cast<int*>(&cmd); // NOLINT
+                int count;
+                memcpy(&count, &cmd, sizeof(int));
                 pending_backspaces += count - 1;
                 uinput.send_backspace();
             }
@@ -436,7 +443,7 @@ int main(int argc, char* argv[]) {
                 LotusLogger::instance().warn("OSK client disconnected or connection error");
                 osk_client_fd.reset(-1);
                 fds[OSK_CLIENT_INDEX].fd = -1;
-                osk_active               = false;
+                osk_active               = false; // Reset state on disconnect
             } else if (static_cast<size_t>(n) == sizeof(cmd)) {
                 if (cmd.type == LotusKeyCommandType::KeyEvent) { // Universal key from OSK
                     uinput.send_key(cmd.code, cmd.value);

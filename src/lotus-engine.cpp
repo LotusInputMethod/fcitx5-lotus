@@ -28,6 +28,11 @@
 
 #include <fcntl.h>
 #include <sstream>
+#include <spawn.h>
+#include <sys/wait.h>
+#include <thread>
+
+extern char** environ;
 
 namespace fcitx {
     constexpr const char* CharsetActionPrefix = "lotus-charset-";
@@ -192,9 +197,13 @@ namespace fcitx {
         settingsAction_->setShortText(_("Settings"));
         settingsAction_->setIcon("configure");
         connections_.emplace_back(settingsAction_->connect<SimpleAction::Activated>([](InputContext*) {
-            if (fork() == 0) {
-                execl(FCITX5_LOTUS_SETTINGS_PATH, FCITX5_LOTUS_SETTINGS_PATH, nullptr);
-                _exit(1);
+            pid_t       pid;
+            const char* argv[] = {FCITX5_LOTUS_SETTINGS_PATH, nullptr};
+            if (posix_spawn(&pid, FCITX5_LOTUS_SETTINGS_PATH, nullptr, nullptr, const_cast<char* const*>(argv), environ) == 0) {
+                std::thread([pid]() {
+                    int status;
+                    waitpid(pid, &status, 0);
+                }).detach();
             }
         }));
         uiManager.registerAction("lotus-settings", settingsAction_.get());
@@ -1005,7 +1014,9 @@ namespace fcitx {
     }
 
     void LotusEngine::triggerOSK(bool show) {
-        if (show == oskVisible_)
+        // We only return early if requested to HIDE and we already think it's hidden.
+        // If requested to SHOW, we always try to trigger it in case of a previous crash/desync.
+        if (!show && !oskVisible_)
             return;
         oskVisible_ = show;
 
@@ -1014,13 +1025,15 @@ namespace fcitx {
         }
         LOTUS_INFO("Triggering OSK " << (show ? "show" : "hide") << " via DBus...");
 
-        if (fork() == 0) {
-            // Child process
-            std::string method = show ? "app.lotus.Osk.Controller1.Show" : "app.lotus.Osk.Controller1.Hide";
+        pid_t       pid;
+        std::string method = show ? "app.lotus.Osk.Controller1.Show" : "app.lotus.Osk.Controller1.Hide";
+        const char* argv[] = {"dbus-send", "--session", "--type=method_call", "--dest=app.lotus.Osk", "/app/lotus/Osk/Controller", method.c_str(), nullptr};
 
-            execlp("dbus-send", "dbus-send", "--session", "--type=method_call", "--dest=app.lotus.Osk", "/app/lotus/Osk/Controller", method.c_str(), nullptr);
-
-            _exit(1);
+        if (posix_spawnp(&pid, "dbus-send", nullptr, nullptr, const_cast<char* const*>(argv), environ) == 0) {
+            std::thread([pid]() {
+                int status;
+                waitpid(pid, &status, 0);
+            }).detach();
         }
     }
 

@@ -32,7 +32,7 @@ class OSKController : public QObject {
     void hideWindow();
 
     // Key submission
-    Q_INVOKABLE void sendKey(uint keyval, bool isRelease = false, uint keycode = 0, bool shift = false);
+    Q_INVOKABLE void sendKey(bool isRelease = false, uint keycode = 0);
     Q_INVOKABLE void queryCapsLockState(); // Now async
 
   public slots:
