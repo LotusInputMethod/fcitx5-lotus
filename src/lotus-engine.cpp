@@ -346,8 +346,14 @@ namespace fcitx {
         bool currentOSK = config_.enableOSK.value();
         if (currentOSK != lastEnableOSK_) {
             if (currentOSK) {
+                if (oskHideTimer_) {
+                    oskHideTimer_.reset();
+                }
                 triggerOSK(true);
             } else {
+                if (oskHideTimer_) {
+                    oskHideTimer_.reset();
+                }
                 triggerOSK(false);
             }
             lastEnableOSK_ = currentOSK;
@@ -399,6 +405,11 @@ namespace fcitx {
         static std::atomic<bool> mouseThreadStarted{false};
         if (!mouseThreadStarted.exchange(true))
             startMouseReset();
+
+        if (oskHideTimer_) {
+            oskHideTimer_.reset();
+            LOTUS_INFO("Cancelled pending OSK hide");
+        }
 
         auto& statusArea = event.inputContext()->statusArea();
         if (ic->capabilityFlags().test(CapabilityFlag::Preedit))
@@ -470,6 +481,9 @@ namespace fcitx {
             statusArea.addAction(StatusGroup::InputMethod, action);
         }
         if (config_.enableOSK.value() && !oskVisible_) {
+            if (oskHideTimer_) {
+                oskHideTimer_.reset();
+            }
             triggerOSK(true);
         }
     }
@@ -667,8 +681,15 @@ namespace fcitx {
     void LotusEngine::deactivate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
         if (config_.enableOSK.value()) {
             // Grace period to avoid hiding OSK immediately after it took focus
-            if (now_ms() - lastOskTriggerTime_ > 500) {
-                triggerOSK(false);
+            if (now_ms() - lastOskTriggerTime_ > 2000) {
+                if (!oskHideTimer_) {
+                    oskHideTimer_ = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 500000, 0, [this](fcitx::EventSourceTime*, uint64_t) {
+                        triggerOSK(false);
+                        oskHideTimer_.reset();
+                        return false;
+                    });
+                    LOTUS_INFO("Scheduled OSK hide in 500ms");
+                }
             } else {
                 LOTUS_INFO("Grace period: skip hide OSK");
             }
