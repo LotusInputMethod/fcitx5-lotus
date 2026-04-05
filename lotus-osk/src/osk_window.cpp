@@ -19,10 +19,11 @@ OSKWindow::OSKWindow(OSKController* controller, QWidget* parent) : QWidget(paren
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus);
 
     // Initial size
-    resize(800, 320);
+    resize(1100, 380);
     setWindowTitle("Lotus OSK");
 
     setupLayout();
+    setFixedSize(1100, 380);
 
     // Sync initial CapsLock state
     connect(m_controller, &OSKController::capsLockActiveChanged, this, [this]() {
@@ -142,20 +143,27 @@ void OSKWindow::updateKeyLabels() {
         it.value()->setStyleSheet(getButtonStyle(normalBg, normalFg));
     }
 
-    // Update special key styles (CapsLock colors)
+    // Update special key styles (CapsLock, Shift, Enter, Space, Arrows, etc.)
     for (auto* btn : m_specialButtons) {
-        bool active = false;
-        if (btn->text() == "⇪")
+        QString key    = btn->property("osk_key").toString();
+        bool    active = false;
+        if (key == "CapsLock")
             active = m_capsLockActive;
-        else if (btn->property("osk_key").toString() == "Shift")
+        else if (key == "Shift")
             active = m_shiftActive;
 
         QString bg;
         QString fg;
 
-        if (active) {
+        if (active || key == "Enter") {
             bg = m_whiteTheme ? L_COLOR_BG_ACTIVE : COLOR_BG_ACTIVE;
-            fg = m_whiteTheme ? COLOR_FG_NORMAL : COLOR_FG_NORMAL; // Keep white text on blue active state
+            fg = "#ffffff"; // Always white text on active/Enter blue
+        } else if (key == "Up" || key == "Down" || key == "Left" || key == "Right") {
+            bg = m_whiteTheme ? L_COLOR_BG_SPECIAL : "#2a2a2a";
+            fg = m_whiteTheme ? L_COLOR_FG_SPECIAL : "#aaaaaa";
+        } else if (key == "Space") {
+            bg = m_whiteTheme ? L_COLOR_BG_NORMAL : COLOR_BG_NORMAL;
+            fg = m_whiteTheme ? L_COLOR_FG_NORMAL : COLOR_FG_NORMAL;
         } else {
             bg = m_whiteTheme ? L_COLOR_BG_SPECIAL : COLOR_BG_SPECIAL;
             fg = m_whiteTheme ? L_COLOR_FG_SPECIAL : COLOR_FG_SPECIAL;
@@ -236,18 +244,16 @@ void OSKWindow::setupLayout() {
         QString label = text.isEmpty() ? key : text;
         auto    btn   = new QPushButton(label, this);
         btn->setProperty("osk_key", key); // For label updates
-        int baseHeight = 55;
+        int baseHeight = 60;
         int baseWidth  = 70;
         btn->setFixedSize(static_cast<int>(baseWidth * widthFactor), baseHeight);
         btn->setFocusPolicy(Qt::NoFocus);
 
         if (key.length() == 1 && key[0].toLower() >= 'a' && key[0].toLower() <= 'z') {
             m_alphabetButtons[key.toUpper()] = btn;
-        } else if (key.length() == 1) {
+        } else if (key.length() == 1 && key != " ") {
             m_symbolButtons[key] = btn;
-        }
-
-        if (label == "⇪" || label == "⇧") {
+        } else {
             m_specialButtons.append(btn);
         }
 
@@ -255,7 +261,7 @@ void OSKWindow::setupLayout() {
         btn->setStyleSheet(getButtonStyle(COLOR_BG_NORMAL, COLOR_FG_NORMAL, extraStyle));
 
         connect(btn, &QPushButton::pressed, this, [this, key]() {
-            if (key == "Hide" || key == "Super") {
+            if (key == "Hide") {
                 m_controller->setVisible(false);
                 return;
             }
@@ -373,6 +379,4 @@ void OSKWindow::setupLayout() {
     mainLayout->addLayout(row4);
 
     updateKeyLabels();
-
-    setFixedSize(1100, 350);
 }
