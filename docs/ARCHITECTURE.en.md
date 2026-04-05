@@ -9,7 +9,7 @@ Lotus is designed as a hybrid model to leverage C++'s performance for input meth
 | Component | Language | Role |
 | :--- | :--- | :--- |
 | **Fcitx5 Addon** | C++ | Primary component integrated into the Fcitx5 framework, managing state and UI. |
-| **Bamboo Core** | Go | Vietnamese processing engine using the [Bamboo](https://github.com/luatnd/bamboo) library. |
+| **Bamboo Core** | Go | Vietnamese processing engine using the [Bamboo](https://github.com/LotusInputMethod/bamboo-core) library. |
 | **CGO Wrapper** | C++/Go | Bridge allowing C++ to call processing functions from Go. |
 | **Lotus Server** | C++ | A standalone service managing the `/dev/uinput` device for key simulation (Smooth/Slow modes). |
 

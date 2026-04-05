@@ -9,7 +9,7 @@ Lotus được thiết kế theo mô hình lai (hybrid) để tận dụng hiệ
 | Thành phần | Ngôn ngữ | Vai trò |
 | :--- | :--- | :--- |
 | **Addon Fcitx5** | C++ | Thành phần chính tích hợp vào framework Fcitx5, quản lý trạng thái và UI. |
-| **Bamboo Core** | Go | Nhân xử lý tiếng Việt thư viện [Bamboo](https://github.com/luatnd/bamboo). |
+| **Bamboo Core** | Go | Nhân xử lý tiếng Việt thư viện [Bamboo](https://github.com/LotusInputMethod/bamboo-core). |
 | **CGO Wrapper** | C++/Go | Cầu nối cho phép C++ gọi các hàm xử lý từ Go. |
 | **Lotus Server** | C++ | Một service riêng biệt quản lý thiết bị `/dev/uinput` để mô phỏng phím (chế độ Smooth/Slow). |
 
