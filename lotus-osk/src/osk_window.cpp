@@ -189,97 +189,42 @@ QString OSKWindow::getButtonStyle(const QString& bg, const QString& fg, const QS
 }
 
 QPair<uint, uint> OSKWindow::getKeyInfo(const QString& k) const {
-    uint    keysym  = 0;
-    uint    keycode = 0;
-    bool    upper   = m_capsLockActive || m_shiftActive;
+    bool upper = m_capsLockActive || m_shiftActive;
 
-    QString low = k.toLower();
-    if (low.length() == 1) {
-        char              c       = low[0].toLatin1();
-        static const uint codes[] = {30, 48, 46, 32, 18, 33, 34, 35, 23, 36, 37, 38, 50, 49, 24, 25, 16, 19, 31, 20, 22, 47, 17, 45, 21, 44};
+    // 1. Handle single-character keys
+    if (k.length() == 1) {
+        char c = k.toLower()[0].toLatin1();
+
+        // Letters a-z
         if (c >= 'a' && c <= 'z') {
-            keycode = codes[c - 'a'];
-            keysym  = upper ? (uint)toupper(c) : (uint)c;
-        } else if (c >= '0' && c <= '9') {
-            static const uint nums[] = {11, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-            keycode                  = nums[c - '0'];
-            if (upper) {
-                static const char syms[] = {')', '!', '@', '#', '$', '%', '^', '&', '*', '('};
-                keysym                   = syms[c - '0'];
-            } else {
-                keysym = (uint)c;
-            }
-        } else if (c == '-') {
-            keycode = 12;
-            keysym  = upper ? '_' : '-';
-        } else if (c == '=') {
-            keycode = 13;
-            keysym  = upper ? '+' : '=';
-        } else if (c == '[') {
-            keycode = 26;
-            keysym  = upper ? '{' : '[';
-        } else if (c == ']') {
-            keycode = 27;
-            keysym  = upper ? '}' : ']';
-        } else if (c == '\\') {
-            keycode = 43;
-            keysym  = upper ? '|' : '\\';
-        } else if (c == ';') {
-            keycode = 39;
-            keysym  = upper ? ':' : ';';
-        } else if (c == '\'') {
-            keycode = 40;
-            keysym  = upper ? '"' : '\'';
-        } else if (c == ',') {
-            keycode = 51;
-            keysym  = upper ? '<' : ',';
-        } else if (c == '.') {
-            keycode = 52;
-            keysym  = upper ? '>' : '.';
-        } else if (c == '/') {
-            keycode = 53;
-            keysym  = upper ? '?' : '/';
-        } else if (c == '`') {
-            keycode = 41;
-            keysym  = upper ? '~' : '`';
+            static const uint codes[] = {30, 48, 46, 32, 18, 33, 34, 35, 23, 36, 37, 38, 50, 49, 24, 25, 16, 19, 31, 20, 22, 47, 17, 45, 21, 44};
+            return {upper ? (uint)toupper(c) : (uint)c, codes[c - 'a']};
         }
-    } else {
-        if (k == "Backspace") {
-            keysym  = 0xff08;
-            keycode = 14;
-        } else if (k == "Space") {
-            keysym  = 0x20;
-            keycode = 57;
-        } else if (k == "Enter") {
-            keysym  = 0xff0d;
-            keycode = 28;
-        } else if (k == "Tab") {
-            keysym  = 0xff09;
-            keycode = 15;
-        } else if (k == "CapsLock") {
-            keysym  = 0xffe5;
-            keycode = 58;
-        } else if (k == "Shift") {
-            keysym  = 0xffe1;
-            keycode = 42;
-        } else if (k == "Super") {
-            keysym  = 0xffeb;
-            keycode = 125;
-        } else if (k == "Up") {
-            keysym  = 0xff52;
-            keycode = 103;
-        } else if (k == "Down") {
-            keysym  = 0xff54;
-            keycode = 108;
-        } else if (k == "Left") {
-            keysym  = 0xff51;
-            keycode = 105;
-        } else if (k == "Right") {
-            keysym  = 0xff53;
-            keycode = 106;
+
+        // Numbers 0-9
+        if (c >= '0' && c <= '9') {
+            static const uint codes[] = {11, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+            static const char syms[]  = {')', '!', '@', '#', '$', '%', '^', '&', '*', '('};
+            return {upper ? (uint)syms[c - '0'] : (uint)c, codes[c - '0']};
+        }
+
+        // Symbols
+        static const QHash<char, KeyData> symbolMap = {{'-', {12, '-', '_'}},   {'=', {13, '=', '+'}}, {'[', {26, '[', '{'}},   {']', {27, ']', '}'}},
+                                                       {'\\', {43, '\\', '|'}}, {';', {39, ';', ':'}}, {'\'', {40, '\'', '"'}}, {',', {51, ',', '<'}},
+                                                       {'.', {52, '.', '>'}},   {'/', {53, '/', '?'}}, {'`', {41, '`', '~'}},   {' ', {57, ' ', ' '}}};
+
+        if (symbolMap.contains(c)) {
+            const auto& data = symbolMap.value(c);
+            return {upper ? data.keysymUpper : data.keysym, data.keycode};
         }
     }
-    return {keysym, keycode};
+
+    // 2. Handle named special keys
+    static const QHash<QString, QPair<uint, uint>> specialMap = {{"Backspace", {0xff08, 14}}, {"Enter", {0xff0d, 28}},  {"Tab", {0xff09, 15}}, {"CapsLock", {0xffe5, 58}},
+                                                                 {"Shift", {0xffe1, 42}},     {"Super", {0xffeb, 125}}, {"Up", {0xff52, 103}}, {"Down", {0xff54, 108}},
+                                                                 {"Left", {0xff51, 105}},     {"Right", {0xff53, 106}}, {"Space", {0x20, 57}}};
+
+    return specialMap.value(k, {0, 0});
 }
 
 void OSKWindow::setupLayout() {
@@ -429,5 +374,5 @@ void OSKWindow::setupLayout() {
 
     updateKeyLabels();
 
-    setFixedSize(1100, 320);
+    setFixedSize(1100, 350);
 }

@@ -22,6 +22,11 @@ class OSKWindow : public QWidget {
     void paintEvent(QPaintEvent* event) override;
 
   private:
+    struct KeyData {
+        uint keycode;
+        uint keysym;
+        uint keysymUpper;
+    };
     static constexpr const char* COLOR_BG_ACTIVE  = "#005a9e";
     static constexpr const char* COLOR_BG_NORMAL  = "#333333";
     static constexpr const char* COLOR_BG_SPECIAL = "#252525";
