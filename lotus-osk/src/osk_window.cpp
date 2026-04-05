@@ -79,6 +79,17 @@ void OSKWindow::showEvent(QShowEvent* event) {
 #endif
 }
 
+void OSKWindow::hideEvent(QHideEvent* event) {
+    QWidget::hideEvent(event);
+
+#ifdef HAVE_LAYER_SHELL
+    auto layerWindow = LayerShellQt::Window::get(windowHandle());
+    if (layerWindow) {
+        layerWindow->setExclusiveZone(0);
+    }
+#endif
+}
+
 void OSKWindow::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event);
     QPainter painter(this);
@@ -91,7 +102,7 @@ void OSKWindow::paintEvent(QPaintEvent* event) {
 }
 
 void OSKWindow::updateKeyLabels() {
-    bool upper = m_capsLockActive;
+    bool upper = m_capsLockActive != m_shiftActive;
 
     // Update alphabet labels
     for (auto it = m_alphabetButtons.begin(); it != m_alphabetButtons.end(); ++it) {
@@ -106,6 +117,8 @@ void OSKWindow::updateKeyLabels() {
         bool active = false;
         if (btn->text() == "⇪")
             active = m_capsLockActive;
+        else if (btn->property("osk_key").toString() == "Shift")
+            active = m_shiftActive;
 
         QString bg    = active ? "#005a9e" : "#252525";
         QString extra = m_buttonExtraStyles.value(btn);
@@ -141,7 +154,7 @@ void OSKWindow::setupLayout() {
         if (key.length() == 1 && key[0].toLower() >= 'a' && key[0].toLower() <= 'z') {
             m_alphabetButtons[key.toUpper()] = btn;
         }
-        if (label == "⇪") {
+        if (label == "⇪" || label == "⇧") {
             m_specialButtons.append(btn);
         }
 
@@ -228,6 +241,9 @@ void OSKWindow::setupLayout() {
                 } else if (k == "CapsLock") {
                     keysym  = 0xffe5;
                     keycode = 58;
+                } else if (k == "Shift") {
+                    keysym  = 0xffe1;
+                    keycode = 42;
                 } else if (k == "Up") {
                     keysym  = 0xff52;
                     keycode = 103;
@@ -255,8 +271,16 @@ void OSKWindow::setupLayout() {
                 m_controller->sendKey(info.first, false, info.second);
                 return;
             }
+            if (key == "Shift") {
+                m_shiftActive = !m_shiftActive;
+                updateKeyLabels();
+                return;
+            }
 
             auto info = getKeyInfo(key);
+            if (m_shiftActive) {
+                m_controller->sendKey(0, false, 42); // Left Shift press
+            }
             m_controller->sendKey(info.first, false, info.second, false);
         });
         connect(btn, &QPushButton::released, this, [this, key, getKeyInfo]() {
@@ -265,8 +289,17 @@ void OSKWindow::setupLayout() {
                 m_controller->sendKey(info.first, true, info.second);
                 return;
             }
+            if (key == "Shift") {
+                return;
+            }
+
             auto info = getKeyInfo(key);
             m_controller->sendKey(info.first, true, info.second, false);
+            if (m_shiftActive) {
+                m_controller->sendKey(0, true, 42); // Left Shift release
+                m_shiftActive = false;
+                updateKeyLabels();
+            }
         });
         return btn;
     };
@@ -308,6 +341,7 @@ void OSKWindow::setupLayout() {
     auto row3 = new QHBoxLayout();
     row3->setSpacing(4);
     row3->setAlignment(Qt::AlignCenter);
+    row3->addWidget(createKey("Shift", "⇧", 1.5, ctrlStyle));
     for (const char* k : {"Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"}) {
         row3->addWidget(createKey(k));
     }

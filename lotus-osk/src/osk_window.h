@@ -16,6 +16,7 @@ class OSKWindow : public QWidget {
 
   protected:
     void showEvent(QShowEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
 
   private:
@@ -23,6 +24,7 @@ class OSKWindow : public QWidget {
     void                        updateKeyLabels();
     OSKController*              m_controller;
     bool                        m_capsLockActive = false;
+    bool                        m_shiftActive    = false;
     QMap<QString, QPushButton*> m_alphabetButtons;
     QList<QPushButton*>         m_specialButtons;
     QMap<QPushButton*, QString> m_buttonExtraStyles;
