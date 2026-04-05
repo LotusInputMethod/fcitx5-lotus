@@ -60,7 +60,7 @@ SETTINGS_MAP = {
         "SHORTCUTS": ["ModeMenuKey"],
     },
     SettingsCategory.ACCESSIBILITY: {
-        "ACCESSIBILITY": ["EnableOSK"],
+        "ACCESSIBILITY": ["EnableOSK", "OSKWhiteTheme"],
     }
 }
 

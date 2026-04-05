@@ -340,6 +340,12 @@ namespace fcitx {
          * @param show True to show, false to hide
          */
         void triggerOSK(bool show);
+
+        /**
+         * @brief Updates OSK theme via DBus
+         * @param white True for white theme, false for dark theme
+         */
+        void updateOSKTheme(bool white);
     };
 
     /**

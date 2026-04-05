@@ -82,8 +82,10 @@ void OSKController::setVisible(bool visible) {
 }
 
 void OSKController::showWindow() {
-    if (!m_window)
+    if (!m_window) {
         m_window = new OSKWindow(this);
+        m_window->setWhiteTheme(m_whiteTheme);
+    }
     m_window->show();
     m_visible = true;
     notifyServerVisibility();
@@ -198,4 +200,19 @@ void OSKController::Hide() {
 void OSKController::Toggle() {
     qDebug() << "DBus Toggle called";
     setVisible(!m_visible);
+}
+
+void OSKController::setWhiteTheme(bool white) {
+    if (m_whiteTheme != white) {
+        m_whiteTheme = white;
+        if (m_window) {
+            m_window->setWhiteTheme(white);
+        }
+        emit whiteThemeChanged();
+    }
+}
+
+void OSKController::SetTheme(bool white) {
+    qDebug() << "DBus SetTheme called:" << white;
+    setWhiteTheme(white);
 }

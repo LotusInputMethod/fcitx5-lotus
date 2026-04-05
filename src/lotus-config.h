@@ -246,7 +246,7 @@ namespace fcitx {
         Option<bool> enableCustomKeymap{this, "EnableCustomKeymap", _("Enable Custom Keymap"), false};
         Option<bool> enableOSK{this, "EnableOSK", _("Show On-Screen Keyboard"), false}; Option<bool> oskWhiteTheme{this, "OSKWhiteTheme", _("Use White Theme for OSK"), false};
         Option<bool> showModeSmooth{this, "ShowModeSmooth", _("Show Uinput (Smooth)"), true}; Option<bool> showModeUinput{this, "ShowModeUinput", _("Show Uinput (Slow)"), true};
-        Option<bool> showModeMinecraft{this, "ShowModeMinecraft", _("Show Minecraft"), true};
+        Option<bool>                                                                                       showModeMinecraft{this, "ShowModeMinecraft", _("Show Minecraft"), true};
         Option<bool> showModeSurroundingText{this, "ShowModeSurroundingText", _("Show Surrounding Text"), true};
         Option<bool> showModePreedit{this, "ShowModePreedit", _("Show Preedit"), true}; Option<bool> showModeEmoji{this, "ShowModeEmoji", _("Show Emoji Picker"), true};
         Option<bool> showModeOff{this, "ShowModeOff", _("Show OFF"), true}; Option<bool> showModeDefault{this, "ShowModeDefault", _("Show Default Typing"), true};
