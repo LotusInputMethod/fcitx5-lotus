@@ -51,12 +51,13 @@ void OSKController::connectToServer() {
         m_socketFd = -1;
     } else {
         qDebug() << "Connected to lotus-server socket";
+        m_notifier = new QSocketNotifier(m_socketFd, QSocketNotifier::Read, this);
+        connect(m_notifier, &QSocketNotifier::activated, this, &OSKController::handleSocketActivated);
     }
 }
 
 OSKController::~OSKController() {
-    if (m_window)
-        deleteLater();
+    delete m_notifier;
     if (m_socketFd >= 0)
         close(m_socketFd);
 }
@@ -108,7 +109,7 @@ void OSKController::notifyServerVisibility() {
     }
 }
 
-void OSKController::sendKey(uint keyval, bool isRelease, uint keycode, bool /*shift*/) {
+void OSKController::sendKey(uint /*keyval*/, bool isRelease, uint keycode, bool /*shift*/) {
     // Key events are sent via the uinput socket to lotus-server, which injects
     // them as real hardware key events through /dev/uinput.
     if (m_socketFd < 0)
@@ -123,35 +124,40 @@ void OSKController::sendKey(uint keyval, bool isRelease, uint keycode, bool /*sh
         if (send(m_socketFd, &cmd, sizeof(cmd), MSG_NOSIGNAL) != sizeof(cmd)) {
             close(m_socketFd);
             m_socketFd = -1;
+            delete m_notifier;
+            m_notifier = nullptr;
         }
     }
 }
 
-bool OSKController::queryCapsLockState() {
+void OSKController::queryCapsLockState() {
     if (m_socketFd < 0)
         connectToServer();
     if (m_socketFd < 0)
-        return false;
+        return;
 
     LotusKeyCommand cmd;
     cmd.type  = LotusKeyCommandType::QueryCapsLock;
     cmd.code  = 0;
     cmd.value = 0;
 
-    if (send(m_socketFd, &cmd, sizeof(cmd), MSG_NOSIGNAL) == sizeof(cmd)) {
-        int state = 0;
-        // Wait for reply (blocking, but should be instant)
-        struct pollfd pfd;
-        pfd.fd     = m_socketFd;
-        pfd.events = POLLIN;
-        if (poll(&pfd, 1, 100) > 0) { // 100ms timeout
-            if (recv(m_socketFd, &state, sizeof(state), 0) == sizeof(state)) {
-                return state > 0;
-            }
+    if (send(m_socketFd, &cmd, sizeof(cmd), MSG_NOSIGNAL) != sizeof(cmd)) {
+        close(m_socketFd);
+        m_socketFd = -1;
+        delete m_notifier;
+        m_notifier = nullptr;
+    }
+}
+
+void OSKController::handleSocketActivated(int /*socket*/) {
+    int state = 0;
+    if (recv(m_socketFd, &state, sizeof(state), 0) == sizeof(state)) {
+        bool active = state > 0;
+        if (active != m_capsLockActive) {
+            m_capsLockActive = active;
+            emit capsLockActiveChanged();
         }
     }
-
-    return false;
 }
 
 void OSKController::Show() {

@@ -12,6 +12,7 @@
 #ifdef HAVE_LAYER_SHELL
 #include <LayerShellQt/Window>
 #endif
+#include <QTemporaryFile>
 
 OSKWindow::OSKWindow(OSKController* controller, QWidget* parent) : QWidget(parent), m_controller(controller) {
     // Set window properties for OSK
@@ -25,14 +26,16 @@ OSKWindow::OSKWindow(OSKController* controller, QWidget* parent) : QWidget(paren
     setupLayout();
 
     // Sync initial CapsLock state
-    m_capsLockActive = m_controller->queryCapsLockState();
-    updateKeyLabels();
+    connect(m_controller, &OSKController::capsLockActiveChanged, this, [this]() {
+        m_capsLockActive = m_controller->capsLockActive();
+        updateKeyLabels();
+    });
+    m_controller->queryCapsLockState();
 
     // Sync when OSK becomes visible
     connect(m_controller, &OSKController::visibleChanged, this, [this]() {
         if (m_controller->visible()) {
-            m_capsLockActive = m_controller->queryCapsLockState();
-            updateKeyLabels();
+            m_controller->queryCapsLockState();
         }
     });
 }
@@ -57,18 +60,27 @@ void OSKWindow::showEvent(QShowEvent* event) {
     QDBusMessage msg = QDBusMessage::createMethodCall("org.kde.KWin", "/Scripting", "org.kde.KWin.Scripting", "loadScript");
 
     // Script to find the OSK window and set keepAbove
-    QString script = "var clients = workspace.stackingOrder;"
-                     "for (var i = 0; i < clients.length; i++) {"
-                     "    if (clients[i].caption === 'Lotus OSK') {"
-                     "        clients[i].keepAbove = true;"
-                     "        clients[i].onAllDesktops = true;"
-                     "        clients[i].skipTaskbar = true;"
-                     "        clients[i].skipPager = true;"
-                     "        clients[i].skipSwitcher = true;"
-                     "    }"
-                     "}";
+    QString        script = "var clients = workspace.stackingOrder;"
+                            "for (var i = 0; i < clients.length; i++) {"
+                            "    if (clients[i].caption === 'Lotus OSK') {"
+                            "        clients[i].keepAbove = true;"
+                            "        clients[i].onAllDesktops = true;"
+                            "        clients[i].skipTaskbar = true;"
+                            "        clients[i].skipPager = true;"
+                            "        clients[i].skipSwitcher = true;"
+                            "    }"
+                            "}";
 
-    msg << "/tmp/lotus-osk-kwin-script.js" << script;
+    QTemporaryFile tempFile;
+    tempFile.setFileTemplate(QDir::tempPath() + "/lotus-osk-kwin-script-XXXXXX.js");
+    if (tempFile.open()) {
+        tempFile.write(script.toUtf8());
+        tempFile.close();
+        msg << tempFile.fileName() << script;
+    } else {
+        qWarning() << "Failed to create temporary file for KWin script";
+        return;
+    }
 
     QDBusMessage reply = QDBusConnection::sessionBus().call(msg);
     if (reply.type() == QDBusMessage::ReplyMessage) {

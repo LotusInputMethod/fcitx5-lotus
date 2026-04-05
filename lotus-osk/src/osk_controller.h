@@ -6,6 +6,7 @@
 #include <QtDBus/QDBusAbstractAdaptor>
 #include <QtDBus/QDBusConnection>
 #include <QTimer>
+#include <QSocketNotifier>
 
 class OSKWindow;
 
@@ -13,6 +14,7 @@ class OSKController : public QObject {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "app.lotus.Osk.Controller1")
     Q_PROPERTY(bool visible READ visible WRITE setVisible NOTIFY visibleChanged)
+    Q_PROPERTY(bool capsLockActive READ capsLockActive NOTIFY capsLockActiveChanged)
 
   public:
     explicit OSKController(QObject* parent = nullptr);
@@ -21,6 +23,9 @@ class OSKController : public QObject {
     bool visible() const {
         return m_visible;
     }
+    bool capsLockActive() const {
+        return m_capsLockActive;
+    }
     void setVisible(bool visible);
 
     void showWindow();
@@ -28,7 +33,7 @@ class OSKController : public QObject {
 
     // Key submission
     Q_INVOKABLE void sendKey(uint keyval, bool isRelease = false, uint keycode = 0, bool shift = false);
-    Q_INVOKABLE bool queryCapsLockState();
+    Q_INVOKABLE void queryCapsLockState(); // Now async
 
   public slots:
     // DBus methods matching the service expectations
@@ -38,14 +43,20 @@ class OSKController : public QObject {
 
   signals:
     void visibleChanged();
+    void capsLockActiveChanged();
+
+  private slots:
+    void handleSocketActivated(int socket);
 
   private:
-    void       connectToServer();
-    void       notifyServerVisibility();
-    bool       m_visible  = false;
-    OSKWindow* m_window   = nullptr;
-    int        m_socketFd = -1;
-    QTimer     m_hideTimer;
+    void             connectToServer();
+    void             notifyServerVisibility();
+    bool             m_visible        = false;
+    bool             m_capsLockActive = false;
+    OSKWindow*       m_window         = nullptr;
+    int              m_socketFd       = -1;
+    QSocketNotifier* m_notifier       = nullptr;
+    QTimer           m_hideTimer;
 };
 
 #endif // OSK_CONTROLLER_H
