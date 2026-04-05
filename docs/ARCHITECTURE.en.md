@@ -39,15 +39,15 @@ Used to embed the Vietnamese processing library directly into the input engine. 
 
 Used between the Addon (Client) and `fcitx5-lotus-server` (Server).
 
-- **Socket Path**: Typically located at `../tmp/fcitx5-lotus.sock` or the user's runtime directory.
-- **Purpose**: Smooth mode requires write access to `../dev/uinput`. For security, only the Server runs with elevated permissions (or in the `uinput` group), while the Addon runs with standard user permissions.
+- **Socket Path**: Typically located at `/tmp/fcitx5-lotus.sock` or the user's runtime directory.
+- **Purpose**: Smooth mode requires write access to `/dev/uinput`. For security, only the Server runs with elevated permissions (or in the `uinput` group), while the Addon runs with standard user permissions.
 
 ## 4. Important Directories
 
-- `../src`: Contains the C++ source code for the fcitx5 engine.
-- `../bamboo`: Contains the Go code and CGO export files (`../bamboo/bamboo-c.go`).
-- `../server`: Contains the source code for the uinput server.
-- `../settings-gui`: Configuration interface written in Python/PySide6.
+- `src/`: Contains the C++ source code for the fcitx5 engine.
+- `bamboo/`: Contains the Go code and CGO export files (`bamboo/bamboo-c.go`).
+- `server/`: Contains the source code for the uinput server.
+- `settings-gui/`: Configuration interface written in Python/PySide6.
 
 ---
 

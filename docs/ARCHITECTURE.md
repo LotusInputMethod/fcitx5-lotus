@@ -44,10 +44,10 @@ Sử dụng để nhúng thư viện xử lý tiếng Việt trực tiếp vào 
 
 ## 4. Các thư mục quan trọng
 
-- `../src`: Chứa mã nguồn C++ của engine fcitx5.
-- `../bamboo`: Chứa code Go và các file export CGO (`../bamboo/bamboo-c.go`).
-- `../server`: Chứa mã nguồn của uinput server.
-- `../settings-gui`: Giao diện cấu hình viết bằng Python/PySide6.
+- `./src`: Chứa mã nguồn C++ của engine fcitx5.
+- `./bamboo`: Chứa code Go và các file export CGO (`./bamboo/bamboo-c.go`).
+- `./server`: Chứa mã nguồn của uinput server.
+- `./settings-gui`: Giao diện cấu hình viết bằng Python/PySide6.
 
 ---
 

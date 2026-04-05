@@ -141,8 +141,7 @@ Dự án này tuân thủ cấu trúc của [all-contributors](https://github.co
 
 ## 📃 Giấy phép
 
-Dự án được phân phối dưới giấy phép GNU General Public License v3. Xem [`LICENSE`](LICENSE) để biết thêm chi tiết. Thông tin đóng góp có tại [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md).
-
+Dự án này được phân phối dưới giấy phép GNU General Public License v3. Xem [`LICENSE`](LICENSE) để biết thêm chi tiết.
 ---
 
 ## ✨ Lịch sử sao

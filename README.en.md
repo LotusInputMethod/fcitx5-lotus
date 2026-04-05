@@ -99,7 +99,7 @@ Don't forget to give the project a ⭐! Thank you very much!
 
 ## 📃 License
 
-This project is distributed under the GNU General Public License v3. See [`LICENSE`](LICENSE) for more details. Contribution guidelines can be found at [`docs/CONTRIBUTING.en.md`](docs/CONTRIBUTING.en.md).
+This project is distributed under the GNU General Public License v3. See [`LICENSE`](LICENSE) for more details.
 
 ---
 
