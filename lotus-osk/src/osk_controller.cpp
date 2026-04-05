@@ -20,6 +20,10 @@ struct LotusKeyCommand {
 OSKController::OSKController(QObject* parent) : QObject(parent), m_visible(false), m_window(nullptr), m_socketFd(-1) {
     qDebug() << "Lotus OSK Controller initialized";
 
+    m_hideTimer.setSingleShot(true);
+    m_hideTimer.setInterval(150);
+    connect(&m_hideTimer, &QTimer::timeout, this, &OSKController::hideWindow);
+
     QDBusConnection::sessionBus().registerService("app.lotus.Osk");
     QDBusConnection::sessionBus().registerObject("/app/lotus/Osk/Controller", this, QDBusConnection::ExportAllSlots);
 
@@ -62,12 +66,16 @@ OSKController::~OSKController() {
 }
 
 void OSKController::setVisible(bool visible) {
-    if (m_visible == visible)
-        return;
-    if (visible)
-        showWindow();
-    else
-        hideWindow();
+    if (visible) {
+        m_hideTimer.stop();
+        if (!m_visible) {
+            showWindow();
+        }
+    } else {
+        if (m_visible && !m_hideTimer.isActive()) {
+            m_hideTimer.start();
+        }
+    }
 }
 
 void OSKController::showWindow() {

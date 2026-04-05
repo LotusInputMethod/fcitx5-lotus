@@ -1,6 +1,3 @@
 [submodule "bamboo/bamboo-core"]
 	path = bamboo/bamboo-core
 	url = https://github.com/LotusInputMethod/bamboo-core.git
-[submodule "fcitx5-osk"]
-	path = fcitx5-osk
-	url = https://github.com/hthienloc/fcitx5-osk.git

@@ -26,6 +26,7 @@ class OSKWindow : public QWidget {
     bool                        m_capsLockActive = false;
     bool                        m_shiftActive    = false;
     QMap<QString, QPushButton*> m_alphabetButtons;
+    QMap<QString, QPushButton*> m_symbolButtons;
     QList<QPushButton*>         m_specialButtons;
     QMap<QPushButton*, QString> m_buttonExtraStyles;
 };

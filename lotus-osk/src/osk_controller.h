@@ -5,6 +5,7 @@
 #include <QVariant>
 #include <QtDBus/QDBusAbstractAdaptor>
 #include <QtDBus/QDBusConnection>
+#include <QTimer>
 
 class OSKWindow;
 
@@ -44,6 +45,7 @@ class OSKController : public QObject {
     bool       m_visible  = false;
     OSKWindow* m_window   = nullptr;
     int        m_socketFd = -1;
+    QTimer     m_hideTimer;
 };
 
 #endif // OSK_CONTROLLER_H

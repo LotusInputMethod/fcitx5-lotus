@@ -102,15 +102,25 @@ void OSKWindow::paintEvent(QPaintEvent* event) {
 }
 
 void OSKWindow::updateKeyLabels() {
-    bool upper = m_capsLockActive != m_shiftActive;
+    bool upperAlphabet = m_capsLockActive || m_shiftActive;
 
     // Update alphabet labels
     for (auto it = m_alphabetButtons.begin(); it != m_alphabetButtons.end(); ++it) {
-        it.value()->setText(upper ? it.key().toUpper() : it.key().toLower());
+        it.value()->setText(upperAlphabet ? it.key().toUpper() : it.key().toLower());
     }
 
-    // Note: CapsLock should NOT affect number and symbol keys.
-    // They remain as they are.
+    bool                                 upperSymbol = m_shiftActive;
+    static const QHash<QString, QString> symbolMap   = {{"1", "!"},  {"2", "@"}, {"3", "#"},  {"4", "$"}, {"5", "%"}, {"6", "^"}, {"7", "&&"},
+                                                        {"8", "*"},  {"9", "("}, {"0", ")"},  {"-", "_"}, {"=", "+"}, {"[", "{"}, {"]", "}"},
+                                                        {"\\", "|"}, {";", ":"}, {"'", "\""}, {",", "<"}, {".", ">"}, {"/", "?"}, {"`", "~"}};
+
+    for (auto it = m_symbolButtons.begin(); it != m_symbolButtons.end(); ++it) {
+        if (upperSymbol && symbolMap.contains(it.key())) {
+            it.value()->setText(symbolMap.value(it.key()));
+        } else {
+            it.value()->setText(it.key());
+        }
+    }
 
     // Update special key styles (CapsLock colors)
     for (auto* btn : m_specialButtons) {
@@ -153,7 +163,10 @@ void OSKWindow::setupLayout() {
 
         if (key.length() == 1 && key[0].toLower() >= 'a' && key[0].toLower() <= 'z') {
             m_alphabetButtons[key.toUpper()] = btn;
+        } else if (key.length() == 1) {
+            m_symbolButtons[key] = btn;
         }
+
         if (label == "⇪" || label == "⇧") {
             m_specialButtons.append(btn);
         }
@@ -173,7 +186,7 @@ void OSKWindow::setupLayout() {
         auto getKeyInfo = [this](const QString& k) -> QPair<uint, uint> {
             uint    keysym  = 0;
             uint    keycode = 0;
-            bool    upper   = m_capsLockActive;
+            bool    upper   = m_capsLockActive || m_shiftActive;
 
             QString low = k.toLower();
             if (low.length() == 1) {
@@ -244,6 +257,9 @@ void OSKWindow::setupLayout() {
                 } else if (k == "Shift") {
                     keysym  = 0xffe1;
                     keycode = 42;
+                } else if (k == "Super") {
+                    keysym  = 0xffeb;
+                    keycode = 125;
                 } else if (k == "Up") {
                     keysym  = 0xff52;
                     keycode = 103;
@@ -262,8 +278,15 @@ void OSKWindow::setupLayout() {
         };
 
         connect(btn, &QPushButton::pressed, this, [this, key, getKeyInfo]() {
+            if (key == "Hide") {
+                m_controller->setVisible(false);
+                return;
+            }
             if (key == "CapsLock") {
                 m_capsLockActive = !m_capsLockActive;
+                if (m_capsLockActive && m_shiftActive) {
+                    m_shiftActive = false;
+                }
                 updateKeyLabels();
 
                 // Also send physical CapsLock to the system
@@ -273,6 +296,12 @@ void OSKWindow::setupLayout() {
             }
             if (key == "Shift") {
                 m_shiftActive = !m_shiftActive;
+                if (m_shiftActive && m_capsLockActive) {
+                    m_capsLockActive = false;
+                    auto info        = getKeyInfo("CapsLock");
+                    m_controller->sendKey(info.first, false, info.second);
+                    m_controller->sendKey(info.first, true, info.second);
+                }
                 updateKeyLabels();
                 return;
             }
@@ -289,7 +318,7 @@ void OSKWindow::setupLayout() {
                 m_controller->sendKey(info.first, true, info.second);
                 return;
             }
-            if (key == "Shift") {
+            if (key == "Hide" || key == "Shift") {
                 return;
             }
 
@@ -310,7 +339,7 @@ void OSKWindow::setupLayout() {
     auto row0 = new QHBoxLayout();
     row0->setSpacing(4);
     row0->setAlignment(Qt::AlignCenter);
-    for (const char* k : {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="}) {
+    for (const char* k : {"`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="}) {
         row0->addWidget(createKey(k));
     }
     row0->addWidget(createKey("Backspace", "⌫", 1.5, ctrlStyle));
@@ -320,7 +349,7 @@ void OSKWindow::setupLayout() {
     auto row1 = new QHBoxLayout();
     row1->setSpacing(4);
     row1->setAlignment(Qt::AlignCenter);
-    row1->addWidget(createKey("Tab", "⇥", 1.2, ctrlStyle));
+    row1->addWidget(createKey("Tab", "⇥", 1.5, ctrlStyle));
     for (const char* k : {"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\"}) {
         row1->addWidget(createKey(k));
     }
@@ -334,7 +363,7 @@ void OSKWindow::setupLayout() {
     for (const char* k : {"A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'"}) {
         row2->addWidget(createKey(k));
     }
-    row2->addWidget(createKey("Enter", "⏎", 1.8, "background-color: #005a9e; color: white;"));
+    row2->addWidget(createKey("Enter", "⏎", 2.0, "background-color: #005a9e; color: white;"));
     mainLayout->addLayout(row2);
 
     // Row 3: ZXCV
@@ -348,19 +377,21 @@ void OSKWindow::setupLayout() {
 
     // Up Arrow at the end of Row 3
     auto arrowStyle = "background-color: #2a2a2a; color: #aaaaaa; font-size: 18px;";
-    row3->addWidget(createKey("Up", "↑", 1.2, arrowStyle));
+    row3->addWidget(createKey("Up", "↑", 1.25, arrowStyle));
     mainLayout->addLayout(row3);
 
     // Row 4: Bottom
     auto row4 = new QHBoxLayout();
     row4->setSpacing(4);
     row4->setAlignment(Qt::AlignCenter);
-    row4->addWidget(createKey("Space", "␣", 6.5));
+    row4->addWidget(createKey("Hide", "⌨↓", 1.5, ctrlStyle));
+    row4->addWidget(createKey("Super", "⊞", 1.5, ctrlStyle));
+    row4->addWidget(createKey("Space", "␣", 7.5));
 
     // Other Arrows
-    row4->addWidget(createKey("Left", "←", 1.2, arrowStyle));
-    row4->addWidget(createKey("Down", "↓", 1.2, arrowStyle));
-    row4->addWidget(createKey("Right", "→", 1.2, arrowStyle));
+    row4->addWidget(createKey("Left", "←", 1.25, arrowStyle));
+    row4->addWidget(createKey("Down", "↓", 1.25, arrowStyle));
+    row4->addWidget(createKey("Right", "→", 1.25, arrowStyle));
 
     mainLayout->addLayout(row4);
 
