@@ -39,7 +39,7 @@ Used to embed the Vietnamese processing library directly into the input engine. 
 
 Used between the Addon (Client) and `fcitx5-lotus-server` (Server).
 
-- **Socket Path**: Typically located at `/tmp/fcitx5-lotus.sock` or the user's runtime directory.
+- **Socket Address**: Uses a Linux **abstract socket address** (e.g., `@lotussocket-<username>-kb_socket`). This avoids managing socket files on disk and ensures automatic cleanup when processes terminate.
 - **Purpose**: Smooth mode requires write access to `/dev/uinput`. For security, only the Server runs with elevated permissions (or in the `uinput` group), while the Addon runs with standard user permissions.
 
 ## 4. Important Directories

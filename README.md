@@ -89,7 +89,7 @@ sudo make install
 
 Đóng góp là điều làm cho cộng đồng mã nguồn mở trở thành một nơi tuyệt vời để học hỏi, truyền cảm hứng và sáng tạo. Mọi đóng góp của bạn đều được **đánh giá cao**.
 
-Vui lòng xem hướng dẫn chi tiết [tại đây](CONTRIBUTING.md) để biết cách tham gia phát triển dự án, quy trình Pull Request, quy tắc code style và **quy tắc ứng xử**.
+Vui lòng xem hướng dẫn chi tiết [tại đây](docs/CONTRIBUTING.md) để biết cách tham gia phát triển dự án, quy trình Pull Request, quy tắc code style và **quy tắc ứng xử**.
 
 Đừng quên tặng dự án một ⭐! Cảm ơn bạn rất nhiều!
 
@@ -141,7 +141,7 @@ Dự án này tuân thủ cấu trúc của [all-contributors](https://github.co
 
 ## 📃 Giấy phép
 
-Dự án này được phân phối dưới giấy phép GNU General Public License v3. Xem [`LICENSE`](LICENSE) để biết thêm chi tiết.
+Dự án này được phân phối dưới giấy phép GNU General Public License v3. Xem [`LICENSE`](LICENSE) để biết thêm chi tiết
 ---
 
 ## ✨ Lịch sử sao

@@ -39,7 +39,7 @@ Sử dụng để nhúng thư viện xử lý tiếng Việt trực tiếp vào 
 
 Được sử dụng giữa Addon (Client) và `fcitx5-lotus-server` (Server).
 
-- **Socket Path**: Thường nằm tại `/tmp/fcitx5-lotus.sock` hoặc thư mục runtime của người dùng.
+- **Socket Address**: Sử dụng **abstract socket address** trong namespace của Linux (vd: `@lotussocket-<username>-kb_socket`). Điều này giúp tránh việc phải quản lý file socket trên disk và tự động dọn dẹp khi process kết thúc.
 - **Mục đích**: Chế độ Smooth cần quyền ghi vào `/dev/uinput`. Để bảo mật, chỉ có Server chạy với quyền cao hơn (hoặc thuộc group `uinput`) chịu trách nhiệm này, trong khi Addon chạy với quyền người dùng bình thường.
 
 ## 4. Các thư mục quan trọng

@@ -89,7 +89,7 @@ sudo make install
 
 Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contribution you make is **greatly appreciated**.
 
-Please see the detailed guide [here](CONTRIBUTING.en.md) for how to participate in project development, the Pull Request process, code style rules, and **code of conduct**.
+Please see the detailed guide [here](docs/CONTRIBUTING.en.md) for how to participate in project development, the Pull Request process, code style rules, and **code of conduct**.
 
 Don't forget to give the project a ⭐! Thank you very much!
 

@@ -6,13 +6,13 @@ Lotus cung cấp nhiều chế độ gõ để tương thích với các ứng d
 
 ## 1. Smooth Mode (Chế độ mượt) - Ưu tiên
 
-- **Kỹ thuật**: Sử dụng `uinput` để gửi các mã phím Backspace và ký tự thực tế ở mức kernel.
+- **Kỹ thuật**: Sử dụng `uinput` để gửi các mã phím Backspace và ký tự thực tế ở mức kernel với độ trễ cực thấp (5ms).
 - **Ưu điểm**: Hoạt động cực kỳ mượt mà, không gặp lỗi lặp chữ hoặc mất ký tự trong các ứng dụng phức tạp (như game, Electron, terminal).
 - **Yêu cầu**: Cần chạy `fcitx5-lotus-server` và có quyền truy cập `/dev/uinput`.
 
 ## 2. Slow Mode (Chế độ chậm)
 
-- **Kỹ thuật**: Tương tự Smooth Mode nhưng có độ trễ nhỏ giữa các lệnh Backspace và Commit.
+- **Kỹ thuật**: Tương tự Smooth Mode nhưng có độ trễ lớn hơn (20ms) giữa các lệnh Backspace và Commit.
 - **Sử dụng**: Dành cho các ứng dụng cực kỳ cũ hoặc máy cấu hình thấp nơi Smooth Mode vẫn quá nhanh khiến ứng dụng không kịp xử lý phím xóa.
 
 ## 3. Surrounding Mode (Chế độ bao quanh)
@@ -30,9 +30,9 @@ Lotus cung cấp nhiều chế độ gõ để tương thích với các ứng d
 
 - **Kỹ thuật**: Một biến thể của Smooth Mode được tối ưu hóa đặc biệt cho Minecraft (Java Edition) để tránh việc bị mất phím khi chat hoặc gõ lệnh trong game.
 
-## 6. Emoji Mode
+## 6. Emoji Picker (Chọn biểu tượng)
 
-- **Kỹ thuật**: Chế độ gõ tắt hỗ trợ chèn nhanh các biểu tượng cảm xúc.
+- **Kỹ thuật**: Chế độ gõ tắt hỗ trợ chèn nhanh các biểu tượng cảm xúc qua menu ứng viên.
 
 ---
 

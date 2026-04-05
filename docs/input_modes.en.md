@@ -6,13 +6,13 @@ Lotus provides several input modes to ensure compatibility across different Linu
 
 ## 1. Smooth Mode - Recommended
 
-- **Technique**: Uses `uinput` to send actual Backspace and character keycodes at the kernel level.
+- **Technique**: Uses `uinput` to send actual Backspace and character keycodes at the kernel level with very low latency (5ms).
 - **Pros**: Extremely smooth performance, no character duplication or lost keys in complex apps (Games, Electron, Terminals).
 - **Requirements**: Requires `fcitx5-lotus-server` to be running with `/dev/uinput` access.
 
 ## 2. Slow Mode
 
-- **Technique**: Similar to Smooth Mode but introduces small delays between Backspace and Commit commands.
+- **Technique**: Similar to Smooth Mode but introduces a larger delay (20ms) between Backspace and Commit commands.
 - **Use Case**: Designed for legacy applications or low-end systems where Smooth Mode is too fast for the app to process deletions correctly.
 
 ## 3. Surrounding Mode
@@ -30,9 +30,9 @@ Lotus provides several input modes to ensure compatibility across different Linu
 
 - **Technique**: A specialized variant of Smooth Mode optimized for Minecraft (Java Edition) to prevent input drops during chat or command entry.
 
-## 6. Emoji Mode
+## 6. Emoji Picker
 
-- **Technique**: Shorthand mode for quick emoji insertion.
+- **Technique**: Shorthand mode for quick emoji insertion via the candidate menu.
 
 ---
 
