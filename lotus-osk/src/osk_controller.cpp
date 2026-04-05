@@ -17,7 +17,7 @@ OSKController::OSKController(QObject* parent) : QObject(parent), m_visible(false
     qDebug() << "Lotus OSK Controller initialized";
 
     m_hideTimer.setSingleShot(true);
-    m_hideTimer.setInterval(150);
+    m_hideTimer.setInterval(250);
     connect(&m_hideTimer, &QTimer::timeout, this, &OSKController::hideWindow);
 
     QDBusConnection::sessionBus().registerService("app.lotus.Osk");
