@@ -162,13 +162,26 @@ void OSKController::queryCapsLockState() {
 }
 
 void OSKController::handleSocketActivated(int /*socket*/) {
-    int state = 0;
-    if (recv(m_socketFd, &state, sizeof(state), 0) == sizeof(state)) {
+    int     state = 0;
+    ssize_t n     = recv(m_socketFd, &state, sizeof(state), 0);
+    if (n == sizeof(state)) {
         bool active = state > 0;
         if (active != m_capsLockActive) {
             m_capsLockActive = active;
             emit capsLockActiveChanged();
         }
+    } else {
+        // Server disconnected or error - cleanup to avoid busy loop
+        if (m_notifier) {
+            m_notifier->setEnabled(false);
+            delete m_notifier;
+            m_notifier = nullptr;
+        }
+        if (m_socketFd >= 0) {
+            close(m_socketFd);
+            m_socketFd = -1;
+        }
+        qDebug() << "Server disconnected, cleaned up socket notifier";
     }
 }
 

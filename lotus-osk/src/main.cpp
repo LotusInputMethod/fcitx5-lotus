@@ -10,8 +10,5 @@ int main(int argc, char* argv[]) {
 
     OSKController controller;
 
-    // The controller will manage the OSKWindow
-    controller.showWindow();
-
     return app.exec();
 }

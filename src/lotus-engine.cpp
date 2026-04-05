@@ -1018,7 +1018,6 @@ namespace fcitx {
         // If requested to SHOW, we always try to trigger it in case of a previous crash/desync.
         if (!show && !oskVisible_)
             return;
-        oskVisible_ = show;
 
         if (show) {
             lastOskTriggerTime_ = now_ms();
@@ -1030,6 +1029,7 @@ namespace fcitx {
         const char* argv[] = {"dbus-send", "--session", "--type=method_call", "--dest=app.lotus.Osk", "/app/lotus/Osk/Controller", method.c_str(), nullptr};
 
         if (posix_spawnp(&pid, "dbus-send", nullptr, nullptr, const_cast<char* const*>(argv), environ) == 0) {
+            oskVisible_ = show;
             std::thread([pid]() {
                 int status;
                 waitpid(pid, &status, 0);

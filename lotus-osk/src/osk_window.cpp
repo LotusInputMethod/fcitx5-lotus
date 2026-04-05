@@ -52,8 +52,6 @@ void OSKWindow::showEvent(QShowEvent* event) {
         layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
         layerWindow->setAnchors(LayerShellQt::Window::AnchorBottom);
         layerWindow->setExclusiveZone(height());
-        // For centering: only AnchorBottom, do not anchor to sides
-        layerWindow->setAnchors(LayerShellQt::Window::AnchorBottom);
     }
 #else
     // KWin Workaround: Use DBus to tell KWin to keep this window on top
