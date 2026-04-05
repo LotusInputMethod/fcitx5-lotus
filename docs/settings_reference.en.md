@@ -30,5 +30,4 @@ This document provides a detailed explanation of the options available in the Lo
 
 ---
 
-拍*Note: Some settings may require restarting Fcitx5 or Lotus Server to take effect.*
-拍
+*Note: Some settings may require restarting Fcitx5 or Lotus Server to take effect.*
