@@ -25,7 +25,7 @@ This document provides a detailed explanation of the options available in the Lo
 | Shortcut | Function |
 | :--- | :--- |
 | **Ctrl + `** | Opens the quick mode switch menu. |
-| **Nalt + L** | Quickly toggle the input engine ON/OFF. |
+| **Alt + L** | Quickly toggle the input engine ON/OFF. |
 | **Shift** | (Optional) Toggle between Vietnamese and English. |
 
 ---

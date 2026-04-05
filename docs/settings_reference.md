@@ -25,7 +25,7 @@ Tài liệu này giải thích chi tiết các tùy chọn có trong giao diện
 | Phím tắt | Chức năng |
 | :--- | :--- |
 | **Ctrl + `** | Mở menu chuyển nhanh chế độ gõ. |
-| **Nalt + L** | Bật/Tắt nhanh bộ gõ. |
+| **Alt + L** | Bật/Tắt nhanh bộ gõ. |
 | **Shift** | (Tùy chọn) Chuyển giữa tiếng Việt và tiếng Anh. |
 
 ---
