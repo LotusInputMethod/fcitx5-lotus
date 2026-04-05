@@ -15,7 +15,7 @@ Lotus cung cấp nhiều chế độ gõ để tương thích với các ứng d
 - **Kỹ thuật**: Tương tự Smooth Mode nhưng có độ trễ nhỏ giữa các lệnh Backspace và Commit.
 - **Sử dụng**: Dành cho các ứng dụng cực kỳ cũ hoặc máy cấu hình thấp nơi Smooth Mode vẫn quá nhanh khiến ứng dụng không kịp xử lý phím xóa.
 
-拍## 3. Surrounding Mode (Chế độ bao quanh)
+## 3. Surrounding Mode (Chế độ bao quanh)
 
 - **Kỹ thuật**: Sử dụng chuẩn `GetSurroundingText` của Fcitx5. Engine "hỏi" ứng dụng văn bản xung quanh con trỏ để quyết định xóa bao nhiêu ký tự.
 - **Ưu điểm**: Không cần quyền root/uinput.
