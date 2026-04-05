@@ -7,7 +7,7 @@ This document provides a detailed explanation of the options available in the Lo
 | Setting | Meaning | Internal Behavior |
 | :--- | :--- | :--- |
 | **Input Method** | Select Telex, VNI, or VIQR. | Switches the parser within the Bamboo core (Go). |
-| **Input Mode** | Smooth, Surrounding, Preedit, etc. | Changes the commit mechanism (Uinput vs Fcitx API). See [Input Modes](input_modes.md). |
+| **Input Mode** | Smooth, Surrounding, Preedit, etc. | Changes the commit mechanism (Uinput vs Fcitx API). See [Input Modes](input_modes.en.md). |
 | **Free Mark Placement** | Allows placing tone marks anywhere in a word. | Disables tone validity checks in the Bamboo core. |
 | **Shorthand** | Enable/disable personal shorthand. | Looks up substitution tables before processing keys. |
 
