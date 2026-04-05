@@ -255,7 +255,7 @@ void OSKWindow::setupLayout() {
         btn->setStyleSheet(getButtonStyle(COLOR_BG_NORMAL, COLOR_FG_NORMAL, extraStyle));
 
         connect(btn, &QPushButton::pressed, this, [this, key]() {
-            if (key == "Hide") {
+            if (key == "Hide" || key == "Super") {
                 m_controller->setVisible(false);
                 return;
             }
