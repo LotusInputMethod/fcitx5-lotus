@@ -44,4 +44,3 @@ Lotus provides several input modes to ensure compatibility across different Linu
 | **Surrounding** | High | Modern Apps (GTK/Qt) | None |
 | **Preedit** | Medium | All | None |
 | **Slow** | Low | Legacy Apps | uinput-server |
-拍
