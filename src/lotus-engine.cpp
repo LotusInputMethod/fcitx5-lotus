@@ -353,7 +353,9 @@ namespace fcitx {
             lastEnableOSK_ = currentOSK;
         }
         updateAction(nullptr, oskAction_, config_.enableOSK, _("OSK"));
-        updateOSKTheme(config_.oskWhiteTheme.value());
+        if (currentOSK && oskVisible_) {
+            updateOSKTheme(config_.oskWhiteTheme.value());
+        }
     }
 
     void LotusEngine::setSubConfig(const std::string& path, const RawConfig& config) {
@@ -1030,13 +1032,15 @@ namespace fcitx {
         const char* argv[] = {"dbus-send", "--session", "--type=method_call", "--dest=app.lotus.Osk", "/app/lotus/Osk/Controller", method.c_str(), nullptr};
 
         if (posix_spawnp(&pid, "dbus-send", nullptr, nullptr, const_cast<char* const*>(argv), environ) == 0) {
-            oskVisible_ = show;
-            if (show) {
-                updateOSKTheme(config_.oskWhiteTheme.value());
-            }
-            std::thread([pid]() {
+            std::thread([this, pid, show]() {
                 int status;
                 waitpid(pid, &status, 0);
+                if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+                    oskVisible_ = show;
+                    if (show) {
+                        updateOSKTheme(config_.oskWhiteTheme.value());
+                    }
+                }
             }).detach();
         }
     }
@@ -1044,9 +1048,8 @@ namespace fcitx {
     void LotusEngine::updateOSKTheme(bool white) {
         LOTUS_INFO("Updating OSK theme to " << (white ? "white" : "dark") << " via DBus...");
 
-        pid_t              pid;
-        static std::string booleanValue;
-        booleanValue       = white ? "boolean:true" : "boolean:false";
+        pid_t       pid;
+        std::string booleanValue = white ? "boolean:true" : "boolean:false";
         const char* argv[] = {"dbus-send",          "--session", "--type=method_call", "--dest=app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1.SetTheme",
                               booleanValue.c_str(), nullptr};
 

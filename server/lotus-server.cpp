@@ -96,6 +96,8 @@ void UinputDevice::send_backspace() {
 void UinputDevice::send_key(uint32_t code, uint32_t value) {
     if (!guard_.is_valid())
         return;
+    if (code >= KEY_MAX)
+        return;
     struct input_event ev[2]{};
     ev[0].type  = EV_KEY;
     ev[0].code  = static_cast<uint16_t>(code);
@@ -350,7 +352,7 @@ int main(int argc, char* argv[]) {
                             exe_path[ret] = '\0'; // NOLINT
                         }
 
-                        if (strcmp(exe_path, "/usr/bin/fcitx5") == 0) {
+                        if (strcmp(exe_path, FCITX5_EXECUTABLE_PATH) == 0) {
                             authorized = true;
                         } else {
                             LotusLogger::instance().warn("Unauthorized kb socket connection from: " + std::string(exe_path));
@@ -391,7 +393,7 @@ int main(int argc, char* argv[]) {
                             exe_path[ret] = '\0'; // NOLINT
                         }
 
-                        if (strcmp(exe_path, "/usr/bin/lotus-osk") == 0) {
+                        if (strcmp(exe_path, LOTUS_OSK_EXECUTABLE_PATH) == 0) {
                             authorized = true;
                         } else {
                             LotusLogger::instance().warn("Unauthorized osk socket connection from: " + std::string(exe_path));

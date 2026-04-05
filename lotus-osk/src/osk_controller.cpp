@@ -27,6 +27,11 @@ OSKController::OSKController(QObject* parent) : QObject(parent), m_visible(false
 }
 
 void OSKController::connectToServer() {
+    if (m_notifier) {
+        m_notifier->setEnabled(false);
+        delete m_notifier;
+        m_notifier = nullptr;
+    }
     if (m_socketFd >= 0)
         close(m_socketFd);
 
@@ -194,7 +199,8 @@ void OSKController::Show() {
 
 void OSKController::Hide() {
     qDebug() << "DBus Hide called";
-    setVisible(false);
+    m_hideTimer.stop();
+    hideWindow();
 }
 
 void OSKController::Toggle() {

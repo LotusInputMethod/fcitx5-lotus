@@ -58,23 +58,30 @@ void OSKWindow::showEvent(QShowEvent* event) {
     QDBusMessage msg = QDBusMessage::createMethodCall("org.kde.KWin", "/Scripting", "org.kde.KWin.Scripting", "loadScript");
 
     // Script to find the OSK window and set keepAbove
-    QString        script = "var clients = workspace.stackingOrder;"
-                            "for (var i = 0; i < clients.length; i++) {"
-                            "    if (clients[i].caption === 'Lotus OSK') {"
-                            "        clients[i].keepAbove = true;"
-                            "        clients[i].onAllDesktops = true;"
-                            "        clients[i].skipTaskbar = true;"
-                            "        clients[i].skipPager = true;"
-                            "        clients[i].skipSwitcher = true;"
-                            "    }"
-                            "}";
+    QString script = "var clients = workspace.stackingOrder;"
+                     "for (var i = 0; i < clients.length; i++) {"
+                     "    if (clients[i].caption === 'Lotus OSK') {"
+                     "        clients[i].keepAbove = true;"
+                     "        clients[i].onAllDesktops = true;"
+                     "        clients[i].skipTaskbar = true;"
+                     "        clients[i].skipPager = true;"
+                     "        clients[i].skipSwitcher = true;"
+                     "    }"
+                     "}";
 
-    QTemporaryFile tempFile;
-    tempFile.setFileTemplate(QDir::tempPath() + "/lotus-osk-kwin-script-XXXXXX.js");
-    if (tempFile.open()) {
-        tempFile.write(script.toUtf8());
-        tempFile.close();
-        msg << tempFile.fileName() << "lotus-osk-keep-above";
+    // Unload previous script if any
+    if (m_kwinScriptId != -1) {
+        QDBusMessage unloadMsg = QDBusMessage::createMethodCall("org.kde.KWin", "/Scripting", "org.kde.KWin.Scripting", "unloadScript");
+        unloadMsg << "lotus-osk-keep-above";
+        QDBusConnection::sessionBus().call(unloadMsg);
+        m_kwinScriptId = -1;
+    }
+
+    m_kwinScriptFile.setFileTemplate(QDir::tempPath() + "/lotus-osk-kwin-script-XXXXXX.js");
+    if (m_kwinScriptFile.open()) {
+        m_kwinScriptFile.write(script.toUtf8());
+        m_kwinScriptFile.close();
+        msg << m_kwinScriptFile.fileName() << "lotus-osk-keep-above";
     } else {
         qWarning() << "Failed to create temporary file for KWin script";
         return;
@@ -82,8 +89,8 @@ void OSKWindow::showEvent(QShowEvent* event) {
 
     QDBusMessage reply = QDBusConnection::sessionBus().call(msg);
     if (reply.type() == QDBusMessage::ReplyMessage) {
-        int          scriptId = reply.arguments().at(0).toInt();
-        QDBusMessage runMsg   = QDBusMessage::createMethodCall("org.kde.KWin", "/Scripting/Script" + QString::number(scriptId), "org.kde.KWin.Script", "run");
+        m_kwinScriptId      = reply.arguments().at(0).toInt();
+        QDBusMessage runMsg = QDBusMessage::createMethodCall("org.kde.KWin", "/Scripting/Script" + QString::number(m_kwinScriptId), "org.kde.KWin.Script", "run");
         QDBusConnection::sessionBus().send(runMsg);
     }
 #endif

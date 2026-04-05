@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QMap>
 #include <QPushButton>
+#include <QTemporaryFile>
 
 class OSKController;
 
@@ -61,6 +62,9 @@ class OSKWindow : public QWidget {
     QMap<QString, QPushButton*>  m_symbolButtons;
     QList<QPushButton*>          m_specialButtons;
     QMap<QPushButton*, QString>  m_buttonExtraStyles;
+
+    QTemporaryFile               m_kwinScriptFile;
+    int                          m_kwinScriptId = -1;
 };
 
 #endif // OSK_WINDOW_H
