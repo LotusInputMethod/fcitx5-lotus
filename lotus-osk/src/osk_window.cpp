@@ -237,15 +237,15 @@ QPair<uint, uint> OSKWindow::getKeyInfo(const QString& k) const {
 
 void OSKWindow::setupLayout() {
     auto mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(15, 15, 15, 15);
-    mainLayout->setSpacing(8);
+    mainLayout->setContentsMargins(10, 10, 10, 10);
+    mainLayout->setSpacing(6);
 
     auto createKey = [this](const QString& key, const QString& text = "", double widthFactor = 1.0, const QString& extraStyle = "") {
         QString label = text.isEmpty() ? key : text;
         auto    btn   = new QPushButton(label, this);
         btn->setProperty("osk_key", key); // For label updates
-        int baseHeight = 60;
-        int baseWidth  = 70;
+        int baseHeight = 65;
+        int baseWidth  = 72;
         btn->setFixedSize(static_cast<int>(baseWidth * widthFactor), baseHeight);
         btn->setFocusPolicy(Qt::NoFocus);
 
@@ -320,7 +320,7 @@ void OSKWindow::setupLayout() {
 
     // Row 0: Numbers
     auto row0 = new QHBoxLayout();
-    row0->setSpacing(4);
+    row0->setSpacing(3);
     row0->setAlignment(Qt::AlignCenter);
     for (const char* k : {"`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="}) {
         row0->addWidget(createKey(k));
@@ -330,7 +330,7 @@ void OSKWindow::setupLayout() {
 
     // Row 1: QWERTY
     auto row1 = new QHBoxLayout();
-    row1->setSpacing(4);
+    row1->setSpacing(3);
     row1->setAlignment(Qt::AlignCenter);
     row1->addWidget(createKey("Tab", "⇥", 1.5, ctrlStyle));
     for (const char* k : {"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\"}) {
@@ -340,7 +340,7 @@ void OSKWindow::setupLayout() {
 
     // Row 2: ASDF
     auto row2 = new QHBoxLayout();
-    row2->setSpacing(4);
+    row2->setSpacing(3);
     row2->setAlignment(Qt::AlignCenter);
     row2->addWidget(createKey("CapsLock", "⇪", 1.5, ctrlStyle));
     for (const char* k : {"A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'"}) {
@@ -351,7 +351,7 @@ void OSKWindow::setupLayout() {
 
     // Row 3: ZXCV
     auto row3 = new QHBoxLayout();
-    row3->setSpacing(4);
+    row3->setSpacing(3);
     row3->setAlignment(Qt::AlignCenter);
     row3->addWidget(createKey("Shift", "⇧", 1.5, ctrlStyle));
     for (const char* k : {"Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"}) {
@@ -365,7 +365,7 @@ void OSKWindow::setupLayout() {
 
     // Row 4: Bottom
     auto row4 = new QHBoxLayout();
-    row4->setSpacing(4);
+    row4->setSpacing(3);
     row4->setAlignment(Qt::AlignCenter);
     row4->addWidget(createKey("Hide", "⌨↓", 1.5, ctrlStyle));
     row4->addWidget(createKey("Super", "⊞", 1.5, ctrlStyle));
