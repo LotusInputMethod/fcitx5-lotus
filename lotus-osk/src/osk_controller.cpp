@@ -107,10 +107,6 @@ void OSKController::notifyServerVisibility() {
 void OSKController::sendKey(uint keyval, bool isRelease, uint keycode, bool /*shift*/) {
     // Key events are sent via the uinput socket to lotus-server, which injects
     // them as real hardware key events through /dev/uinput.
-    //
-    // Note: Fcitx5's DBus VirtualKeyboard.ProcessKeyEvent was also tried but
-    // was found to be non-functional in this setup (no characters produced).
-    // The uinput path is the only working path.
     if (m_socketFd < 0)
         connectToServer();
 

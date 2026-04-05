@@ -93,26 +93,13 @@ void OSKWindow::paintEvent(QPaintEvent* event) {
 void OSKWindow::updateKeyLabels() {
     bool upper = m_capsLockActive;
 
-    auto getShifted = [](const QString& k) -> QString {
-        static QMap<QString, QString> shiftMap = {{"1", "!"},  {"2", "@"}, {"3", "#"},  {"4", "$"}, {"5", "%"}, {"6", "^"}, {"7", "&"},
-                                                  {"8", "*"},  {"9", "("}, {"0", ")"},  {"-", "_"}, {"=", "+"}, {"[", "{"}, {"]", "}"},
-                                                  {"\\", "|"}, {";", ":"}, {"'", "\""}, {",", "<"}, {".", ">"}, {"/", "?"}, {"`", "~"}};
-        return shiftMap.value(k, k);
-    };
-
     // Update alphabet labels
     for (auto it = m_alphabetButtons.begin(); it != m_alphabetButtons.end(); ++it) {
         it.value()->setText(upper ? it.key().toUpper() : it.key().toLower());
     }
 
-    // Update symbol labels (this includes all buttons not in m_alphabetButtons or m_specialButtons)
-    // We'll iterate all buttons and update if they are 1-char symbols
-    for (auto* btn : findChildren<QPushButton*>()) {
-        QString key = btn->property("osk_key").toString();
-        if (key.length() == 1 && !m_alphabetButtons.contains(key.toUpper())) {
-            btn->setText(upper ? getShifted(key) : key);
-        }
-    }
+    // Note: CapsLock should NOT affect number and symbol keys.
+    // They remain as they are.
 
     // Update special key styles (CapsLock colors)
     for (auto* btn : m_specialButtons) {
@@ -270,9 +257,7 @@ void OSKWindow::setupLayout() {
             }
 
             auto info = getKeyInfo(key);
-            // If it's a shifted symbol/number, we MUST wrap with Shift for uinput
-            bool needsShift = m_capsLockActive && (key.length() == 1);
-            m_controller->sendKey(info.first, false, info.second, needsShift);
+            m_controller->sendKey(info.first, false, info.second, false);
         });
         connect(btn, &QPushButton::released, this, [this, key, getKeyInfo]() {
             if (key == "CapsLock") {
@@ -280,9 +265,8 @@ void OSKWindow::setupLayout() {
                 m_controller->sendKey(info.first, true, info.second);
                 return;
             }
-            auto info       = getKeyInfo(key);
-            bool needsShift = m_capsLockActive && (key.length() == 1);
-            m_controller->sendKey(info.first, true, info.second, needsShift);
+            auto info = getKeyInfo(key);
+            m_controller->sendKey(info.first, true, info.second, false);
         });
         return btn;
     };
