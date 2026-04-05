@@ -208,6 +208,12 @@ int main(int argc, char* argv[]) {
     backspace_socket += target_user;
     backspace_socket += "-kb_socket";
 
+    std::string osk_socket;
+    osk_socket.reserve(44);
+    osk_socket += "lotussocket-";
+    osk_socket += target_user;
+    osk_socket += "-osk_socket";
+
     std::string mouse_flag_socket;
     mouse_flag_socket.reserve(48);
     mouse_flag_socket += "lotussocket-";
@@ -216,6 +222,7 @@ int main(int argc, char* argv[]) {
 
     const size_t max_socket_path_length = UNIX_PATH_MAX - 1;
     backspace_socket.resize(std::min(backspace_socket.length(), max_socket_path_length));
+    osk_socket.resize(std::min(osk_socket.length(), max_socket_path_length));
     mouse_flag_socket.resize(std::min(mouse_flag_socket.length(), max_socket_path_length));
 
     // Setup Uinput
@@ -226,34 +233,46 @@ int main(int argc, char* argv[]) {
     }
 
     FdGuard            server_fd(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0));
+    FdGuard            osk_server_fd(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0));
     FdGuard            mouse_server_fd(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0));
 
     struct sockaddr_un addr_kb{};
+    struct sockaddr_un addr_osk{};
     struct sockaddr_un addr_mouse{};
 
     addr_kb.sun_family    = AF_UNIX;
+    addr_osk.sun_family   = AF_UNIX;
     addr_mouse.sun_family = AF_UNIX;
 
     addr_kb.sun_path[0]    = '\0';
+    addr_osk.sun_path[0]   = '\0';
     addr_mouse.sun_path[0] = '\0';
 
     memcpy(&addr_kb.sun_path[1], backspace_socket.c_str(), backspace_socket.length());
+    memcpy(&addr_osk.sun_path[1], osk_socket.c_str(), osk_socket.length());
     memcpy(&addr_mouse.sun_path[1], mouse_flag_socket.c_str(), mouse_flag_socket.length());
 
     socklen_t kb_len    = offsetof(struct sockaddr_un, sun_path) + backspace_socket.length() + 1;
+    socklen_t osk_len   = offsetof(struct sockaddr_un, sun_path) + osk_socket.length() + 1;
     socklen_t mouse_len = offsetof(struct sockaddr_un, sun_path) + mouse_flag_socket.length() + 1;
 
     if (bind(server_fd.get(), (struct sockaddr*)&addr_kb, kb_len) != 0) {
-        LotusLogger::instance().error("Failed to bind socket");
+        LotusLogger::instance().error("Failed to bind kb socket");
+        return 1;
+    }
+
+    if (bind(osk_server_fd.get(), (struct sockaddr*)&addr_osk, osk_len) != 0) {
+        LotusLogger::instance().error("Failed to bind osk socket");
         return 1;
     }
 
     if (bind(mouse_server_fd.get(), (struct sockaddr*)&addr_mouse, mouse_len) != 0) {
-        LotusLogger::instance().error("Failed to bind socket");
+        LotusLogger::instance().error("Failed to bind mouse socket");
         return 1;
     }
 
     listen(server_fd.get(), 5);
+    listen(osk_server_fd.get(), 5);
     listen(mouse_server_fd.get(), 5);
 
     LibinputContext li_ctx(&interface);
@@ -263,15 +282,21 @@ int main(int argc, char* argv[]) {
     }
 
     std::vector<struct pollfd> fds;
-    const int                  KB_CLIENT_INDEX = 3;
-    fds.push_back({server_fd.get(), POLLIN, 0});
-    fds.push_back({li_ctx.get_fd(), POLLIN, 0});
-    fds.push_back({mouse_server_fd.get(), POLLIN, 0});
-    fds.push_back({-1, POLLIN, 0}); // Keyboard socket client
+    const int                  KB_CLIENT_INDEX  = 3;
+    const int                  OSK_SERVER_INDEX = 4;
+    const int                  OSK_CLIENT_INDEX = 5;
+    fds.push_back({server_fd.get(), POLLIN, 0});       // [0] kb server
+    fds.push_back({li_ctx.get_fd(), POLLIN, 0});       // [1] libinput
+    fds.push_back({mouse_server_fd.get(), POLLIN, 0}); // [2] mouse server
+    fds.push_back({-1, POLLIN, 0});                    // [3] kb client (engine)
+    fds.push_back({osk_server_fd.get(), POLLIN, 0});   // [4] osk server
+    fds.push_back({-1, POLLIN, 0});                    // [5] osk client
 
     FdGuard          addon_fd;
     FdGuard          kb_client_fd;
+    FdGuard          osk_client_fd;
     int              pending_backspaces = 0;
+    bool             osk_active         = false;
 
     struct sigaction sa{};
     sa.sa_handler = signal_handler;
@@ -300,7 +325,7 @@ int main(int argc, char* argv[]) {
 
         libinput_dispatch(li_ctx.get_li());
 
-        // handle socket (backspace)
+        // handle socket (backspace from engine)
         if ((fds[0].revents & POLLIN) != 0) {
             int client_fd = accept4(server_fd.get(), nullptr, nullptr, SOCK_NONBLOCK);
             if (client_fd >= 0) {
@@ -319,20 +344,20 @@ int main(int argc, char* argv[]) {
                             exe_path[ret] = '\0'; // NOLINT
                         }
 
-                        if (strcmp(exe_path, "/usr/bin/fcitx5") == 0 || strcmp(exe_path, "/usr/bin/lotus-osk") == 0) {
+                        if (strcmp(exe_path, "/usr/bin/fcitx5") == 0) {
                             authorized = true;
                         } else {
-                            LotusLogger::instance().warn("Unauthorized executable connection attempt to keyboard socket from: " + std::string(exe_path));
+                            LotusLogger::instance().warn("Unauthorized kb socket connection from: " + std::string(exe_path));
                         }
                     } else {
-                        LotusLogger::instance().warn("Unauthorized UID connection attempt to keyboard socket from UID: " + std::to_string(cred.uid));
+                        LotusLogger::instance().warn("Unauthorized UID on kb socket from UID: " + std::to_string(cred.uid));
                     }
                 } else {
-                    LotusLogger::instance().warn("Failed to get peer credentials for keyboard socket");
+                    LotusLogger::instance().warn("Failed to get peer credentials for kb socket");
                 }
 
                 if (authorized) {
-                    LotusLogger::instance().info("Fcitx5 connected to keyboard socket (PID: " + std::to_string(cred.pid) + ")");
+                    LotusLogger::instance().info("Fcitx5 engine connected to kb socket (PID: " + std::to_string(cred.pid) + ")");
                     kb_client_fd.reset(client_fd);
                     fds[KB_CLIENT_INDEX].fd = kb_client_fd.get();
                 } else {
@@ -341,19 +366,79 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // handle connect from addon
+        // handle osk server (accept new OSK connection)
+        if ((fds[OSK_SERVER_INDEX].revents & POLLIN) != 0) {
+            int client_fd = accept4(osk_server_fd.get(), nullptr, nullptr, SOCK_NONBLOCK);
+            if (client_fd >= 0) {
+                struct ucred cred{};
+                socklen_t    len                = sizeof(struct ucred);
+                char         exe_path[PATH_MAX] = {0};
+
+                bool         authorized = false;
+                if (getsockopt(client_fd, SOL_SOCKET, SO_PEERCRED, &cred, &len) == 0) {
+                    if (cred.uid == expected_uid) {
+                        char path[64];
+                        snprintf(path, sizeof(path), "/proc/%d/exe", cred.pid);
+
+                        ssize_t ret = readlink(path, exe_path, sizeof(exe_path) - 1);
+                        if (ret != -1) {
+                            exe_path[ret] = '\0'; // NOLINT
+                        }
+
+                        if (strcmp(exe_path, "/usr/bin/lotus-osk") == 0) {
+                            authorized = true;
+                        } else {
+                            LotusLogger::instance().warn("Unauthorized osk socket connection from: " + std::string(exe_path));
+                        }
+                    } else {
+                        LotusLogger::instance().warn("Unauthorized UID on osk socket from UID: " + std::to_string(cred.uid));
+                    }
+                } else {
+                    LotusLogger::instance().warn("Failed to get peer credentials for osk socket");
+                }
+
+                if (authorized) {
+                    LotusLogger::instance().info("lotus-osk connected to osk socket (PID: " + std::to_string(cred.pid) + ")");
+                    osk_client_fd.reset(client_fd);
+                    fds[OSK_CLIENT_INDEX].fd = osk_client_fd.get();
+                } else {
+                    close(client_fd);
+                }
+            }
+        }
+
+        // handle commands from engine (kb_socket: backspace, legacy int)
         if (fds[KB_CLIENT_INDEX].fd >= 0 && (fds[KB_CLIENT_INDEX].revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
             LotusKeyCommand cmd{};
             ssize_t         n = recv(fds[KB_CLIENT_INDEX].fd, &cmd, sizeof(cmd), 0);
             if (n <= 0) {
-                LotusLogger::instance().warn("Keyboard client disconnected or connection error");
+                LotusLogger::instance().warn("KB client disconnected or connection error");
                 kb_client_fd.reset(-1);
                 fds[KB_CLIENT_INDEX].fd = -1;
             } else if (static_cast<size_t>(n) == sizeof(cmd)) {
                 if (cmd.type == 0) { // Backspace count
                     pending_backspaces += cmd.code - 1;
                     uinput.send_backspace();
-                } else if (cmd.type == 1) { // Universal key
+                }
+            } else if (static_cast<size_t>(n) == sizeof(int)) {
+                // Legacy support for plain int (backspace count)
+                int count = *reinterpret_cast<int*>(&cmd); // NOLINT
+                pending_backspaces += count - 1;
+                uinput.send_backspace();
+            }
+        }
+
+        // handle commands from OSK (osk_socket: key events, CapsLock query)
+        if (fds[OSK_CLIENT_INDEX].fd >= 0 && (fds[OSK_CLIENT_INDEX].revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
+            LotusKeyCommand cmd{};
+            ssize_t         n = recv(fds[OSK_CLIENT_INDEX].fd, &cmd, sizeof(cmd), 0);
+            if (n <= 0) {
+                LotusLogger::instance().warn("OSK client disconnected or connection error");
+                osk_client_fd.reset(-1);
+                fds[OSK_CLIENT_INDEX].fd = -1;
+                osk_active               = false;
+            } else if (static_cast<size_t>(n) == sizeof(cmd)) {
+                if (cmd.type == 1) { // Universal key from OSK
                     uinput.send_key(cmd.code, cmd.value);
                 } else if (cmd.type == 2) { // Query CapsLock
                     int    state = 0;
@@ -376,13 +461,12 @@ int main(int argc, char* argv[]) {
                         }
                         globfree(&g);
                     }
-                    send(fds[KB_CLIENT_INDEX].fd, &state, sizeof(state), MSG_NOSIGNAL);
+                    send(fds[OSK_CLIENT_INDEX].fd, &state, sizeof(state), MSG_NOSIGNAL);
+                } else if (cmd.type == 3) { // OSK Show
+                    osk_active = true;
+                } else if (cmd.type == 4) { // OSK Hide
+                    osk_active = false;
                 }
-            } else if (static_cast<size_t>(n) == sizeof(int)) {
-                // Legacy support for plain int (backspace count)
-                int count = *reinterpret_cast<int*>(&cmd); // NOLINT
-                pending_backspaces += count - 1;
-                uinput.send_backspace();
             }
         }
 
@@ -405,7 +489,7 @@ int main(int argc, char* argv[]) {
                 if (type == LIBINPUT_EVENT_POINTER_BUTTON) {
                     struct libinput_event_pointer* p = libinput_event_get_pointer_event(event);
                     if (libinput_event_pointer_get_button_state(p) == LIBINPUT_BUTTON_STATE_PRESSED) {
-                        if (addon_fd.is_valid()) {
+                        if (!osk_active && addon_fd.is_valid()) {
                             if (send(addon_fd.get(), "C", 1, MSG_NOSIGNAL | MSG_DONTWAIT) <= 0) {
                                 LotusLogger::instance().warn("Failed to send to mouse flag client, closing connection");
                                 addon_fd.reset(-1);

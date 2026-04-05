@@ -23,7 +23,7 @@ OSKController::OSKController(QObject* parent) : QObject(parent), m_visible(false
     QDBusConnection::sessionBus().registerService("app.lotus.Osk");
     QDBusConnection::sessionBus().registerObject("/app/lotus/Osk/Controller", this, QDBusConnection::ExportAllSlots);
 
-    connectToServer();
+    // Socket to lotus-server is only needed for CapsLock queries; connect lazily on first use.
 }
 
 void OSKController::connectToServer() {
@@ -38,7 +38,7 @@ void OSKController::connectToServer() {
     if (username.isEmpty())
         username = qgetenv("USERNAME");
 
-    std::string        path = "lotussocket-" + username.toStdString() + "-kb_socket";
+    std::string        path = "lotussocket-" + username.toStdString() + "-osk_socket";
 
     struct sockaddr_un addr{};
     addr.sun_family  = AF_UNIX;
@@ -75,6 +75,7 @@ void OSKController::showWindow() {
         m_window = new OSKWindow(this);
     m_window->show();
     m_visible = true;
+    notifyServerVisibility();
     emit visibleChanged();
 }
 
@@ -82,11 +83,34 @@ void OSKController::hideWindow() {
     if (m_window)
         m_window->hide();
     m_visible = false;
+    notifyServerVisibility();
     emit visibleChanged();
 }
 
+void OSKController::notifyServerVisibility() {
+    if (m_socketFd < 0)
+        connectToServer();
+
+    if (m_socketFd >= 0) {
+        LotusKeyCommand cmd;
+        cmd.type  = m_visible ? 3 : 4; // 3 = OSK Show, 4 = OSK Hide
+        cmd.code  = 0;
+        cmd.value = 0;
+
+        if (send(m_socketFd, &cmd, sizeof(cmd), MSG_NOSIGNAL) != sizeof(cmd)) {
+            close(m_socketFd);
+            m_socketFd = -1;
+        }
+    }
+}
+
 void OSKController::sendKey(uint keyval, bool isRelease, uint keycode, bool /*shift*/) {
-    // Try uinput socket first - Most reliable for universal keystrokes
+    // Key events are sent via the uinput socket to lotus-server, which injects
+    // them as real hardware key events through /dev/uinput.
+    //
+    // Note: Fcitx5's DBus VirtualKeyboard.ProcessKeyEvent was also tried but
+    // was found to be non-functional in this setup (no characters produced).
+    // The uinput path is the only working path.
     if (m_socketFd < 0)
         connectToServer();
 
@@ -101,13 +125,6 @@ void OSKController::sendKey(uint keyval, bool isRelease, uint keycode, bool /*sh
             m_socketFd = -1;
         }
     }
-
-    // Also send via DBus to ensure Fcitx5 preedit works correctly
-    QDBusMessage msg = QDBusMessage::createMethodCall("org.fcitx.Fcitx5", "/virtualkeyboard", "org.fcitx.Fcitx5.VirtualKeyboard", "ProcessKeyEvent");
-
-    uint32_t     timestamp = QDateTime::currentMSecsSinceEpoch() & 0xFFFFFFFF;
-    msg << (uint32_t)keyval << (uint32_t)keycode << (uint32_t)0 << isRelease << timestamp;
-    QDBusConnection::sessionBus().send(msg);
 }
 
 bool OSKController::queryCapsLockState() {

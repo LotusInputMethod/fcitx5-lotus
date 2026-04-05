@@ -40,6 +40,7 @@ class OSKController : public QObject {
 
   private:
     void       connectToServer();
+    void       notifyServerVisibility();
     bool       m_visible  = false;
     OSKWindow* m_window   = nullptr;
     int        m_socketFd = -1;
