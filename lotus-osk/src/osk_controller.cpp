@@ -11,11 +11,7 @@
 #include <unistd.h>
 #include <cstddef>
 
-struct LotusKeyCommand {
-    uint32_t type;  // 0 = Backspace count, 1 = Key Event
-    uint32_t code;  // Key code (linux/input-event-codes.h)
-    uint32_t value; // 1 = press, 0 = release
-};
+#include "lotus-key-command.h"
 
 OSKController::OSKController(QObject* parent) : QObject(parent), m_visible(false), m_window(nullptr), m_socketFd(-1) {
     qDebug() << "Lotus OSK Controller initialized";
@@ -101,7 +97,7 @@ void OSKController::notifyServerVisibility() {
 
     if (m_socketFd >= 0) {
         LotusKeyCommand cmd;
-        cmd.type  = m_visible ? 3 : 4; // 3 = OSK Show, 4 = OSK Hide
+        cmd.type  = m_visible ? LotusKeyCommandType::OskShow : LotusKeyCommandType::OskHide;
         cmd.code  = 0;
         cmd.value = 0;
 
@@ -120,7 +116,7 @@ void OSKController::sendKey(uint keyval, bool isRelease, uint keycode, bool /*sh
 
     if (m_socketFd >= 0 && keycode > 0) {
         LotusKeyCommand cmd;
-        cmd.type  = 1; // Key Event
+        cmd.type  = LotusKeyCommandType::KeyEvent;
         cmd.code  = keycode;
         cmd.value = isRelease ? 0 : 1;
 
@@ -138,7 +134,7 @@ bool OSKController::queryCapsLockState() {
         return false;
 
     LotusKeyCommand cmd;
-    cmd.type  = 2; // Query CapsLock
+    cmd.type  = LotusKeyCommandType::QueryCapsLock;
     cmd.code  = 0;
     cmd.value = 0;
 

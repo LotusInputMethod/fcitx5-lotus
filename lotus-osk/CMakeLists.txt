@@ -36,12 +36,17 @@ if (LayerShellQt_FOUND)
     target_link_libraries(lotus-osk PRIVATE LayerShellQt::Interface)
 endif()
 
-target_include_directories(lotus-osk PRIVATE src)
+target_include_directories(lotus-osk PRIVATE src ../src)
 
 install(TARGETS lotus-osk DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-install(FILES 
+configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/app.lotus.Osk.service.in
+    ${CMAKE_CURRENT_BINARY_DIR}/app.lotus.Osk.service
+    @ONLY
+)
+
+install(FILES 
+    ${CMAKE_CURRENT_BINARY_DIR}/app.lotus.Osk.service
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services
-    RENAME app.lotus.Osk.service
 )

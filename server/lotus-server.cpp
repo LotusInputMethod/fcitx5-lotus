@@ -416,7 +416,7 @@ int main(int argc, char* argv[]) {
                 kb_client_fd.reset(-1);
                 fds[KB_CLIENT_INDEX].fd = -1;
             } else if (static_cast<size_t>(n) == sizeof(cmd)) {
-                if (cmd.type == 0) { // Backspace count
+                if (cmd.type == LotusKeyCommandType::BackspaceCount) { // Backspace count
                     pending_backspaces += cmd.code - 1;
                     uinput.send_backspace();
                 }
@@ -438,9 +438,9 @@ int main(int argc, char* argv[]) {
                 fds[OSK_CLIENT_INDEX].fd = -1;
                 osk_active               = false;
             } else if (static_cast<size_t>(n) == sizeof(cmd)) {
-                if (cmd.type == 1) { // Universal key from OSK
+                if (cmd.type == LotusKeyCommandType::KeyEvent) { // Universal key from OSK
                     uinput.send_key(cmd.code, cmd.value);
-                } else if (cmd.type == 2) { // Query CapsLock
+                } else if (cmd.type == LotusKeyCommandType::QueryCapsLock) { // Query CapsLock
                     int    state = 0;
                     glob_t g;
                     if (glob("/sys/class/leds/*capslock/brightness", 0, nullptr, &g) == 0) {
@@ -462,9 +462,9 @@ int main(int argc, char* argv[]) {
                         globfree(&g);
                     }
                     send(fds[OSK_CLIENT_INDEX].fd, &state, sizeof(state), MSG_NOSIGNAL);
-                } else if (cmd.type == 3) { // OSK Show
+                } else if (cmd.type == LotusKeyCommandType::OskShow) { // OSK Show
                     osk_active = true;
-                } else if (cmd.type == 4) { // OSK Hide
+                } else if (cmd.type == LotusKeyCommandType::OskHide) { // OSK Hide
                     osk_active = false;
                 }
             }

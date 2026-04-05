@@ -59,11 +59,7 @@ class FdGuard {
     int fd_;
 };
 
-struct LotusKeyCommand {
-    uint32_t type;  // 0: Backspace count, 1: Key event, 2: Query CapsLock
-    uint32_t code;  // Keycode or count
-    uint32_t value; // 0/1 for key event
-};
+#include "lotus-key-command.h"
 
 /**
  * @brief RAII Wrapper for uinput device.
