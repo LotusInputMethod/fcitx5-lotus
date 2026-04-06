@@ -284,10 +284,11 @@ void OSKWindow::setupLayout() {
     mainLayout->setContentsMargins(10, 10, 10, 10);
     mainLayout->setSpacing(6);
 
-    int  keyHeight = (m_baseHeight - 50) / 4;
-    int  keyWidth  = (m_baseWidth - 60) / 10;
+    double scaleFactor = (m_baseWidth / 1100.0);
+    int    keyHeight   = static_cast<int>(65 * scaleFactor);
+    int    keyWidth    = static_cast<int>(72 * scaleFactor);
 
-    auto createKey = [this, keyHeight, keyWidth](const QString& key, const QString& text = "", double widthFactor = 1.0, const QString& extraStyle = "") {
+    auto   createKey = [this, keyHeight, keyWidth](const QString& key, const QString& text = "", double widthFactor = 1.0, const QString& extraStyle = "") {
         QString label = text.isEmpty() ? key : text;
         auto    btn   = new QPushButton(label, this);
         btn->setProperty("osk_key", key); // For label updates

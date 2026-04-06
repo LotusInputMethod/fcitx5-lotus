@@ -40,12 +40,11 @@ void OSKController::connectToServer() {
     if (m_socketFd < 0)
         return;
 
-    std::string username = "unknown";
-    if (struct passwd* pw = getpwuid(getuid())) {
-        username = pw->pw_name;
-    }
+    QString username = qgetenv("USER");
+    if (username.isEmpty())
+        username = qgetenv("USERNAME");
 
-    std::string        path = "lotussocket-" + username + "-osk_socket";
+    std::string        path = "lotussocket-" + username.toStdString() + "-osk_socket";
 
     struct sockaddr_un addr{};
     addr.sun_family  = AF_UNIX;

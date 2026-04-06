@@ -175,9 +175,6 @@ namespace fcitx {
         }
         config_.outputCharset.annotation().setList(charsets);
         lastEnableOSK_ = false;
-        try {
-            sessionBus_ = std::make_unique<dbus::Bus>(dbus::BusType::Session);
-        } catch (const std::exception& e) { LOTUS_ERROR("Failed to open D-Bus session bus: " + std::string(e.what())); }
 
         initToggleAction(spellCheckAction_, config_.spellCheck, "lotus-spellcheck", "tools-check-spelling", _("Enable Spell Check"), _("Spell Check"), uiManager);
         initToggleAction(macroAction_, config_.enableMacro, "lotus-macro", "document-edit", _("Enable Macro"), _("Macro"), uiManager);
@@ -207,19 +204,11 @@ namespace fcitx {
             pid_t       pid;
             const char* argv[] = {FCITX5_LOTUS_SETTINGS_PATH, nullptr};
             if (posix_spawn(&pid, FCITX5_LOTUS_SETTINGS_PATH, nullptr, nullptr, const_cast<char* const*>(argv), environ) == 0) {
-                // Use a timer to poll for child exit.
-                auto reaper = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 1000000, 100000, [this, pid](EventSourceTime* source, uint64_t) {
+                // Use a detached thread to wait for settings process
+                std::thread([pid]() {
                     int status;
-                    if (waitpid(pid, &status, WNOHANG) > 0) {
-                        return false; // Stop timer
-                    }
-                    source->setNextInterval(now(CLOCK_MONOTONIC) + 1000000);
-                    return true;
-                });
-                reapers_.push_back(std::move(reaper));
-
-                // Periodically clean up finished reapers
-                reapers_.erase(std::remove_if(reapers_.begin(), reapers_.end(), [](const auto& r) { return !r->isEnabled(); }), reapers_.end());
+                    waitpid(pid, &status, 0);
+                }).detach();
             }
         }));
         uiManager.registerAction("lotus-settings", settingsAction_.get());
@@ -1071,11 +1060,8 @@ namespace fcitx {
         LOTUS_INFO("Triggering OSK " << (show ? "show" : "hide") << " via direct D-Bus...");
 
         try {
-            if (!sessionBus_ || !sessionBus_->isOpen()) {
-                LOTUS_ERROR("D-Bus session bus not available");
-                return;
-            }
-            dbus::Message msg = sessionBus_->createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", show ? "Show" : "Hide");
+            dbus::Bus     bus(dbus::BusType::Session);
+            dbus::Message msg = bus.createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", show ? "Show" : "Hide");
             msg.call(1000000); // 1s timeout
             oskVisible_ = show;
             if (show) {
@@ -1088,10 +1074,8 @@ namespace fcitx {
         LOTUS_INFO("Updating OSK theme to " << (white ? "white" : "dark") << " via direct D-Bus...");
 
         try {
-            if (!sessionBus_ || !sessionBus_->isOpen()) {
-                return;
-            }
-            dbus::Message msg = sessionBus_->createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", "SetTheme");
+            dbus::Bus     bus(dbus::BusType::Session);
+            dbus::Message msg = bus.createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", "SetTheme");
             msg << white;
             msg.call(1000000); // 1s timeout
         } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error updating theme: " + std::string(e.what())); }
