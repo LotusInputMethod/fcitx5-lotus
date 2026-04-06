@@ -49,8 +49,7 @@ class OSKWindow : public QWidget {
     static constexpr const char*    L_COLOR_PRESSED    = "#d1d1d1";
     static constexpr const char*    L_COLOR_WINDOW_BG  = "#f0f0f0";
 
-    void                            setupLayout();
-    void                            calculateSize();
+    void                            setupLayout(int keyWidth, int keyHeight, int spacing, int margin);
     void                            updateKeyLabels();
     QPair<uint, uint>               getKeyInfo(const QString& key) const;
     QString                         getButtonStyle(const QString& bg = "#333333", const QString& fg = "#ffffff", const QString& extra = "") const;
@@ -61,6 +60,7 @@ class OSKWindow : public QWidget {
     bool                            m_whiteTheme     = false;
     int                             m_baseWidth      = 1100;
     int                             m_baseHeight     = 380;
+    int                             m_fontSize       = 20;
     QMap<QString, QPushButton*>     m_alphabetButtons;
     QMap<QString, QPushButton*>     m_symbolButtons;
     QList<QPushButton*>             m_specialButtons;
