@@ -315,21 +315,24 @@ int main(int argc, char* argv[]) {
     int     pending_backspaces = 0;
     bool    osk_active         = false;
 
-    // Optimized CapsLock path caching
-    static std::vector<std::string> cached_capslock_paths;
-    static bool                     capslock_paths_initialized = false;
-    auto                            refresh_capslock_paths     = []() {
-        cached_capslock_paths.clear();
-        glob_t g;
-        if (glob("/sys/class/leds/*capslock/brightness", 0, nullptr, &g) == 0) {
-            for (size_t i = 0; i < g.gl_pathc; ++i) {
-                cached_capslock_paths.emplace_back(g.gl_pathv[i]);
+    struct CapsLockDiscovery {
+        std::vector<std::string> paths;
+        bool                     initialized = false;
+
+        void                     refresh() {
+            paths.clear();
+            glob_t g;
+            if (glob("/sys/class/leds/*capslock/brightness", 0, nullptr, &g) == 0) {
+                for (size_t i = 0; i < g.gl_pathc; ++i) {
+                    paths.emplace_back(g.gl_pathv[i]);
+                }
+                globfree(&g);
             }
-            globfree(&g);
+            initialized = true;
         }
-        capslock_paths_initialized = true;
-    };
-    refresh_capslock_paths();
+    } caps_discovery;
+
+    caps_discovery.refresh();
 
     struct sigaction sa{};
     sa.sa_handler = signal_handler;
@@ -453,12 +456,6 @@ int main(int argc, char* argv[]) {
                     pending_backspaces += cmd.code - 1;
                     uinput.send_backspace();
                 }
-            } else if (static_cast<size_t>(n) == sizeof(int)) {
-                // Legacy support for plain int (backspace count)
-                int count;
-                memcpy(&count, &cmd, sizeof(int));
-                pending_backspaces += count - 1;
-                uinput.send_backspace();
             }
         }
 
@@ -476,10 +473,10 @@ int main(int argc, char* argv[]) {
                     uinput.send_key(cmd.code, cmd.value);
                 } else if (cmd.type == LotusKeyCommandType::QueryCapsLock) { // Query CapsLock
                     int state = 0;
-                    if (!capslock_paths_initialized) {
-                        refresh_capslock_paths();
+                    if (!caps_discovery.initialized) {
+                        caps_discovery.refresh();
                     }
-                    for (const auto& path : cached_capslock_paths) {
+                    for (const auto& path : caps_discovery.paths) {
                         int fd = open(path.c_str(), O_RDONLY);
                         if (fd >= 0) {
                             char    buf[16];

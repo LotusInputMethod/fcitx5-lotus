@@ -22,12 +22,11 @@ OSKWindow::OSKWindow(OSKController* controller, QWidget* parent) : QWidget(paren
     setAttribute(Qt::WA_TranslucentBackground);
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus);
 
-    // Initial size
-    resize(1100, 380);
+    // Initial size calculation (HiDPI aware)
+    calculateSize();
     setWindowTitle("Lotus OSK");
 
     setupLayout();
-    setFixedSize(1100, 380);
 
     // Sync initial CapsLock state
     connect(m_controller, &OSKController::capsLockActiveChanged, this, [this]() {
@@ -81,13 +80,15 @@ void OSKWindow::showEvent(QShowEvent* event) {
         m_kwinScriptId = -1;
     }
 
-    m_kwinScriptFile.setFileTemplate(QDir::tempPath() + "/lotus-osk-kwin-script-XXXXXX.js");
-    if (m_kwinScriptFile.open()) {
-        m_kwinScriptFile.write(script.toUtf8());
-        m_kwinScriptFile.close();
-        msg << m_kwinScriptFile.fileName() << "lotus-osk-keep-above";
+    auto* kwinScriptFile = new QTemporaryFile(QDir::tempPath() + "/lotus-osk-kwin-script-XXXXXX.js", this);
+    kwinScriptFile->setAutoRemove(false);
+    if (kwinScriptFile->open()) {
+        kwinScriptFile->write(script.toUtf8());
+        kwinScriptFile->close();
+        msg << kwinScriptFile->fileName() << "lotus-osk-keep-above";
     } else {
         qWarning() << "Failed to create temporary file for KWin script";
+        kwinScriptFile->deleteLater();
         return;
     }
 
@@ -97,6 +98,12 @@ void OSKWindow::showEvent(QShowEvent* event) {
         QDBusMessage runMsg = QDBusMessage::createMethodCall("org.kde.KWin", "/Scripting/Script" + QString::number(m_kwinScriptId), "org.kde.KWin.Script", "run");
         QDBusConnection::sessionBus().send(runMsg);
     }
+    // The script file can be deleted after KWin load it. Since loadScript is sync call (wait for reply),
+    // it's mostly safe to delete now, but we use a small delay just to be sure.
+    QTimer::singleShot(2000, [kwinScriptFile]() {
+        QFile::remove(kwinScriptFile->fileName());
+        kwinScriptFile->deleteLater();
+    });
 #endif
 }
 
@@ -251,18 +258,40 @@ QPair<uint, uint> OSKWindow::getKeyInfo(const QString& k) const {
     return specialMap.value(k, {0, 0});
 }
 
+void OSKWindow::calculateSize() {
+    QScreen* screen = QGuiApplication::primaryScreen();
+    if (!screen)
+        return;
+
+    QRect screenGeom = screen->availableGeometry();
+    qreal dpr        = screen->devicePixelRatio();
+
+    // Default target: roughly 70% of screen width, or 1100px on typical 1080p scaled by DPR
+    m_baseWidth = qMin(static_cast<int>(screenGeom.width() * 0.7), static_cast<int>(1100 * dpr));
+    // Keep aspect ratio roughly 1100:380 (approx 2.9)
+    m_baseHeight = static_cast<int>(m_baseWidth / 2.89);
+
+    // Minimum constraints
+    m_baseWidth  = qMax(m_baseWidth, 800);
+    m_baseHeight = qMax(m_baseHeight, 280);
+
+    resize(m_baseWidth, m_baseHeight);
+    setFixedSize(m_baseWidth, m_baseHeight);
+}
+
 void OSKWindow::setupLayout() {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(10, 10, 10, 10);
     mainLayout->setSpacing(6);
 
-    auto createKey = [this](const QString& key, const QString& text = "", double widthFactor = 1.0, const QString& extraStyle = "") {
+    int  keyHeight = (m_baseHeight - 50) / 4;
+    int  keyWidth  = (m_baseWidth - 60) / 10;
+
+    auto createKey = [this, keyHeight, keyWidth](const QString& key, const QString& text = "", double widthFactor = 1.0, const QString& extraStyle = "") {
         QString label = text.isEmpty() ? key : text;
         auto    btn   = new QPushButton(label, this);
         btn->setProperty("osk_key", key); // For label updates
-        int baseHeight = 65;
-        int baseWidth  = 72;
-        btn->setFixedSize(static_cast<int>(baseWidth * widthFactor), baseHeight);
+        btn->setFixedSize(static_cast<int>(keyWidth * widthFactor), keyHeight);
         btn->setFocusPolicy(Qt::NoFocus);
 
         if (key.length() == 1 && key[0].toLower() >= 'a' && key[0].toLower() <= 'z') {

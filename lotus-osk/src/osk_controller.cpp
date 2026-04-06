@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <cstddef>
 
+#include <pwd.h>
 #include "lotus-key-command.h"
 
 OSKController::OSKController(QObject* parent) : QObject(parent), m_visible(false), m_window(nullptr), m_socketFd(-1) {
@@ -39,11 +40,12 @@ void OSKController::connectToServer() {
     if (m_socketFd < 0)
         return;
 
-    QString username = qgetenv("USER");
-    if (username.isEmpty())
-        username = qgetenv("USERNAME");
+    std::string username = "unknown";
+    if (struct passwd* pw = getpwuid(getuid())) {
+        username = pw->pw_name;
+    }
 
-    std::string        path = "lotussocket-" + username.toStdString() + "-osk_socket";
+    std::string        path = "lotussocket-" + username + "-osk_socket";
 
     struct sockaddr_un addr{};
     addr.sun_family  = AF_UNIX;

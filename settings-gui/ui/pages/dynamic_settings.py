@@ -67,7 +67,8 @@ SETTINGS_MAP = {
 }
 
 # Only show OSK settings on KDE
-if "KDE" not in os.environ.get("XDG_CURRENT_DESKTOP", ""):
+current_desktop = (os.environ.get("XDG_CURRENT_DESKTOP") or os.environ.get("DESKTOP_SESSION") or "").upper()
+if "KDE" not in current_desktop:
     if SettingsCategory.ACCESSIBILITY in SETTINGS_MAP:
         acc_settings = SETTINGS_MAP[SettingsCategory.ACCESSIBILITY]["ACCESSIBILITY"]
         SETTINGS_MAP[SettingsCategory.ACCESSIBILITY]["ACCESSIBILITY"] = [

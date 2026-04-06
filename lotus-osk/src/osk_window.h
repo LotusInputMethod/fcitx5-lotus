@@ -50,6 +50,7 @@ class OSKWindow : public QWidget {
     static constexpr const char*    L_COLOR_WINDOW_BG  = "#f0f0f0";
 
     void                            setupLayout();
+    void                            calculateSize();
     void                            updateKeyLabels();
     QPair<uint, uint>               getKeyInfo(const QString& key) const;
     QString                         getButtonStyle(const QString& bg = "#333333", const QString& fg = "#ffffff", const QString& extra = "") const;
@@ -58,12 +59,13 @@ class OSKWindow : public QWidget {
     bool                            m_capsLockActive = false;
     bool                            m_shiftActive    = false;
     bool                            m_whiteTheme     = false;
+    int                             m_baseWidth      = 1100;
+    int                             m_baseHeight     = 380;
     QMap<QString, QPushButton*>     m_alphabetButtons;
     QMap<QString, QPushButton*>     m_symbolButtons;
     QList<QPushButton*>             m_specialButtons;
     QMap<QPushButton*, QString>     m_buttonExtraStyles;
 
-    QTemporaryFile                  m_kwinScriptFile;
     int                             m_kwinScriptId = -1;
     mutable QHash<QString, QString> m_styleCache;
 };

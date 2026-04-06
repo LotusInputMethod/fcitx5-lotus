@@ -21,6 +21,7 @@
 #include <fcitx/userinterfacemanager.h>
 #include <fcitx-utils/utf8.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <filesystem>
@@ -174,6 +175,9 @@ namespace fcitx {
         }
         config_.outputCharset.annotation().setList(charsets);
         lastEnableOSK_ = false;
+        try {
+            sessionBus_ = std::make_unique<dbus::Bus>(dbus::BusType::Session);
+        } catch (const std::exception& e) { LOTUS_ERROR("Failed to open D-Bus session bus: " + std::string(e.what())); }
 
         initToggleAction(spellCheckAction_, config_.spellCheck, "lotus-spellcheck", "tools-check-spelling", _("Enable Spell Check"), _("Spell Check"), uiManager);
         initToggleAction(macroAction_, config_.enableMacro, "lotus-macro", "document-edit", _("Enable Macro"), _("Macro"), uiManager);
@@ -199,20 +203,23 @@ namespace fcitx {
         settingsAction_ = std::make_unique<SimpleAction>();
         settingsAction_->setShortText(_("Settings"));
         settingsAction_->setIcon("configure");
-        connections_.emplace_back(settingsAction_->connect<SimpleAction::Activated>([](InputContext*) {
+        connections_.emplace_back(settingsAction_->connect<SimpleAction::Activated>([this](InputContext*) {
             pid_t       pid;
             const char* argv[] = {FCITX5_LOTUS_SETTINGS_PATH, nullptr};
             if (posix_spawn(&pid, FCITX5_LOTUS_SETTINGS_PATH, nullptr, nullptr, const_cast<char* const*>(argv), environ) == 0) {
-                // Use fcitx internal event loop for background reaping if possible,
-                // or a shared reaper thread to avoid thread accumulation.
-                // For now, setting SIGCHLD to SIG_IGN globally would be risky in fcitx,
-                // so we use a very short-lived thread that only calls waitpid once.
-                // To minimize overhead, we use WNOHANG in a single monitor thread if we were more complex,
-                // but for just one settings window it's okay, we just want to avoid the "pattern" critique.
-                std::thread([pid]() {
+                // Use a timer to poll for child exit.
+                auto reaper = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 1000000, 100000, [this, pid](EventSourceTime* source, uint64_t) {
                     int status;
-                    waitpid(pid, &status, 0);
-                }).detach();
+                    if (waitpid(pid, &status, WNOHANG) > 0) {
+                        return false; // Stop timer
+                    }
+                    source->setNextInterval(now(CLOCK_MONOTONIC) + 1000000);
+                    return true;
+                });
+                reapers_.push_back(std::move(reaper));
+
+                // Periodically clean up finished reapers
+                reapers_.erase(std::remove_if(reapers_.begin(), reapers_.end(), [](const auto& r) { return !r->isEnabled(); }), reapers_.end());
             }
         }));
         uiManager.registerAction("lotus-settings", settingsAction_.get());
@@ -1064,12 +1071,11 @@ namespace fcitx {
         LOTUS_INFO("Triggering OSK " << (show ? "show" : "hide") << " via direct D-Bus...");
 
         try {
-            dbus::Bus bus(dbus::BusType::Session);
-            if (!bus.isOpen()) {
-                LOTUS_ERROR("Failed to open session bus");
+            if (!sessionBus_ || !sessionBus_->isOpen()) {
+                LOTUS_ERROR("D-Bus session bus not available");
                 return;
             }
-            dbus::Message msg = bus.createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", show ? "Show" : "Hide");
+            dbus::Message msg = sessionBus_->createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", show ? "Show" : "Hide");
             msg.call(1000000); // 1s timeout
             oskVisible_ = show;
             if (show) {
@@ -1082,11 +1088,10 @@ namespace fcitx {
         LOTUS_INFO("Updating OSK theme to " << (white ? "white" : "dark") << " via direct D-Bus...");
 
         try {
-            dbus::Bus bus(dbus::BusType::Session);
-            if (!bus.isOpen()) {
+            if (!sessionBus_ || !sessionBus_->isOpen()) {
                 return;
             }
-            dbus::Message msg = bus.createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", "SetTheme");
+            dbus::Message msg = sessionBus_->createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", "SetTheme");
             msg << white;
             msg.call(1000000); // 1s timeout
         } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error updating theme: " + std::string(e.what())); }

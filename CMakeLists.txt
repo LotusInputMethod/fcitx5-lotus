@@ -30,11 +30,11 @@ fcitx5_add_i18n_definition()
 
 add_subdirectory(po)
 add_subdirectory(bamboo)
+option(ENABLE_QT "Enable Qt-based components like OSK" ON)
 add_subdirectory(src)
 add_subdirectory(data)
 add_subdirectory(server)
 add_subdirectory(misc)
-option(ENABLE_QT "Enable Qt-based components like OSK" ON)
 
 if(ENABLE_QT)
     find_package(Qt6 COMPONENTS Core Gui Widgets WaylandClient DBus QUIET)
