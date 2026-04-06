@@ -611,11 +611,10 @@ namespace fcitx {
                 if (isBrokenComposition) {
                     ic_->commitString(addedPart);
                     LOTUS_INFO("Broken composition, commit only: " + addedPart);
-                    keyEvent.filterAndAccept();
                 } else {
                     performReplacement(deletedPart, addedPart);
-                    keyEvent.filterAndAccept();
                 }
+                keyEvent.filterAndAccept();
             } else {
                 bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
                 if (!addedPart.empty() && (keyUtf8 != addedPart || wasAutoCapitalized)) {
@@ -800,6 +799,7 @@ namespace fcitx {
             std::string addedPart;
             compareAndSplitStrings(oldWord, newWord, commonPrefix, deletedPart, addedPart);
             if ((deletedPart.empty() || deletedPart == oldWord) && addedPart == keyEvent.key().toString()) {
+                LOTUS_INFO("Broken composition in Surrounding Text, forwarding key: " + addedPart);
                 ResetEngine(lotusEngine_.handle());
                 keyEvent.forward();
                 return;
