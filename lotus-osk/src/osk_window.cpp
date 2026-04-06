@@ -13,6 +13,10 @@
 #endif
 #include <QTemporaryFile>
 
+static const QHash<QString, QString> g_symbolMap = {{"1", "!"},  {"2", "@"}, {"3", "#"},  {"4", "$"}, {"5", "%"}, {"6", "^"}, {"7", "&&"},
+                                                    {"8", "*"},  {"9", "("}, {"0", ")"},  {"-", "_"}, {"=", "+"}, {"[", "{"}, {"]", "}"},
+                                                    {"\\", "|"}, {";", ":"}, {"'", "\""}, {",", "<"}, {".", ">"}, {"/", "?"}, {"`", "~"}};
+
 OSKWindow::OSKWindow(OSKController* controller, QWidget* parent) : QWidget(parent), m_controller(controller) {
     // Set window properties for OSK
     setAttribute(Qt::WA_TranslucentBackground);
@@ -110,6 +114,7 @@ void OSKWindow::hideEvent(QHideEvent* event) {
 void OSKWindow::setWhiteTheme(bool white) {
     if (m_whiteTheme != white) {
         m_whiteTheme = white;
+        m_styleCache.clear();
         updateKeyLabels();
         update();
     }
@@ -140,13 +145,10 @@ void OSKWindow::updateKeyLabels() {
         it.value()->setStyleSheet(getButtonStyle(normalBg, normalFg));
     }
 
-    bool                                 upperSymbol = m_shiftActive;
-    static const QHash<QString, QString> symbolMap   = {{"1", "!"},  {"2", "@"}, {"3", "#"},  {"4", "$"}, {"5", "%"}, {"6", "^"}, {"7", "&&"},
-                                                        {"8", "*"},  {"9", "("}, {"0", ")"},  {"-", "_"}, {"=", "+"}, {"[", "{"}, {"]", "}"},
-                                                        {"\\", "|"}, {";", ":"}, {"'", "\""}, {",", "<"}, {".", ">"}, {"/", "?"}, {"`", "~"}};
+    bool upperSymbol = m_shiftActive;
 
     for (auto it = m_symbolButtons.begin(); it != m_symbolButtons.end(); ++it) {
-        it.value()->setText(upperSymbol && symbolMap.contains(it.key()) ? symbolMap.value(it.key()) : it.key());
+        it.value()->setText(upperSymbol && g_symbolMap.contains(it.key()) ? g_symbolMap.value(it.key()) : it.key());
         it.value()->setStyleSheet(getButtonStyle(normalBg, normalFg));
     }
 
@@ -182,25 +184,32 @@ void OSKWindow::updateKeyLabels() {
 }
 
 QString OSKWindow::getButtonStyle(const QString& bg, const QString& fg, const QString& extra) const {
+    QString cacheKey = bg + fg + extra;
+    if (m_styleCache.contains(cacheKey)) {
+        return m_styleCache.value(cacheKey);
+    }
+
     QString borderColor  = m_whiteTheme ? L_COLOR_BORDER : COLOR_BORDER;
     QString hoverColor   = m_whiteTheme ? L_COLOR_HOVER : COLOR_HOVER;
     QString pressedColor = m_whiteTheme ? L_COLOR_PRESSED : COLOR_PRESSED;
 
-    return QString("QPushButton {"
-                   "  background-color: %1;"
-                   "  color: %2;"
-                   "  border-radius: 6px;"
-                   "  font-size: 20px;"
-                   "  border: 1px solid %3;"
-                   "}"
-                   "QPushButton:hover { background-color: %4; }"
-                   "QPushButton:pressed { background-color: %5; padding: 2px 0 0 0; }")
-               .arg(bg)
-               .arg(fg)
-               .arg(borderColor)
-               .arg(hoverColor)
-               .arg(pressedColor) +
+    QString style = QString("QPushButton {"
+                            "  background-color: %1;"
+                            "  color: %2;"
+                            "  border-radius: 6px;"
+                            "  font-size: 20px;"
+                            "  border: 1px solid %3;"
+                            "}"
+                            "QPushButton:hover { background-color: %4; }"
+                            "QPushButton:pressed { background-color: %5; padding: 2px 0 0 0; }")
+                        .arg(bg)
+                        .arg(fg)
+                        .arg(borderColor)
+                        .arg(hoverColor)
+                        .arg(pressedColor) +
         extra;
+    m_styleCache.insert(cacheKey, style);
+    return style;
 }
 
 QPair<uint, uint> OSKWindow::getKeyInfo(const QString& k) const {

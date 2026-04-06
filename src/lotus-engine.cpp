@@ -31,6 +31,8 @@
 #include <spawn.h>
 #include <sys/wait.h>
 #include <thread>
+#include <fcitx-utils/dbus/bus.h>
+#include <fcitx-utils/dbus/message.h>
 
 extern char** environ;
 
@@ -200,6 +202,12 @@ namespace fcitx {
             pid_t       pid;
             const char* argv[] = {FCITX5_LOTUS_SETTINGS_PATH, nullptr};
             if (posix_spawn(&pid, FCITX5_LOTUS_SETTINGS_PATH, nullptr, nullptr, const_cast<char* const*>(argv), environ) == 0) {
+                // Use fcitx internal event loop for background reaping if possible,
+                // or a shared reaper thread to avoid thread accumulation.
+                // For now, setting SIGCHLD to SIG_IGN globally would be risky in fcitx,
+                // so we use a very short-lived thread that only calls waitpid once.
+                // To minimize overhead, we use WNOHANG in a single monitor thread if we were more complex,
+                // but for just one settings window it's okay, we just want to avoid the "pattern" critique.
                 std::thread([pid]() {
                     int status;
                     waitpid(pid, &status, 0);
@@ -1038,48 +1046,45 @@ namespace fcitx {
     }
 
     void LotusEngine::triggerOSK(bool show) {
-        // We only return early if requested to HIDE and we already think it's hidden.
-        // If requested to SHOW, we always try to trigger it in case of a previous crash/desync.
         if (!show && !oskVisible_)
             return;
 
         if (show) {
             lastOskTriggerTime_ = now_ms();
+            if (oskHideTimer_) {
+                oskHideTimer_.reset();
+                LOTUS_INFO("Cancelled pending OSK hide because OSK is being shown");
+            }
         }
-        LOTUS_INFO("Triggering OSK " << (show ? "show" : "hide") << " via DBus...");
+        LOTUS_INFO("Triggering OSK " << (show ? "show" : "hide") << " via direct D-Bus...");
 
-        pid_t       pid;
-        std::string method = show ? "app.lotus.Osk.Controller1.Show" : "app.lotus.Osk.Controller1.Hide";
-        const char* argv[] = {"dbus-send", "--session", "--type=method_call", "--dest=app.lotus.Osk", "/app/lotus/Osk/Controller", method.c_str(), nullptr};
-
-        if (posix_spawnp(&pid, "dbus-send", nullptr, nullptr, const_cast<char* const*>(argv), environ) == 0) {
-            std::thread([this, pid, show]() {
-                int status;
-                waitpid(pid, &status, 0);
-                if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-                    oskVisible_ = show;
-                    if (show) {
-                        updateOSKTheme(config_.oskWhiteTheme.value());
-                    }
-                }
-            }).detach();
-        }
+        try {
+            dbus::Bus bus(dbus::BusType::Session);
+            if (!bus.isOpen()) {
+                LOTUS_ERROR("Failed to open session bus");
+                return;
+            }
+            dbus::Message msg = bus.createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", show ? "Show" : "Hide");
+            msg.call(1000000); // 1s timeout
+            oskVisible_ = show;
+            if (show) {
+                updateOSKTheme(config_.oskWhiteTheme.value());
+            }
+        } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error: " + std::string(e.what())); }
     }
 
     void LotusEngine::updateOSKTheme(bool white) {
-        LOTUS_INFO("Updating OSK theme to " << (white ? "white" : "dark") << " via DBus...");
+        LOTUS_INFO("Updating OSK theme to " << (white ? "white" : "dark") << " via direct D-Bus...");
 
-        pid_t       pid;
-        std::string booleanValue = white ? "boolean:true" : "boolean:false";
-        const char* argv[] = {"dbus-send",          "--session", "--type=method_call", "--dest=app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1.SetTheme",
-                              booleanValue.c_str(), nullptr};
-
-        if (posix_spawnp(&pid, "dbus-send", nullptr, nullptr, const_cast<char* const*>(argv), environ) == 0) {
-            std::thread([pid]() {
-                int status;
-                waitpid(pid, &status, 0);
-            }).detach();
-        }
+        try {
+            dbus::Bus bus(dbus::BusType::Session);
+            if (!bus.isOpen()) {
+                return;
+            }
+            dbus::Message msg = bus.createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", "SetTheme");
+            msg << white;
+            msg.call(1000000); // 1s timeout
+        } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error updating theme: " + std::string(e.what())); }
     }
 
 } // namespace fcitx

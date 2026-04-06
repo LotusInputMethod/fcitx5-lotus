@@ -56,9 +56,18 @@ bool UinputDevice::initialize() {
     if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0) {
         return false;
     }
-    // Enable all common keys
-    for (int i = 0; i < KEY_MAX; ++i) {
-        ioctl(fd, UI_SET_KEYBIT, i);
+    // Enable required keys only
+    static const int required_keys[] = {
+        KEY_ESC,    KEY_1,         KEY_2,          KEY_3,          KEY_4,        KEY_5,          KEY_6,          KEY_7,       KEY_8,       KEY_9,          KEY_0,    KEY_MINUS,
+        KEY_EQUAL,  KEY_BACKSPACE, KEY_TAB,        KEY_Q,          KEY_W,        KEY_E,          KEY_R,          KEY_T,       KEY_Y,       KEY_U,          KEY_I,    KEY_O,
+        KEY_P,      KEY_LEFTBRACE, KEY_RIGHTBRACE, KEY_ENTER,      KEY_LEFTCTRL, KEY_A,          KEY_S,          KEY_D,       KEY_F,       KEY_G,          KEY_H,    KEY_J,
+        KEY_K,      KEY_L,         KEY_SEMICOLON,  KEY_APOSTROPHE, KEY_GRAVE,    KEY_LEFTSHIFT,  KEY_BACKSLASH,  KEY_Z,       KEY_X,       KEY_C,          KEY_V,    KEY_B,
+        KEY_N,      KEY_M,         KEY_COMMA,      KEY_DOT,        KEY_SLASH,    KEY_RIGHTSHIFT, KEY_KPASTERISK, KEY_LEFTALT, KEY_SPACE,   KEY_CAPSLOCK,   KEY_F1,   KEY_F2,
+        KEY_F3,     KEY_F4,        KEY_F5,         KEY_F6,         KEY_F7,       KEY_F8,         KEY_F9,         KEY_F10,     KEY_NUMLOCK, KEY_SCROLLLOCK, KEY_HOME, KEY_UP,
+        KEY_PAGEUP, KEY_LEFT,      KEY_RIGHT,      KEY_END,        KEY_DOWN,     KEY_PAGEDOWN,   KEY_INSERT,     KEY_DELETE,  KEY_LEFTMETA};
+
+    for (int key : required_keys) {
+        ioctl(fd, UI_SET_KEYBIT, key);
     }
 
     struct uinput_setup usetup{};
@@ -300,11 +309,27 @@ int main(int argc, char* argv[]) {
     fds.push_back({osk_server_fd.get(), POLLIN, 0});   // [4] osk server
     fds.push_back({-1, POLLIN, 0});                    // [5] osk client
 
-    FdGuard          addon_fd;
-    FdGuard          kb_client_fd;
-    FdGuard          osk_client_fd;
-    int              pending_backspaces = 0;
-    bool             osk_active         = false;
+    FdGuard addon_fd;
+    FdGuard kb_client_fd;
+    FdGuard osk_client_fd;
+    int     pending_backspaces = 0;
+    bool    osk_active         = false;
+
+    // Optimized CapsLock path caching
+    static std::vector<std::string> cached_capslock_paths;
+    static bool                     capslock_paths_initialized = false;
+    auto                            refresh_capslock_paths     = []() {
+        cached_capslock_paths.clear();
+        glob_t g;
+        if (glob("/sys/class/leds/*capslock/brightness", 0, nullptr, &g) == 0) {
+            for (size_t i = 0; i < g.gl_pathc; ++i) {
+                cached_capslock_paths.emplace_back(g.gl_pathv[i]);
+            }
+            globfree(&g);
+        }
+        capslock_paths_initialized = true;
+    };
+    refresh_capslock_paths();
 
     struct sigaction sa{};
     sa.sa_handler = signal_handler;
@@ -450,25 +475,24 @@ int main(int argc, char* argv[]) {
                 if (cmd.type == LotusKeyCommandType::KeyEvent) { // Universal key from OSK
                     uinput.send_key(cmd.code, cmd.value);
                 } else if (cmd.type == LotusKeyCommandType::QueryCapsLock) { // Query CapsLock
-                    int    state = 0;
-                    glob_t g;
-                    if (glob("/sys/class/leds/*capslock/brightness", 0, nullptr, &g) == 0) {
-                        for (size_t i = 0; i < g.gl_pathc; ++i) {
-                            int fd = open(g.gl_pathv[i], O_RDONLY);
-                            if (fd >= 0) {
-                                char    buf[16];
-                                ssize_t r = read(fd, buf, sizeof(buf) - 1);
-                                close(fd);
-                                if (r > 0) {
-                                    buf[r] = '\0';
-                                    if (atoi(buf) > 0) {
-                                        state = 1;
-                                        break;
-                                    }
+                    int state = 0;
+                    if (!capslock_paths_initialized) {
+                        refresh_capslock_paths();
+                    }
+                    for (const auto& path : cached_capslock_paths) {
+                        int fd = open(path.c_str(), O_RDONLY);
+                        if (fd >= 0) {
+                            char    buf[16];
+                            ssize_t r = read(fd, buf, sizeof(buf) - 1);
+                            close(fd);
+                            if (r > 0) {
+                                buf[r] = '\0';
+                                if (atoi(buf) > 0) {
+                                    state = 1;
+                                    break;
                                 }
                             }
                         }
-                        globfree(&g);
                     }
                     send(fds[OSK_CLIENT_INDEX].fd, &state, sizeof(state), MSG_NOSIGNAL);
                 } else if (cmd.type == LotusKeyCommandType::OskShow) { // OSK Show
