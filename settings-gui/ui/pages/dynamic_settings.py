@@ -33,6 +33,8 @@ class SettingsCategory(Enum):
     ACCESSIBILITY = "accessibility"
 
 
+import os
+
 # Mapping of settings keys to categories and groups
 SETTINGS_MAP = {
     SettingsCategory.GENERAL: {
@@ -63,6 +65,14 @@ SETTINGS_MAP = {
         "ACCESSIBILITY": ["EnableOSK", "OSKWhiteTheme"],
     }
 }
+
+# Only show OSK settings on KDE
+if "KDE" not in os.environ.get("XDG_CURRENT_DESKTOP", ""):
+    if SettingsCategory.ACCESSIBILITY in SETTINGS_MAP:
+        acc_settings = SETTINGS_MAP[SettingsCategory.ACCESSIBILITY]["ACCESSIBILITY"]
+        SETTINGS_MAP[SettingsCategory.ACCESSIBILITY]["ACCESSIBILITY"] = [
+            k for k in acc_settings if k not in ["EnableOSK", "OSKWhiteTheme"]
+        ]
 
 
 class CardWidget(QFrame):

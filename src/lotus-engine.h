@@ -223,6 +223,7 @@ namespace fcitx {
         FCITX_ADDON_DEPENDENCY_LOADER(emoji, instance_->addonManager());
         std::unique_ptr<EmojiLoader>            emojiLoader_;
         bool                                    isGnome_ = false;
+        bool                                    isKde_   = false;
         mutable std::mutex                      appRulesMutex_;
         std::unordered_map<KeySym, LotusMode>   modeMenuMapping_;
         bool                                    lastEnableOSK_      = false;

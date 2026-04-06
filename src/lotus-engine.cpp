@@ -133,6 +133,7 @@ namespace fcitx {
     LotusEngine::LotusEngine(Instance* instance) : instance_(instance), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
         const char* desktop = std::getenv("XDG_CURRENT_DESKTOP");
         isGnome_            = (desktop != nullptr) && std::string(desktop).find("GNOME") != std::string::npos;
+        isKde_              = (desktop != nullptr) && std::string(desktop).find("KDE") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
         startMonitoring();
         Init();
@@ -229,8 +230,12 @@ namespace fcitx {
         instance_->inputContextManager().registerProperty("LotusState", &factory_);
         appRulesPath_ = configDir + "/lotus-app-rules.conf";
         loadAppRules();
-        toggleActions_ = {charsetAction_.get(),          spellCheckAction_.get(),       macroAction_.get(), capitalizeMacroAction_.get(),
-                          autoNonVnRestoreAction_.get(), enableDictionaryAction_.get(), oskAction_.get(),   settingsAction_.get()};
+        toggleActions_ = {charsetAction_.get(),         spellCheckAction_.get(),       macroAction_.get(),
+                          capitalizeMacroAction_.get(), autoNonVnRestoreAction_.get(), enableDictionaryAction_.get()};
+        if (isKde_) {
+            toggleActions_.push_back(oskAction_.get());
+        }
+        toggleActions_.push_back(settingsAction_.get());
     }
 
     void LotusEngine::initToggleAction(std::unique_ptr<SimpleAction>& action, Option<bool>& option, const std::string& actionId, const std::string& iconName,
