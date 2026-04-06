@@ -229,6 +229,7 @@ namespace fcitx {
         bool                                    lastEnableOSK_      = false;
         uint64_t                                lastOskTriggerTime_ = 0;
         bool                                    oskVisible_         = false;
+        bool                                    lastOskWhiteTheme_  = false;
         std::unique_ptr<fcitx::EventSourceTime> oskHideTimer_;
 
         /**

@@ -1047,7 +1047,16 @@ namespace fcitx {
     }
 
     void LotusEngine::triggerOSK(bool show) {
-        if (!show && !oskVisible_)
+        // Synchronize state if a mouse click occurred elsewhere (OSK likely hidden)
+        if (g_mouse_clicked.load(std::memory_order_acquire)) {
+            if (oskVisible_) {
+                oskVisible_ = false;
+                LOTUS_INFO("OSK visibility reset due to external mouse click");
+            }
+            g_mouse_clicked.store(false, std::memory_order_release);
+        }
+
+        if (show == oskVisible_)
             return;
 
         if (show) {
@@ -1057,27 +1066,32 @@ namespace fcitx {
                 LOTUS_INFO("Cancelled pending OSK hide because OSK is being shown");
             }
         }
-        LOTUS_INFO("Triggering OSK " << (show ? "show" : "hide") << " via direct D-Bus...");
+        LOTUS_INFO("Triggering OSK " << (show ? "show" : "hide") << " via async D-Bus...");
 
         try {
             dbus::Bus     bus(dbus::BusType::Session);
             dbus::Message msg = bus.createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", show ? "Show" : "Hide");
-            msg.call(1000000); // 1s timeout
+            msg.send(); // Asynchronous fire-and-forget
             oskVisible_ = show;
+
             if (show) {
-                updateOSKTheme(config_.oskWhiteTheme.value());
+                bool currentTheme = config_.oskWhiteTheme.value();
+                if (currentTheme != lastOskWhiteTheme_) {
+                    updateOSKTheme(currentTheme);
+                    lastOskWhiteTheme_ = currentTheme;
+                }
             }
         } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error: " + std::string(e.what())); }
     }
 
     void LotusEngine::updateOSKTheme(bool white) {
-        LOTUS_INFO("Updating OSK theme to " << (white ? "white" : "dark") << " via direct D-Bus...");
+        LOTUS_INFO("Updating OSK theme to " << (white ? "white" : "dark") << " via async D-Bus...");
 
         try {
             dbus::Bus     bus(dbus::BusType::Session);
             dbus::Message msg = bus.createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", "SetTheme");
             msg << white;
-            msg.call(1000000); // 1s timeout
+            msg.send(); // Asynchronous
         } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error updating theme: " + std::string(e.what())); }
     }
 
