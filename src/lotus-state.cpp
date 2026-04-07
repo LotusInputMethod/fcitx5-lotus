@@ -607,13 +607,7 @@ namespace fcitx {
             compareAndSplitStrings(oldPreBuffer_, commitStr, commonPrefix, deletedPart, addedPart);
 
             if (!deletedPart.empty()) {
-                bool isBrokenComposition = (deletedPart == oldPreBuffer_ && addedPart == keyUtf8);
-                if (isBrokenComposition) {
-                    ic_->commitString(addedPart);
-                    LOTUS_INFO("Broken composition, commit only: " + addedPart);
-                } else {
-                    performReplacement(deletedPart, addedPart);
-                }
+                performReplacement(deletedPart, addedPart);
                 keyEvent.filterAndAccept();
             } else {
                 bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
