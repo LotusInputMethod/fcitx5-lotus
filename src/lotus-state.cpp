@@ -793,7 +793,6 @@ namespace fcitx {
             std::string addedPart;
             compareAndSplitStrings(oldWord, newWord, commonPrefix, deletedPart, addedPart);
             if ((deletedPart.empty() || deletedPart == oldWord) && addedPart == keyEvent.key().toString()) {
-                LOTUS_INFO("Broken composition in Surrounding Text, forwarding key: " + addedPart);
                 ResetEngine(lotusEngine_.handle());
                 keyEvent.forward();
                 return;
