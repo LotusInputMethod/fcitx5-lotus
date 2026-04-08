@@ -80,19 +80,22 @@ HOTKEY_SYM_MAP = {
     "ISO_Left_Tab": "Tab",
 }
 
-# Mapping to "unshift" symbols back to their base keys when Shift is used (standard US-like layout)
-HOTKEY_UNSHIFT_MAP = {
+
+# Mapping for UI DISPLAY ONLY: Converts shifted keysyms back to base keys + explicit Shift label.
+# This keeps the stored string engine-compliant (e.g. 'asciitilde') but UI-friendly (e.g. 'Shift' + '`').
+HOTKEY_UI_UNSHIFT_MAP = {
+    "asciitilde": "grave",
     "exclam": "1", "at": "2", "numbersign": "3", "dollar": "4", "percent": "5",
     "asciicircum": "6", "ampersand": "7", "asterisk": "8", "parenleft": "9", "parenright": "0",
     "underscore": "minus", "plus": "equal", "braceleft": "bracketleft", "braceright": "bracketright",
     "bar": "backslash", "colon": "semicolon", "quotedbl": "apostrophe",
-    "less": "comma", "greater": "period", "question": "slash", "asciitilde": "grave",
-    "ISO_Left_Tab": "Tab"
+    "less": "comma", "greater": "period", "question": "slash"
 }
 
 
 def pretty_format_hotkey_parts(hotkey_str):
-    """Converts internal keysym names to user-friendly characters for display as a list."""
+    """Converts internal keysym names to user-friendly characters for display as a list.
+    Automatically de-normalizes shifted keysyms for better UI (e.g., 'asciitilde' -> ['Shift', '`'])."""
     if not hotkey_str:
         return []
 
@@ -104,11 +107,44 @@ def pretty_format_hotkey_parts(hotkey_str):
     else:
         parts = hotkey_str.split("+")
 
-    pretty_parts = []
+    raw_mods = []
+    base_key_part = None
+    
+    # Analyze parts to identify modifiers and the base key
     for part in parts:
-        if not part:
-            continue  # Handles trailing or consecutive '+' from split()
-        pretty_parts.append(HOTKEY_SYM_MAP.get(part, part.capitalize()))
+        if not part: continue
+        if part in ("Control", "Alt", "Super", "Shift"):
+            if part not in raw_mods:
+                raw_mods.append(part)
+        else:
+            base_key_part = part
+
+    pretty_parts = []
+    explicit_shift_needed = "Shift" in raw_mods
+
+    # Process base key for UI display
+    if base_key_part:
+        # Check for symbols that imply Shift (Display only)
+        if base_key_part in HOTKEY_UI_UNSHIFT_MAP:
+            explicit_shift_needed = True
+            display_base = HOTKEY_UI_UNSHIFT_MAP[base_key_part]
+            base_key_label = HOTKEY_SYM_MAP.get(display_base, display_base.capitalize())
+        elif len(base_key_part) == 1 and base_key_part.isupper():
+            explicit_shift_needed = True
+            base_key_label = base_key_part # Keep uppercase A-Z
+        else:
+            base_key_label = HOTKEY_SYM_MAP.get(base_key_part, base_key_part.capitalize())
+    else:
+        base_key_label = ""
+
+    # Build the final ordered list of labels
+    if "Control" in raw_mods: pretty_parts.append(_("Ctrl"))
+    if "Alt" in raw_mods: pretty_parts.append(_("Alt"))
+    if "Super" in raw_mods: pretty_parts.append(_("Super"))
+    if explicit_shift_needed: pretty_parts.append(_("Shift"))
+    
+    if base_key_label:
+        pretty_parts.append(base_key_label)
 
     return pretty_parts
 
@@ -211,18 +247,23 @@ class HotkeyCaptureWidget(QPushButton):
         base_key = ""
 
         if libxkb and keysym > 0:
-            # Always try to use the lower-case/base version of the keysym
-            lower_sym = libxkb.xkb_keysym_to_lower(keysym)
-            
+            # Use raw keysym name to ensure compatibility with Fcitx5 engine (Alt+O vs Alt+o)
             buf = ctypes.create_string_buffer(64)
-            if libxkb.xkb_keysym_get_name(lower_sym, buf, 64) > 0:
+            if libxkb.xkb_keysym_get_name(keysym, buf, 64) > 0:
                 base_key = buf.value.decode("utf-8")
-
-        if event.modifiers() & Qt.ShiftModifier and base_key in HOTKEY_UNSHIFT_MAP:
-            base_key = HOTKEY_UNSHIFT_MAP[base_key]
 
         if not base_key:
             base_key = event.text() if event.text() and event.text().isprintable() else QKeySequence(key_code).toString()
+
+        # Detect if the keysym already implies a Shift state to avoid redundancy (e.g. 'Shift+~')
+        # We check for uppercase letters or symbol names that standard US layout produces with Shift
+        shifted_symbols = {
+            "asciitilde", "exclam", "at", "numbersign", "dollar", "percent",
+            "asciicircum", "ampersand", "asterisk", "parenleft", "parenright",
+            "underscore", "plus", "braceleft", "braceright", "bar", "colon",
+            "quotedbl", "less", "greater", "question"
+        }
+        is_implicitly_shifted = (len(base_key) == 1 and base_key.isupper()) or base_key in shifted_symbols
 
         mods = []
         if event.modifiers() & Qt.ControlModifier:
@@ -232,7 +273,8 @@ class HotkeyCaptureWidget(QPushButton):
         if event.modifiers() & Qt.MetaModifier:
             mods.append("Super")
 
-        if event.modifiers() & Qt.ShiftModifier:
+        # Only append Shift if it's not already implied by the keysym (e.g. 'Shift+1' is needed, but 'Shift+!' is redundant)
+        if event.modifiers() & Qt.ShiftModifier and not is_implicitly_shifted:
             mods.append("Shift")
 
         mods.append(base_key)
