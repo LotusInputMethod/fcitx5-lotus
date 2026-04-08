@@ -255,16 +255,6 @@ class HotkeyCaptureWidget(QPushButton):
         if not base_key:
             base_key = event.text() if event.text() and event.text().isprintable() else QKeySequence(key_code).toString()
 
-        # Detect if the keysym already implies a Shift state to avoid redundancy (e.g. 'Shift+~')
-        # We check for uppercase letters or symbol names that standard US layout produces with Shift
-        shifted_symbols = {
-            "asciitilde", "exclam", "at", "numbersign", "dollar", "percent",
-            "asciicircum", "ampersand", "asterisk", "parenleft", "parenright",
-            "underscore", "plus", "braceleft", "braceright", "bar", "colon",
-            "quotedbl", "less", "greater", "question"
-        }
-        is_implicitly_shifted = (len(base_key) == 1 and base_key.isupper()) or base_key in shifted_symbols
-
         mods = []
         if event.modifiers() & Qt.ControlModifier:
             mods.append("Control")
@@ -273,8 +263,7 @@ class HotkeyCaptureWidget(QPushButton):
         if event.modifiers() & Qt.MetaModifier:
             mods.append("Super")
 
-        # Only append Shift if it's not already implied by the keysym (e.g. 'Shift+1' is needed, but 'Shift+!' is redundant)
-        if event.modifiers() & Qt.ShiftModifier and not is_implicitly_shifted:
+        if event.modifiers() & Qt.ShiftModifier:
             mods.append("Shift")
 
         mods.append(base_key)
