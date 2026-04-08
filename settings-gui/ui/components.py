@@ -58,14 +58,14 @@ HOTKEY_SYM_MAP = {
 
 # Mapping for UI DISPLAY ONLY: Converts shifted keysyms back to base keys + explicit Shift label.
 # This keeps the stored string engine-compliant (e.g. 'asciitilde') but UI-friendly (e.g. 'Shift' + '`').
+# NOTE: We exclude ISO_Left_Tab here because Fcitx5 configuration prefers explicit 'Shift+Tab' strings.
 HOTKEY_UI_UNSHIFT_MAP = {
     "asciitilde": "grave",
     "exclam": "1", "at": "2", "numbersign": "3", "dollar": "4", "percent": "5",
     "asciicircum": "6", "ampersand": "7", "asterisk": "8", "parenleft": "9", "parenright": "0",
     "underscore": "minus", "plus": "equal", "braceleft": "bracketleft", "braceright": "bracketright",
     "bar": "backslash", "colon": "semicolon", "quotedbl": "apostrophe",
-    "less": "comma", "greater": "period", "question": "slash",
-    "ISO_Left_Tab": "Tab"
+    "less": "comma", "greater": "period", "question": "slash"
 }
 
 
@@ -264,6 +264,9 @@ class HotkeyCaptureWidget(QPushButton):
             buf = ctypes.create_string_buffer(64)
             if libxkb.xkb_keysym_get_name(keysym, buf, 64) > 0:
                 base_key = buf.value.decode("utf-8")
+                # Normalize BackTab keysym to Tab to ensure Fcitx5 sees 'Shift+Tab' instead of plain 'ISO_Left_Tab'
+                if base_key == "ISO_Left_Tab":
+                    base_key = "Tab"
 
         if not base_key:
             base_key = event.text() if event.text() and event.text().isprintable() else QKeySequence(key_code).toString()
