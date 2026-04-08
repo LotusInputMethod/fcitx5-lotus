@@ -255,6 +255,17 @@ class HotkeyCaptureWidget(QPushButton):
         if not base_key:
             base_key = event.text() if event.text() and event.text().isprintable() else QKeySequence(key_code).toString()
 
+        # Detect if the keysym is a specific "shifted symbol" name (e.g. 'asciitilde' for '~').
+        # Fcitx5 usually expects these WITHOUT a redundant "Shift" modifier in the string.
+        # However, for letters (A-Z), we keep "Shift" explicit for better compatibility and UI.
+        shifted_symbols = {
+            "asciitilde", "exclam", "at", "numbersign", "dollar", "percent",
+            "asciicircum", "ampersand", "asterisk", "parenleft", "parenright",
+            "underscore", "plus", "braceleft", "braceright", "bar", "colon",
+            "quotedbl", "less", "greater", "question"
+        }
+        is_symbol_shifted = base_key in shifted_symbols
+
         mods = []
         if event.modifiers() & Qt.ControlModifier:
             mods.append("Control")
@@ -263,7 +274,9 @@ class HotkeyCaptureWidget(QPushButton):
         if event.modifiers() & Qt.MetaModifier:
             mods.append("Super")
 
-        if event.modifiers() & Qt.ShiftModifier:
+        # Only append Shift if it's not already implied by a technical symbol name.
+        # We ALWAYS append it for letters if Shift is held to ensure Fcitx5 sees 'Shift+O'.
+        if event.modifiers() & Qt.ShiftModifier and not is_symbol_shifted:
             mods.append("Shift")
 
         mods.append(base_key)
