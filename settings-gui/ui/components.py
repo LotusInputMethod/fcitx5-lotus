@@ -39,45 +39,20 @@ if libxkb_path:
 
 # Common XKB keysym name to character mapping for display
 HOTKEY_SYM_MAP = {
-    "grave": "`",
-    "minus": "-",
-    "equal": "=",
-    "bracketleft": "[",
-    "bracketright": "]",
-    "backslash": "\\",
-    "semicolon": ";",
-    "apostrophe": "'",
-    "comma": ",",
-    "period": ".",
-    "slash": "/",
-    "asciitilde": "~",
-    "underscore": "_",
-    "plus": "+",
-    "braceleft": "{",
-    "braceright": "}",
-    "bar": "|",
-    "colon": ":",
-    "quotedbl": '"',
-    "less": "<",
-    "greater": ">",
-    "question": "?",
-    "exclam": "!",
-    "at": "@",
-    "numbersign": "#",
-    "dollar": "$",
-    "percent": "%",
-    "asciicircum": "^",
-    "ampersand": "&",
-    "asterisk": "*",
-    "parenleft": "(",
-    "parenright": ")",
-    "Control": "Ctrl",
-    "Escape": "Esc",
-    "Return": "Enter",
-    "BackSpace": "Backspace",
-    "Delete": "Del",
-    "Insert": "Ins",
-    "ISO_Left_Tab": "Tab",
+    "grave": "`", "minus": "-", "equal": "=", "bracketleft": "[", "bracketright": "]",
+    "backslash": "\\", "semicolon": ";", "apostrophe": "'", "comma": ",", "period": ".",
+    "slash": "/", "asciitilde": "~", "underscore": "_", "plus": "+",
+    "braceleft": "{", "braceright": "}", "bar": "|", "colon": ":", "quotedbl": '"',
+    "less": "<", "greater": ">", "question": "?", "exclam": "!", "at": "@",
+    "numbersign": "#", "dollar": "$", "percent": "%", "asciicircum": "^",
+    "ampersand": "&", "asterisk": "*", "parenleft": "(", "parenright": ")",
+    "Control": "Ctrl", "Escape": "Esc", "Return": "Enter", "BackSpace": "Backspace",
+    "Delete": "Del", "Insert": "Ins", "ISO_Left_Tab": "Tab",
+    "Shift_L": "L-Shift", "Shift_R": "R-Shift",
+    "Control_L": "L-Ctrl", "Control_R": "R-Ctrl",
+    "Alt_L": "L-Alt", "Alt_R": "R-Alt",
+    "Super_L": "L-Super", "Super_R": "R-Super",
+    "Meta_L": "L-Super", "Meta_R": "R-Super",
 }
 
 
@@ -95,7 +70,7 @@ HOTKEY_UI_UNSHIFT_MAP = {
 
 def pretty_format_hotkey_parts(hotkey_str):
     """Converts internal keysym names to user-friendly characters for display as a list.
-    Automatically de-normalizes shifted keysyms for better UI (e.g., 'asciitilde' -> ['Shift', '`'])."""
+    Automatically de-normalizes shifted keysyms and de-duplicates redundant modifiers."""
     if not hotkey_str:
         return []
 
@@ -118,6 +93,18 @@ def pretty_format_hotkey_parts(hotkey_str):
                 raw_mods.append(part)
         else:
             base_key_part = part
+
+    # De-duplicate: If base key IS a specific modifier (e.g. Shift_L),
+    # suppress the corresponding generic modifier label.
+    if base_key_part:
+        if base_key_part.startswith("Shift_"):
+            if "Shift" in raw_mods: raw_mods.remove("Shift")
+        elif base_key_part.startswith("Control_") or base_key_part == "Control":
+            if "Control" in raw_mods: raw_mods.remove("Control")
+        elif base_key_part.startswith("Alt_") or base_key_part == "Alt":
+            if "Alt" in raw_mods: raw_mods.remove("Alt")
+        elif base_key_part.startswith("Super_") or base_key_part.startswith("Meta_"):
+            if "Super" in raw_mods: raw_mods.remove("Super")
 
     pretty_parts = []
     explicit_shift_needed = "Shift" in raw_mods
@@ -222,7 +209,6 @@ class HotkeyCaptureWidget(QPushButton):
         if not self.isChecked():
             super().keyPressEvent(event)
             return
-        # Recording events are handled by eventFilter to intercept navigation keys
 
     def _handle_key_event(self, event):
         """Internal helper to process captured keys."""
@@ -243,11 +229,12 @@ class HotkeyCaptureWidget(QPushButton):
         ):
             return
 
+        # It's a base key! Capture it and finalize immediately
         keysym = event.nativeVirtualKey()
         base_key = ""
 
         if libxkb and keysym > 0:
-            # Use raw keysym name to ensure compatibility with Fcitx5 engine (Alt+O vs Alt+o)
+            # Use raw keysym name to ensure compatibility with Fcitx5 engine
             buf = ctypes.create_string_buffer(64)
             if libxkb.xkb_keysym_get_name(keysym, buf, 64) > 0:
                 base_key = buf.value.decode("utf-8")
@@ -255,32 +242,23 @@ class HotkeyCaptureWidget(QPushButton):
         if not base_key:
             base_key = event.text() if event.text() and event.text().isprintable() else QKeySequence(key_code).toString()
 
-        # Detect if the keysym is a specific "shifted symbol" name (e.g. 'asciitilde' for '~').
-        # Fcitx5 usually expects these WITHOUT a redundant "Shift" modifier in the string.
-        # However, for letters (A-Z), we keep "Shift" explicit for better compatibility and UI.
+        # Build modifier list from current event state
+        mods = []
+        if event.modifiers() & Qt.ControlModifier: mods.append("Control")
+        if event.modifiers() & Qt.AltModifier: mods.append("Alt")
+        if event.modifiers() & Qt.MetaModifier: mods.append("Super")
+
+        # Selective Shift suppression for symbols
         shifted_symbols = {
             "asciitilde", "exclam", "at", "numbersign", "dollar", "percent",
             "asciicircum", "ampersand", "asterisk", "parenleft", "parenright",
             "underscore", "plus", "braceleft", "braceright", "bar", "colon",
             "quotedbl", "less", "greater", "question"
         }
-        is_symbol_shifted = base_key in shifted_symbols
-
-        mods = []
-        if event.modifiers() & Qt.ControlModifier:
-            mods.append("Control")
-        if event.modifiers() & Qt.AltModifier:
-            mods.append("Alt")
-        if event.modifiers() & Qt.MetaModifier:
-            mods.append("Super")
-
-        # Only append Shift if it's not already implied by a technical symbol name.
-        # We ALWAYS append it for letters if Shift is held to ensure Fcitx5 sees 'Shift+O'.
-        if event.modifiers() & Qt.ShiftModifier and not is_symbol_shifted:
+        if (event.modifiers() & Qt.ShiftModifier) and (base_key not in shifted_symbols):
             mods.append("Shift")
 
         mods.append(base_key)
         self.current_key = "+".join(mods)
-
         self.setChecked(False)
         self.textChanged.emit(self.current_key)
