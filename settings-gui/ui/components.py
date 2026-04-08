@@ -64,7 +64,8 @@ HOTKEY_UI_UNSHIFT_MAP = {
     "asciicircum": "6", "ampersand": "7", "asterisk": "8", "parenleft": "9", "parenright": "0",
     "underscore": "minus", "plus": "equal", "braceleft": "bracketleft", "braceright": "bracketright",
     "bar": "backslash", "colon": "semicolon", "quotedbl": "apostrophe",
-    "less": "comma", "greater": "period", "question": "slash"
+    "less": "comma", "greater": "period", "question": "slash",
+    "ISO_Left_Tab": "Tab"
 }
 
 
@@ -248,14 +249,9 @@ class HotkeyCaptureWidget(QPushButton):
         if event.modifiers() & Qt.AltModifier: mods.append("Alt")
         if event.modifiers() & Qt.MetaModifier: mods.append("Super")
 
-        # Selective Shift suppression for symbols
-        shifted_symbols = {
-            "asciitilde", "exclam", "at", "numbersign", "dollar", "percent",
-            "asciicircum", "ampersand", "asterisk", "parenleft", "parenright",
-            "underscore", "plus", "braceleft", "braceright", "bar", "colon",
-            "quotedbl", "less", "greater", "question"
-        }
-        if (event.modifiers() & Qt.ShiftModifier) and (base_key not in shifted_symbols):
+        # Only append Shift if it's not already implied by a technical symbol name (from the UI map).
+        # We ALWAYS append it for letters (even uppercase) to ensure Fcitx5 sees 'Shift+O' explicitly.
+        if event.modifiers() & Qt.ShiftModifier and base_key not in HOTKEY_UI_UNSHIFT_MAP:
             mods.append("Shift")
 
         mods.append(base_key)
