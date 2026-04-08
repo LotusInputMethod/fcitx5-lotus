@@ -151,6 +151,10 @@ class HotkeyCaptureWidget(QPushButton):
         self._update_display()
 
     def _on_toggled(self, checked):
+        if checked:
+            self.grabKeyboard()
+        else:
+            self.releaseKeyboard()
         self._update_display()
 
     def _clear_layout(self):
