@@ -106,7 +106,8 @@ def pretty_format_hotkey_parts(hotkey_str):
 
     pretty_parts = []
     for part in parts:
-        if not part: continue # safeguard against empty parts if split is weird
+        if not part:
+            continue  # Handles trailing or consecutive '+' from split()
         pretty_parts.append(HOTKEY_SYM_MAP.get(part, part.capitalize()))
 
     return pretty_parts
@@ -118,18 +119,6 @@ class KeyCap(QLabel):
         super().__init__(text, parent)
         self.setAlignment(Qt.AlignCenter)
         self.setObjectName("KeyCap")
-        self.setStyleSheet("""
-            QLabel#KeyCap {
-                background-color: palette(button);
-                color: palette(button-text);
-                border: 1px solid palette(mid);
-                border-bottom: 2px solid palette(dark);
-                border-radius: 4px;
-                padding: 2px 6px;
-                font-weight: bold;
-                font-family: monospace;
-            }
-        """)
 
 
 class HotkeyCaptureWidget(QPushButton):
@@ -173,7 +162,6 @@ class HotkeyCaptureWidget(QPushButton):
         while self.main_layout.count():
             item = self.main_layout.takeAt(0)
             if item.widget():
-                item.widget().hide()
                 item.widget().deleteLater()
 
     def _update_display(self):
