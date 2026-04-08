@@ -68,6 +68,9 @@ HOTKEY_UI_UNSHIFT_MAP = {
     "less": "comma", "greater": "period", "question": "slash"
 }
 
+for char in "abcdefghijklmnopqrstuvwxyz":
+    HOTKEY_UI_UNSHIFT_MAP[char.upper()] = char
+
 
 def pretty_format_hotkey_parts(hotkey_str):
     """Converts internal keysym names to user-friendly characters for display as a list.
