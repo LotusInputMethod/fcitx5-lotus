@@ -10,6 +10,7 @@ convert keysyms to Unicode, and mathematically handle Shift modifiers.
 import ctypes
 import ctypes.util
 from qtpy.QtWidgets import QPushButton, QLabel, QHBoxLayout
+from qtpy.QtGui import QKeySequence
 from qtpy.QtCore import Qt, Signal
 from i18n import _
 
@@ -36,58 +37,75 @@ if libxkb_path:
         print(f"Failed to load libxkbcommon: {e}")
 
 
+# Common XKB keysym name to character mapping for display
+HOTKEY_SYM_MAP = {
+    "grave": "`",
+    "minus": "-",
+    "equal": "=",
+    "bracketleft": "[",
+    "bracketright": "]",
+    "backslash": "\\",
+    "semicolon": ";",
+    "apostrophe": "'",
+    "comma": ",",
+    "period": ".",
+    "slash": "/",
+    "asciitilde": "~",
+    "underscore": "_",
+    "plus": "+",
+    "braceleft": "{",
+    "braceright": "}",
+    "bar": "|",
+    "colon": ":",
+    "quotedbl": '"',
+    "less": "<",
+    "greater": ">",
+    "question": "?",
+    "exclam": "!",
+    "at": "@",
+    "numbersign": "#",
+    "dollar": "$",
+    "percent": "%",
+    "asciicircum": "^",
+    "ampersand": "&",
+    "asterisk": "*",
+    "parenleft": "(",
+    "parenright": ")",
+    "Control": "Ctrl",
+    "Escape": "Esc",
+    "Return": "Enter",
+    "BackSpace": "Backspace",
+    "Delete": "Del",
+    "Insert": "Ins",
+}
+
+# Mapping to "unshift" symbols back to their base keys when Shift is used (standard US-like layout)
+HOTKEY_UNSHIFT_MAP = {
+    "exclam": "1", "at": "2", "numbersign": "3", "dollar": "4", "percent": "5",
+    "asciicircum": "6", "ampersand": "7", "asterisk": "8", "parenleft": "9", "parenright": "0",
+    "underscore": "minus", "plus": "equal", "braceleft": "bracketleft", "braceright": "bracketright",
+    "bar": "backslash", "colon": "semicolon", "quotedbl": "apostrophe",
+    "less": "comma", "greater": "period", "question": "slash", "asciitilde": "grave"
+}
+
+
 def pretty_format_hotkey_parts(hotkey_str):
     """Converts internal keysym names to user-friendly characters for display as a list."""
     if not hotkey_str:
         return []
 
-    parts = hotkey_str.split("+")
-    pretty_parts = []
-    
-    # Common XKB keysym name to character mapping for display
-    sym_map = {
-        "grave": "`",
-        "minus": "-",
-        "equal": "=",
-        "bracketleft": "[",
-        "bracketright": "]",
-        "backslash": "\\",
-        "semicolon": ";",
-        "apostrophe": "'",
-        "comma": ",",
-        "period": ".",
-        "slash": "/",
-        "asciitilde": "~",
-        "underscore": "_",
-        "plus": "+",
-        "braceleft": "{",
-        "braceright": "}",
-        "bar": "|",
-        "colon": ":",
-        "quotedbl": '"',
-        "less": "<",
-        "greater": ">",
-        "question": "?",
-        "exclam": "!",
-        "at": "@",
-        "numbersign": "#",
-        "dollar": "$",
-        "percent": "%",
-        "asciicircum": "^",
-        "ampersand": "&",
-        "asterisk": "*",
-        "parenleft": "(",
-        "parenright": ")",
-        "Control": "Ctrl",
-        "Escape": "Esc",
-        "Return": "Enter",
-        "BackSpace": "Backspace",
-        "Delete": "Del",
-        "Insert": "Ins",
-    }
+    # Robustly handle hotkeys containing '+' key (e.g. 'Control++')
+    if hotkey_str == "+":
+        parts = ["+"]
+    elif hotkey_str.endswith("++"):
+        parts = hotkey_str[:-2].split("+") + ["+"]
+    else:
+        parts = hotkey_str.split("+")
 
+    pretty_parts = []
     for part in parts:
-        pretty_parts.append(sym_map.get(part, part.capitalize()))
+        if not part: continue # safeguard against empty parts if split is weird
+        pretty_parts.append(HOTKEY_SYM_MAP.get(part, part.capitalize()))
 
     return pretty_parts
 
@@ -129,9 +147,6 @@ class HotkeyCaptureWidget(QPushButton):
         self.main_layout.setSpacing(4)
         self.main_layout.setAlignment(Qt.AlignCenter)
         
-        # Internal attribute to track the current status widget
-        self._status_widget = None
-        
         self.toggled.connect(self._on_toggled)
         self._update_display()
 
@@ -154,7 +169,7 @@ class HotkeyCaptureWidget(QPushButton):
             self.main_layout.addWidget(lbl)
         elif not self.current_key:
             lbl = QLabel(_("None"))
-            lbl.setStyleSheet("opacity: 0.5;")
+            lbl.setStyleSheet("color: palette(mid);")
             self.main_layout.addWidget(lbl)
         else:
             parts = pretty_format_hotkey_parts(self.current_key)
@@ -190,21 +205,11 @@ class HotkeyCaptureWidget(QPushButton):
             if libxkb.xkb_keysym_get_name(lower_sym, buf, 64) > 0:
                 base_key = buf.value.decode("utf-8")
 
-        # Mapping to "unshift" symbols back to their base keys when Shift is used (standard US-like layout)
-        # This resolves the issue where "Shift + 2" produced "Shift + @"
-        unshift_map = {
-            "exclam": "1", "at": "2", "numbersign": "3", "dollar": "4", "percent": "5",
-            "asciicircum": "6", "ampersand": "7", "asterisk": "8", "parenleft": "9", "parenright": "0",
-            "underscore": "minus", "plus": "equal", "braceleft": "bracketleft", "braceright": "bracketright",
-            "bar": "backslash", "colon": "semicolon", "quotedbl": "apostrophe",
-            "less": "comma", "greater": "period", "question": "slash", "asciitilde": "grave"
-        }
-
-        if event.modifiers() & Qt.ShiftModifier and base_key in unshift_map:
-            base_key = unshift_map[base_key]
+        if event.modifiers() & Qt.ShiftModifier and base_key in HOTKEY_UNSHIFT_MAP:
+            base_key = HOTKEY_UNSHIFT_MAP[base_key]
 
         if not base_key:
-            base_key = event.text() if event.text() and event.text().isprintable() else Qt.Key(key_code).name()
+            base_key = event.text() if event.text() and event.text().isprintable() else QKeySequence(key_code).toString()
 
         mods = []
         if event.modifiers() & Qt.ControlModifier:
