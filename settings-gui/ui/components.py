@@ -11,7 +11,7 @@ import ctypes
 import ctypes.util
 from qtpy.QtWidgets import QPushButton, QLabel, QHBoxLayout
 from qtpy.QtGui import QKeySequence
-from qtpy.QtCore import Qt, Signal
+from qtpy.QtCore import Qt, Signal, QEvent
 from i18n import _
 
 libxkb = None
@@ -156,7 +156,7 @@ class HotkeyCaptureWidget(QPushButton):
     def eventFilter(self, obj, event):
         # Prevent mnemonics from triggering while we are recording a hotkey
         if obj == self and self.isChecked():
-            if event.type() == event.ShortcutOverride:
+            if event.type() == QEvent.ShortcutOverride:
                 event.accept()
                 return True
         return super().eventFilter(obj, event)
