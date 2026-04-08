@@ -9,7 +9,7 @@ convert keysyms to Unicode, and mathematically handle Shift modifiers.
 
 import ctypes
 import ctypes.util
-from qtpy.QtWidgets import QPushButton
+from qtpy.QtWidgets import QPushButton, QLabel, QHBoxLayout
 from qtpy.QtCore import Qt, Signal
 from i18n import _
 
@@ -36,6 +36,82 @@ if libxkb_path:
         print(f"Failed to load libxkbcommon: {e}")
 
 
+def pretty_format_hotkey_parts(hotkey_str):
+    """Converts internal keysym names to user-friendly characters for display as a list."""
+    if not hotkey_str:
+        return []
+
+    parts = hotkey_str.split("+")
+    pretty_parts = []
+    
+    # Common XKB keysym name to character mapping for display
+    sym_map = {
+        "grave": "`",
+        "minus": "-",
+        "equal": "=",
+        "bracketleft": "[",
+        "bracketright": "]",
+        "backslash": "\\",
+        "semicolon": ";",
+        "apostrophe": "'",
+        "comma": ",",
+        "period": ".",
+        "slash": "/",
+        "asciitilde": "~",
+        "underscore": "_",
+        "plus": "+",
+        "braceleft": "{",
+        "braceright": "}",
+        "bar": "|",
+        "colon": ":",
+        "quotedbl": '"',
+        "less": "<",
+        "greater": ">",
+        "question": "?",
+        "exclam": "!",
+        "at": "@",
+        "numbersign": "#",
+        "dollar": "$",
+        "percent": "%",
+        "asciicircum": "^",
+        "ampersand": "&",
+        "asterisk": "*",
+        "parenleft": "(",
+        "parenright": ")",
+        "Control": "Ctrl",
+        "Escape": "Esc",
+        "Return": "Enter",
+        "BackSpace": "Backspace",
+        "Delete": "Del",
+        "Insert": "Ins",
+    }
+
+    for part in parts:
+        pretty_parts.append(sym_map.get(part, part.capitalize()))
+
+    return pretty_parts
+
+
+class KeyCap(QLabel):
+    """A label styled as a keyboard keycap."""
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+        self.setAlignment(Qt.AlignCenter)
+        self.setObjectName("KeyCap")
+        self.setStyleSheet("""
+            QLabel#KeyCap {
+                background-color: palette(button);
+                color: palette(button-text);
+                border: 1px solid palette(mid);
+                border-bottom: 2px solid palette(dark);
+                border-radius: 4px;
+                padding: 2px 6px;
+                font-weight: bold;
+                font-family: monospace;
+            }
+        """)
+
+
 class HotkeyCaptureWidget(QPushButton):
     """A button that captures keystrokes to set an Fcitx5-compatible hotkey."""
 
@@ -43,17 +119,48 @@ class HotkeyCaptureWidget(QPushButton):
 
     def __init__(self, current_key="", parent=None):
         super().__init__(parent)
-        self.setText(current_key if current_key else _("None"))
-        self.setCheckable(True)
         self.current_key = current_key
+        self.setCheckable(True)
         self.setObjectName("HotkeyButton")
+        
+        # Use a layout for visual keycaps
+        self.main_layout = QHBoxLayout(self)
+        self.main_layout.setContentsMargins(8, 2, 8, 2)
+        self.main_layout.setSpacing(4)
+        self.main_layout.setAlignment(Qt.AlignCenter)
+        
+        # Internal attribute to track the current status widget
+        self._status_widget = None
+        
         self.toggled.connect(self._on_toggled)
+        self._update_display()
 
     def _on_toggled(self, checked):
-        if checked:
-            self.setText(_("[ Recording... ]"))
+        self._update_display()
+
+    def _clear_layout(self):
+        while self.main_layout.count():
+            item = self.main_layout.takeAt(0)
+            if item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+
+    def _update_display(self):
+        self._clear_layout()
+        
+        if self.isChecked():
+            lbl = QLabel(_("[ Recording... ]"))
+            lbl.setStyleSheet("color: palette(highlight); font-weight: bold;")
+            self.main_layout.addWidget(lbl)
+        elif not self.current_key:
+            lbl = QLabel(_("None"))
+            lbl.setStyleSheet("opacity: 0.5;")
+            self.main_layout.addWidget(lbl)
         else:
-            self.setText(self.current_key if self.current_key else _("None"))
+            parts = pretty_format_hotkey_parts(self.current_key)
+            for part in parts:
+                cap = KeyCap(part)
+                self.main_layout.addWidget(cap)
 
     def keyPressEvent(self, event):
         """Captures the key press when button is checked."""
@@ -74,23 +181,30 @@ class HotkeyCaptureWidget(QPushButton):
 
         keysym = event.nativeVirtualKey()
         base_key = ""
-        is_upper = False
-        is_symbol = False
 
         if libxkb and keysym > 0:
+            # Always try to use the lower-case/base version of the keysym
+            lower_sym = libxkb.xkb_keysym_to_lower(keysym)
+            
             buf = ctypes.create_string_buffer(64)
-            if libxkb.xkb_keysym_get_name(keysym, buf, 64) > 0:
+            if libxkb.xkb_keysym_get_name(lower_sym, buf, 64) > 0:
                 base_key = buf.value.decode("utf-8")
 
-            lower_sym = libxkb.xkb_keysym_to_lower(keysym)
-            if lower_sym != keysym:
-                is_upper = True
+        # Mapping to "unshift" symbols back to their base keys when Shift is used (standard US-like layout)
+        # This resolves the issue where "Shift + 2" produced "Shift + @"
+        unshift_map = {
+            "exclam": "1", "at": "2", "numbersign": "3", "dollar": "4", "percent": "5",
+            "asciicircum": "6", "ampersand": "7", "asterisk": "8", "parenleft": "9", "parenright": "0",
+            "underscore": "minus", "plus": "equal", "braceleft": "bracketleft", "braceright": "bracketright",
+            "bar": "backslash", "colon": "semicolon", "quotedbl": "apostrophe",
+            "less": "comma", "greater": "period", "question": "slash", "asciitilde": "grave"
+        }
 
-            utf32 = libxkb.xkb_keysym_to_utf32(keysym)
-            if utf32 > 0:
-                char = chr(utf32)
-                if not char.isalpha() and not char.isspace() and char.isprintable():
-                    is_symbol = True
+        if event.modifiers() & Qt.ShiftModifier and base_key in unshift_map:
+            base_key = unshift_map[base_key]
+
+        if not base_key:
+            base_key = event.text() if event.text() and event.text().isprintable() else Qt.Key(key_code).name()
 
         mods = []
         if event.modifiers() & Qt.ControlModifier:
@@ -101,12 +215,10 @@ class HotkeyCaptureWidget(QPushButton):
             mods.append("Super")
 
         if event.modifiers() & Qt.ShiftModifier:
-            if not (is_upper or is_symbol):
-                mods.append("Shift")
+            mods.append("Shift")
 
         mods.append(base_key)
         self.current_key = "+".join(mods)
 
-        self.setText(self.current_key)
         self.setChecked(False)
         self.textChanged.emit(self.current_key)
