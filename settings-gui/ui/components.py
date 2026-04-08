@@ -150,11 +150,18 @@ class HotkeyCaptureWidget(QPushButton):
         self.toggled.connect(self._on_toggled)
         self._update_display()
 
+        # Install event filter to catch ShortcutOverride (used for mnemonics like Alt+O)
+        self.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        # Prevent mnemonics from triggering while we are recording a hotkey
+        if obj == self and self.isChecked():
+            if event.type() == event.ShortcutOverride:
+                event.accept()
+                return True
+        return super().eventFilter(obj, event)
+
     def _on_toggled(self, checked):
-        if checked:
-            self.grabKeyboard()
-        else:
-            self.releaseKeyboard()
         self._update_display()
 
     def _clear_layout(self):
