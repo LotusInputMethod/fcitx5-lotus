@@ -77,6 +77,7 @@ HOTKEY_SYM_MAP = {
     "BackSpace": "Backspace",
     "Delete": "Del",
     "Insert": "Ins",
+    "ISO_Left_Tab": "Tab",
 }
 
 # Mapping to "unshift" symbols back to their base keys when Shift is used (standard US-like layout)
@@ -85,7 +86,8 @@ HOTKEY_UNSHIFT_MAP = {
     "asciicircum": "6", "ampersand": "7", "asterisk": "8", "parenleft": "9", "parenright": "0",
     "underscore": "minus", "plus": "equal", "braceleft": "bracketleft", "braceright": "bracketright",
     "bar": "backslash", "colon": "semicolon", "quotedbl": "apostrophe",
-    "less": "comma", "greater": "period", "question": "slash", "asciitilde": "grave"
+    "less": "comma", "greater": "period", "question": "slash", "asciitilde": "grave",
+    "ISO_Left_Tab": "Tab"
 }
 
 
@@ -154,10 +156,13 @@ class HotkeyCaptureWidget(QPushButton):
         self.installEventFilter(self)
 
     def eventFilter(self, obj, event):
-        # Prevent mnemonics from triggering while we are recording a hotkey
+        # Prevent mnemonics and navigation from triggering while we are recording a hotkey
         if obj == self and self.isChecked():
             if event.type() == QEvent.ShortcutOverride:
                 event.accept()
+                return True
+            if event.type() == QEvent.KeyPress:
+                self._handle_key_event(event)
                 return True
         return super().eventFilter(obj, event)
 
@@ -189,13 +194,22 @@ class HotkeyCaptureWidget(QPushButton):
                 self.main_layout.addWidget(cap)
 
     def keyPressEvent(self, event):
-        """Captures the key press when button is checked."""
+        """Standard key event handler, only active when not recording."""
         if not self.isChecked():
             super().keyPressEvent(event)
             return
+        # Recording events are handled by eventFilter to intercept navigation keys
 
+    def _handle_key_event(self, event):
+        """Internal helper to process captured keys."""
         key_code = event.key()
 
+        # Escape cancels the recording
+        if key_code == Qt.Key_Escape:
+            self.setChecked(False)
+            return
+
+        # Ignore standalone modifier presses
         if key_code in (
             Qt.Key_Control,
             Qt.Key_Shift,
