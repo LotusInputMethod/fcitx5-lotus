@@ -19,6 +19,8 @@
 #include "emoji.h"
 #include "lotus.h"
 #include <mutex>
+#include <thread>
+#include <atomic>
 #include <fcitx-config/iniparser.h>
 #include <fcitx/action.h>
 #include <fcitx/addonfactory.h>
@@ -213,6 +215,9 @@ namespace fcitx {
         std::unique_ptr<SimpleAction>              settingsAction_;
         std::vector<SimpleAction*>                 toggleActions_;
         std::vector<ScopedConnection>              connections_;
+        mutable bool                               lastDarkMode_ = false;
+        std::thread                                themeWatcherThread_;
+        std::atomic<bool>                          stopWatcher_{false};
         CGoObject                                  dictionary_;
         std::unordered_map<std::string, LotusMode> appRules_;
         std::string                                appRulesPath_;
@@ -323,6 +328,12 @@ namespace fcitx {
          * @return Name of current program
          */
         static std::string getProgramName(InputContext* ic);
+
+        /**
+         * @brief Checks if the system is in dark mode.
+         * @return True if dark mode is detected.
+         */
+        bool isDarkMode() const;
     };
 
     /**

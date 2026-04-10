@@ -104,6 +104,7 @@ namespace fcitx {
          */
         void dumpDescription(RawConfig& config) const {
             EnumAnnotation::dumpDescription(config);
+            config.setValueByPath("IsEnum", "True");
             for (size_t i = 0; i < list_.size(); ++i) {
                 config.setValueByPath("Enum/" + std::to_string(i), list_[i]);
             }
@@ -154,6 +155,15 @@ namespace fcitx {
          */
         ModeListAnnotation() {
             list_ = {_("Uinput (Smooth)"), _("Uinput (Slow)"), _("Minecraft"), _("Surrounding Text"), _("Preedit"), _("Emoji Picker"), _("OFF")};
+        }
+    };
+
+    /**
+     * @brief Annotation for icon theme list.
+     */
+    struct IconThemeAnnotation : public StringListAnnotation {
+        IconThemeAnnotation() {
+            list_ = {_("Automatically"), _("Light"), _("Dark"), _("Lotus")};
         }
     };
 
@@ -224,12 +234,11 @@ namespace fcitx {
         Option<bool> w2u{this, "W2U", _("Type w to Produce ư"), true}; Option<bool> autoNonVnRestore{this, "AutoNonVnRestore", _("Auto Restore Keys With Invalid Words"), true};
         Option<bool>                                                                modernStyle{this, "ModernStyle", _("Use oà, uý (Instead Of òa, úy)"), true};
         Option<bool>                                                                freeMarking{this, "FreeMarking", _("Allow Type With More Freedom"), true};
-        Option<bool> ddFreeStyle{this, "DdFreeStyle", _("Allow dd To Produce đ When Auto Restore Keys With Invalid Words Is On"), true};
-        Option<bool> fixUinputWithAck{this, "FixUinputWithAck", _("Fix Uinput Mode With Ack"), false};
-        Option<bool> useLotusIcons{this, "UseLotusIcons", _("Use Lotus Status Icons"), false};
-        Option<bool> useBlackDefaultIcons{this, "UseBlackDefaultIcons", _("Use Black Default Icons"), false};
-        Option<bool> enableDictionary{this, "EnableDictionary", _("Enable Custom Dictionary"), false};
-        Option<bool> enableCustomKeymap{this, "EnableCustomKeymap", _("Enable Custom Keymap"), false};
+        Option<bool>                                           ddFreeStyle{this, "DdFreeStyle", _("Allow dd To Produce đ When Auto Restore Keys With Invalid Words Is On"), true};
+        Option<bool>                                           fixUinputWithAck{this, "FixUinputWithAck", _("Fix Uinput Mode With Ack"), false};
+        OptionWithAnnotation<std::string, IconThemeAnnotation> iconTheme{this, "IconTheme", _("Icon Selection"), "Automatically", {}, {}, IconThemeAnnotation()};
+        Option<bool>                                           enableDictionary{this, "EnableDictionary", _("Enable Custom Dictionary"), false};
+        Option<bool>                                           enableCustomKeymap{this, "EnableCustomKeymap", _("Enable Custom Keymap"), false};
         Option<bool> showModeSmooth{this, "ShowModeSmooth", _("Show Uinput (Smooth)"), true}; Option<bool> showModeUinput{this, "ShowModeUinput", _("Show Uinput (Slow)"), true};
         Option<bool>                                                                                       showModeMinecraft{this, "ShowModeMinecraft", _("Show Minecraft"), true};
         Option<bool> showModeSurroundingText{this, "ShowModeSurroundingText", _("Show Surrounding Text"), true};

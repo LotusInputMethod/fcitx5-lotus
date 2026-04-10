@@ -49,7 +49,7 @@ SETTINGS_MAP = {
         ],
     },
     SettingsCategory.APPEARANCE: {
-        "THEME & ICONS": ["UseLotusIcons", "UseBlackDefaultIcons"],
+        "THEME & ICONS": ["IconTheme"],
     },
     SettingsCategory.TYPING: {
         "SPELLING & CORRECTIONS": ["SpellCheck", "AutoNonVnRestore", "DdFreeStyle"],
