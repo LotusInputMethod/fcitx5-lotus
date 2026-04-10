@@ -163,7 +163,7 @@ namespace fcitx {
      */
     struct IconThemeAnnotation : public StringListAnnotation {
         IconThemeAnnotation() {
-            list_ = {_("Automatically"), _("Light"), _("Dark"), _("Lotus")};
+            list_ = {_("Light"), _("Dark"), _("Lotus")};
         }
     };
 
@@ -236,7 +236,7 @@ namespace fcitx {
         Option<bool>                                                                freeMarking{this, "FreeMarking", _("Allow Type With More Freedom"), true};
         Option<bool>                                           ddFreeStyle{this, "DdFreeStyle", _("Allow dd To Produce đ When Auto Restore Keys With Invalid Words Is On"), true};
         Option<bool>                                           fixUinputWithAck{this, "FixUinputWithAck", _("Fix Uinput Mode With Ack"), false};
-        OptionWithAnnotation<std::string, IconThemeAnnotation> iconTheme{this, "IconTheme", _("Icon Selection"), "Automatically", {}, {}, IconThemeAnnotation()};
+        OptionWithAnnotation<std::string, IconThemeAnnotation> iconTheme{this, "IconTheme", _("Icon Selection"), "Dark", {}, {}, IconThemeAnnotation()};
         Option<bool>                                           enableDictionary{this, "EnableDictionary", _("Enable Custom Dictionary"), false};
         Option<bool>                                           enableCustomKeymap{this, "EnableCustomKeymap", _("Enable Custom Keymap"), false};
         Option<bool> showModeSmooth{this, "ShowModeSmooth", _("Show Uinput (Smooth)"), true}; Option<bool> showModeUinput{this, "ShowModeUinput", _("Show Uinput (Slow)"), true};

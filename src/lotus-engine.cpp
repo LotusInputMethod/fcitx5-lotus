@@ -22,8 +22,6 @@
 #include <fcitx-utils/utf8.h>
 
 #include <atomic>
-#include <thread>
-#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -65,20 +63,17 @@ namespace fcitx {
     }
 
     enum class IconChoice {
-        Auto,
         Light,
         Dark,
         Lotus
     };
 
     static IconChoice stringToIconChoice(const std::string& choice) {
-        if (choice == "Light")
-            return IconChoice::Light;
         if (choice == "Dark")
             return IconChoice::Dark;
         if (choice == "Lotus")
             return IconChoice::Lotus;
-        return IconChoice::Auto;
+        return IconChoice::Light;
     }
 
     static inline uintptr_t newMacroTable(const lotusMacroTable& macroTable) {
@@ -114,21 +109,6 @@ namespace fcitx {
     }
 
     LotusEngine::LotusEngine(Instance* instance) : instance_(instance), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
-        lastDarkMode_       = isDarkMode();
-        themeWatcherThread_ = std::thread([this]() {
-            while (!stopWatcher_.load(std::memory_order_relaxed)) {
-                std::this_thread::sleep_for(std::chrono::seconds(5));
-                if (stopWatcher_.load(std::memory_order_relaxed))
-                    break;
-                bool current = isDarkMode();
-                if (current != lastDarkMode_) {
-                    lastDarkMode_ = current;
-                    instance_->eventDispatcher().schedule(
-                        [this]() { instance_->userInterfaceManager().update(UserInterfaceComponent::StatusArea, instance_->lastFocusedInputContext()); });
-                }
-            }
-        });
-
         const char* desktop = std::getenv("XDG_CURRENT_DESKTOP");
         isGnome_            = (desktop != nullptr) && std::string(desktop).find("GNOME") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
@@ -231,10 +211,6 @@ namespace fcitx {
     }
 
     LotusEngine::~LotusEngine() {
-        stopWatcher_.store(true, std::memory_order_release);
-        if (themeWatcherThread_.joinable()) {
-            themeWatcherThread_.join();
-        }
         stop_flag_monitor.store(true, std::memory_order_release);
         monitor_cv.notify_all();
         int fd = mouse_socket_fd.load(std::memory_order_acquire);
@@ -917,75 +893,6 @@ namespace fcitx {
         }
     }
 
-    bool LotusEngine::isDarkMode() const {
-        // 1. Environment variables (Fastest and often set in WMs/DEs)
-        const char* gtkTheme = std::getenv("GTK_THEME");
-        if (gtkTheme && std::string(gtkTheme).find("dark") != std::string::npos) {
-            return true;
-        }
-
-        const char* colorScheme = std::getenv("COLOR_SCHEME"); // Used by some modern WMs
-        if (colorScheme && std::string(colorScheme).find("dark") != std::string::npos) {
-            return true;
-        }
-
-        // 2. Check for GNOME/KDE/DE specific hints
-        const char* desktop = std::getenv("XDG_CURRENT_DESKTOP");
-        if (desktop) {
-            std::string ds = desktop;
-            if (ds.find("GNOME") != std::string::npos || ds.find("KDE") != std::string::npos) {
-                // In these DEs, we usually rely on portals or specific settings,
-                // but if GTK_THEME isn't set, we might need a fallback.
-                // For now, continue to file checks.
-            }
-        }
-
-        // 3. Heuristic: Check GTK settings files (Common for WMs like i3, sway, etc.)
-        static const char* gtkSettingsFiles[] = {"/gtk-4.0/settings.ini", "/gtk-3.0/settings.ini"};
-
-        const char*        home       = std::getenv("HOME");
-        const char*        configHome = std::getenv("XDG_CONFIG_HOME");
-        std::string        configBase = configHome ? configHome : (home ? (std::string(home) + "/.config") : "");
-
-        if (!configBase.empty()) {
-            // Check GTK settings files (Common for WMs like i3, sway, etc. and GNOME)
-            for (const char* suffix : gtkSettingsFiles) {
-                std::ifstream file(configBase + suffix);
-                if (file.is_open()) {
-                    std::string line;
-                    while (std::getline(file, line)) {
-                        auto pos = line.find_first_not_of(" \t");
-                        if (pos == std::string::npos || line[pos] == '#')
-                            continue;
-                        line = line.substr(pos);
-
-                        if (line.rfind("gtk-application-prefer-dark-theme=1", 0) == 0)
-                            return true;
-                        if (line.rfind("gtk-theme-name", 0) == 0 && line.find("dark") != std::string::npos)
-                            return true;
-                    }
-                }
-            }
-
-            // Check KDE settings files (kdeglobals)
-            std::ifstream kdeFile(configBase + "/kdeglobals");
-            if (kdeFile.is_open()) {
-                std::string line;
-                while (std::getline(kdeFile, line)) {
-                    auto pos = line.find_first_not_of(" \t");
-                    if (pos == std::string::npos || line[pos] == '[' || line[pos] == '#')
-                        continue;
-                    line = line.substr(pos);
-
-                    if (line.rfind("ColorScheme=", 0) == 0 && line.find("Dark") != std::string::npos)
-                        return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     std::string LotusEngine::subModeIconImpl(const InputMethodEntry& /*entry*/, InputContext& /*inputContext*/) {
         bool useBlackDefault = false;
         bool useLotusIcons   = false;
@@ -994,8 +901,7 @@ namespace fcitx {
             case IconChoice::Light: useBlackDefault = true; break;
             case IconChoice::Dark: useBlackDefault = false; break;
             case IconChoice::Lotus: useLotusIcons = true; break;
-            case IconChoice::Auto:
-            default: useBlackDefault = !isDarkMode(); break;
+            default: useBlackDefault = true; break;
         }
 
         std::string baseIconName;
