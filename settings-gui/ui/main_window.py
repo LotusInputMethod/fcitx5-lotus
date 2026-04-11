@@ -201,6 +201,17 @@ class LotusSettingsWindow(QMainWindow):
                 self.dbus_handler, category=SettingsCategory.APPEARANCE
             ),
         )
+
+        import os
+        current_desktop = (os.environ.get("XDG_CURRENT_DESKTOP") or os.environ.get("DESKTOP_SESSION") or "").upper()
+        if "KDE" in current_desktop:
+            self._add_page(
+                _("Accessibility"),
+                "preferences-desktop-accessibility",
+                DynamicSettingsPage(
+                    self.dbus_handler, category=SettingsCategory.ACCESSIBILITY
+                ),
+            )
         self._add_page(
             _("Backup"),
             "document-save-as",

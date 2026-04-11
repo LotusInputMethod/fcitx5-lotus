@@ -475,7 +475,7 @@ namespace fcitx {
             pending_commit_string_   = "";
 
             event.filterAndAccept(); // Filter out the final trigger backspace.
-            if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
+            if (isOSK(ic_) && !ic_->surroundingText().isValid())
                 replayBufferedKeys(); // Does we need drop this?
             return true;
         }
@@ -880,16 +880,21 @@ namespace fcitx {
             expected_backspaces_     = 0;
         }
         if (needEngineReset.load() && realMode != LotusMode::Off) {
-            LOTUS_INFO("Need engine reset");
-            oldPreBuffer_.clear();
-            hasHistory_ = false;
-            ResetEngine(lotusEngine_.handle());
-            is_deleting_.store(false);
-            current_backspace_count_ = 0;
-            isPrevSpace_             = false;
-            shouldCapitalize_        = false;
-            isPrevPunctuation_       = false;
-            needEngineReset.store(false);
+            if (isOSK(ic_)) {
+                // Ignore mouse-click reset for OSK (dbus)
+                needEngineReset.store(false);
+            } else {
+                LOTUS_INFO("Need engine reset");
+                oldPreBuffer_.clear();
+                hasHistory_ = false;
+                ResetEngine(lotusEngine_.handle());
+                is_deleting_.store(false);
+                current_backspace_count_ = 0;
+                isPrevSpace_             = false;
+                shouldCapitalize_        = false;
+                isPrevPunctuation_       = false;
+                needEngineReset.store(false);
+            }
         }
 
         if (g_mouse_clicked.load(std::memory_order_acquire) && !is_deleting_.load(std::memory_order_acquire)) {
@@ -908,7 +913,7 @@ namespace fcitx {
             }
             replacement_thread_id_.store(0, std::memory_order_release);
             replacement_start_ms_.store(0, std::memory_order_release);
-            if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
+            if (isOSK(ic_) && !ic_->surroundingText().isValid())
                 replayBufferedKeys(); // Does we need drop this?
         }
         KeySym currentSym = keyEvent.rawKey().sym();

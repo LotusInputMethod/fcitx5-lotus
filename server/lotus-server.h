@@ -59,6 +59,8 @@ class FdGuard {
     int fd_;
 };
 
+#include "lotus-key-command.h"
+
 /**
  * @brief RAII Wrapper for uinput device.
  * Handles UI_DEV_CREATE and UI_DEV_DESTROY automatically.
@@ -76,6 +78,7 @@ class UinputDevice {
 
     bool          initialize();
     void          send_backspace();
+    void          send_key(uint32_t code, uint32_t value);
     int           get_fd() const {
         return guard_.get();
     }

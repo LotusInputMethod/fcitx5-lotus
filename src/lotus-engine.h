@@ -25,6 +25,7 @@
 #include <fcitx/addonmanager.h>
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/instance.h>
+#include <fcitx-utils/event.h>
 
 namespace fcitx {
 
@@ -219,10 +220,14 @@ namespace fcitx {
         bool                                       isSelectingAppMode_ = false;
         std::string                                currentConfigureApp_;
         FCITX_ADDON_DEPENDENCY_LOADER(emoji, instance_->addonManager());
-        std::unique_ptr<EmojiLoader>          emojiLoader_;
-        bool                                  isGnome_ = false;
-        mutable std::mutex                    appRulesMutex_;
-        std::unordered_map<KeySym, LotusMode> modeMenuMapping_;
+        std::unique_ptr<EmojiLoader>            emojiLoader_;
+        bool                                    isGnome_ = false;
+        bool                                    isKde_   = false;
+        mutable std::mutex                      appRulesMutex_;
+        std::unordered_map<KeySym, LotusMode>   modeMenuMapping_;
+        uint64_t                                lastOskTriggerTime_ = 0;
+        bool                                    oskVisible_         = false;
+        std::unique_ptr<fcitx::EventSourceTime> oskHideTimer_;
 
         /**
          * @brief Refreshes the bamboo engine with current settings.
@@ -329,6 +334,15 @@ namespace fcitx {
          * @return true if dark mode, false if light mode or detection failed.
          */
         static bool isDarkMode();
+
+        /**
+         * @brief Triggers OSK via DBus
+         * @param show True to show, false to hide
+         */
+        void triggerOSK(bool show);
+
+        void callOSKDBus(const std::string& method);
+        void cancelOSKHideTimer();
     };
 
     /**

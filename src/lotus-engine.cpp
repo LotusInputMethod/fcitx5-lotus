@@ -21,6 +21,7 @@
 #include <fcitx/userinterfacemanager.h>
 #include <fcitx-utils/utf8.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <filesystem>
@@ -28,6 +29,13 @@
 
 #include <fcntl.h>
 #include <sstream>
+#include <spawn.h>
+#include <sys/wait.h>
+#include <thread>
+#include <fcitx-utils/dbus/bus.h>
+#include <fcitx-utils/dbus/message.h>
+
+extern char** environ;
 
 namespace fcitx {
     constexpr const char* CharsetActionPrefix = "lotus-charset-";
@@ -126,6 +134,7 @@ namespace fcitx {
     LotusEngine::LotusEngine(Instance* instance) : instance_(instance), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
         const char* desktop = std::getenv("XDG_CURRENT_DESKTOP");
         isGnome_            = (desktop != nullptr) && std::string(desktop).find("GNOME") != std::string::npos;
+        isKde_              = (desktop != nullptr) && std::string(desktop).find("KDE") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
         startMonitoring();
         Init();
@@ -178,12 +187,7 @@ namespace fcitx {
         settingsAction_ = std::make_unique<SimpleAction>();
         settingsAction_->setShortText(_("Settings"));
         settingsAction_->setIcon("configure");
-        connections_.emplace_back(settingsAction_->connect<SimpleAction::Activated>([](InputContext*) {
-            if (fork() == 0) {
-                execl(FCITX5_LOTUS_SETTINGS_PATH, FCITX5_LOTUS_SETTINGS_PATH, nullptr);
-                _exit(1);
-            }
-        }));
+        connections_.emplace_back(settingsAction_->connect<SimpleAction::Activated>([this](InputContext*) { executeBackground({FCITX5_LOTUS_SETTINGS_PATH}); }));
         uiManager.registerAction("lotus-settings", settingsAction_.get());
 
 #if LOTUS_USE_MODERN_FCITX_API
@@ -199,8 +203,9 @@ namespace fcitx {
         instance_->inputContextManager().registerProperty("LotusState", &factory_);
         appRulesPath_ = configDir + "/lotus-app-rules.conf";
         loadAppRules();
-        toggleActions_ = {charsetAction_.get(),          spellCheckAction_.get(),       macroAction_.get(),   capitalizeMacroAction_.get(),
-                          autoNonVnRestoreAction_.get(), enableDictionaryAction_.get(), settingsAction_.get()};
+        toggleActions_ = {charsetAction_.get(),         spellCheckAction_.get(),       macroAction_.get(),
+                          capitalizeMacroAction_.get(), autoNonVnRestoreAction_.get(), enableDictionaryAction_.get()};
+        toggleActions_.push_back(settingsAction_.get());
     }
 
     void LotusEngine::initToggleAction(std::unique_ptr<SimpleAction>& action, Option<bool>& option, const std::string& actionId, const std::string& iconName,
@@ -359,10 +364,12 @@ namespace fcitx {
     void LotusEngine::activate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
         auto*                    ic        = event.inputContext();
         const bool               surrvalid = ic->surroundingText().isValid();
-        const bool               is_dbus   = getFrontendName(ic) == "dbus";
+        const bool               is_dbus   = isOSK(ic);
         static std::atomic<bool> mouseThreadStarted{false};
         if (!mouseThreadStarted.exchange(true))
             startMouseReset();
+
+        cancelOSKHideTimer();
 
         auto& statusArea = event.inputContext()->statusArea();
         if (ic->capabilityFlags().test(CapabilityFlag::Preedit))
@@ -370,6 +377,12 @@ namespace fcitx {
 
         std::string appName = getProgramName(ic);
         LOTUS_INFO("App name: " + appName);
+
+        // If focus shifts to OSK, ignore it to prevent flicker/hide loop
+        if (appName == "lotus-osk" || appName == "Lotus OSK" || appName == "fcitx5-osk" || appName == "Fcitx5 OSK" || appName == "fcitx5-lotus-osk") {
+            LOTUS_INFO("Focus is on OSK, ignore activate");
+            return;
+        }
 
         const LotusMode targetMode = getAppRule(appName);
         LOTUS_INFO("Target mode: " + modeEnumToString(targetMode));
@@ -412,7 +425,7 @@ namespace fcitx {
         }
         if (event.type() == EventType::InputContextFocusIn && is_dbus && !surrvalid) {
             LOTUS_INFO("Skip clearAllBuffers");
-        } else if (surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100) {
+        } else if (!oskVisible_ && surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100) {
             state->clearAllBuffers();
         }
         is_deleting_.store(false);
@@ -426,6 +439,10 @@ namespace fcitx {
         }
         for (const auto& action : toggleActions_) {
             statusArea.addAction(StatusGroup::InputMethod, action);
+        }
+        if (!oskVisible_) {
+            cancelOSKHideTimer();
+            triggerOSK(true);
         }
     }
 
@@ -600,6 +617,15 @@ namespace fcitx {
 
     void LotusEngine::reset(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
         LOTUS_INFO("Reset engine");
+
+        // If OSK is active, strictly avoid resetting on FocusOut/Reset during transitions
+        if (oskVisible_) {
+            if (event.type() == EventType::InputContextFocusOut || event.type() == EventType::InputContextReset) {
+                LOTUS_INFO("Ignoring Reset event because OSK is active");
+                return;
+            }
+        }
+
         auto* state = event.inputContext()->propertyFor(&factory_);
         if (!state->isEmptyHistory() && event.type() != EventType::InputContextFocusOut) {
             return;
@@ -611,10 +637,23 @@ namespace fcitx {
     }
 
     void LotusEngine::deactivate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
+        // Grace period to avoid hiding OSK immediately after it took focus
+        if (now_ms() - lastOskTriggerTime_ > 2000) {
+            if (!oskHideTimer_) {
+                oskHideTimer_ = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 500000, 0, [this](fcitx::EventSourceTime*, uint64_t) {
+                    triggerOSK(false);
+                    cancelOSKHideTimer();
+                    return false;
+                });
+                LOTUS_INFO("Scheduled OSK hide in 500ms");
+            }
+        } else {
+            LOTUS_INFO("Grace period: skip hide OSK");
+        }
         auto*      ic              = event.inputContext();
         auto*      state           = ic->propertyFor(&factory_);
         const bool surrvalid       = ic->surroundingText().isValid();
-        const bool is_dbus         = getFrontendName(ic) == "dbus";
+        const bool is_dbus         = isOSK(ic);
         state->lastDeactivateTime_ = now_ms();
         if (realMode == LotusMode::Preedit && event.type() != EventType::InputContextFocusOut) {
             state->commitBuffer();
@@ -953,4 +992,43 @@ namespace fcitx {
         }
         return programName;
     }
+
+    void LotusEngine::triggerOSK(bool show) {
+        // Synchronize state if a mouse click occurred elsewhere (OSK likely hidden)
+        if (g_mouse_clicked.load(std::memory_order_acquire)) {
+            if (oskVisible_) {
+                oskVisible_ = false;
+                LOTUS_INFO("OSK visibility reset due to external mouse click");
+            }
+            g_mouse_clicked.store(false, std::memory_order_release);
+        }
+
+        if (show == oskVisible_)
+            return;
+
+        if (show) {
+            lastOskTriggerTime_ = now_ms();
+            cancelOSKHideTimer();
+        }
+
+        callOSKDBus(show ? "Show" : "Hide");
+        oskVisible_ = show;
+    }
+
+    void LotusEngine::callOSKDBus(const std::string& method) {
+        LOTUS_INFO("OSK D-Bus: " << method);
+        try {
+            dbus::Bus     bus(dbus::BusType::Session);
+            dbus::Message msg = bus.createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", method.c_str());
+            msg.send();
+        } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error (" << method << "): " << e.what()); }
+    }
+
+    void LotusEngine::cancelOSKHideTimer() {
+        if (oskHideTimer_) {
+            oskHideTimer_.reset();
+            LOTUS_INFO("OSK hide timer cancelled");
+        }
+    }
+
 } // namespace fcitx

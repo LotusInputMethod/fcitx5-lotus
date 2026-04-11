@@ -20,6 +20,11 @@
 #include <sys/un.h>
 #include <fcitx-utils/log.h>
 #include <fcitx/inputcontext.h>
+#include <spawn.h>
+#include <sys/wait.h>
+#include <thread>
+#include <vector>
+#include <string>
 
 #include "lotus-config.h"
 
@@ -101,11 +106,42 @@ bool isStartsWith(const std::string& str, const std::string& prefix);
 std::string getFrontendName(fcitx::InputContext* ic);
 
 /**
+ * @brief Checks if the input context is from the OSK frontend.
+ * @param ic Input context.
+ * @return True if OSK.
+ */
+inline bool isOSK(fcitx::InputContext* ic) {
+    return getFrontendName(ic) == "dbus";
+}
+
+/**
  * @brief Key event entry for replay buffer.
  */
 struct KeyEntry {
     uint32_t sym;   ///< Key symbol
     uint32_t state; ///< Key state (modifiers)
 };
+
+/**
+ * @brief Executes a command in the background without blocking the main thread.
+ * @param args Command and its arguments.
+ */
+inline void executeBackground(const std::vector<std::string>& args) {
+    if (args.empty())
+        return;
+    std::thread([args]() {
+        std::vector<char*> argv;
+        for (const auto& arg : args) {
+            argv.push_back(const_cast<char*>(arg.c_str()));
+        }
+        argv.push_back(nullptr);
+
+        pid_t         pid;
+        extern char** environ;
+        if (posix_spawn(&pid, argv[0], nullptr, nullptr, argv.data(), environ) == 0) {
+            waitpid(pid, nullptr, 0);
+        }
+    }).detach();
+}
 
 #endif // _FCITX5_LOTUS_UTILS_H_

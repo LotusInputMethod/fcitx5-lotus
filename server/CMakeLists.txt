@@ -10,4 +10,11 @@ target_link_libraries(fcitx5-lotus-server
     PkgConfig::LIBUDEV
 )
 
+target_include_directories(fcitx5-lotus-server PRIVATE ../src)
+
+target_compile_definitions(fcitx5-lotus-server PRIVATE
+    FCITX5_EXECUTABLE_PATH=\"${CMAKE_INSTALL_FULL_BINDIR}/fcitx5\"
+    FCITX5_OSK_EXECUTABLE_PATH=\"${CMAKE_INSTALL_FULL_BINDIR}/fcitx5-lotus-osk\"
+)
+
 install(TARGETS fcitx5-lotus-server DESTINATION ${CMAKE_INSTALL_BINDIR})
