@@ -72,7 +72,7 @@ if "KDE" not in current_desktop:
     if SettingsCategory.ACCESSIBILITY in SETTINGS_MAP:
         acc_settings = SETTINGS_MAP[SettingsCategory.ACCESSIBILITY]["ACCESSIBILITY"]
         SETTINGS_MAP[SettingsCategory.ACCESSIBILITY]["ACCESSIBILITY"] = [
-            k for k in acc_settings if k not in ["EnableOSK", "OSKWhiteTheme"]
+            k for k in acc_settings if k not in ["EnableOSK", "OSKWhiteTheme", "OSKSize"]
         ]
 
 
