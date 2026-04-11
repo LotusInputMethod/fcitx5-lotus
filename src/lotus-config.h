@@ -177,6 +177,15 @@ namespace fcitx {
     };
 
     /**
+     * @brief Annotation for OSK size list.
+     */
+    struct OSKSizeAnnotation : public StringListAnnotation {
+        OSKSizeAnnotation() {
+            list_ = {_("Small"), _("Standard"), _("Large")};
+        }
+    };
+
+    /**
      * @brief Constraint validator for input method options.
      */
     struct InputMethodConstrain {
@@ -255,6 +264,7 @@ namespace fcitx {
         Option<bool> enableCustomKeymap{this, "EnableCustomKeymap", _("Enable Custom Keymap"), false};
         Option<bool> enableOSK{this, "EnableOSK", _("Show On-Screen Keyboard"), false};
         OptionWithAnnotation<std::string, OSKWhiteThemeAnnotation> oskWhiteTheme{this, "OSKWhiteTheme", _("OSK Color"), "Auto", {}, {}, OSKWhiteThemeAnnotation()};
+        OptionWithAnnotation<std::string, OSKSizeAnnotation>       oskSize{this, "OSKSize", _("OSK Size"), "Standard", {}, {}, OSKSizeAnnotation()};
         Option<bool> showModeSmooth{this, "ShowModeSmooth", _("Show Uinput (Smooth)"), true}; Option<bool> showModeUinput{this, "ShowModeUinput", _("Show Uinput (Slow)"), true};
         Option<bool>                                                                                       showModeMinecraft{this, "ShowModeMinecraft", _("Show Minecraft"), true};
         Option<bool> showModeSurroundingText{this, "ShowModeSurroundingText", _("Show Surrounding Text"), true};

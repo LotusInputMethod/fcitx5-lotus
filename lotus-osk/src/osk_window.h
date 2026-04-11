@@ -17,6 +17,7 @@ class OSKWindow : public QWidget {
     ~OSKWindow();
 
     void setWhiteTheme(bool white);
+    void setOSKSize(const QString& size);
 
   protected:
     void showEvent(QShowEvent* event) override;
@@ -42,6 +43,7 @@ class OSKWindow : public QWidget {
     int                             m_baseWidth      = 1100;
     int                             m_baseHeight     = 380;
     int                             m_fontSize       = 20;
+    double                          m_scaleFactor    = 1.0;
     QMap<QString, QPushButton*>     m_alphabetButtons;
     QMap<QString, QPushButton*>     m_symbolButtons;
     QList<QPushButton*>             m_specialButtons;

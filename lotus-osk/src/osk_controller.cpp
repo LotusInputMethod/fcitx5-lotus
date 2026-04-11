@@ -91,6 +91,7 @@ void OSKController::showWindow() {
     if (!m_window) {
         m_window = new OSKWindow(this);
         m_window->setWhiteTheme(m_whiteTheme);
+        m_window->setOSKSize(m_oskSize);
     }
     m_window->show();
     m_visible = true;
@@ -222,4 +223,19 @@ void OSKController::setWhiteTheme(bool white) {
 void OSKController::SetTheme(bool white) {
     qDebug() << "DBus SetTheme called:" << white;
     setWhiteTheme(white);
+}
+
+void OSKController::setOskSize(const QString& size) {
+    if (m_oskSize != size) {
+        m_oskSize = size;
+        if (m_window) {
+            m_window->setOSKSize(size);
+        }
+        emit oskSizeChanged();
+    }
+}
+
+void OSKController::SetSize(const QString& size) {
+    qDebug() << "DBus SetSize called:" << size;
+    setOskSize(size);
 }

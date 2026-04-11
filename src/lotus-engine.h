@@ -229,7 +229,9 @@ namespace fcitx {
         bool                                    lastEnableOSK_      = false;
         uint64_t                                lastOskTriggerTime_ = 0;
         bool                                    oskVisible_         = false;
+        bool                                    oskWhiteTheme_      = false;
         bool                                    lastOskWhiteTheme_  = false;
+        std::string                             lastOskSize_        = "Standard";
         std::unique_ptr<fcitx::EventSourceTime> oskHideTimer_;
 
         /**
@@ -349,6 +351,12 @@ namespace fcitx {
          * @param white True for white theme, false for dark theme
          */
         void updateOSKTheme(bool white);
+
+        /**
+         * @brief Updates OSK size via DBus
+         * @param size Size string (Small, Standard, Large)
+         */
+        void updateOSKSize(const std::string& size);
     };
 
     /**

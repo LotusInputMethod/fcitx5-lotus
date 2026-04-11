@@ -16,6 +16,7 @@ class OSKController : public QObject {
     Q_PROPERTY(bool visible READ visible WRITE setVisible NOTIFY visibleChanged)
     Q_PROPERTY(bool capsLockActive READ capsLockActive NOTIFY capsLockActiveChanged)
     Q_PROPERTY(bool whiteTheme READ whiteTheme WRITE setWhiteTheme NOTIFY whiteThemeChanged)
+    Q_PROPERTY(QString oskSize READ oskSize WRITE setOskSize NOTIFY oskSizeChanged)
 
   public:
     explicit OSKController(QObject* parent = nullptr);
@@ -30,8 +31,13 @@ class OSKController : public QObject {
     bool whiteTheme() const {
         return m_whiteTheme;
     }
-    void setVisible(bool visible);
-    void setWhiteTheme(bool white);
+    void    setVisible(bool visible);
+    void    setWhiteTheme(bool white);
+    void    setOskSize(const QString& size);
+
+    QString oskSize() const {
+        return m_oskSize;
+    }
 
     void showWindow();
     void hideWindow();
@@ -46,11 +52,13 @@ class OSKController : public QObject {
     void Hide();
     void Toggle();
     void SetTheme(bool white);
+    void SetSize(const QString& size);
 
   signals:
     void visibleChanged();
     void capsLockActiveChanged();
     void whiteThemeChanged();
+    void oskSizeChanged();
 
   private slots:
     void handleSocketActivated(int socket);
@@ -61,6 +69,7 @@ class OSKController : public QObject {
     bool             m_visible        = false;
     bool             m_capsLockActive = false;
     bool             m_whiteTheme     = false;
+    QString          m_oskSize        = "Standard";
     OSKWindow*       m_window         = nullptr;
     int              m_socketFd       = -1;
     QSocketNotifier* m_notifier       = nullptr;

@@ -27,20 +27,8 @@ OSKWindow::OSKWindow(OSKController* controller, QWidget* parent) : QWidget(paren
     m_theme      = m_whiteTheme ? Lotus::LightTheme : Lotus::DarkTheme;
 
     // Calculate scale factor using DPR only for predictable HiDPI behavior
-    qreal dpr = 1.0;
-    if (QScreen* screen = QGuiApplication::primaryScreen()) {
-        dpr = screen->devicePixelRatio();
-    }
-
-    // Calculate window size based on 5 rows and theme dimensions
-    double maxRowUnits = 14.5;
-    m_baseWidth        = static_cast<int>((maxRowUnits * m_theme.keyWidth + (14 * m_theme.spacing) + (2 * m_theme.margin)) * dpr);
-    m_baseHeight       = static_cast<int>((5 * m_theme.keyHeight + (4 * m_theme.spacing) + (2 * m_theme.margin)) * dpr);
-    m_fontSize         = static_cast<int>(m_theme.fontSize * dpr);
-
-    resize(m_baseWidth, m_baseHeight);
-    setFixedSize(m_baseWidth, m_baseHeight);
-    setWindowTitle("Lotus OSK");
+    setObjectName("LotusOSK");
+    setAttribute(Qt::WA_TranslucentBackground);
 
     setupLayout(m_theme);
 
@@ -143,6 +131,24 @@ void OSKWindow::setWhiteTheme(bool white) {
         m_theme      = m_whiteTheme ? Lotus::LightTheme : Lotus::DarkTheme;
         m_styleCache.clear();
         updateKeyLabels();
+        update();
+    }
+}
+
+void OSKWindow::setOSKSize(const QString& size) {
+    double factor = 1.0;
+    if (size == "Small") {
+        factor = 0.6;
+    } else if (size == "Standard") {
+        factor = 0.8;
+    } else if (size == "Large") {
+        factor = 1.0;
+    }
+
+    if (m_scaleFactor != factor) {
+        m_scaleFactor = factor;
+        m_styleCache.clear();
+        setupLayout(m_theme);
         update();
     }
 }
@@ -274,23 +280,52 @@ QPair<uint, uint> OSKWindow::getKeyInfo(const QString& k) const {
 }
 
 void OSKWindow::setupLayout(const Lotus::OSKTheme& theme) {
-    // Calculate scale factor using DPR only
+    // Clear existing layout and widgets
+    if (layout()) {
+        QLayoutItem* item;
+        while ((item = layout()->takeAt(0)) != nullptr) {
+            if (QWidget* widget = item->widget()) {
+                widget->hide();
+                widget->deleteLater();
+            }
+            delete item;
+        }
+        delete layout();
+    }
+
+    m_alphabetButtons.clear();
+    m_symbolButtons.clear();
+    m_specialButtons.clear();
+    m_buttonExtraStyles.clear();
+
+    // Calculate scale factor using DPR and User scale
     qreal dpr = 1.0;
     if (QScreen* screen = QGuiApplication::primaryScreen()) {
         dpr = screen->devicePixelRatio();
     }
 
-    int  scaledKeyWidth  = static_cast<int>(theme.keyWidth * dpr);
-    int  scaledKeyHeight = static_cast<int>(theme.keyHeight * dpr);
-    int  scaledSpacing   = static_cast<int>(theme.spacing * dpr);
-    int  scaledMargin    = static_cast<int>(theme.margin * dpr);
+    double totalScale = dpr * m_scaleFactor;
+
+    // Recalculate window size based on 5 rows and theme dimensions
+    double maxRowUnits = 14.5;
+    int    newWidth    = static_cast<int>((maxRowUnits * theme.keyWidth + (14 * theme.spacing) + (2 * theme.margin)) * totalScale);
+    int    newHeight   = static_cast<int>((5 * theme.keyHeight + (4 * theme.spacing) + (2 * theme.margin)) * totalScale);
+
+    resize(newWidth, newHeight);
+    setFixedSize(newWidth, newHeight);
+    setWindowTitle("Lotus OSK");
+
+    int scaledKeyWidth  = static_cast<int>(theme.keyWidth * totalScale);
+    int scaledKeyHeight = static_cast<int>(theme.keyHeight * totalScale);
+    int scaledSpacing   = static_cast<int>(theme.spacing * totalScale);
+    int scaledMargin    = static_cast<int>(theme.margin * totalScale);
+    m_fontSize          = static_cast<int>(theme.fontSize * totalScale);
 
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(scaledMargin, scaledMargin, scaledMargin, scaledMargin);
     mainLayout->setSpacing(scaledSpacing);
 
-    auto createKey = [this, scaledKeyHeight, scaledKeyWidth, scaledSpacing, theme](const QString& key, const QString& text = "", double widthFactor = 1.0,
-                                                                                   const QString& extraStyle = "") {
+    auto createKey = [this, scaledKeyHeight, scaledKeyWidth, theme](const QString& key, const QString& text = "", double widthFactor = 1.0, const QString& extraStyle = "") {
         QString label = text.isEmpty() ? key : text;
         auto    btn   = new QPushButton(label, this);
         btn->setProperty("osk_key", key); // For label updates

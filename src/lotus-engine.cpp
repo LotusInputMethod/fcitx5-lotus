@@ -383,6 +383,12 @@ namespace fcitx {
                 updateOSKTheme(resolvedWhiteTheme);
                 lastOskWhiteTheme_ = resolvedWhiteTheme;
             }
+
+            const std::string& sizeConfig = config_.oskSize.value();
+            if (sizeConfig != lastOskSize_) {
+                updateOSKSize(sizeConfig);
+                lastOskSize_ = sizeConfig;
+            }
         }
     }
 
@@ -1102,6 +1108,12 @@ namespace fcitx {
                     updateOSKTheme(resolvedWhiteTheme);
                     lastOskWhiteTheme_ = resolvedWhiteTheme;
                 }
+
+                const std::string& sizeConfig = config_.oskSize.value();
+                if (sizeConfig != lastOskSize_) {
+                    updateOSKSize(sizeConfig);
+                    lastOskSize_ = sizeConfig;
+                }
             }
         } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error: " + std::string(e.what())); }
     }
@@ -1115,6 +1127,17 @@ namespace fcitx {
             msg << white;
             msg.send(); // Asynchronous
         } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error updating theme: " + std::string(e.what())); }
+    }
+
+    void LotusEngine::updateOSKSize(const std::string& size) {
+        LOTUS_INFO("Updating OSK size to " << size << " via async D-Bus...");
+
+        try {
+            dbus::Bus     bus(dbus::BusType::Session);
+            dbus::Message msg = bus.createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", "SetSize");
+            msg << size;
+            msg.send(); // Asynchronous
+        } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error updating size: " + std::string(e.what())); }
     }
 
 } // namespace fcitx
