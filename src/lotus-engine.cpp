@@ -132,10 +132,6 @@ namespace fcitx {
     }
 
     LotusEngine::LotusEngine(Instance* instance) : instance_(instance), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
-        const char* desktop = std::getenv("XDG_CURRENT_DESKTOP");
-        isGnome_            = (desktop != nullptr) && std::string(desktop).find("GNOME") != std::string::npos;
-        isKde_              = (desktop != nullptr) && std::string(desktop).find("KDE") != std::string::npos;
-        // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
         startMonitoring();
         Init();
         {
@@ -974,7 +970,7 @@ namespace fcitx {
         switch (realMode) {
             case LotusMode::Off: return _("Lotus - Off");
             case LotusMode::Emoji: return "😄";
-            default: return isGnome_ ? "vi" : "🪷";
+            default: return "🪷";
         }
     }
 

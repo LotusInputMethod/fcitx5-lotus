@@ -30,10 +30,8 @@ class SettingsCategory(Enum):
     TYPING = "typing"
     SHORTCUTS = "shortcuts"
     INTERFACE = "interface"
-    ACCESSIBILITY = "accessibility"
 
 
-import os
 
 # Mapping of settings keys to categories and groups
 SETTINGS_MAP = {
