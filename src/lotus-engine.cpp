@@ -369,7 +369,20 @@ namespace fcitx {
         }
         updateAction(nullptr, oskAction_, config_.enableOSK, _("OSK"));
         if (currentOSK && oskVisible_) {
-            updateOSKTheme(config_.oskWhiteTheme.value());
+            const std::string& themeConfig = config_.oskWhiteTheme.value();
+            bool               resolvedWhiteTheme;
+            if (themeConfig == "Light") {
+                resolvedWhiteTheme = true;
+            } else if (themeConfig == "Dark") {
+                resolvedWhiteTheme = false;
+            } else {
+                resolvedWhiteTheme = !isDarkMode();
+            }
+
+            if (resolvedWhiteTheme != lastOskWhiteTheme_) {
+                updateOSKTheme(resolvedWhiteTheme);
+                lastOskWhiteTheme_ = resolvedWhiteTheme;
+            }
         }
     }
 
@@ -1075,10 +1088,19 @@ namespace fcitx {
             oskVisible_ = show;
 
             if (show) {
-                bool currentTheme = config_.oskWhiteTheme.value();
-                if (currentTheme != lastOskWhiteTheme_) {
-                    updateOSKTheme(currentTheme);
-                    lastOskWhiteTheme_ = currentTheme;
+                const std::string& themeConfig = config_.oskWhiteTheme.value();
+                bool               resolvedWhiteTheme;
+                if (themeConfig == "Light") {
+                    resolvedWhiteTheme = true;
+                } else if (themeConfig == "Dark") {
+                    resolvedWhiteTheme = false;
+                } else {
+                    resolvedWhiteTheme = !isDarkMode();
+                }
+
+                if (resolvedWhiteTheme != lastOskWhiteTheme_) {
+                    updateOSKTheme(resolvedWhiteTheme);
+                    lastOskWhiteTheme_ = resolvedWhiteTheme;
                 }
             }
         } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error: " + std::string(e.what())); }

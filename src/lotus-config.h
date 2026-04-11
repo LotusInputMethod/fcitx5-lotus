@@ -168,6 +168,15 @@ namespace fcitx {
     };
 
     /**
+     * @brief Annotation for OSK theme list.
+     */
+    struct OSKWhiteThemeAnnotation : public StringListAnnotation {
+        OSKWhiteThemeAnnotation() {
+            list_ = {_("Auto"), _("Light"), _("Dark")};
+        }
+    };
+
+    /**
      * @brief Constraint validator for input method options.
      */
     struct InputMethodConstrain {
@@ -244,7 +253,8 @@ namespace fcitx {
 
         Option<bool> enableDictionary{this, "EnableDictionary", _("Enable Custom Dictionary"), false};
         Option<bool> enableCustomKeymap{this, "EnableCustomKeymap", _("Enable Custom Keymap"), false};
-        Option<bool> enableOSK{this, "EnableOSK", _("Show On-Screen Keyboard"), false}; Option<bool> oskWhiteTheme{this, "OSKWhiteTheme", _("Use White Theme for OSK"), false};
+        Option<bool> enableOSK{this, "EnableOSK", _("Show On-Screen Keyboard"), false};
+        OptionWithAnnotation<std::string, OSKWhiteThemeAnnotation> oskWhiteTheme{this, "OSKWhiteTheme", _("OSK Color"), "Auto", {}, {}, OSKWhiteThemeAnnotation()};
         Option<bool> showModeSmooth{this, "ShowModeSmooth", _("Show Uinput (Smooth)"), true}; Option<bool> showModeUinput{this, "ShowModeUinput", _("Show Uinput (Slow)"), true};
         Option<bool>                                                                                       showModeMinecraft{this, "ShowModeMinecraft", _("Show Minecraft"), true};
         Option<bool> showModeSurroundingText{this, "ShowModeSurroundingText", _("Show Surrounding Text"), true};
