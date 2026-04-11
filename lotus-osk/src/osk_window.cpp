@@ -280,18 +280,14 @@ QPair<uint, uint> OSKWindow::getKeyInfo(const QString& k) const {
 }
 
 void OSKWindow::setupLayout(const Lotus::OSKTheme& theme) {
-    // Clear existing layout and widgets
+    // Clear existing layout
     if (layout()) {
-        QLayoutItem* item;
-        while ((item = layout()->takeAt(0)) != nullptr) {
-            if (QWidget* widget = item->widget()) {
-                widget->hide();
-                widget->deleteLater();
-            }
-            delete item;
-        }
         delete layout();
     }
+
+    // Delete all button widgets to prevent overlays during resize
+    QList<QPushButton*> buttons = findChildren<QPushButton*>(QString(), Qt::FindDirectChildrenOnly);
+    qDeleteAll(buttons);
 
     m_alphabetButtons.clear();
     m_symbolButtons.clear();
