@@ -15,7 +15,6 @@
 #include <signal.h>
 #include <limits.h>
 #include <unistd.h>
-#include <glob.h>
 
 std::atomic<bool> g_running{true};
 
