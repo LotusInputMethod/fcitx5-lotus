@@ -333,7 +333,6 @@ namespace fcitx {
         static std::string getProgramName(InputContext* ic);
 
         /**
-        /**
          * @brief Detects if the system is in dark mode.
          * @return true if dark mode, false if light mode or detection failed.
          */

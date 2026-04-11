@@ -22,34 +22,27 @@ OSKWindow::OSKWindow(OSKController* controller, QWidget* parent) : QWidget(paren
     setAttribute(Qt::WA_TranslucentBackground);
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus);
 
+    // Initial theme
+    m_whiteTheme = m_controller->whiteTheme();
+    m_theme      = m_whiteTheme ? Lotus::LightTheme : Lotus::DarkTheme;
+
     // Calculate scale factor using DPR only for predictable HiDPI behavior
     qreal dpr = 1.0;
     if (QScreen* screen = QGuiApplication::primaryScreen()) {
         dpr = screen->devicePixelRatio();
     }
 
-    // Base dimensions for key-centric calculation
-    int baseKeyWidth  = 40;
-    int baseKeyHeight = 40;
-    int baseSpacing   = 5;
-    int baseMargin    = 10;
-    m_fontSize        = static_cast<int>(18 * dpr);
-
-    // Calculate window size based on 5 rows
+    // Calculate window size based on 5 rows and theme dimensions
     double maxRowUnits = 14.5;
-    m_baseWidth        = static_cast<int>((maxRowUnits * baseKeyWidth + (14 * baseSpacing) + (2 * baseMargin)) * dpr);
-    m_baseHeight       = static_cast<int>((5 * baseKeyHeight + (4 * baseSpacing) + (2 * baseMargin)) * dpr);
+    m_baseWidth        = static_cast<int>((maxRowUnits * m_theme.keyWidth + (14 * m_theme.spacing) + (2 * m_theme.margin)) * dpr);
+    m_baseHeight       = static_cast<int>((5 * m_theme.keyHeight + (4 * m_theme.spacing) + (2 * m_theme.margin)) * dpr);
+    m_fontSize         = static_cast<int>(m_theme.fontSize * dpr);
 
     resize(m_baseWidth, m_baseHeight);
     setFixedSize(m_baseWidth, m_baseHeight);
     setWindowTitle("Lotus OSK");
 
-    int scaledKeyWidth  = static_cast<int>(baseKeyWidth * dpr);
-    int scaledKeyHeight = static_cast<int>(baseKeyHeight * dpr);
-    int scaledSpacing   = static_cast<int>(baseSpacing * dpr);
-    int scaledMargin    = static_cast<int>(baseMargin * dpr);
-
-    setupLayout(scaledKeyWidth, scaledKeyHeight, scaledSpacing, scaledMargin);
+    setupLayout(m_theme);
 
     // Sync initial CapsLock state
     connect(m_controller, &OSKController::capsLockActiveChanged, this, [this]() {
@@ -64,6 +57,9 @@ OSKWindow::OSKWindow(OSKController* controller, QWidget* parent) : QWidget(paren
             m_controller->queryCapsLockState();
         }
     });
+
+    // Theme update connection
+    connect(m_controller, &OSKController::whiteThemeChanged, this, [this]() { setWhiteTheme(m_controller->whiteTheme()); });
 }
 
 OSKWindow::~OSKWindow() {}
@@ -144,6 +140,7 @@ void OSKWindow::hideEvent(QHideEvent* event) {
 void OSKWindow::setWhiteTheme(bool white) {
     if (m_whiteTheme != white) {
         m_whiteTheme = white;
+        m_theme      = m_whiteTheme ? Lotus::LightTheme : Lotus::DarkTheme;
         m_styleCache.clear();
         updateKeyLabels();
         update();
@@ -156,30 +153,27 @@ void OSKWindow::paintEvent(QPaintEvent* event) {
     painter.setRenderHint(QPainter::Antialiasing);
 
     // Draw background
-    QColor bgColor(m_whiteTheme ? L_COLOR_WINDOW_BG : COLOR_WINDOW_BG);
-    bgColor.setAlpha(m_whiteTheme ? 255 : 220); // More opaque for white theme
+    QColor bgColor(m_theme.windowBg);
+    bgColor.setAlpha(m_theme.windowOpacity);
     painter.setBrush(bgColor);
     painter.setPen(Qt::NoPen);
-    painter.drawRoundedRect(rect(), 10, 10);
+    painter.drawRoundedRect(rect(), m_theme.borderRadius, m_theme.borderRadius);
 }
 
 void OSKWindow::updateKeyLabels() {
-    bool    upperAlphabet = m_capsLockActive || m_shiftActive;
-
-    QString normalBg = m_whiteTheme ? L_COLOR_BG_NORMAL : COLOR_BG_NORMAL;
-    QString normalFg = m_whiteTheme ? L_COLOR_FG_NORMAL : COLOR_FG_NORMAL;
+    bool upperAlphabet = m_capsLockActive || m_shiftActive;
 
     // Update alphabet labels and styles
     for (auto it = m_alphabetButtons.begin(); it != m_alphabetButtons.end(); ++it) {
         it.value()->setText(upperAlphabet ? it.key().toUpper() : it.key().toLower());
-        it.value()->setStyleSheet(getButtonStyle(normalBg, normalFg));
+        it.value()->setStyleSheet(getButtonStyle(m_theme.bgNormal, m_theme.fgNormal));
     }
 
     bool upperSymbol = m_shiftActive;
 
     for (auto it = m_symbolButtons.begin(); it != m_symbolButtons.end(); ++it) {
         it.value()->setText(upperSymbol && g_symbolMap.contains(it.key()) ? g_symbolMap.value(it.key()) : it.key());
-        it.value()->setStyleSheet(getButtonStyle(normalBg, normalFg));
+        it.value()->setStyleSheet(getButtonStyle(m_theme.bgNormal, m_theme.fgNormal));
     }
 
     // Update special key styles (CapsLock, Shift, Enter, Space, Arrows, etc.)
@@ -195,17 +189,17 @@ void OSKWindow::updateKeyLabels() {
         QString fg;
 
         if (active || key == "Enter") {
-            bg = m_whiteTheme ? L_COLOR_BG_ACTIVE : COLOR_BG_ACTIVE;
+            bg = m_theme.bgActive;
             fg = "#ffffff"; // Always white text on active/Enter blue
         } else if (key == "Up" || key == "Down" || key == "Left" || key == "Right") {
-            bg = m_whiteTheme ? L_COLOR_BG_SPECIAL : "#2a2a2a";
-            fg = m_whiteTheme ? L_COLOR_FG_SPECIAL : "#aaaaaa";
+            bg = m_theme.bgSpecial;
+            fg = m_theme.fgSpecial;
         } else if (key == "Space") {
-            bg = m_whiteTheme ? L_COLOR_BG_NORMAL : COLOR_BG_NORMAL;
-            fg = m_whiteTheme ? L_COLOR_FG_NORMAL : COLOR_FG_NORMAL;
+            bg = m_theme.bgNormal;
+            fg = m_theme.fgNormal;
         } else {
-            bg = m_whiteTheme ? L_COLOR_BG_SPECIAL : COLOR_BG_SPECIAL;
-            fg = m_whiteTheme ? L_COLOR_FG_SPECIAL : COLOR_FG_SPECIAL;
+            bg = m_theme.bgSpecial;
+            fg = m_theme.fgSpecial;
         }
 
         QString extra = m_buttonExtraStyles.value(btn);
@@ -219,14 +213,10 @@ QString OSKWindow::getButtonStyle(const QString& bg, const QString& fg, const QS
         return m_styleCache.value(cacheKey);
     }
 
-    QString borderColor  = m_whiteTheme ? L_COLOR_BORDER : COLOR_BORDER;
-    QString hoverColor   = m_whiteTheme ? L_COLOR_HOVER : COLOR_HOVER;
-    QString pressedColor = m_whiteTheme ? L_COLOR_PRESSED : COLOR_PRESSED;
-
     QString style = QString("QPushButton {"
                             "  background-color: %1;"
                             "  color: %2;"
-                            "  border-radius: 6px;"
+                            "  border-radius: %7px;"
                             "  font-size: %6px;"
                             "  border: 1px solid %3;"
                             "}"
@@ -234,10 +224,11 @@ QString OSKWindow::getButtonStyle(const QString& bg, const QString& fg, const QS
                             "QPushButton:pressed { background-color: %5; padding: 2px 0 0 0; }")
                         .arg(bg)
                         .arg(fg)
-                        .arg(borderColor)
-                        .arg(hoverColor)
-                        .arg(pressedColor)
-                        .arg(m_fontSize) +
+                        .arg(m_theme.border)
+                        .arg(m_theme.hover)
+                        .arg(m_theme.pressed)
+                        .arg(m_fontSize)
+                        .arg(m_theme.borderRadius) +
         extra;
     m_styleCache.insert(cacheKey, style);
     return style;
@@ -282,16 +273,28 @@ QPair<uint, uint> OSKWindow::getKeyInfo(const QString& k) const {
     return specialMap.value(k, {0, 0});
 }
 
-void OSKWindow::setupLayout(int keyWidth, int keyHeight, int spacing, int margin) {
-    auto mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(margin, margin, margin, margin);
-    mainLayout->setSpacing(spacing);
+void OSKWindow::setupLayout(const Lotus::OSKTheme& theme) {
+    // Calculate scale factor using DPR only
+    qreal dpr = 1.0;
+    if (QScreen* screen = QGuiApplication::primaryScreen()) {
+        dpr = screen->devicePixelRatio();
+    }
 
-    auto createKey = [this, keyHeight, keyWidth, spacing](const QString& key, const QString& text = "", double widthFactor = 1.0, const QString& extraStyle = "") {
+    int  scaledKeyWidth  = static_cast<int>(theme.keyWidth * dpr);
+    int  scaledKeyHeight = static_cast<int>(theme.keyHeight * dpr);
+    int  scaledSpacing   = static_cast<int>(theme.spacing * dpr);
+    int  scaledMargin    = static_cast<int>(theme.margin * dpr);
+
+    auto mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(scaledMargin, scaledMargin, scaledMargin, scaledMargin);
+    mainLayout->setSpacing(scaledSpacing);
+
+    auto createKey = [this, scaledKeyHeight, scaledKeyWidth, scaledSpacing, theme](const QString& key, const QString& text = "", double widthFactor = 1.0,
+                                                                                   const QString& extraStyle = "") {
         QString label = text.isEmpty() ? key : text;
         auto    btn   = new QPushButton(label, this);
         btn->setProperty("osk_key", key); // For label updates
-        btn->setFixedSize(static_cast<int>(keyWidth * widthFactor), keyHeight);
+        btn->setFixedSize(static_cast<int>(scaledKeyWidth * widthFactor), scaledKeyHeight);
         btn->setFocusPolicy(Qt::NoFocus);
 
         if (key.length() == 1 && key[0].toLower() >= 'a' && key[0].toLower() <= 'z') {
@@ -303,7 +306,7 @@ void OSKWindow::setupLayout(int keyWidth, int keyHeight, int spacing, int margin
         }
 
         m_buttonExtraStyles[btn] = extraStyle;
-        btn->setStyleSheet(getButtonStyle(COLOR_BG_NORMAL, COLOR_FG_NORMAL, extraStyle));
+        btn->setStyleSheet(getButtonStyle(theme.bgNormal, theme.fgNormal, extraStyle));
 
         connect(btn, &QPushButton::pressed, this, [this, key]() {
             if (key == "Hide") {
@@ -361,11 +364,11 @@ void OSKWindow::setupLayout(int keyWidth, int keyHeight, int spacing, int margin
         return btn;
     };
 
-    QString ctrlStyle = QString("background-color: %1; font-size: 16px; color: %2;").arg(COLOR_BG_SPECIAL).arg(COLOR_FG_SPECIAL);
+    QString ctrlStyle = QString("background-color: %1; font-size: 16px; color: %2;").arg(theme.bgSpecial).arg(theme.fgSpecial);
 
     // Row 0: Numbers
     auto row0 = new QHBoxLayout();
-    row0->setSpacing(spacing);
+    row0->setSpacing(scaledSpacing);
     row0->setAlignment(Qt::AlignCenter);
     for (const char* k : {"`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="}) {
         row0->addWidget(createKey(k));
@@ -375,7 +378,7 @@ void OSKWindow::setupLayout(int keyWidth, int keyHeight, int spacing, int margin
 
     // Row 1: QWERTY
     auto row1 = new QHBoxLayout();
-    row1->setSpacing(spacing);
+    row1->setSpacing(scaledSpacing);
     row1->setAlignment(Qt::AlignCenter);
     row1->addWidget(createKey("Tab", "⇥", 1.5, ctrlStyle));
     for (const char* k : {"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\"}) {
@@ -385,18 +388,18 @@ void OSKWindow::setupLayout(int keyWidth, int keyHeight, int spacing, int margin
 
     // Row 2: ASDF
     auto row2 = new QHBoxLayout();
-    row2->setSpacing(spacing);
+    row2->setSpacing(scaledSpacing);
     row2->setAlignment(Qt::AlignCenter);
     row2->addWidget(createKey("CapsLock", "⇪", 1.5, ctrlStyle));
     for (const char* k : {"A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'"}) {
         row2->addWidget(createKey(k));
     }
-    row2->addWidget(createKey("Enter", "⏎", 2.0, QString("background-color: %1; color: white;").arg(COLOR_BG_ACTIVE)));
+    row2->addWidget(createKey("Enter", "⏎", 2.0, QString("background-color: %1; color: white;").arg(theme.bgActive)));
     mainLayout->addLayout(row2);
 
     // Row 3: ZXCV
     auto row3 = new QHBoxLayout();
-    row3->setSpacing(spacing);
+    row3->setSpacing(scaledSpacing);
     row3->setAlignment(Qt::AlignCenter);
     row3->addWidget(createKey("Shift", "⇧", 1.5, ctrlStyle));
     for (const char* k : {"Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"}) {
@@ -404,22 +407,21 @@ void OSKWindow::setupLayout(int keyWidth, int keyHeight, int spacing, int margin
     }
 
     // Up Arrow at the end of Row 3
-    auto arrowStyle = QString("background-color: #2a2a2a; color: #aaaaaa; font-size: 18px;");
-    row3->addWidget(createKey("Up", "↑", 1.25, arrowStyle));
+    row3->addWidget(createKey("Up", "↑", 1.25, ctrlStyle));
     mainLayout->addLayout(row3);
 
     // Row 4: Bottom
     auto row4 = new QHBoxLayout();
-    row4->setSpacing(spacing);
+    row4->setSpacing(scaledSpacing);
     row4->setAlignment(Qt::AlignCenter);
     row4->addWidget(createKey("Hide", "⌨↓", 1.5, ctrlStyle));
     row4->addWidget(createKey("Super", "⊞", 1.5, ctrlStyle));
     row4->addWidget(createKey("Space", "␣", 7.5));
 
     // Other Arrows
-    row4->addWidget(createKey("Left", "←", 1.25, arrowStyle));
-    row4->addWidget(createKey("Down", "↓", 1.25, arrowStyle));
-    row4->addWidget(createKey("Right", "→", 1.25, arrowStyle));
+    row4->addWidget(createKey("Left", "←", 1.25, ctrlStyle));
+    row4->addWidget(createKey("Down", "↓", 1.25, ctrlStyle));
+    row4->addWidget(createKey("Right", "→", 1.25, ctrlStyle));
 
     mainLayout->addLayout(row4);
 

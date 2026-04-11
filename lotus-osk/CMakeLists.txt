@@ -15,6 +15,7 @@ endif()
 
 add_executable(lotus-osk
     src/main.cpp
+    src/osk_theme.h
     src/osk_window.cpp
     src/osk_window.h
     src/osk_controller.cpp
