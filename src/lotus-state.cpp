@@ -882,7 +882,7 @@ namespace fcitx {
             expected_backspaces_     = 0;
         }
         if (needEngineReset.load() && realMode != LotusMode::Off) {
-            if (getFrontendName(ic_) == "dbus") {
+            if (isOSK(ic_)) {
                 // Ignore mouse-click reset for OSK (dbus)
                 needEngineReset.store(false);
             } else {
