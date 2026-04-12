@@ -29,6 +29,7 @@ class SettingsCategory(Enum):
     APPEARANCE = "appearance"
     TYPING = "typing"
     SHORTCUTS = "shortcuts"
+    INTERFACE = "interface"
 
 
 
