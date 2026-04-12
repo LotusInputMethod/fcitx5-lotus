@@ -1,5 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
+ * SPDX-FileCopyrightText: 2026 Huỳnh Thiện Lộc  <huynhloc.contact@gmail.com>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *

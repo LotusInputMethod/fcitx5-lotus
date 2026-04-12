@@ -11,6 +11,7 @@
 #include "lotus-candidates.h"
 #include "lotus-utils.h"
 #include "lotus.h"
+#include "lotus-key-command.h"
 
 #include <cstddef>
 #include <fcitx-utils/log.h>
@@ -118,7 +119,8 @@ namespace fcitx {
             return;
         }
 
-        ssize_t n = send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
+        LotusKeyCommand cmd{LotusKeyCommandType::BackspaceCount, static_cast<uint32_t>(count), 0};
+        ssize_t         n = send(uinput_client_fd_, &cmd, sizeof(cmd), MSG_NOSIGNAL);
 
         if (n < 0) {
             LOTUS_WARN("Failed to send backspace: " + std::string(strerror(errno)));
@@ -128,7 +130,7 @@ namespace fcitx {
             }
             if (connect_uinput_server()) {
                 LOTUS_INFO("Reconnected to uinput server successfully");
-                send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
+                send(uinput_client_fd_, &cmd, sizeof(cmd), MSG_NOSIGNAL);
             }
         }
 

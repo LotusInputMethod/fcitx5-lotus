@@ -1,6 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2025 Võ Ngô Hoàng Thành <thanhpy2009@gmail.com>
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
+ * SPDX-FileCopyrightText: 2026 Huỳnh Thiện Lộc  <huynhloc.contact@gmail.com>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -395,12 +396,6 @@ int main(int argc, char* argv[]) {
                     pending_backspaces += cmd.code - 1;
                     uinput.send_backspace();
                 }
-            } else if (static_cast<size_t>(n) == sizeof(int)) {
-                // Legacy support for plain int (backspace count)
-                int count;
-                memcpy(&count, &cmd, sizeof(int));
-                pending_backspaces += count - 1;
-                uinput.send_backspace();
             }
         }
 

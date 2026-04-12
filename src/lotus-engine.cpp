@@ -376,7 +376,7 @@ namespace fcitx {
         LOTUS_INFO("App name: " + appName);
 
         // If focus shifts to OSK, ignore it to prevent flicker/hide loop
-        if (appName == "lotus-osk" || appName == "Lotus OSK" || appName == "fcitx5-osk" || appName == "Fcitx5 OSK" || appName == "fcitx5-lotus-osk") {
+        if (appName == "fcitx5-lotus-osk") {
             LOTUS_INFO("Focus is on OSK, ignore activate");
             return;
         }
