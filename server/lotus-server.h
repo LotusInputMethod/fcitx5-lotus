@@ -30,6 +30,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
+#include "lotus-key-command.h"
 
 /**
  * @brief RAII Wrapper for Unix File Descriptors.
@@ -58,8 +59,6 @@ class FdGuard {
   private:
     int fd_;
 };
-
-#include "lotus-key-command.h"
 
 /**
  * @brief RAII Wrapper for uinput device.

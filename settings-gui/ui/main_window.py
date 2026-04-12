@@ -201,7 +201,6 @@ class LotusSettingsWindow(QMainWindow):
                 self.dbus_handler, category=SettingsCategory.APPEARANCE
             ),
         )
-
         self._add_page(
             _("Backup"),
             "document-save-as",

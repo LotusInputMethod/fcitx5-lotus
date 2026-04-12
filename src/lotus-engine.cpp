@@ -199,9 +199,8 @@ namespace fcitx {
         instance_->inputContextManager().registerProperty("LotusState", &factory_);
         appRulesPath_ = configDir + "/lotus-app-rules.conf";
         loadAppRules();
-        toggleActions_ = {charsetAction_.get(),         spellCheckAction_.get(),       macroAction_.get(),
-                          capitalizeMacroAction_.get(), autoNonVnRestoreAction_.get(), enableDictionaryAction_.get()};
-        toggleActions_.push_back(settingsAction_.get());
+        toggleActions_ = {charsetAction_.get(),          spellCheckAction_.get(),       macroAction_.get(),   capitalizeMacroAction_.get(),
+                          autoNonVnRestoreAction_.get(), enableDictionaryAction_.get(), settingsAction_.get()};
     }
 
     void LotusEngine::initToggleAction(std::unique_ptr<SimpleAction>& action, Option<bool>& option, const std::string& actionId, const std::string& iconName,

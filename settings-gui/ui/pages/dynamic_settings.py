@@ -29,8 +29,6 @@ class SettingsCategory(Enum):
     APPEARANCE = "appearance"
     TYPING = "typing"
     SHORTCUTS = "shortcuts"
-    INTERFACE = "interface"
-
 
 
 # Mapping of settings keys to categories and groups
