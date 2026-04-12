@@ -31,6 +31,7 @@ class SettingsCategory(Enum):
     SHORTCUTS = "shortcuts"
 
 
+
 # Mapping of settings keys to categories and groups
 SETTINGS_MAP = {
     SettingsCategory.GENERAL: {
@@ -56,7 +57,7 @@ SETTINGS_MAP = {
     },
     SettingsCategory.SHORTCUTS: {
         "SHORTCUTS": ["ModeMenuKey"],
-    },
+    }
 }
 
 

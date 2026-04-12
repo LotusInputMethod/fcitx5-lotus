@@ -475,7 +475,7 @@ namespace fcitx {
             pending_commit_string_   = "";
 
             event.filterAndAccept(); // Filter out the final trigger backspace.
-            if (isOSK(ic_) && !ic_->surroundingText().isValid())
+            if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
                 replayBufferedKeys(); // Does we need drop this?
             return true;
         }
@@ -880,7 +880,7 @@ namespace fcitx {
             expected_backspaces_     = 0;
         }
         if (needEngineReset.load() && realMode != LotusMode::Off) {
-            if (isOSK(ic_)) {
+            if (getFrontendName(ic_) == "dbus") {
                 // Ignore mouse-click reset for OSK (dbus)
                 needEngineReset.store(false);
             } else {
@@ -913,7 +913,7 @@ namespace fcitx {
             }
             replacement_thread_id_.store(0, std::memory_order_release);
             replacement_start_ms_.store(0, std::memory_order_release);
-            if (isOSK(ic_) && !ic_->surroundingText().isValid())
+            if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
                 replayBufferedKeys(); // Does we need drop this?
         }
         KeySym currentSym = keyEvent.rawKey().sym();

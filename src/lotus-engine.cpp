@@ -132,6 +132,8 @@ namespace fcitx {
     }
 
     LotusEngine::LotusEngine(Instance* instance) : instance_(instance), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
+        const char* desktop = std::getenv("XDG_CURRENT_DESKTOP");
+        isGnome_            = (desktop != nullptr) && std::string(desktop).find("GNOME") != std::string::npos;
         startMonitoring();
         Init();
         {
@@ -359,7 +361,7 @@ namespace fcitx {
     void LotusEngine::activate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
         auto*                    ic        = event.inputContext();
         const bool               surrvalid = ic->surroundingText().isValid();
-        const bool               is_dbus   = isOSK(ic);
+        const bool               is_dbus   = getFrontendName(ic) == "dbus";
         static std::atomic<bool> mouseThreadStarted{false};
         if (!mouseThreadStarted.exchange(true))
             startMouseReset();
@@ -648,7 +650,7 @@ namespace fcitx {
         auto*      ic              = event.inputContext();
         auto*      state           = ic->propertyFor(&factory_);
         const bool surrvalid       = ic->surroundingText().isValid();
-        const bool is_dbus         = isOSK(ic);
+        const bool is_dbus         = getFrontendName(ic) == "dbus";
         state->lastDeactivateTime_ = now_ms();
         if (realMode == LotusMode::Preedit && event.type() != EventType::InputContextFocusOut) {
             state->commitBuffer();
@@ -969,7 +971,7 @@ namespace fcitx {
         switch (realMode) {
             case LotusMode::Off: return _("Lotus - Off");
             case LotusMode::Emoji: return "😄";
-            default: return "🪷";
+            default: return isGnome_ ? "vi" : "🪷";
         }
     }
 
