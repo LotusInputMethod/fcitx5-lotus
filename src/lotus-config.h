@@ -123,13 +123,6 @@ namespace fcitx {
         Everywhere = 2,
     };
 
-    struct FcitxBambooEngineOption {
-        bool freeMarking;
-        bool modernStyle;
-        bool autoCorrect;
-        int  w2u;
-    };
-
     inline std::string w2uEnumToString(W2UMode mode) {
         switch (mode) {
             case W2UMode::Disabled: return "Disabled";
