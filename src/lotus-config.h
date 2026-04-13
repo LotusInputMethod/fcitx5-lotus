@@ -117,6 +117,44 @@ namespace fcitx {
     /**
      * @brief Annotation for input method selection with sub-config support.
      */
+    enum class W2UMode {
+        Disabled   = 0,
+        MiddleOnly = 1,
+        Everywhere = 2,
+    };
+
+    struct FcitxBambooEngineOption {
+        bool freeMarking;
+        bool modernStyle;
+        bool autoCorrect;
+        int  w2u;
+    };
+
+    inline std::string w2uEnumToString(int mode) {
+        switch (mode) {
+            case 0: return "Disabled";
+            case 1: return "Middle-Only";
+            case 2: return "Everywhere";
+            default: return "Disabled";
+        }
+    }
+
+    inline int w2uStringToEnum(const std::string& mode) {
+        if (mode == "Disabled")
+            return 0;
+        if (mode == "Middle-Only")
+            return 1;
+        if (mode == "Everywhere")
+            return 2;
+        return 0;
+    }
+
+    struct W2UAnnotation : public StringListAnnotation {
+        W2UAnnotation() {
+            list_ = {_("Disabled"), _("Middle-Only"), _("Everywhere")};
+        }
+    };
+
     struct InputMethodAnnotation : public StringListAnnotation {
         /**
          * @brief Dumps description with sub-config paths.
@@ -234,16 +272,17 @@ namespace fcitx {
         Option<bool> spellCheck{this, "SpellCheck", _("Enable Spell Check"), true}; Option<bool> enableMacro{this, "EnableMacro", _("Enable Macro"), true};
         Option<bool> capitalizeMacro{this, "CapitalizeMacro", _("Capitalize Macro"), true}; Option<bool> autoCapitalizeAfterPunctuation{
             this, "AutoCapitalizeAfterPunctuation", _("Auto capitalize after sentence-ending punctuation (. ! ? Enter) (experimental)"), false};
-        Option<bool> doubleSpaceToPeriod{this, "DoubleSpaceToPeriod", _("Double Space to Period (experimental)"), false};
-        Option<bool> w2u{this, "W2U", _("Type w to Produce ư"), true}; Option<bool> autoNonVnRestore{this, "AutoNonVnRestore", _("Auto Restore Keys With Invalid Words"), true};
-        Option<bool>                                                                modernStyle{this, "ModernStyle", _("Use oà, uý (Instead Of òa, úy)"), true};
-        Option<bool>                                                                freeMarking{this, "FreeMarking", _("Allow Type With More Freedom"), true};
-        Option<bool> ddFreeStyle{this, "DdFreeStyle", _("Allow dd To Produce đ When Auto Restore Keys With Invalid Words Is On"), true};
-        Option<bool> fixUinputWithAck{this, "FixUinputWithAck", _("Fix Uinput Mode With Ack"), false};
-        Option<bool> useLotusIcons{this, "UseLotusIcons", _("Use Lotus Status Icons"), false};
+        Option<bool>                                     doubleSpaceToPeriod{this, "DoubleSpaceToPeriod", _("Double Space to Period (experimental)"), false};
+        OptionWithAnnotation<std::string, W2UAnnotation> w2u{this, "W2U", _("Type w to Produce ư"), "Disabled", {}, {}, W2UAnnotation()};
+        Option<bool>                                     autoNonVnRestore{this, "AutoNonVnRestore", _("Auto Restore Keys With Invalid Words"), true};
+        Option<bool>                                     modernStyle{this, "ModernStyle", _("Use oà, uý (Instead Of òa, úy)"), true};
+        Option<bool>                                     freeMarking{this, "FreeMarking", _("Allow Type With More Freedom"), true};
+        Option<bool>                                     ddFreeStyle{this, "DdFreeStyle", _("Allow dd To Produce đ When Auto Restore Keys With Invalid Words Is On"), true};
+        Option<bool>                                     fixUinputWithAck{this, "FixUinputWithAck", _("Fix Uinput Mode With Ack"), false};
+        Option<bool>                                     useLotusIcons{this, "UseLotusIcons", _("Use Lotus Status Icons"), false};
 
-        Option<bool> enableDictionary{this, "EnableDictionary", _("Enable Custom Dictionary"), false};
-        Option<bool> enableCustomKeymap{this, "EnableCustomKeymap", _("Enable Custom Keymap"), false};
+        Option<bool>                                     enableDictionary{this, "EnableDictionary", _("Enable Custom Dictionary"), false};
+        Option<bool>                                     enableCustomKeymap{this, "EnableCustomKeymap", _("Enable Custom Keymap"), false};
 
         Option<bool> showModeSmooth{this, "ShowModeSmooth", _("Show Uinput (Smooth)"), true}; Option<bool> showModeUinput{this, "ShowModeUinput", _("Show Uinput (Slow)"), true};
         Option<bool>                                                                                       showModeMinecraft{this, "ShowModeMinecraft", _("Show Minecraft"), true};

@@ -20,7 +20,7 @@ import (
 			const char *outputCharset;
 			bool modernStyle;
 			bool freeMarking;
-			bool w2u;
+			int w2u;
 			const char *timeFormat;
 			const char *dateFormat;
 		} FcitxBambooEngineOption;
@@ -117,12 +117,13 @@ func EngineSetOption(engine uintptr, option *C.FcitxBambooEngineOption) {
 		flags &= ^bamboo.EfreeToneMarking
 	}
 
-	if bool(option.w2u) {
+	if int(option.w2u) != 0 {
 		flags |= bamboo.Ew2uEnabled
 	} else {
 		flags &= ^bamboo.Ew2uEnabled
 	}
 	bambooEngine.preeditor.SetFlag(flags)
+	bambooEngine.preeditor.SetW2UMode(int(option.w2u))
 	bambooEngine.timeFormat = C.GoString(option.timeFormat)
 	bambooEngine.dateFormat = C.GoString(option.dateFormat)
 }
