@@ -126,7 +126,7 @@ namespace fcitx {
     inline std::string w2uEnumToString(W2UMode mode) {
         switch (mode) {
             case W2UMode::Disabled: return "Disabled";
-            case W2UMode::MiddleOnly: return "Middle-Only";
+            case W2UMode::MiddleOnly: return "Non-Start";
             case W2UMode::Everywhere: return "Everywhere";
             default: return "Disabled";
         }
@@ -135,7 +135,7 @@ namespace fcitx {
     inline int w2uStringToEnum(const std::string& mode) {
         if (mode == "Disabled")
             return 0;
-        if (mode == "Middle-Only")
+        if (mode == "Non-Start")
             return 1;
         if (mode == "Everywhere")
             return 2;
@@ -144,7 +144,7 @@ namespace fcitx {
 
     struct W2UAnnotation : public StringListAnnotation {
         W2UAnnotation() {
-            list_ = {"Disabled", "Middle-Only", "Everywhere"};
+            list_ = {"Disabled", "Non-Start", "Everywhere"};
         }
     };
 
