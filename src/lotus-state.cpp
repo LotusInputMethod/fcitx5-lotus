@@ -119,7 +119,7 @@ namespace fcitx {
             return;
         }
 
-        LotusKeyCommand cmd{LotusKeyCommandType::BackspaceCount, static_cast<uint32_t>(count), 0};
+        LotusKeyCommand cmd{0x4C545553, LotusKeyCommandType::BackspaceCount, static_cast<uint32_t>(count), 0};
         ssize_t         n = send(uinput_client_fd_, &cmd, sizeof(cmd), MSG_NOSIGNAL);
 
         if (n < 0) {

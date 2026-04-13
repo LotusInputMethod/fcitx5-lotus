@@ -42,6 +42,11 @@ namespace fcitx {
     const std::string     CustomKeymapFile    = "conf/lotus-custom-keymap.conf";
     const std::string     MacroTableFile      = "conf/lotus-macro-table.conf";
 
+    // OSK Constants
+    constexpr uint64_t OSK_CLICK_SYNC_THRESHOLD_MS = 100;
+    constexpr uint64_t OSK_HIDE_DELAY_MS           = 500;
+    constexpr uint64_t KWIN_SCRIPT_UNLOAD_DELAY_MS = 2000;
+
     // Returns the KeySym that triggers the "Type hotkey char" action in the mode
     // menu.  If the hotkey itself conflicts with a reserved menu key, falls back
     // to FcitxKey_f.
@@ -366,6 +371,7 @@ namespace fcitx {
         if (!mouseThreadStarted.exchange(true))
             startMouseReset();
 
+        resetMouseClickState();
         cancelOSKHideTimer();
 
         auto& statusArea = event.inputContext()->statusArea();
@@ -422,7 +428,7 @@ namespace fcitx {
         }
         if (event.type() == EventType::InputContextFocusIn && is_dbus && !surrvalid) {
             LOTUS_INFO("Skip clearAllBuffers");
-        } else if (!oskVisible_ && surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100) {
+        } else if (!oskVisible_ && surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < static_cast<int64_t>(OSK_CLICK_SYNC_THRESHOLD_MS)) {
             state->clearAllBuffers();
         }
         is_deleting_.store(false);
@@ -635,9 +641,9 @@ namespace fcitx {
 
     void LotusEngine::deactivate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
         // Grace period to avoid hiding OSK immediately after it took focus
-        if (now_ms() - lastOskTriggerTime_ > 2000) {
+        if (now_ms() - lastOskTriggerTime_ > KWIN_SCRIPT_UNLOAD_DELAY_MS) {
             if (!oskHideTimer_) {
-                oskHideTimer_ = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 500000, 0, [this](fcitx::EventSourceTime*, uint64_t) {
+                oskHideTimer_ = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + OSK_HIDE_DELAY_MS * 1000, 0, [this](fcitx::EventSourceTime*, uint64_t) {
                     triggerOSK(false);
                     cancelOSKHideTimer();
                     return false;
@@ -990,8 +996,7 @@ namespace fcitx {
         return programName;
     }
 
-    void LotusEngine::triggerOSK(bool show) {
-        // Synchronize state if a mouse click occurred elsewhere (OSK likely hidden)
+    void LotusEngine::resetMouseClickState() {
         if (g_mouse_clicked.load(std::memory_order_acquire)) {
             if (oskVisible_) {
                 oskVisible_ = false;
@@ -999,6 +1004,10 @@ namespace fcitx {
             }
             g_mouse_clicked.store(false, std::memory_order_release);
         }
+    }
+
+    void LotusEngine::triggerOSK(bool show) {
+        resetMouseClickState();
 
         if (show == oskVisible_)
             return;
@@ -1015,10 +1024,15 @@ namespace fcitx {
     void LotusEngine::callOSKDBus(const std::string& method) {
         LOTUS_INFO("OSK D-Bus: " << method);
         try {
-            dbus::Bus     bus(dbus::BusType::Session);
-            dbus::Message msg = bus.createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", method.c_str());
+            if (!oskBus_) {
+                oskBus_ = std::make_unique<dbus::Bus>(dbus::BusType::Session);
+            }
+            dbus::Message msg = oskBus_->createMethodCall("app.lotus.Osk", "/app/lotus/Osk/Controller", "app.lotus.Osk.Controller1", method.c_str());
             msg.send();
-        } catch (const std::exception& e) { LOTUS_ERROR("D-Bus error (" << method << "): " << e.what()); }
+        } catch (const std::exception& e) {
+            LOTUS_ERROR("D-Bus error (" << method << "): " << e.what());
+            oskBus_.reset(); // Reconnect on next call
+        }
     }
 
     void LotusEngine::cancelOSKHideTimer() {

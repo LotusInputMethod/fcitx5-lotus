@@ -26,6 +26,8 @@
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/instance.h>
 #include <fcitx-utils/event.h>
+#include <fcitx-utils/dbus/bus.h>
+#include <memory>
 
 namespace fcitx {
 
@@ -224,9 +226,10 @@ namespace fcitx {
         bool                                    isGnome_ = false;
         mutable std::mutex                      appRulesMutex_;
         std::unordered_map<KeySym, LotusMode>   modeMenuMapping_;
-        uint64_t                                lastOskTriggerTime_ = 0;
         bool                                    oskVisible_         = false;
-        std::unique_ptr<fcitx::EventSourceTime> oskHideTimer_;
+        std::unique_ptr<fcitx::EventSourceTime> oskHideTimer_       = nullptr;
+        std::unique_ptr<dbus::Bus>              oskBus_             = nullptr;
+        uint64_t                                lastOskTriggerTime_ = 0;
 
         /**
          * @brief Refreshes the bamboo engine with current settings.
@@ -342,6 +345,7 @@ namespace fcitx {
 
         void callOSKDBus(const std::string& method);
         void cancelOSKHideTimer();
+        void resetMouseClickState();
     };
 
     /**

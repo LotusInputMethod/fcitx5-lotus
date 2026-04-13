@@ -9,6 +9,7 @@
 
 #include "lotus-server.h"
 #include "lotus-logger.h"
+#include "lotus-server-config.h"
 
 #include <cstring>
 #include <vector>
@@ -160,12 +161,14 @@ static bool authorize_client(int client_fd, const char* expected_exe, uid_t expe
 
     char path[64], exe_path[PATH_MAX] = {0};
     snprintf(path, sizeof(path), "/proc/%d/exe", cred.pid);
-    if (readlink(path, exe_path, sizeof(exe_path) - 1) == -1) {
+    ssize_t r = readlink(path, exe_path, sizeof(exe_path) - 1);
+    if (r == -1) {
         return false;
     }
+    exe_path[r] = '\0'; // Explicit null-termination
 
     if (strcmp(exe_path, expected_exe) != 0) {
-        LotusLogger::instance().warn("Unauthorized process: " + std::string(exe_path));
+        LotusLogger::instance().warn("Unauthorized process: " + std::string(exe_path) + " (expected: " + std::string(expected_exe) + ")");
         return false;
     }
 
@@ -235,7 +238,7 @@ static int setup_socket(const std::string& path) {
     addr.sun_path[0] = '\0';
     memcpy(&addr.sun_path[1], path.c_str(), path.length());
     socklen_t len = offsetof(struct sockaddr_un, sun_path) + path.length() + 1;
-    if (bind(fd, (struct sockaddr*)&addr, len) < 0 || listen(fd, 10) < 0) {
+    if (bind(fd, (struct sockaddr*)&addr, len) < 0 || listen(fd, 2) < 0) {
         close(fd);
         return -1;
     }
@@ -392,6 +395,10 @@ int main(int argc, char* argv[]) {
                 kb_client_fd.reset(-1);
                 fds[KB_CLIENT_INDEX].fd = -1;
             } else if (static_cast<size_t>(n) == sizeof(cmd)) {
+                if (cmd.magic != 0x4C545553) {
+                    LotusLogger::instance().warn("Magic number mismatch from KB client");
+                    continue;
+                }
                 if (cmd.type == LotusKeyCommandType::BackspaceCount) { // Backspace count
                     pending_backspaces += cmd.code - 1;
                     uinput.send_backspace();
@@ -409,6 +416,10 @@ int main(int argc, char* argv[]) {
                 fds[OSK_CLIENT_INDEX].fd = -1;
                 osk_active               = false; // Reset state on disconnect
             } else if (static_cast<size_t>(n) == sizeof(cmd)) {
+                if (cmd.magic != 0x4C545553) {
+                    LotusLogger::instance().warn("Magic number mismatch from OSK client");
+                    continue;
+                }
                 if (cmd.type == LotusKeyCommandType::KeyEvent) { // Universal key from OSK
                     uinput.send_key(cmd.code, cmd.value);
                 } else if (cmd.type == LotusKeyCommandType::OskShow) { // OSK Show
