@@ -117,29 +117,30 @@ namespace fcitx {
     /**
      * @brief Annotation for input method selection with sub-config support.
      */
-    enum class W2UMode {
+    enum class W2UMode : std::uint8_t {
         Disabled   = 0,
-        MiddleOnly = 1,
+        NonStart   = 1,
         Everywhere = 2,
     };
 
     inline std::string w2uEnumToString(W2UMode mode) {
         switch (mode) {
             case W2UMode::Disabled: return "Disabled";
-            case W2UMode::MiddleOnly: return "Non-Start";
+            case W2UMode::NonStart: return "Non-Start";
             case W2UMode::Everywhere: return "Everywhere";
             default: return "Disabled";
         }
     }
 
     inline int w2uStringToEnum(const std::string& mode) {
+        W2UMode modeEnum = W2UMode::Disabled;
         if (mode == "Disabled")
-            return 0;
+            modeEnum = W2UMode::Disabled;
         if (mode == "Non-Start")
-            return 1;
+            modeEnum = W2UMode::NonStart;
         if (mode == "Everywhere")
-            return 2;
-        return 0;
+            modeEnum = W2UMode::Everywhere;
+        return static_cast<int>(modeEnum);
     }
 
     struct W2UAnnotation : public StringListAnnotation {
