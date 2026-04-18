@@ -10,7 +10,7 @@ convert keysyms to Unicode, and mathematically handle Shift modifiers.
 import ctypes
 import ctypes.util
 from qtpy.QtWidgets import QPushButton, QLabel, QHBoxLayout
-from qtpy.QtGui import QKeySequence
+from qtpy.QtGui import QKeySequence, QIcon
 from qtpy.QtCore import Qt, Signal, QEvent
 from i18n import _
 
@@ -146,6 +146,23 @@ class KeyCap(QLabel):
         super().__init__(text, parent)
         self.setAlignment(Qt.AlignCenter)
         self.setObjectName("KeyCap")
+
+
+class HelpIcon(QLabel):
+    """A reusable help icon with a tooltip."""
+
+    def __init__(self, text="", parent=None):
+        super().__init__(parent)
+        # Try symbolic icon first for monochrome look, fall back to standard
+        icon = QIcon.fromTheme("help-about-symbolic")
+        if icon.isNull():
+            icon = QIcon.fromTheme("help-about")
+        
+        self.setPixmap(icon.pixmap(32, 32))
+        self.setScaledContents(True)
+        if text:
+            self.setToolTip(text)
+        self.setFixedSize(16, 16)
 
 
 class HotkeyCaptureWidget(QPushButton):

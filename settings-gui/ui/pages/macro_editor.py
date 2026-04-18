@@ -28,6 +28,7 @@ from i18n import _
 from core.dbus_handler import LotusDBusHandler
 from ui.pages.base_editor import BaseEditorPage
 from ui.pages.dynamic_settings import CardWidget
+from ui.helpers import HELPERS, add_help_icon
 
 
 class MacroEditorPage(BaseEditorPage):
@@ -60,17 +61,13 @@ class MacroEditorPage(BaseEditorPage):
         self.cb_capitalize = QCheckBox(_("Capitalize Macro"))
         self.cb_enable.toggled.connect(self._on_item_changed)
         self.cb_capitalize.toggled.connect(self._on_item_changed)
+        toggles_layout.addWidget(self.cb_enable)
         
         cap_layout = QHBoxLayout()
         cap_layout.setSpacing(5)
         cap_layout.addWidget(self.cb_capitalize)
+        add_help_icon(cap_layout, "CapitalizeMacro")
         
-        help_icon = QLabel()
-        help_icon.setPixmap(QIcon.fromTheme("help-about").pixmap(16, 16))
-        help_icon.setToolTip(_("Automatically match expansion case to trigger key case:<br>- 'kg' → 'khô gà' (all lowercase)<br>- 'KG' → 'KHÔ GÀ' (all uppercase)<br>- 'Kg' → 'khô gà' (original macro case)"))
-        cap_layout.addWidget(help_icon)
-        
-        toggles_layout.addWidget(self.cb_enable)
         toggles_layout.addLayout(cap_layout)
         toggles_layout.addStretch()
 
@@ -228,6 +225,7 @@ class MacroEditorPage(BaseEditorPage):
                 self.cb_capitalize.setChecked(
                     str(values.get("CapitalizeMacro", "True")).lower() == "true"
                 )
+
                 # Set time format (default %H:%M)
                 time_fmt = values.get("TimeFormat", "%H:%M")
                 index = self.input_time_format.findData(time_fmt)

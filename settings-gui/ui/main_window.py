@@ -296,7 +296,7 @@ class LotusSettingsWindow(QMainWindow):
     def _setup_window_size(self):
         screen = QApplication.primaryScreen().availableGeometry()
         w = int(screen.width() * 0.45)
-        h = int(screen.height() * 0.55)
+        h = int(screen.height() * 0.60)
         self.setMinimumSize(750, 500)
         self.resize(w, h)
         self.move((screen.width() - w) // 2, (screen.height() - h) // 2)

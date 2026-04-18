@@ -13,12 +13,10 @@ from qtpy.QtWidgets import (
     QLabel,
     QScrollArea,
     QFrame,
-    QRadioButton,
     QComboBox,
-    QButtonGroup,
-    QGridLayout,
 )
-from ui.components import HotkeyCaptureWidget
+from ui.components import HotkeyCaptureWidget, HelpIcon
+from ui.helpers import HELPERS, add_help_icon
 from core.dbus_handler import LotusDBusHandler
 from enum import Enum
 from i18n import _
@@ -224,7 +222,9 @@ class DynamicSettingsPage(QWidget):
             return
 
         row_layout = QHBoxLayout()
-        row_layout.addWidget(QLabel(_(label)))
+        label_widget = QLabel(_(label))
+        row_layout.addWidget(label_widget)
+        add_help_icon(row_layout, key)
         row_layout.addStretch()
 
         combo = QComboBox()
@@ -252,6 +252,8 @@ class DynamicSettingsPage(QWidget):
         key, type_str, label, default, annotations = item
         val = self.current_values.get(key, default)
 
+        row_layout = QHBoxLayout()
+        row_layout.setContentsMargins(0, 0, 0, 0)
         cb = QCheckBox(_(label))
         is_checked = str(val).lower() == "true"
         cb.setChecked(is_checked)
@@ -259,7 +261,10 @@ class DynamicSettingsPage(QWidget):
         cb.toggled.connect(
             lambda checked, k=key: self.update_config(k, "True" if checked else "False")
         )
-        layout.addWidget(cb)
+        row_layout.addWidget(cb)
+        add_help_icon(row_layout, key)
+        row_layout.addStretch()
+        layout.addLayout(row_layout)
 
     def load_data(self):
         """Standardized reload method (alias for load_config)."""
