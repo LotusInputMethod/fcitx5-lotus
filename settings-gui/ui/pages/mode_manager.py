@@ -130,7 +130,7 @@ class AddAppDialog(QDialog):
 
         header_title = QLabel(_("Add Application"))
         header_title.setStyleSheet("font-size: 18px; font-weight: bold;")
-        header_subtitle = QLabel(_("Assign a specific input mode to an application"))
+        header_subtitle = QLabel(_("Assign an input mode to a specific application."))
         header_subtitle.setStyleSheet("opacity: 0.7;")
 
         layout.addWidget(header_title)
@@ -654,7 +654,7 @@ class ModeManagerPage(QWidget):
             
         reply = QMessageBox.question(
             self, _("Confirm Remove"),
-            _("Are you sure you want to remove rules for this application?"),
+            _("Remove rules for this application?"),
             QMessageBox.Yes | QMessageBox.No
         )
         if reply == QMessageBox.No:

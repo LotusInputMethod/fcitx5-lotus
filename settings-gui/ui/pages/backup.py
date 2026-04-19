@@ -58,7 +58,7 @@ class BackupPage(QWidget):
 
         self.import_desc = QLabel(
             _(
-                "Save or restore your configurations via JSON files. Select the components you wish to include:"
+                "Save or restore configuration via JSON files. Select components to include:"
             )
         )
         self.import_desc.setWordWrap(True)
@@ -129,7 +129,7 @@ class BackupPage(QWidget):
         selected = {k: cb.isChecked() for k, cb in self.checkboxes.items()}
         if not any(selected.values()):
             QMessageBox.warning(
-                self, _("Warning"), _("Please select at least one item to export.")
+                self, _("Warning"), _("Select at least one item to export.")
             )
             return
 
@@ -180,7 +180,7 @@ class BackupPage(QWidget):
                 json.dump(backup, f, indent=2, ensure_ascii=False)
 
             QMessageBox.information(
-                self, _("Success"), _("Backup exported successfully to:\n") + path
+                self, _("Success"), _("Backup exported to:\n") + path
             )
 
         except Exception as e:
@@ -252,7 +252,7 @@ class BackupPage(QWidget):
         ]
         if not selected_keys:
             QMessageBox.warning(
-                self, _("Warning"), _("Please select at least one item to restore.")
+                self, _("Warning"), _("Select at least one item to restore.")
             )
             return
 
@@ -260,7 +260,7 @@ class BackupPage(QWidget):
             self,
             _("Confirm Restore"),
             _(
-                "Are you sure you want to restore the selected components? This will overwrite your current configuration."
+                "Are you sure you want to restore selected components? This will overwrite current configuration."
             ),
             QMessageBox.Yes | QMessageBox.No,
         )
@@ -295,7 +295,7 @@ class BackupPage(QWidget):
                 self,
                 _("Success"),
                 _(
-                    "Selected components restored successfully. Some changes may require restarting Fcitx5."
+                    "Selected components restored. Fcitx5 restart may be required for some changes."
                 ),
             )
 

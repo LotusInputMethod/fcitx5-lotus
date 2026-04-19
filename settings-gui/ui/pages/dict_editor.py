@@ -68,7 +68,7 @@ class DictEditorPage(BaseEditorPage):
         title.setObjectName("CategoryTitle")
         main_layout.addWidget(title)
         
-        explanation = QLabel(_("Words in the custom dictionary will be protected from 'Auto Restore Invalid Words'. Use this for names, technical terms, or words not yet in the standard dictionary."))
+        explanation = QLabel(_("Words in the custom dictionary will be excluded from 'Auto Restore Invalid Words'. Use this for names, technical terms, or words not yet in the built-in dictionary."))
         explanation.setWordWrap(True)
         explanation.setStyleSheet("color: gray; font-size: 13px;")
         main_layout.addWidget(explanation)

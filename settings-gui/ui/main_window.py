@@ -221,7 +221,7 @@ class LotusSettingsWindow(QMainWindow):
         reply = QMessageBox.question(
             self,
             _("Confirm Reset"),
-            _("Are you sure you want to restore all settings to their default values?"),
+            _("Restore all settings to defaults?"),
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.Yes:
@@ -257,7 +257,7 @@ class LotusSettingsWindow(QMainWindow):
             from qtpy.QtWidgets import QMessageBox
 
             QMessageBox.information(
-                self, _("Success"), _("All settings applied successfully.")
+                self, _("Success"), _("Settings saved.")
             )
 
     def on_ok(self):

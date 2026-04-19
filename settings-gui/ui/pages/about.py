@@ -76,7 +76,7 @@ class AboutPage(QWidget):
         """)
         layout.addWidget(version, alignment=Qt.AlignCenter)
 
-        desc = QLabel(_("A state-of-the-art Vietnamese input method engine for Linux, designed for speed, stability, and a premium user experience."))
+        desc = QLabel(_("Modern, fast, and stable Vietnamese input method for Linux."))
         desc.setWordWrap(True)
         desc.setAlignment(Qt.AlignCenter)
         desc.setObjectName("AboutDescription")
@@ -120,7 +120,7 @@ class AboutPage(QWidget):
         layout.addWidget(line)
 
         # Credits Section
-        credits_title = QLabel(_("DEVELOPED BY"))
+        credits_title = QLabel(_("Developed by"))
         credits_title.setObjectName("CreditsTitle")
         layout.addWidget(credits_title, alignment=Qt.AlignCenter)
 
@@ -203,6 +203,6 @@ class AboutPage(QWidget):
                 
                 log_output_file.write("\n\n--- End of Log ---\n")
 
-            QMessageBox.information(self, _("Success"), _("Debug logs exported successfully to:\n") + export_filename)
+            QMessageBox.information(self, _("Success"), _("Debug logs exported to:\n") + export_filename)
         except Exception as export_ex:
             QMessageBox.critical(self, _("Error"), _("Failed to export logs:\n") + str(export_ex))
