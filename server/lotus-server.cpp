@@ -61,7 +61,6 @@ bool UinputDevice::initialize() {
     usetup.id.vendor  = 0x1234;
     usetup.id.product = 0x5678;
     strncpy(usetup.name, "Lotus-Uinput-Server", UINPUT_MAX_NAME_SIZE - 1);
-    usetup.name[UINPUT_MAX_NAME_SIZE - 1] = '\0';
 
     if (ioctl(fd, UI_DEV_SETUP, &usetup) < 0 || ioctl(fd, UI_DEV_CREATE) < 0) {
         return false;
