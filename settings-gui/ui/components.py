@@ -237,7 +237,14 @@ class HotkeyCaptureWidget(QPushButton):
                 self.main_layout.addWidget(lbl)
         elif not self.current_key:
             lbl = QLabel(_("None"))
-            lbl.setStyleSheet("color: palette(window-text); opacity: 0.6;")
+            lbl.setStyleSheet("color: palette(window-text);")
+            try:
+                from qtpy.QtWidgets import QGraphicsOpacityEffect
+                opacity_effect = QGraphicsOpacityEffect(lbl)
+                opacity_effect.setOpacity(0.6)
+                lbl.setGraphicsEffect(opacity_effect)
+            except ImportError:
+                pass
             self.main_layout.addWidget(lbl)
         else:
             parts = pretty_format_hotkey_parts(self.current_key)

@@ -203,7 +203,7 @@ class DynamicSettingsPage(QWidget):
 
         display_label = _(label)
         if key == "ModeMenuKey":
-            display_label += " " + _("(press Backspace to None)")
+            display_label += " " + _("(press Backspace or Delete to clear)")
 
         row_layout = QHBoxLayout()
         row_layout.addWidget(QLabel(display_label))
