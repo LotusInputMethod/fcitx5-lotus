@@ -65,6 +65,9 @@ const (
 
 func determineMacroCase(str string) uint8 {
 	var chars = []rune(str)
+	if len(chars) == 0 {
+		return VnCaseNoChange
+	}
 	if unicode.IsLower(chars[0]) {
 		return VnCaseAllSmall
 	} else {
