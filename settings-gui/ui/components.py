@@ -237,7 +237,7 @@ class HotkeyCaptureWidget(QPushButton):
                 self.main_layout.addWidget(lbl)
         elif not self.current_key:
             lbl = QLabel(_("None"))
-            lbl.setStyleSheet("color: palette(mid);")
+            lbl.setStyleSheet("color: palette(window-text); opacity: 0.6;")
             self.main_layout.addWidget(lbl)
         else:
             parts = pretty_format_hotkey_parts(self.current_key)
@@ -254,6 +254,13 @@ class HotkeyCaptureWidget(QPushButton):
     def _handle_key_event(self, event):
         """Internal helper to process captured keys."""
         key_code = event.key()
+
+        # Backspace or Delete (without modifiers) clears the hotkey
+        if key_code in (Qt.Key_Backspace, Qt.Key_Delete) and not event.modifiers():
+            self.current_key = ""
+            self.setChecked(False)
+            self.textChanged.emit(self.current_key)
+            return
 
         # Escape cancels the recording
         if key_code == Qt.Key_Escape:

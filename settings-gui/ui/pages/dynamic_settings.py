@@ -201,8 +201,12 @@ class DynamicSettingsPage(QWidget):
 
         hotkey_str = val.get("0", "") if isinstance(val, dict) else ""
 
+        display_label = _(label)
+        if key == "ModeMenuKey":
+            display_label += " " + _("(press Backspace to None)")
+
         row_layout = QHBoxLayout()
-        row_layout.addWidget(QLabel(_(label)))
+        row_layout.addWidget(QLabel(display_label))
         row_layout.addStretch()
 
         hk_btn = HotkeyCaptureWidget(hotkey_str)
