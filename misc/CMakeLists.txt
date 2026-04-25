@@ -1,4 +1,10 @@
-option(INSTALL_OPENRC "Install OpenRC script" On)
+find_program(OPENRC_EXECUTABLE openrc)
+if(OPENRC_EXECUTABLE)
+    set(INSTALL_OPENRC_DEFAULT ON)
+else()
+    set(INSTALL_OPENRC_DEFAULT OFF)
+endif()
+option(INSTALL_OPENRC "Install OpenRC script" ${INSTALL_OPENRC_DEFAULT})
 install(FILES fcitx5-lotus-server@.service
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
 
