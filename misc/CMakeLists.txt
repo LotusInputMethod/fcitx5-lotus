@@ -1,4 +1,5 @@
 find_program(OPENRC_EXECUTABLE openrc)
+mark_as_advanced(OPENRC_EXECUTABLE)
 if(OPENRC_EXECUTABLE)
     set(INSTALL_OPENRC_DEFAULT ON)
 else()
