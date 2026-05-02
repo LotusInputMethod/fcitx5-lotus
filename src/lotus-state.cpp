@@ -72,6 +72,7 @@ namespace fcitx {
             .modernStyle         = *engine_->config().modernStyle,
             .freeMarking         = *engine_->config().freeMarking,
             .w2u                 = static_cast<int>(*engine_->config().w2u),
+            .bracketTransform    = *engine_->config().bracketTransform,
             .timeFormat          = engine_->config().timeFormat->data(),
             .dateFormat          = engine_->config().dateFormat->data(),
         };
