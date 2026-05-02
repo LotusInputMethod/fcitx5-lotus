@@ -21,6 +21,7 @@ import (
 			bool modernStyle;
 			bool freeMarking;
 			int w2u;
+			int bracketTransform;
 			const char *timeFormat;
 			const char *dateFormat;
 		} FcitxBambooEngineOption;
@@ -122,8 +123,15 @@ func EngineSetOption(engine uintptr, option *C.FcitxBambooEngineOption) {
 	} else {
 		flags &= ^bamboo.Ew2uEnabled
 	}
+
+	if int(option.bracketTransform) != 0 {
+		flags |= bamboo.EbracketTransformEnabled
+	} else {
+		flags &= ^bamboo.EbracketTransformEnabled
+	}
 	bambooEngine.preeditor.SetFlag(flags)
 	bambooEngine.preeditor.SetW2UMode(int(option.w2u))
+	bambooEngine.preeditor.SetBracketTransformMode(int(option.bracketTransform))
 	bambooEngine.timeFormat = C.GoString(option.timeFormat)
 	bambooEngine.dateFormat = C.GoString(option.dateFormat)
 }
@@ -270,12 +278,11 @@ func GetInputMethodNames() **C.char {
 	order := map[string]int{
 		"Telex":                   0,
 		"VNI":                     1,
-		"Telex 2":                 2,
-		"Telex + VNI":             3,
-		"Telex + VNI + VIQR":      4,
-		"VIQR":                    5,
-		"Microsoft layout":        6,
-		"VNI Bàn phím tiếng Pháp": 7,
+		"Telex + VNI":             2,
+		"Telex + VNI + VIQR":      3,
+		"VIQR":                    4,
+		"Microsoft layout":        5,
+		"VNI Bàn phím tiếng Pháp": 6,
 	}
 	names := make([]string, len(bamboo.InputMethodDefinitions))
 	i := 0

@@ -76,7 +76,7 @@ class DictEditorPage(BaseEditorPage):
         # Dictionary behavior toggles
         toggles_card = CardWidget("")
         toggles_layout = QHBoxLayout()
-        self.cb_enable = QCheckBox(_("Enable Custom Dictionary"))
+        self.cb_enable = QCheckBox(_("Custom Dictionary"))
         self.cb_enable.toggled.connect(self._on_item_changed)
         toggles_layout.addWidget(self.cb_enable)
         toggles_layout.addStretch()

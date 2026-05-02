@@ -51,7 +51,7 @@ SETTINGS_MAP = {
     },
     SettingsCategory.TYPING: {
         "SPELLING & CORRECTIONS": ["SpellCheck", "AutoNonVnRestore", "DdFreeStyle"],
-        "TYPING OPTIONS": ["W2U", "ModernStyle", "FreeMarking", "FixUinputWithAck", "DoubleSpaceToPeriod", "AutoCapitalizeAfterPunctuation"],
+        "TYPING OPTIONS": ["W2U", "BracketTransform", "ModernStyle", "FreeMarking", "FixUinputWithAck", "DoubleSpaceToPeriod", "AutoCapitalizeAfterPunctuation"],
     },
     SettingsCategory.SHORTCUTS: {
         "SHORTCUTS": ["ModeMenuKey"],

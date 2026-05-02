@@ -118,27 +118,6 @@ PRESETS = {
         ("$", "_Ô"),
         ("0", "__đ"),
         (")", "_Đ"),
-        ("[", "__ư"),
-        ("{", "_Ư"),
-        ("]", "__ơ"),
-        ("}", "_Ơ"),
-    ],
-    "Telex 2": [
-        ("z", "XoaDauThanh"),
-        ("s", "DauSac"),
-        ("f", "DauHuyen"),
-        ("r", "DauHoi"),
-        ("x", "DauNga"),
-        ("j", "DauNang"),
-        ("a", "A_Â"),
-        ("e", "E_Ê"),
-        ("o", "O_Ô"),
-        ("w", "UOA_ƯƠĂ__Ư"),
-        ("d", "D_Đ"),
-        ("]", "__ư"),
-        ("[", "__ơ"),
-        ("}", "_Ư"),
-        ("{", "_Ơ"),
     ],
     "Telex + VNI": [
         ("z", "XoaDauThanh"),
@@ -249,7 +228,7 @@ class KeymapEditorPage(BaseEditorPage):
         
         # Row 1: Enable checkbox and Search
         top_row = QHBoxLayout()
-        self.cb_enable = QCheckBox(_("Enable Custom Keymap"))
+        self.cb_enable = QCheckBox(_("Custom Keymap"))
         self.cb_enable.toggled.connect(self._on_item_changed)
         top_row.addWidget(self.cb_enable)
         top_row.addStretch()
