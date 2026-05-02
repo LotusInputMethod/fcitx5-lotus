@@ -56,8 +56,6 @@ namespace fcitx {
     FCITX_CONFIG_ENUM_NAME_WITH_I18N(W2UMode, N_("Disabled"), N_("Non-Start"), N_("Everywhere"));
 
     /**
-     * @brief Bracket transform mode for [ -> ơ, ] -> ư conversion.
-     */
     enum class BracketTransformMode : std::uint8_t {
         Disabled   =0,
         NonStart   = 1,
@@ -211,7 +209,7 @@ namespace fcitx {
             this, "ModeMenuKey", _("Mode Menu Hotkey"), {Key("grave")}, KeyListConstrain({KeyConstrainFlag::AllowModifierLess, KeyConstrainFlag::AllowModifierOnly})};
         SubConfigOption                                      appRules{this, "AppRules", _("App Rules"), "fcitx://config/addon/lotus/app_rules"};
         OptionWithAnnotation<W2UMode, W2UModeI18NAnnotation> w2u{this, "W2U", _("Type w to Produce ư"), W2UMode::NonStart};
-        OptionWithAnnotation<BracketTransformMode, BracketTransformModeI18NAnnotation> bracketTransform{this, "BracketTransform", _("Enable [ -> ơ, ] -> ư (Works with any input method)"), BracketTransformMode::NonStart};
+        OptionWithAnnotation<BracketTransformMode, BracketTransformModeI18NAnnotation> bracketTransform{this, "BracketTransform", _("Enable [ -> ơ, ] -> ư, { -> Ơ, } -> Ư"), BracketTransformMode::NonStart};
 
         Option<bool> spellCheck{this, "SpellCheck", _("Enable Spell Check"), true}; Option<bool> enableMacro{this, "EnableMacro", _("Enable Macro"), true};
         Option<bool> capitalizeMacro{this, "CapitalizeMacro", _("Capitalize Macro"), true}; Option<bool> autoCapitalizeAfterPunctuation{
