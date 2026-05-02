@@ -197,16 +197,18 @@ namespace fcitx {
     }
 
     void LotusState::handlePreeditMode(KeyEvent& keyEvent, KeySym currentSym) {
-        if (EngineProcessKeyEvent(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states()) != 0U)
+        char*            commitRaw  = nullptr;
+        char*            preeditRaw = nullptr;
+        bool             processed  = EngineProcessKeyEventAndPull(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states(), &commitRaw, &preeditRaw) != 0U;
+        UniqueCPtr<char> commit(commitRaw);
+        UniqueCPtr<char> preedit(preeditRaw);
+        if (processed)
             keyEvent.filterAndAccept();
-        if (auto commit = UniqueCPtr<char>(EnginePullCommit(lotusEngine_.handle()))) {
-            if (commit && (*commit.get() != 0)) {
-                LOTUS_INFO("Commit: " + std::string(commit.get()));
-                ic_->commitString(commit.get());
-            }
+        if (commit && (*commit.get() != 0)) {
+            LOTUS_INFO("Commit: " + std::string(commit.get()));
+            ic_->commitString(commit.get());
         }
         ic_->inputPanel().reset();
-        UniqueCPtr<char> preedit(EnginePullPreedit(lotusEngine_.handle()));
         if (preedit && (*preedit.get() != 0)) {
             std::string_view view = preedit.get();
             Text             text;
@@ -606,9 +608,10 @@ namespace fcitx {
 
         if (isBackspace(currentSym) || currentSym == FcitxKey_Return) {
             if (isBackspace(currentSym)) {
-                hasHistory_ = true;
-                EngineProcessKeyEvent(lotusEngine_.handle(), FcitxKey_BackSpace, 0);
-                UniqueCPtr<char> preeditC(EnginePullPreedit(lotusEngine_.handle()));
+                hasHistory_     = true;
+                char* preeditBs = nullptr;
+                EngineProcessKeyEventAndPull(lotusEngine_.handle(), FcitxKey_BackSpace, 0, nullptr, &preeditBs);
+                UniqueCPtr<char> preeditC(preeditBs);
                 oldPreBuffer_ = (preeditC && (*preeditC.get() != 0)) ? preeditC.get() : "";
             } else {
                 hasHistory_ = false;
@@ -625,9 +628,12 @@ namespace fcitx {
             return;
         }
 
-        bool processed = EngineProcessKeyEvent(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states()) != 0U;
+        char*            commitRaw  = nullptr;
+        char*            preeditRaw = nullptr;
+        bool             processed  = EngineProcessKeyEventAndPull(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states(), &commitRaw, &preeditRaw) != 0U;
+        UniqueCPtr<char> commitF(commitRaw);
+        UniqueCPtr<char> preeditC(preeditRaw);
 
-        auto commitF = UniqueCPtr<char>(EnginePullCommit(lotusEngine_.handle()));
         if (commitF && (*commitF.get() != 0)) {
             std::string commitStr = commitF.get();
             std::string commonPrefix;
@@ -637,8 +643,7 @@ namespace fcitx {
 
             if (!deletedPart.empty()) {
                 keyEvent.filterAndAccept();
-                if (performReplacement(deletedPart, addedPart))
-                    keyEvent.forward();
+                performReplacement(deletedPart, addedPart);
             } else {
                 bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
                 if (!addedPart.empty() && (keyUtf8 != addedPart || wasAutoCapitalized)) {
@@ -668,7 +673,6 @@ namespace fcitx {
 
         if (!processed) {
             if (checkEmptyPreedit) {
-                UniqueCPtr<char> preeditC(EnginePullPreedit(lotusEngine_.handle()));
                 if (!preeditC || (*preeditC.get() == 0)) {
                     hasHistory_ = false;
                     ResetEngine(lotusEngine_.handle());
@@ -682,12 +686,11 @@ namespace fcitx {
         hasHistory_ = true;
         realtextLen.fetch_add(1, std::memory_order_acq_rel);
 
-        UniqueCPtr<char> preeditC(EnginePullPreedit(lotusEngine_.handle()));
-        std::string      preeditStr = (preeditC && (*preeditC.get() != 0)) ? preeditC.get() : "";
+        std::string preeditStr = (preeditC && (*preeditC.get() != 0)) ? preeditC.get() : "";
 
-        std::string      commonPrefix;
-        std::string      deletedPart;
-        std::string      addedPart;
+        std::string commonPrefix;
+        std::string deletedPart;
+        std::string addedPart;
 
         if (wa_flag)
             keyEvent.filterAndAccept();
@@ -738,8 +741,7 @@ namespace fcitx {
                 }
                 if (!wa_flag)
                     keyEvent.filterAndAccept();
-                if (performReplacement(deletedPart, addedPart))
-                    keyEvent.forward();
+                performReplacement(deletedPart, addedPart);
                 oldPreBuffer_ = preeditStr;
             }
         }
@@ -824,10 +826,13 @@ namespace fcitx {
                 return;
             }
 
-            auto        commitPtr  = UniqueCPtr<char>(EnginePullCommit(lotusEngine_.handle()));
-            auto        preeditPtr = UniqueCPtr<char>(EnginePullPreedit(lotusEngine_.handle()));
+            char* commitP  = nullptr;
+            char* preeditP = nullptr;
+            EnginePullCommitAndPreedit(lotusEngine_.handle(), &commitP, &preeditP);
+            UniqueCPtr<char> commitPtr(commitP);
+            UniqueCPtr<char> preeditPtr(preeditP);
 
-            std::string newWord;
+            std::string      newWord;
             if (commitPtr && (*commitPtr.get() != 0))
                 newWord += commitPtr.get();
             if (preeditPtr && (*preeditPtr.get() != 0))
@@ -869,10 +874,12 @@ namespace fcitx {
     void LotusState::processNormalKey(KeyEvent& keyEvent, KeySym currentSym) {
         auto* ic = keyEvent.inputContext();
         ResetEngine(lotusEngine_.handle());
-        bool processed = EngineProcessKeyEvent(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states()) != 0U;
+        char*            commitP   = nullptr;
+        char*            preeditP  = nullptr;
+        bool             processed = EngineProcessKeyEventAndPull(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states(), &commitP, &preeditP) != 0U;
+        UniqueCPtr<char> commitPtr(commitP);
+        UniqueCPtr<char> preeditPtr(preeditP);
         if (processed) {
-            auto        commitPtr  = UniqueCPtr<char>(EnginePullCommit(lotusEngine_.handle()));
-            auto        preeditPtr = UniqueCPtr<char>(EnginePullPreedit(lotusEngine_.handle()));
             std::string out;
             if (commitPtr && (*commitPtr.get() != 0))
                 out += commitPtr.get();

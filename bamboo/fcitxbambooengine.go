@@ -352,7 +352,7 @@ func (e *FcitxBambooEngine) commitPreeditAndReset(s string) {
 
 func (e *FcitxBambooEngine) updatePreedit(processedStr string) {
 	var encodedStr = e.encodeText(processedStr)
-	var preeditLen = uint32(len([]rune(encodedStr)))
+	var preeditLen = uint32(utf8.RuneCountInString(encodedStr))
 	if preeditLen == 0 {
 		e.preeditText = ""
 		e.commitText = ""

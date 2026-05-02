@@ -35,22 +35,106 @@ import (
 import (
 	"bufio"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
+	"sync/atomic"
 )
+
+// If FCITX_LOTUS_LOCK_OSTHREAD is set (any non-empty value), bind each CGO callback
+// goroutine to its OS thread to reduce scheduler/TLS churn at the C↔Go boundary.
+var lockOsThreadEnabled uint32
+
+func lockOSThreadForCgo() {
+	if atomic.LoadUint32(&lockOsThreadEnabled) != 0 {
+		runtime.LockOSThread()
+	}
+}
 
 //export Init
 func Init() {
 	signal.Ignore(syscall.SIGPIPE)
+	debug.SetGCPercent(200)
+	if os.Getenv("FCITX_LOTUS_LOCK_OSTHREAD") != "" {
+		atomic.StoreUint32(&lockOsThreadEnabled, 1)
+	}
+}
+
+func enginePullCommitCString(e *FcitxBambooEngine) *C.char {
+	commitText := e.commitText
+	e.commitText = ""
+	if commitText == "" {
+		return nil
+	}
+	encodedText := bamboo.Encode(e.outputCharset, commitText)
+	if encodedText == "" {
+		return nil
+	}
+	return C.CString(encodedText)
+}
+
+func enginePullPreeditCString(e *FcitxBambooEngine) *C.char {
+	if e.preeditText == "" {
+		return nil
+	}
+	return C.CString(e.preeditText)
 }
 
 //export EngineProcessKeyEvent
 func EngineProcessKeyEvent(engine uintptr, keyVal, state uint32) bool {
+	lockOSThreadForCgo()
 	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
 	if !ok {
 		return false
 	}
 	return bambooEngine.preeditProcessKeyEvent(keyVal, state)
+}
+
+//export EngineProcessKeyEventAndPull
+// Runs one key event then returns commit and/or preedit in one CGO transition.
+// Pass nil for commitOut or preeditOut if that string is not needed.
+func EngineProcessKeyEventAndPull(engine uintptr, keyVal, state uint32, commitOut, preeditOut **C.char) bool {
+	lockOSThreadForCgo()
+	if commitOut != nil {
+		*commitOut = nil
+	}
+	if preeditOut != nil {
+		*preeditOut = nil
+	}
+	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	if !ok {
+		return false
+	}
+	processed := bambooEngine.preeditProcessKeyEvent(keyVal, state)
+	if commitOut != nil {
+		*commitOut = enginePullCommitCString(bambooEngine)
+	}
+	if preeditOut != nil {
+		*preeditOut = enginePullPreeditCString(bambooEngine)
+	}
+	return processed
+}
+
+//export EnginePullCommitAndPreedit
+func EnginePullCommitAndPreedit(engine uintptr, commitOut, preeditOut **C.char) {
+	lockOSThreadForCgo()
+	if commitOut != nil {
+		*commitOut = nil
+	}
+	if preeditOut != nil {
+		*preeditOut = nil
+	}
+	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	if !ok {
+		return
+	}
+	if commitOut != nil {
+		*commitOut = enginePullCommitCString(bambooEngine)
+	}
+	if preeditOut != nil {
+		*preeditOut = enginePullPreeditCString(bambooEngine)
+	}
 }
 
 //export EngineSetRestoreKeyStroke
@@ -64,11 +148,12 @@ func EngineSetRestoreKeyStroke(engine uintptr) {
 
 //export EnginePullPreedit
 func EnginePullPreedit(engine uintptr) *C.char {
+	lockOSThreadForCgo()
 	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
 	if !ok {
 		return nil
 	}
-	return C.CString(bambooEngine.preeditText)
+	return enginePullPreeditCString(bambooEngine)
 }
 
 //export EngineCommitPreedit
@@ -82,14 +167,12 @@ func EngineCommitPreedit(engine uintptr) {
 
 //export EnginePullCommit
 func EnginePullCommit(engine uintptr) *C.char {
+	lockOSThreadForCgo()
 	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
 	if !ok {
 		return nil
 	}
-	var commitText = bambooEngine.commitText
-	bambooEngine.commitText = ""
-	encodedText := bamboo.Encode(bambooEngine.outputCharset, commitText)
-	return C.CString(encodedText)
+	return enginePullCommitCString(bambooEngine)
 }
 
 //export EngineSetOption
