@@ -57,7 +57,7 @@ class MacroEditorPage(BaseEditorPage):
         # Macro behavior toggles
         toggles_card = CardWidget("")
         toggles_layout = QHBoxLayout()
-        self.cb_enable = QCheckBox(_("Enable Macro"))
+        self.cb_enable = QCheckBox(_("Macro"))
         self.cb_capitalize = QCheckBox(_("Capitalize Macro"))
         self.cb_enable.toggled.connect(self._on_item_changed)
         self.cb_capitalize.toggled.connect(self._on_item_changed)
