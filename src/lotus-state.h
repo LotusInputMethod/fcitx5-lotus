@@ -103,6 +103,7 @@ namespace fcitx {
         bool                    waitAck_ = false;
         std::vector<KeyEntry>   buffered_keys_; ///< Keystrokes buffered during replacement
         bool                    isPrevSpace_        = false;
+        bool                    isPrevHyphen_       = false;
         bool                    shouldCapitalize_   = false;
         bool                    isPrevPunctuation_  = false;
         int64_t                 lastDeactivateTime_ = 0;
@@ -177,6 +178,11 @@ namespace fcitx {
          * @brief Handles the double space to period replacement.
          */
         void handleDoubleSpaceReplacement();
+
+        /**
+         * @brief Handles the double hyphen to em-dash replacement.
+         */
+        void handleDoubleHyphenReplacement();
 
         /**
          * @brief Checks and forwards special keys.

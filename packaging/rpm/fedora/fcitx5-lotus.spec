@@ -1,5 +1,5 @@
 Name:           fcitx5-lotus
-Version:        3.0.2
+Version:        3.0.3
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -165,5 +165,5 @@ fi
 %systemd_postun_with_restart fcitx5-lotus-server@.service
 
 %changelog
-* Sat May 02 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 3.0.2-1
+* Sun May 03 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 3.0.3-1
 - Small fix
