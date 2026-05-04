@@ -870,8 +870,6 @@ namespace fcitx {
         const LotusMode defaultMode = config_.mode.value();
         allModes.push_back({defaultMode, _("Default Typing"), FcitxKey_r, *config_.showModeDefault}); // Add reset option
 
-        candidateList->append(std::make_unique<DisplayOnlyCandidateWord>(Text(_("App: ") + currentConfigureApp_)));
-
         int activeSelectionIdx  = -1;
         int currentCandidateIdx = 1;
 
@@ -925,6 +923,7 @@ namespace fcitx {
 
         ic->inputPanel().reset();
         ic->inputPanel().setCandidateList(std::move(candidateList));
+        ic->inputPanel().setAuxDown(Text(_("App: ") + currentConfigureApp_));
         ic->updateUserInterface(UserInterfaceComponent::InputPanel);
     }
 
