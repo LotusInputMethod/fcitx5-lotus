@@ -1,4 +1,4 @@
-# Vendored Unikey engine (core/) + Lotus wrapper. Optional Bamboo replacement.
+# Vendored Unikey engine (core/) + Lotus wrapper
 # SPDX-FileCopyrightText: Unikey authors (LGPL/GPL); Lotus wrapper GPL-3.0-or-later
 set(_UK_CORE "${CMAKE_CURRENT_SOURCE_DIR}/core")
 set(LOTUS_UNIKEY_CORE_SRCS

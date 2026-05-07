@@ -77,7 +77,7 @@ namespace fcitx {
     void LotusState::setEngine() {
         inputBackend_.reset();
         inputBackend_ = makeLotusInputBackend();
-        realMode = modeStringToEnum(engine_->config().mode.value());
+        realMode      = modeStringToEnum(engine_->config().mode.value());
 
         inputBackend_->recreateEngine(engine_);
         setOption();
@@ -615,7 +615,7 @@ namespace fcitx {
 
         if (isBackspace(currentSym) || currentSym == FcitxKey_Return) {
             if (isBackspace(currentSym)) {
-                hasHistory_     = true;
+                hasHistory_ = true;
                 std::string preBs;
                 inputBackend_->processKeyEventAndPull(FcitxKey_BackSpace, 0, nullptr, &preBs);
                 oldPreBuffer_ = preBs;
@@ -832,7 +832,7 @@ namespace fcitx {
             std::string preeditPart;
             inputBackend_->pullCommitAndPreedit(&commitPart, &preeditPart);
 
-            std::string      newWord;
+            std::string newWord;
             if (!commitPart.empty())
                 newWord += commitPart;
             if (!preeditPart.empty())

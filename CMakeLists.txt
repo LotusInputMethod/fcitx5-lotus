@@ -19,7 +19,6 @@ include(GNUInstallDirs)
 include(ECMUninstallTarget)
 
 option(ENABLE_QT "Enable Qt based GUI" On)
-option(ENABLE_LOTUS_UNIKEY_ENGINE "Build Unikey core + LotusUnikeyEngine bridge in unikey/ (optional Bamboo replacement)" Off)
 
 find_package(Fcitx5Core ${REQUIRED_FCITX_VERSION} REQUIRED)
 find_package(Fcitx5ModuleEmoji REQUIRED)
@@ -39,12 +38,7 @@ else()
 endif()
 fcitx5_add_i18n_definition()
 
-if(ENABLE_LOTUS_UNIKEY_ENGINE)
-    add_subdirectory(unikey)
-else()
-    add_subdirectory(bamboo)
-endif()
-
+add_subdirectory(unikey)
 add_subdirectory(po)
 add_subdirectory(src)
 add_subdirectory(data)
@@ -70,7 +64,7 @@ fcitx5_translate_desktop_file(
 
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml" DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
 
-install(FILES 
+install(FILES
         LICENSES/GPL-3.0-or-later.txt
         LICENSES/LGPL-2.1-or-later.txt
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}

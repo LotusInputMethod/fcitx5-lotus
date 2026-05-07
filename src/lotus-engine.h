@@ -28,7 +28,7 @@
 
 namespace fcitx {
 
-    class CGoObject;
+    class Object;
     class LotusState;
 
     /**
@@ -196,7 +196,7 @@ namespace fcitx {
         lotusCustomKeymap        emptyCustomKeymap_;
 
         lotusMacroTable          macroTables_;
-        CGoObject                macroTableObject_;
+        Object                   macroTableObject_;
         lotusAppRules            appRulesTables_;
 
         FactoryFor<LotusState>   factory_;
@@ -217,7 +217,7 @@ namespace fcitx {
         std::unique_ptr<SimpleAction>              settingsAction_;
         std::vector<SimpleAction*>                 toggleActions_;
         std::vector<ScopedConnection>              connections_;
-        CGoObject                                  dictionary_;
+        Object                                     dictionary_;
         std::unordered_map<std::string, LotusMode> appRules_;
         std::string                                appRulesPath_;
         bool                                       isSelectingAppMode_ = false;
@@ -228,7 +228,7 @@ namespace fcitx {
         mutable std::mutex           appRulesMutex_;
 
         /**
-         * @brief Refreshes the bamboo engine with current settings.
+         * @brief Refreshes the engine with current settings.
          */
         void refreshEngine();
 

@@ -10,128 +10,56 @@
 #ifndef _FCITX5_LOTUS_H_
 #define _FCITX5_LOTUS_H_
 
-#include <optional>
-
-#ifndef LOTUS_ENGINE_UNIKEY
-#include "bamboo-core.h"
+#include <cstdint>
+#include <utility>
 
 namespace fcitx {
 
-    class LotusEngine;
-    class LotusState;
+class LotusEngine;
+class LotusState;
 
-    /**
-     * RAII wrapper for CGo handles (Bamboo/Go engine).
-     */
-    class CGoObject {
-      public:
-        CGoObject(std::optional<uintptr_t> handle = std::nullopt) : handle_(handle) {}
+class Object {
+public:
+    Object() noexcept = default;
 
-        ~CGoObject() {
-            if (handle_) {
-                DeleteObject(*handle_);
-            }
+    explicit Object(uintptr_t value) noexcept
+        : value_(value) {}
+
+    ~Object() = default;
+
+    Object(const Object&) = delete;
+    Object& operator=(const Object&) = delete;
+
+    Object(Object&& other) noexcept
+        : value_(std::exchange(other.value_, 0)) {}
+
+    Object& operator=(Object&& other) noexcept {
+        if (this != &other) {
+            value_ = std::exchange(other.value_, 0);
         }
+        return *this;
+    }
 
-        CGoObject(const CGoObject&)            = delete;
-        CGoObject& operator=(const CGoObject&) = delete;
+    void reset(uintptr_t value = 0) noexcept {
+        value_ = value;
+    }
 
-        CGoObject(CGoObject&& other) noexcept : handle_(other.handle_) {
-            other.handle_ = std::nullopt;
-        }
+    [[nodiscard]] uintptr_t handle() const noexcept {
+        return value_;
+    }
 
-        CGoObject& operator=(CGoObject&& other) noexcept {
-            if (this != &other) {
-                clear();
-                handle_       = other.handle_;
-                other.handle_ = std::nullopt;
-            }
-            return *this;
-        }
+    [[nodiscard]] uintptr_t release() noexcept {
+        return std::exchange(value_, 0);
+    }
 
-        void reset(std::optional<uintptr_t> handle = std::nullopt) {
-            clear();
-            handle_ = handle;
-        }
+    explicit operator bool() const noexcept {
+        return value_ != 0;
+    }
 
-        uintptr_t handle() const {
-            return handle_.value_or(0);
-        }
-
-        uintptr_t release() {
-            if (handle_) {
-                uintptr_t v = *handle_;
-                handle_     = std::nullopt;
-                return v;
-            }
-            return 0;
-        }
-
-        explicit operator bool() const {
-            return handle_.has_value() && *handle_ != 0;
-        }
-
-      private:
-        void clear() {
-            if (handle_) {
-                DeleteObject(*handle_);
-                handle_ = std::nullopt;
-            }
-        }
-
-        std::optional<uintptr_t> handle_;
-    };
+private:
+    uintptr_t value_ = 0;
+};
 
 } // namespace fcitx
-
-#else
-
-namespace fcitx {
-
-    class LotusEngine;
-    class LotusState;
-
-    /** Stub when Bamboo/Go is disabled (Unikey engine): no runtime handles. */
-    class CGoObject {
-      public:
-        CGoObject(std::optional<uintptr_t> handle = std::nullopt) : handle_(handle) {}
-        ~CGoObject()                = default;
-        CGoObject(const CGoObject&) = delete;
-        CGoObject& operator=(const CGoObject&) = delete;
-        CGoObject(CGoObject&& other) noexcept : handle_(other.handle_) {
-            other.handle_ = std::nullopt;
-        }
-        CGoObject& operator=(CGoObject&& other) noexcept {
-            if (this != &other) {
-                handle_       = other.handle_;
-                other.handle_ = std::nullopt;
-            }
-            return *this;
-        }
-        void reset(std::optional<uintptr_t> handle = std::nullopt) {
-            handle_ = handle;
-        }
-        uintptr_t handle() const {
-            return handle_.value_or(0);
-        }
-        uintptr_t release() {
-            if (handle_) {
-                uintptr_t v = *handle_;
-                handle_     = std::nullopt;
-                return v;
-            }
-            return 0;
-        }
-        explicit operator bool() const {
-            return handle_.has_value() && *handle_ != 0;
-        }
-
-      private:
-        std::optional<uintptr_t> handle_;
-    };
-
-} // namespace fcitx
-
-#endif
 
 #endif // _FCITX5_LOTUS_H_

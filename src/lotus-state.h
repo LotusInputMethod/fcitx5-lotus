@@ -91,28 +91,28 @@ namespace fcitx {
         friend class LotusEngine;
 
       private:
-        static constexpr size_t MAX_BUFFERED_KEYS = 50;
+        static constexpr size_t            MAX_BUFFERED_KEYS = 50;
 
-        LotusEngine*                           engine_;
-        InputContext*                          ic_;
-        std::unique_ptr<LotusInputBackend>    inputBackend_;
-        std::string             oldPreBuffer_;
-        bool                    hasHistory_              = false;
-        int                     expected_backspaces_     = 0;
-        int                     current_backspace_count_ = 0;
-        std::string             pending_commit_string_;
-        std::atomic<int>        current_thread_id_{0};
-        std::string             emojiBuffer_;
-        std::vector<EmojiEntry> emojiCandidates_;
-        bool                    waitAck_ = false;
-        std::vector<KeyEntry>   buffered_keys_; ///< Keystrokes buffered during replacement
-        bool                    isPrevSpace_        = false;
-        bool                    shouldCapitalize_   = false;
-        bool                    isPrevPunctuation_  = false;
-        int64_t                 lastDeactivateTime_ = 0;
-        int64_t                 lastSkippedResetMs_ = 0;
-        bool                    wa_flag             = false;
-        bool                    surrtp              = false;
+        LotusEngine*                       engine_;
+        InputContext*                      ic_;
+        std::unique_ptr<LotusInputBackend> inputBackend_;
+        std::string                        oldPreBuffer_;
+        bool                               hasHistory_              = false;
+        int                                expected_backspaces_     = 0;
+        int                                current_backspace_count_ = 0;
+        std::string                        pending_commit_string_;
+        std::atomic<int>                   current_thread_id_{0};
+        std::string                        emojiBuffer_;
+        std::vector<EmojiEntry>            emojiCandidates_;
+        bool                               waitAck_ = false;
+        std::vector<KeyEntry>              buffered_keys_; ///< Keystrokes buffered during replacement
+        bool                               isPrevSpace_        = false;
+        bool                               shouldCapitalize_   = false;
+        bool                               isPrevPunctuation_  = false;
+        int64_t                            lastDeactivateTime_ = 0;
+        int64_t                            lastSkippedResetMs_ = 0;
+        bool                               wa_flag             = false;
+        bool                               surrtp              = false;
 
         /**
          * @brief Connects to the uinput server.

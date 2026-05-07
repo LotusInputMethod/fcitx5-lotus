@@ -17,6 +17,11 @@ unsigned char WordBreakSyms[] = {
     '_', '~', '`', '@', '#', '$', '%', '^', '&', '(', ')', '{', '}', '[', ']'};
 */
 
+constexpr UkKeyEvName lexi(VnLexiName v) {
+    return static_cast<UkKeyEvName>(
+        static_cast<int>(vneCount) + static_cast<int>(v));
+}
+
 const std::unordered_set<unsigned char> WordBreakSyms = {
     ',', ';', ':', '.', '\"', '\'', '!',  '?', ' ', '<',
     '>', '=', '+', '-', '*',  '/',  '\\', '_', '@', '#',
@@ -67,10 +72,10 @@ DllExport UkKeyMapping TelexMethodMapping[] = {{'Z', vneTone0},
                                                {'E', vneRoof_e},
                                                {'O', vneRoof_o},
                                                {'D', vneDd},
-                                               {'[', vneCount + vnl_oh},
-                                               {']', vneCount + vnl_uh},
-                                               {'{', vneCount + vnl_Oh},
-                                               {'}', vneCount + vnl_Uh},
+                                               {'[', lexi(vnl_oh)},
+                                               {']', lexi(vnl_uh)},
+                                               {'{', lexi(vnl_Oh)},
+                                               {'}', lexi(vnl_Uh)},
                                                {0, vneNormal}};
 
 DllExport UkKeyMapping SimpleTelexMethodMapping[] = {
@@ -104,20 +109,20 @@ DllExport UkKeyMapping MsViMethodMapping[] = {{'5', vneTone2},
                                               {'*', vneTone1},
                                               {'9', vneTone5},
                                               {'(', vneTone5},
-                                              {'1', vneCount + vnl_ab},
-                                              {'!', vneCount + vnl_Ab},
-                                              {'2', vneCount + vnl_ar},
-                                              {'@', vneCount + vnl_Ar},
-                                              {'3', vneCount + vnl_er},
-                                              {'#', vneCount + vnl_Er},
-                                              {'4', vneCount + vnl_or},
-                                              {'$', vneCount + vnl_Or},
-                                              {'0', vneCount + vnl_dd},
-                                              {')', vneCount + vnl_DD},
-                                              {'[', vneCount + vnl_uh},
-                                              {']', vneCount + vnl_oh},
-                                              {'{', vneCount + vnl_Uh},
-                                              {'}', vneCount + vnl_Oh},
+                                              {'1', lexi(vnl_ab)},
+                                              {'!', lexi(vnl_Ab)},
+                                              {'2', lexi(vnl_ar)},
+                                              {'@', lexi(vnl_Ar)},
+                                              {'3', lexi(vnl_er)},
+                                              {'#', lexi(vnl_Er)},
+                                              {'4', lexi(vnl_or)},
+                                              {'$', lexi(vnl_Or)},
+                                              {'0', lexi(vnl_dd)},
+                                              {')', lexi(vnl_DD)},
+                                              {'[', lexi(vnl_uh)},
+                                              {']', lexi(vnl_oh)},
+                                              {'{', lexi(vnl_Uh)},
+                                              {'}', lexi(vnl_Oh)},
                                               {0, vneNormal}};
 
 //-------------------------------------------

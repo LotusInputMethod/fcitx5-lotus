@@ -28,6 +28,11 @@ struct UkEventLabelPair {
 const char *UkKeyMapHeader = "; This is UniKey user-defined key mapping file, "
                              "generated from UniKey (Fcitx 5)\n\n";
 
+constexpr UkKeyEvName lexi(VnLexiName v) {
+    return static_cast<UkKeyEvName>(
+        static_cast<int>(vneCount) + static_cast<int>(v));
+}
+
 constexpr UkEventLabelPair UkEvLabelList[] = {
     {"Tone0", vneTone0},       {"Tone1", vneTone1},
     {"Tone2", vneTone2},       {"Tone3", vneTone3},
@@ -38,13 +43,15 @@ constexpr UkEventLabelPair UkEvLabelList[] = {
     {"Hook-U", vneHook_u},     {"Hook-O", vneHook_o},
     {"Bowl", vneBowl},         {"D-Mark", vneDd},
     {"Telex-W", vne_telex_w},  {"Escape", vneEscChar},
-    {"DD", vneCount + vnl_DD}, {"dd", vneCount + vnl_dd},
-    {"A^", vneCount + vnl_Ar}, {"a^", vneCount + vnl_ar},
-    {"A(", vneCount + vnl_Ab}, {"a(", vneCount + vnl_ab},
-    {"E^", vneCount + vnl_Er}, {"e^", vneCount + vnl_er},
-    {"O^", vneCount + vnl_Or}, {"o^", vneCount + vnl_or},
-    {"O+", vneCount + vnl_Oh}, {"o+", vneCount + vnl_oh},
-    {"U+", vneCount + vnl_Uh}, {"u+", vneCount + vnl_uh}};
+
+    {"DD", lexi(vnl_DD)}, {"dd", lexi(vnl_dd)},
+    {"A^", lexi(vnl_Ar)}, {"a^", lexi(vnl_ar)},
+    {"A(", lexi(vnl_Ab)}, {"a(", lexi(vnl_ab)},
+    {"E^", lexi(vnl_Er)}, {"e^", lexi(vnl_er)},
+    {"O^", lexi(vnl_Or)}, {"o^", lexi(vnl_or)},
+    {"O+", lexi(vnl_Oh)}, {"o+", lexi(vnl_oh)},
+    {"U+", lexi(vnl_Uh)}, {"u+", lexi(vnl_uh)},
+};
 
 constexpr auto UkEvLabelCount = FCITX_ARRAY_SIZE(UkEvLabelList);
 

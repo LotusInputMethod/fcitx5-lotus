@@ -83,7 +83,7 @@ void UinputDevice::send_backspace() {
     ev[2].value = 0;
     ev[3].type  = EV_SYN;
     ev[3].code  = SYN_REPORT;
-    write(guard_.get(), ev, sizeof(ev));
+    (void)write(guard_.get(), ev, sizeof(ev));
 }
 
 LibinputContext::LibinputContext(const struct libinput_interface* interface) : udev_(udev_new()) {
