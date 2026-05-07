@@ -21,41 +21,41 @@ class UnikeyInputContext;
 
 namespace fcitx::lotus {
 
-class LotusUnikeyEngine {
-public:
-    LotusUnikeyEngine();
-    ~LotusUnikeyEngine();
+    class LotusUnikeyEngine {
+      public:
+        LotusUnikeyEngine();
+        ~LotusUnikeyEngine();
 
-    LotusUnikeyEngine(const LotusUnikeyEngine&)            = delete;
-    LotusUnikeyEngine& operator=(const LotusUnikeyEngine&) = delete;
-    LotusUnikeyEngine(LotusUnikeyEngine&&)                 = delete;
-    LotusUnikeyEngine& operator=(LotusUnikeyEngine&&)      = delete;
+        LotusUnikeyEngine(const LotusUnikeyEngine&)            = delete;
+        LotusUnikeyEngine& operator=(const LotusUnikeyEngine&) = delete;
+        LotusUnikeyEngine(LotusUnikeyEngine&&)                 = delete;
+        LotusUnikeyEngine&   operator=(LotusUnikeyEngine&&)    = delete;
 
-    void setInputMethod(UkInputMethod im);
-    void setOutputCharset(int charsetId);
-    void setOptions(UnikeyOptions* opt);
+        void                 setInputMethod(UkInputMethod im);
+        void                 setOutputCharset(int charsetId);
+        void                 setOptions(UnikeyOptions* opt);
 
-    void resetBuf();
-    void setCapsState(int shiftPressed, int capsLockOn);
-    void filter(std::uint32_t unikeyKeyCode);
-    void putChar(std::uint32_t ch);
-    void rebuildChar(VnLexiName ch);
-    void backspacePress();
-    void restoreKeyStrokes();
+        void                 resetBuf();
+        void                 setCapsState(int shiftPressed, int capsLockOn);
+        void                 filter(std::uint32_t unikeyKeyCode);
+        void                 putChar(std::uint32_t ch);
+        void                 rebuildChar(VnLexiName ch);
+        void                 backspacePress();
+        void                 restoreKeyStrokes();
 
-    bool isAtWordBeginning() const;
+        bool                 isAtWordBeginning() const;
 
-    int  backspaces() const;
-    int  bufChars() const;
-    const unsigned char* buf() const;
+        int                  backspaces() const;
+        int                  bufChars() const;
+        const unsigned char* buf() const;
 
-    UnikeyInputMethod* inputMethod();
-    UnikeyInputContext* context();
+        UnikeyInputMethod*   inputMethod();
+        UnikeyInputContext*  context();
 
-private:
-    std::unique_ptr<UnikeyInputMethod>  im_;
-    std::unique_ptr<UnikeyInputContext> uic_;
-};
+      private:
+        std::unique_ptr<UnikeyInputMethod>  im_;
+        std::unique_ptr<UnikeyInputContext> uic_;
+    };
 
 } // namespace fcitx::lotus
 

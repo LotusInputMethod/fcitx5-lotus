@@ -15,50 +15,48 @@
 
 namespace fcitx {
 
-class LotusEngine;
-class LotusState;
+    class LotusEngine;
+    class LotusState;
 
-class Object {
-public:
-    Object() noexcept = default;
+    class Object {
+      public:
+        Object() noexcept = default;
 
-    explicit Object(uintptr_t value) noexcept
-        : value_(value) {}
+        explicit Object(uintptr_t value) noexcept : value_(value) {}
 
-    ~Object() = default;
+        ~Object() = default;
 
-    Object(const Object&) = delete;
-    Object& operator=(const Object&) = delete;
+        Object(const Object&)            = delete;
+        Object& operator=(const Object&) = delete;
 
-    Object(Object&& other) noexcept
-        : value_(std::exchange(other.value_, 0)) {}
+        Object(Object&& other) noexcept : value_(std::exchange(other.value_, 0)) {}
 
-    Object& operator=(Object&& other) noexcept {
-        if (this != &other) {
-            value_ = std::exchange(other.value_, 0);
+        Object& operator=(Object&& other) noexcept {
+            if (this != &other) {
+                value_ = std::exchange(other.value_, 0);
+            }
+            return *this;
         }
-        return *this;
-    }
 
-    void reset(uintptr_t value = 0) noexcept {
-        value_ = value;
-    }
+        void reset(uintptr_t value = 0) noexcept {
+            value_ = value;
+        }
 
-    [[nodiscard]] uintptr_t handle() const noexcept {
-        return value_;
-    }
+        [[nodiscard]] uintptr_t handle() const noexcept {
+            return value_;
+        }
 
-    [[nodiscard]] uintptr_t release() noexcept {
-        return std::exchange(value_, 0);
-    }
+        [[nodiscard]] uintptr_t release() noexcept {
+            return std::exchange(value_, 0);
+        }
 
-    explicit operator bool() const noexcept {
-        return value_ != 0;
-    }
+        explicit operator bool() const noexcept {
+            return value_ != 0;
+        }
 
-private:
-    uintptr_t value_ = 0;
-};
+      private:
+        uintptr_t value_ = 0;
+    };
 
 } // namespace fcitx
 

@@ -27,7 +27,7 @@
 #include "pattern.h"
 #include "vnconv.h"
 
-#define TOTAL_VNCHARS 213
+#define TOTAL_VNCHARS       213
 #define TOTAL_ALPHA_VNCHARS 186
 
 #if defined(_WIN32)
@@ -60,22 +60,21 @@ typedef uint32_t UKDWORD;
 #define MAKEWORD(a, b) ((UKWORD)(((UKBYTE)(a)) | ((UKWORD)((UKBYTE)(b))) << 8))
 #endif
 
-const StdVnChar VnStdCharOffset = 0x10000;
+const StdVnChar VnStdCharOffset  = 0x10000;
 const StdVnChar INVALID_STD_CHAR = 0xFFFFFFFF;
 // const unsigned char PadChar = '?'; //? is used for VIQR charset
-const unsigned char PadChar = '#';
+const unsigned char PadChar       = '#';
 const unsigned char PadStartQuote = '\"';
-const unsigned char PadEndQuote = '\"';
-const unsigned char PadEllipsis = '.';
+const unsigned char PadEndQuote   = '\"';
+const unsigned char PadEllipsis   = '.';
 
-class DllInterface VnCharset {
-public:
+class DllInterface  VnCharset {
+  public:
     virtual void startInput() {}
     virtual void startOutput() {}
     //	virtual UKBYTE *nextInput(UKBYTE *input, int inLen, StdVnChar & stdChar,
     // int & bytesRead) = 0;
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar,
-                          int &bytesRead) = 0;
+    virtual int nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead) = 0;
 
     //------------------------------------------------------------------------
     // put a character to the output after converting it
@@ -86,208 +85,207 @@ public:
     //     maxAvail[in]: max length available.
     // Returns: next position in output
     //------------------------------------------------------------------------
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen) = 0;
+    virtual int putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen) = 0;
     virtual int elementSize();
     virtual ~VnCharset() {}
 };
 
 //--------------------------------------------------
 class SingleByteCharset : public VnCharset {
-protected:
-    UKWORD m_stdMap[256];
-    unsigned char *m_vnChars;
+  protected:
+    UKWORD         m_stdMap[256];
+    unsigned char* m_vnChars;
 
-public:
-    SingleByteCharset(unsigned char *vnChars);
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar, int &bytesRead);
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+  public:
+    SingleByteCharset(unsigned char* vnChars);
+    virtual int nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead);
+    virtual int putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
 };
 
 //--------------------------------------------------
 class VnInternalCharset : public VnCharset {
-public:
+  public:
     VnInternalCharset() {}
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar, int &bytesRead);
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+    virtual int nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead);
+    virtual int putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
     virtual int elementSize();
 };
 
 //--------------------------------------------------
 class UnicodeCharset : public VnCharset {
-protected:
-    UKDWORD m_vnChars[TOTAL_VNCHARS];
-    UnicodeChar *m_toUnicode;
+  protected:
+    UKDWORD      m_vnChars[TOTAL_VNCHARS];
+    UnicodeChar* m_toUnicode;
 
-public:
-    UnicodeCharset(UnicodeChar *vnChars);
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar, int &bytesRead);
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+  public:
+    UnicodeCharset(UnicodeChar* vnChars);
+    virtual int nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead);
+    virtual int putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
     virtual int elementSize();
 };
 
 //--------------------------------------------------
 class DoubleByteCharset : public VnCharset {
-protected:
-    UKWORD m_stdMap[256];
+  protected:
+    UKWORD  m_stdMap[256];
     UKDWORD m_vnChars[TOTAL_VNCHARS];
-    UKWORD *m_toDoubleChar;
+    UKWORD* m_toDoubleChar;
 
-public:
-    DoubleByteCharset(UKWORD *vnChars);
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar, int &bytesRead);
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+  public:
+    DoubleByteCharset(UKWORD* vnChars);
+    virtual int nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead);
+    virtual int putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
 };
 
 //--------------------------------------------------
 class UnicodeUTF8Charset : public UnicodeCharset {
-public:
-    UnicodeUTF8Charset(UnicodeChar *vnChars) : UnicodeCharset(vnChars) {}
+  public:
+    UnicodeUTF8Charset(UnicodeChar* vnChars) : UnicodeCharset(vnChars) {}
 
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar, int &bytesRead);
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+    virtual int nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead);
+    virtual int putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
 };
 
 //--------------------------------------------------
 class UnicodeRefCharset : public UnicodeCharset {
-public:
-    UnicodeRefCharset(UnicodeChar *vnChars) : UnicodeCharset(vnChars) {}
+  public:
+    UnicodeRefCharset(UnicodeChar* vnChars) : UnicodeCharset(vnChars) {}
 
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar, int &bytesRead);
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+    virtual int nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead);
+    virtual int putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
 };
 
 //--------------------------------------------------
 class UnicodeHexCharset : public UnicodeRefCharset {
-public:
-    UnicodeHexCharset(UnicodeChar *vnChars) : UnicodeRefCharset(vnChars) {}
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+  public:
+    UnicodeHexCharset(UnicodeChar* vnChars) : UnicodeRefCharset(vnChars) {}
+    virtual int putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
 };
 
 //--------------------------------------------------
 class UnicodeCStringCharset : public UnicodeCharset {
-protected:
+  protected:
     int m_prevIsHex;
 
-public:
-    UnicodeCStringCharset(UnicodeChar *vnChars) : UnicodeCharset(vnChars) {}
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar, int &bytesRead);
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+  public:
+    UnicodeCStringCharset(UnicodeChar* vnChars) : UnicodeCharset(vnChars) {}
+    virtual int  nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead);
+    virtual int  putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
     virtual void startInput();
 };
 
 //--------------------------------------------------
 class WinCP1258Charset : public VnCharset {
-protected:
-    UKWORD m_stdMap[256];
+  protected:
+    UKWORD  m_stdMap[256];
     UKDWORD m_vnChars[TOTAL_VNCHARS * 2];
-    UKWORD *m_toDoubleChar;
-    int m_totalChars;
+    UKWORD* m_toDoubleChar;
+    int     m_totalChars;
 
-public:
-    WinCP1258Charset(UKWORD *compositeChars, UKWORD *precomposedChars);
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar, int &bytesRead);
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+  public:
+    WinCP1258Charset(UKWORD* compositeChars, UKWORD* precomposedChars);
+    virtual int nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead);
+    virtual int putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
 };
 
 //--------------------------------------------------
 struct UniCompCharInfo {
     UKDWORD compChar;
-    int stdIndex;
+    int     stdIndex;
 };
 
 class UnicodeCompCharset : public VnCharset {
-protected:
+  protected:
     UniCompCharInfo m_info[TOTAL_VNCHARS * 2];
-    UKDWORD *m_uniCompChars;
-    int m_totalChars;
+    UKDWORD*        m_uniCompChars;
+    int             m_totalChars;
 
-public:
-    UnicodeCompCharset(UnicodeChar *uniChars, UKDWORD *uniCompChars);
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar, int &bytesRead);
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+  public:
+    UnicodeCompCharset(UnicodeChar* uniChars, UKDWORD* uniCompChars);
+    virtual int nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead);
+    virtual int putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
     virtual int elementSize();
 };
 
 //--------------------------------------------------
 class VIQRCharset : public VnCharset {
-protected:
-    UKDWORD *m_vnChars;
-    UKWORD m_stdMap[256];
-    int m_atWordBeginning;
-    int m_escapeBowl;
-    int m_escapeRoof;
-    int m_escapeHook;
-    int m_escapeTone;
-    int m_gotTone;
-    int m_escAll;
-    int m_noOutEsc;
+  protected:
+    UKDWORD* m_vnChars;
+    UKWORD   m_stdMap[256];
+    int      m_atWordBeginning;
+    int      m_escapeBowl;
+    int      m_escapeRoof;
+    int      m_escapeHook;
+    int      m_escapeTone;
+    int      m_gotTone;
+    int      m_escAll;
+    int      m_noOutEsc;
 
-public:
+  public:
     int m_suspicious;
-    VIQRCharset(UKDWORD *vnChars);
+    VIQRCharset(UKDWORD* vnChars);
     virtual void startInput();
     virtual void startOutput();
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar, int &bytesRead);
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+    virtual int  nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead);
+    virtual int  putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
 };
 
 //--------------------------------------------------
 class UTF8VIQRCharset : public VnCharset {
 
-protected:
-    VIQRCharset *m_pViqr;
-    UnicodeUTF8Charset *m_pUtf;
+  protected:
+    VIQRCharset*        m_pViqr;
+    UnicodeUTF8Charset* m_pUtf;
 
-public:
-    UTF8VIQRCharset(UnicodeUTF8Charset *pUtf, VIQRCharset *pViqr);
+  public:
+    UTF8VIQRCharset(UnicodeUTF8Charset* pUtf, VIQRCharset* pViqr);
     virtual void startInput();
     virtual void startOutput();
-    virtual int nextInput(ByteInStream &is, StdVnChar &stdChar, int &bytesRead);
-    virtual int putChar(ByteOutStream &os, StdVnChar stdChar, int &outLen);
+    virtual int  nextInput(ByteInStream& is, StdVnChar& stdChar, int& bytesRead);
+    virtual int  putChar(ByteOutStream& os, StdVnChar stdChar, int& outLen);
 };
 
 //--------------------------------------------------
 class DllInterface CVnCharsetLib {
-protected:
-    SingleByteCharset *m_sgCharsets[CONV_TOTAL_SINGLE_CHARSETS];
-    DoubleByteCharset *m_dbCharsets[CONV_TOTAL_DOUBLE_CHARSETS];
-    UnicodeCharset *m_pUniCharset;
-    UnicodeCompCharset *m_pUniCompCharset;
-    UnicodeUTF8Charset *m_pUniUTF8;
-    UnicodeRefCharset *m_pUniRef;
-    UnicodeHexCharset *m_pUniHex;
-    VIQRCharset *m_pVIQRCharObj;
-    UTF8VIQRCharset *m_pUVIQRCharObj;
-    WinCP1258Charset *m_pWinCP1258;
-    UnicodeCStringCharset *m_pUniCString;
-    VnInternalCharset *m_pVnIntCharset;
+  protected:
+    SingleByteCharset*     m_sgCharsets[CONV_TOTAL_SINGLE_CHARSETS];
+    DoubleByteCharset*     m_dbCharsets[CONV_TOTAL_DOUBLE_CHARSETS];
+    UnicodeCharset*        m_pUniCharset;
+    UnicodeCompCharset*    m_pUniCompCharset;
+    UnicodeUTF8Charset*    m_pUniUTF8;
+    UnicodeRefCharset*     m_pUniRef;
+    UnicodeHexCharset*     m_pUniHex;
+    VIQRCharset*           m_pVIQRCharObj;
+    UTF8VIQRCharset*       m_pUVIQRCharObj;
+    WinCP1258Charset*      m_pWinCP1258;
+    UnicodeCStringCharset* m_pUniCString;
+    VnInternalCharset*     m_pVnIntCharset;
 
-public:
-    PatternList m_VIQREscPatterns, m_VIQROutEscPatterns;
+  public:
+    PatternList   m_VIQREscPatterns, m_VIQROutEscPatterns;
     VnConvOptions m_options;
     CVnCharsetLib();
     ~CVnCharsetLib();
-    VnCharset *getVnCharset(int charsetIdx);
+    VnCharset* getVnCharset(int charsetIdx);
 };
 
-extern unsigned char SingleByteTables[][TOTAL_VNCHARS];
-extern UKWORD DoubleByteTables[][TOTAL_VNCHARS];
-extern UnicodeChar UnicodeTable[TOTAL_VNCHARS];
-extern UKDWORD VIQRTable[TOTAL_VNCHARS];
-extern UKDWORD UnicodeComposite[TOTAL_VNCHARS];
-extern UKWORD WinCP1258[TOTAL_VNCHARS];
-extern UKWORD WinCP1258Pre[TOTAL_VNCHARS];
+extern unsigned char              SingleByteTables[][TOTAL_VNCHARS];
+extern UKWORD                     DoubleByteTables[][TOTAL_VNCHARS];
+extern UnicodeChar                UnicodeTable[TOTAL_VNCHARS];
+extern UKDWORD                    VIQRTable[TOTAL_VNCHARS];
+extern UKDWORD                    UnicodeComposite[TOTAL_VNCHARS];
+extern UKWORD                     WinCP1258[TOTAL_VNCHARS];
+extern UKWORD                     WinCP1258Pre[TOTAL_VNCHARS];
 
 extern DllInterface CVnCharsetLib VnCharsetLibObj;
-extern VnConvOptions VnConvGlobalOptions;
-extern int StdVnNoTone[TOTAL_VNCHARS];
-extern int StdVnRootChar[TOTAL_VNCHARS];
+extern VnConvOptions              VnConvGlobalOptions;
+extern int                        StdVnNoTone[TOTAL_VNCHARS];
+extern int                        StdVnRootChar[TOTAL_VNCHARS];
 
-DllInterface int genConvert(VnCharset &incs, VnCharset &outcs,
-                            ByteInStream &input, ByteOutStream &output);
+DllInterface int                  genConvert(VnCharset& incs, VnCharset& outcs, ByteInStream& input, ByteOutStream& output);
 
-StdVnChar StdVnToUpper(StdVnChar ch);
-StdVnChar StdVnToLower(StdVnChar ch);
-StdVnChar StdVnGetRoot(StdVnChar ch);
+StdVnChar                         StdVnToUpper(StdVnChar ch);
+StdVnChar                         StdVnToLower(StdVnChar ch);
+StdVnChar                         StdVnGetRoot(StdVnChar ch);
 
 #endif

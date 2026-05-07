@@ -12,14 +12,14 @@
 
 //----------------------------
 void PatternState::reset() {
-    m_pos = 0;
+    m_pos   = 0;
     m_found = 0;
 }
 
 //----------------------------
-void PatternState::init(char *pattern) {
-    m_pos = 0;
-    m_found = 0;
+void PatternState::init(char* pattern) {
+    m_pos     = 0;
+    m_found   = 0;
     m_pattern = pattern;
 
     int i = 0, j = -1;
@@ -45,13 +45,13 @@ int PatternState::foundAtNextChar(char ch) {
     if (m_pattern[m_pos] == 0) {
         m_found++;
         m_pos = m_border[m_pos];
-        ret = 1;
+        ret   = 1;
     }
     return ret;
 }
 
 //-----------------------------------------------------
-void PatternList::init(char **patterns, int count) {
+void PatternList::init(char** patterns, int count) {
     m_count = count;
     delete[] m_patterns;
     m_patterns = new PatternState[count];
