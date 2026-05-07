@@ -15,6 +15,7 @@
 #ifndef _FCITX5_LOTUS_STATE_H_
 #define _FCITX5_LOTUS_STATE_H_
 
+#include "lotus-input-backend.hpp"
 #include "lotus.h"
 #include "emoji-entry.h"
 #include "lotus-utils.h"
@@ -24,6 +25,7 @@
 #include <fcitx/inputcontext.h>
 
 #include <atomic>
+#include <memory>
 
 struct EmojiEntry;
 
@@ -91,9 +93,9 @@ namespace fcitx {
       private:
         static constexpr size_t MAX_BUFFERED_KEYS = 50;
 
-        LotusEngine*            engine_;
-        InputContext*           ic_;
-        CGoObject               lotusEngine_;
+        LotusEngine*                           engine_;
+        InputContext*                          ic_;
+        std::unique_ptr<LotusInputBackend>    inputBackend_;
         std::string             oldPreBuffer_;
         bool                    hasHistory_              = false;
         int                     expected_backspaces_     = 0;

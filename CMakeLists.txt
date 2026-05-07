@@ -41,9 +41,11 @@ fcitx5_add_i18n_definition()
 
 if(ENABLE_LOTUS_UNIKEY_ENGINE)
     add_subdirectory(unikey)
+else()
+    add_subdirectory(bamboo)
 endif()
+
 add_subdirectory(po)
-add_subdirectory(bamboo)
 add_subdirectory(src)
 add_subdirectory(data)
 add_subdirectory(server)

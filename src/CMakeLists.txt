@@ -8,16 +8,21 @@ set(fcitx_lotus_sources
   emoji.cpp
 )
 
+list(APPEND fcitx_lotus_sources lotus-unikey-backend.cpp)
+
 add_library(lotus MODULE ${fcitx_lotus_sources})
 set_target_properties(lotus PROPERTIES OUTPUT_NAME "lotus")
+
 target_link_libraries(lotus
-	Fcitx5::Core
-	Fcitx5::Config
-  Fcitx5::Module::Emoji
-	Bamboo::Core
-	Pthread::Pthread
-	X11::X11
-)
+    Fcitx5::Core
+    Fcitx5::Config
+    Fcitx5::Module::Emoji
+    lotus-unikey-bridge
+    Pthread::Pthread
+    X11::X11
+  )
+  target_compile_definitions(lotus PRIVATE LOTUS_ENGINE_UNIKEY=1)
+  target_include_directories(lotus PRIVATE "${PROJECT_SOURCE_DIR}/unikey/core")
 
 target_include_directories(lotus PRIVATE
     ${PROJECT_BINARY_DIR}

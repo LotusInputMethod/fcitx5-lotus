@@ -10,6 +10,7 @@
 #include "lotus-engine.h"
 #include "lotus-candidates.h"
 #include "lotus-utils.h"
+#include "lotus-input-backend.hpp"
 #include "lotus.h"
 
 #include <cstddef>
@@ -74,43 +75,18 @@ namespace fcitx {
     }
 
     void LotusState::setEngine() {
-        lotusEngine_.reset();
+        inputBackend_.reset();
+        inputBackend_ = makeLotusInputBackend();
         realMode = modeStringToEnum(engine_->config().mode.value());
 
-        if (engine_->config().inputMethod.value() == "Custom") {
-            const auto&        keymaps = *engine_->customKeymap().customKeymap;
-            std::vector<char*> charArray;
-            charArray.reserve((keymaps.size() * 2) + 1);
-            for (const auto& keymap : keymaps) {
-                charArray.push_back(const_cast<char*>(keymap.key->data()));   //NOLINT
-                charArray.push_back(const_cast<char*>(keymap.value->data())); //NOLINT
-            }
-            charArray.push_back(nullptr);
-            lotusEngine_.reset(NewCustomEngine(charArray.data(), engine_->dictionary(), engine_->macroTable()));
-        } else {
-            lotusEngine_.reset(NewEngine(engine_->config().inputMethod->data(), engine_->dictionary(), engine_->macroTable()));
-        }
+        inputBackend_->recreateEngine(engine_);
         setOption();
     }
 
     void LotusState::setOption() {
-        if (!lotusEngine_)
+        if (!inputBackend_)
             return;
-        FcitxBambooEngineOption option = {
-            .autoNonVnRestore    = *engine_->config().autoNonVnRestore,
-            .ddFreeStyle         = *engine_->config().ddFreeStyle,
-            .macroEnabled        = *engine_->config().enableMacro,
-            .autoCapitalizeMacro = *engine_->config().capitalizeMacro,
-            .spellCheckWithDicts = *engine_->config().spellCheck,
-            .outputCharset       = engine_->config().outputCharset->data(),
-            .modernStyle         = *engine_->config().modernStyle,
-            .freeMarking         = *engine_->config().freeMarking,
-            .w2u                 = *engine_->config().w2u,
-            .timeFormat          = engine_->config().timeFormat->data(),
-            .dateFormat          = engine_->config().dateFormat->data(),
-        };
-
-        EngineSetOption(lotusEngine_.handle(), &option);
+        inputBackend_->setOptions(engine_);
     }
 
     bool LotusState::connect_uinput_server() {
@@ -231,20 +207,18 @@ namespace fcitx {
     }
 
     void LotusState::handlePreeditMode(KeyEvent& keyEvent, KeySym currentSym) {
-        char*            commitRaw  = nullptr;
-        char*            preeditRaw = nullptr;
-        bool             processed  = EngineProcessKeyEventAndPull(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states(), &commitRaw, &preeditRaw) != 0U;
-        UniqueCPtr<char> commit(commitRaw);
-        UniqueCPtr<char> preedit(preeditRaw);
+        std::string commitStr;
+        std::string preeditStr;
+        bool        processed = inputBackend_->processKeyEventAndPull(currentSym, keyEvent.rawKey().states(), &commitStr, &preeditStr);
         if (processed)
             keyEvent.filterAndAccept();
-        if (commit && (*commit.get() != 0)) {
-            LOTUS_INFO("Commit: " + std::string(commit.get()));
-            ic_->commitString(commit.get());
+        if (!commitStr.empty()) {
+            LOTUS_INFO("Commit: " + commitStr);
+            ic_->commitString(commitStr);
         }
         ic_->inputPanel().reset();
-        if (preedit && (*preedit.get() != 0)) {
-            std::string_view view = preedit.get();
+        if (!preeditStr.empty()) {
+            std::string_view view = preeditStr;
             Text             text;
             TextFormatFlags  fmt = TextFormatFlag::NoFlag;
             if (utf8::validate(view))
@@ -577,7 +551,7 @@ namespace fcitx {
             current_backspace_count_ = 0;
             pending_commit_string_.clear();
             hasHistory_ = false;
-            ResetEngine(lotusEngine_.handle());
+            inputBackend_->resetEngine();
             oldPreBuffer_.clear();
             return true;
         }
@@ -642,13 +616,12 @@ namespace fcitx {
         if (isBackspace(currentSym) || currentSym == FcitxKey_Return) {
             if (isBackspace(currentSym)) {
                 hasHistory_     = true;
-                char* preeditBs = nullptr;
-                EngineProcessKeyEventAndPull(lotusEngine_.handle(), FcitxKey_BackSpace, 0, nullptr, &preeditBs);
-                UniqueCPtr<char> preeditC(preeditBs);
-                oldPreBuffer_ = (preeditC && (*preeditC.get() != 0)) ? preeditC.get() : "";
+                std::string preBs;
+                inputBackend_->processKeyEventAndPull(FcitxKey_BackSpace, 0, nullptr, &preBs);
+                oldPreBuffer_ = preBs;
             } else {
                 hasHistory_ = false;
-                ResetEngine(lotusEngine_.handle());
+                inputBackend_->resetEngine();
                 oldPreBuffer_.clear();
             }
             keyEvent.forward();
@@ -661,14 +634,11 @@ namespace fcitx {
             return;
         }
 
-        char*            commitRaw  = nullptr;
-        char*            preeditRaw = nullptr;
-        bool             processed  = EngineProcessKeyEventAndPull(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states(), &commitRaw, &preeditRaw) != 0U;
-        UniqueCPtr<char> commitF(commitRaw);
-        UniqueCPtr<char> preeditC(preeditRaw);
+        std::string commitStr;
+        std::string preeditStrBuf;
+        bool        processed = inputBackend_->processKeyEventAndPull(currentSym, keyEvent.rawKey().states(), &commitStr, &preeditStrBuf);
 
-        if (commitF && (*commitF.get() != 0)) {
-            std::string commitStr = commitF.get();
+        if (!commitStr.empty()) {
             std::string commonPrefix;
             std::string deletedPart;
             std::string addedPart;
@@ -698,20 +668,17 @@ namespace fcitx {
             }
 
             hasHistory_ = false;
-            ResetEngine(lotusEngine_.handle());
+            inputBackend_->resetEngine();
             oldPreBuffer_.clear();
 
             return;
         }
 
         // Treat "processed but no effect" as passthrough
-        bool hasCommit  = (commitF && (*commitF.get() != 0));
-        bool hasPreedit = (preeditC && (*preeditC.get() != 0));
-
-        if (!processed || (!hasCommit && !hasPreedit)) {
-            if (checkEmptyPreedit && !hasPreedit) {
+        if (!processed || (!commitStr.empty() && !preeditStrBuf.empty())) {
+            if (checkEmptyPreedit && !preeditStrBuf.empty()) {
                 hasHistory_ = false;
-                ResetEngine(lotusEngine_.handle());
+                inputBackend_->resetEngine();
                 oldPreBuffer_.clear();
             }
             keyEvent.forward();
@@ -721,7 +688,7 @@ namespace fcitx {
         hasHistory_ = true;
         realtextLen.fetch_add(1, std::memory_order_acq_rel);
 
-        std::string preeditStr = (preeditC && (*preeditC.get() != 0)) ? preeditC.get() : "";
+        std::string preeditStr = preeditStrBuf;
 
         std::string commonPrefix;
         std::string deletedPart;
@@ -756,7 +723,7 @@ namespace fcitx {
                                 break;
                             }
                         if (!hasMultibyte && utf8::length(oldPreBuffer_) > 8) {
-                            ResetEngine(lotusEngine_.handle());
+                            inputBackend_->resetEngine();
                             hasHistory_ = false;
                             oldPreBuffer_.clear();
                         }
@@ -802,7 +769,7 @@ namespace fcitx {
         }
 
         if (isBackspace(keyEvent.rawKey().sym())) {
-            ResetEngine(lotusEngine_.handle());
+            inputBackend_->resetEngine();
             keyEvent.forward();
             return;
         }
@@ -851,34 +818,32 @@ namespace fcitx {
                 return;
             }
 
-            EngineRebuildFromText(lotusEngine_.handle(), oldWord.c_str());
+            inputBackend_->rebuildFromText(oldWord.c_str());
 
-            bool processed = EngineProcessKeyEvent(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states()) != 0U;
+            bool processed = inputBackend_->processKeyEvent(currentSym, keyEvent.rawKey().states());
 
             if (!processed) {
                 keyEvent.forward();
-                ResetEngine(lotusEngine_.handle());
+                inputBackend_->resetEngine();
                 return;
             }
 
-            char* commitP  = nullptr;
-            char* preeditP = nullptr;
-            EnginePullCommitAndPreedit(lotusEngine_.handle(), &commitP, &preeditP);
-            UniqueCPtr<char> commitPtr(commitP);
-            UniqueCPtr<char> preeditPtr(preeditP);
+            std::string commitPart;
+            std::string preeditPart;
+            inputBackend_->pullCommitAndPreedit(&commitPart, &preeditPart);
 
             std::string      newWord;
-            if (commitPtr && (*commitPtr.get() != 0))
-                newWord += commitPtr.get();
-            if (preeditPtr && (*preeditPtr.get() != 0))
-                newWord += preeditPtr.get();
+            if (!commitPart.empty())
+                newWord += commitPart;
+            if (!preeditPart.empty())
+                newWord += preeditPart;
 
             std::string commonPrefix;
             std::string deletedPart;
             std::string addedPart;
             compareAndSplitStrings(oldWord, newWord, commonPrefix, deletedPart, addedPart);
             if (deletedPart.empty() && addedPart == keyEvent.key().toString()) {
-                ResetEngine(lotusEngine_.handle());
+                inputBackend_->resetEngine();
                 keyEvent.forward();
                 return;
             }
@@ -895,12 +860,12 @@ namespace fcitx {
                     LOTUS_INFO("Commit: " + addedPart);
                 }
 
-                ResetEngine(lotusEngine_.handle());
+                inputBackend_->resetEngine();
                 keyEvent.filterAndAccept();
                 return;
             }
 
-            ResetEngine(lotusEngine_.handle());
+            inputBackend_->resetEngine();
             keyEvent.filterAndAccept();
             return;
         }
@@ -908,25 +873,23 @@ namespace fcitx {
 
     void LotusState::processNormalKey(KeyEvent& keyEvent, KeySym currentSym) {
         auto* ic = keyEvent.inputContext();
-        ResetEngine(lotusEngine_.handle());
-        char*            commitP   = nullptr;
-        char*            preeditP  = nullptr;
-        bool             processed = EngineProcessKeyEventAndPull(lotusEngine_.handle(), currentSym, keyEvent.rawKey().states(), &commitP, &preeditP) != 0U;
-        UniqueCPtr<char> commitPtr(commitP);
-        UniqueCPtr<char> preeditPtr(preeditP);
+        inputBackend_->resetEngine();
+        std::string commitPart;
+        std::string preeditPart;
+        bool        processed = inputBackend_->processKeyEventAndPull(currentSym, keyEvent.rawKey().states(), &commitPart, &preeditPart);
         if (processed) {
             std::string out;
-            if (commitPtr && (*commitPtr.get() != 0))
-                out += commitPtr.get();
-            if (preeditPtr && (*preeditPtr.get() != 0))
-                out += preeditPtr.get();
+            if (!commitPart.empty())
+                out += commitPart;
+            if (!preeditPart.empty())
+                out += preeditPart;
 
             if (!out.empty()) {
                 LOTUS_INFO("Commit: " + out);
                 ic->commitString(out);
             }
 
-            ResetEngine(lotusEngine_.handle());
+            inputBackend_->resetEngine();
             keyEvent.filterAndAccept();
         } else {
             keyEvent.forward();
@@ -955,7 +918,7 @@ namespace fcitx {
     }
 
     void LotusState::keyEvent(KeyEvent& keyEvent) {
-        if (!lotusEngine_ || keyEvent.isRelease())
+        if (!inputBackend_ || keyEvent.isRelease())
             return;
         if (uinput_client_fd_ < 0) {
             LOTUS_WARN("Cannot connect to uinput server, reconnecting....");
@@ -970,7 +933,7 @@ namespace fcitx {
             LOTUS_INFO("Need engine reset");
             oldPreBuffer_.clear();
             hasHistory_ = false;
-            ResetEngine(lotusEngine_.handle());
+            inputBackend_->resetEngine();
             is_deleting_.store(false);
             current_backspace_count_ = 0;
             isPrevSpace_             = false;
@@ -1108,19 +1071,20 @@ namespace fcitx {
             return;
         }
 
-        if (lotusEngine_) {
+        if (inputBackend_) {
             isPrevSpace_       = false;
             shouldCapitalize_  = false;
             isPrevPunctuation_ = false;
             if (realMode == LotusMode::Preedit && isFocusOut) {
-                EngineCommitPreedit(lotusEngine_.handle());
-                UniqueCPtr<char> commit(EnginePullCommit(lotusEngine_.handle()));
-                if (commit && (*commit.get() != 0)) {
-                    ic_->commitString(commit.get());
-                    LOTUS_INFO("Commit: " + std::string(commit.get()));
+                inputBackend_->commitPreedit();
+                std::string commit;
+                inputBackend_->pullCommit(&commit);
+                if (!commit.empty()) {
+                    ic_->commitString(commit);
+                    LOTUS_INFO("Commit: " + commit);
                 }
             }
-            ResetEngine(lotusEngine_.handle());
+            inputBackend_->resetEngine();
         }
         if (getFrontendName(ic_) != "dbus")
             clearAllBuffers();
@@ -1155,12 +1119,13 @@ namespace fcitx {
         switch (realMode) {
             case LotusMode::Preedit: {
                 ic_->inputPanel().reset();
-                if (lotusEngine_) {
-                    EngineCommitPreedit(lotusEngine_.handle());
-                    UniqueCPtr<char> commit(EnginePullCommit(lotusEngine_.handle()));
-                    if (commit && (*commit.get() != 0))
-                        ic_->commitString(commit.get());
-                    ResetEngine(lotusEngine_.handle());
+                if (inputBackend_) {
+                    inputBackend_->commitPreedit();
+                    std::string commit;
+                    inputBackend_->pullCommit(&commit);
+                    if (!commit.empty())
+                        ic_->commitString(commit);
+                    inputBackend_->resetEngine();
                 }
                 ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
                 ic_->updatePreedit();
@@ -1170,8 +1135,8 @@ namespace fcitx {
             case LotusMode::UinputHC:
             case LotusMode::Smooth:
             case LotusMode::SurroundingText: {
-                if (lotusEngine_) {
-                    ResetEngine(lotusEngine_.handle());
+                if (inputBackend_) {
+                    inputBackend_->resetEngine();
                 }
                 break;
             }
@@ -1196,8 +1161,8 @@ namespace fcitx {
         buffered_keys_.clear();
         shouldCapitalize_  = false;
         isPrevPunctuation_ = false;
-        if (lotusEngine_)
-            ResetEngine(lotusEngine_.handle());
+        if (inputBackend_)
+            inputBackend_->resetEngine();
     }
 
     bool LotusState::isEmptyHistory() const {
@@ -1224,9 +1189,11 @@ namespace fcitx {
                 continue;
             }
 
-            bool processed = EngineProcessKeyEvent(lotusEngine_.handle(), sym, state) != 0U;
+            bool processed = inputBackend_->processKeyEvent(sym, state);
 
-            auto commitF = UniqueCPtr<char>(EnginePullCommit(lotusEngine_.handle()));
+            std::string commitPull;
+            inputBackend_->pullCommit(&commitPull);
+            UniqueCPtr<char> commitF(commitPull.empty() ? nullptr : strdup(commitPull.c_str()));
             if (commitF && (*commitF.get() != 0)) {
                 std::string commitStr = commitF.get();
                 std::string commonPrefix;
@@ -1243,7 +1210,7 @@ namespace fcitx {
                     }
                     performReplacement(deletedPart, addedPart);
                     hasHistory_ = false;
-                    ResetEngine(lotusEngine_.handle());
+                    inputBackend_->resetEngine();
                     oldPreBuffer_.clear();
                     return;
                 }
@@ -1252,7 +1219,7 @@ namespace fcitx {
                 }
 
                 hasHistory_ = false;
-                ResetEngine(lotusEngine_.handle());
+                inputBackend_->resetEngine();
                 oldPreBuffer_.clear();
                 continue;
             }
@@ -1265,8 +1232,8 @@ namespace fcitx {
             hasHistory_ = true;
             realtextLen.fetch_add(1, std::memory_order_acq_rel);
 
-            UniqueCPtr<char> preeditC(EnginePullPreedit(lotusEngine_.handle()));
-            std::string      preeditStr = (preeditC && (*preeditC.get() != 0)) ? preeditC.get() : "";
+            std::string preeditStr;
+            inputBackend_->pullPreedit(&preeditStr);
 
             std::string      commonPrefix;
             std::string      deletedPart;

@@ -7,8 +7,8 @@
  * UnikeyInputContext). Intended to replace the Go/Bamboo engine when
  * LOTUS_USE_UNIKEY is wired through LotusState.
  */
-#ifndef FCITX5_LOTUS_LOTUS_UNIKEY_ENGINE_HPP
-#define FCITX5_LOTUS_LOTUS_ENGINE_HPP
+// #ifndef FCITX5_LOTUS_LOTUS_UNIKEY_ENGINE_HPP
+// #define FCITX5_LOTUS_LOTUS_ENGINE_HPP
 
 #include "keycons.h"
 #include "vnlexi.h"
@@ -60,4 +60,4 @@ private:
 
 } // namespace fcitx::lotus
 
-#endif
+//#endif

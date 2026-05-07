@@ -65,6 +65,7 @@ namespace fcitx {
         return isAppModeMenuReservedKey(hotkeySym) ? FcitxKey_f : hotkeySym;
     }
 
+#ifndef LOTUS_ENGINE_UNIKEY
     static inline uintptr_t newMacroTable(const lotusMacroTable& macroTable) {
         const auto&        macros = *macroTable.macros;
         std::vector<char*> charArray;
@@ -77,6 +78,7 @@ namespace fcitx {
         charArray.push_back(nullptr);
         return NewMacroTable(charArray.data());
     }
+#endif
 
     static inline std::vector<std::string> convertToStringList(char** list) {
         std::vector<std::string> result;
@@ -106,12 +108,24 @@ namespace fcitx {
         isGnome_            = (desktop != nullptr) && std::string(desktop).find("GNOME") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
         startMonitoring();
+#ifndef LOTUS_ENGINE_UNIKEY
         Init();
         {
             auto imNames = convertToStringList(GetInputMethodNames());
             imNames.push_back("Custom");
             imNames_ = std::move(imNames);
         }
+#else
+        imNames_ = {"Telex",
+                      "VNI",
+                      "Telex 2",
+                      "Telex + VNI",
+                      "Telex + VNI + VIQR",
+                      "VIQR",
+                      "Microsoft layout",
+                      "VNI Bàn phím tiếng Pháp",
+                      "Custom"};
+#endif
         config_.inputMethod.annotation().setList(imNames_);
 
         auto& uiManager = instance_->userInterfaceManager();
@@ -131,7 +145,11 @@ namespace fcitx {
         charsetMenu_ = std::make_unique<Menu>();
         charsetAction_->setMenu(charsetMenu_.get());
 
+#ifndef LOTUS_ENGINE_UNIKEY
         auto charsets = convertToStringList(GetCharsetNames());
+#else
+        std::vector<std::string> charsets = {"Unicode", "TCVN3", "VNI Win", "VIQR", "BK HCM 2", "UTF-8 VIQR"};
+#endif
         for (const auto& charset : charsets) {
             charsetSubAction_.emplace_back(std::make_unique<SimpleAction>());
             auto* action = charsetSubAction_.back().get();
@@ -246,6 +264,7 @@ namespace fcitx {
         readAsIni(config_, "conf/lotus.conf");
         readAsIni(customKeymap_, CustomKeymapFile);
         readAsIni(macroTables_, MacroTableFile);
+#ifndef LOTUS_ENGINE_UNIKEY
         macroTableObject_.reset(newMacroTable(macroTables_));
         if (config_.enableDictionary.value()) {
 #if LOTUS_USE_MODERN_FCITX_API
@@ -279,6 +298,7 @@ namespace fcitx {
                 }
             }
         }
+#endif
         loadAppRules();
         populateConfig();
     }
@@ -320,7 +340,9 @@ namespace fcitx {
         } else if (path == "lotus-macro") {
             macroTables_.load(config, true);
             safeSaveAsIni(macroTables_, MacroTableFile);
+#ifndef LOTUS_ENGINE_UNIKEY
             macroTableObject_.reset(newMacroTable(macroTables_));
+#endif
             refreshEngine();
         } else if (path == "app_rules") {
             appRulesTables_.load(config, true);
