@@ -144,7 +144,11 @@ namespace fcitx {
 
         if (waitAck_) {
             LOTUS_INFO("Waiting for ack");
-            std::this_thread::sleep_for(std::chrono::milliseconds(count * 5));
+            char ack;
+            recv(uinput_client_fd_, &ack, sizeof(ack), MSG_NOSIGNAL);
+            replacement_start_ms_.store(0, std::memory_order_release);
+            // ez way but cause alot of problem
+            //std::this_thread::sleep_for(std::chrono::milliseconds(count * 5));
         }
     }
 
@@ -467,6 +471,7 @@ namespace fcitx {
                 return false; // Allow intermediate backspaces to reach the app to clear autofill/old text.
             }
             is_deleting_.store(false);
+            /*
             replacement_start_ms_.store(0, std::memory_order_release);
             replacement_thread_id_.store(0, std::memory_order_release);
             int64_t elapsed_ms = now_ms() - replacement_start_ms_.load(std::memory_order_acquire);
@@ -483,6 +488,17 @@ namespace fcitx {
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }
+            */
+            replacement_start_ms_.store(0, std::memory_order_release);
+            replacement_thread_id_.store(0, std::memory_order_release);
+            int64_t elapsed_ms = now_ms() - replacement_start_ms_.load(std::memory_order_acquire);
+            int64_t wait_ms    = static_cast<int64_t>(sleepTime) - elapsed_ms;
+            if (wait_ms > 0)
+                std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
+            if (waitAck_){
+                const int wait_ms_ack = 5;
+                std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms_ack));
+            }
             ic_->commitString(pending_commit_string_);
             LOTUS_INFO("Commit: " + pending_commit_string_);
             expected_backspaces_     = 0;
@@ -490,8 +506,6 @@ namespace fcitx {
             pending_commit_string_   = "";
 
             event.filterAndAccept(); // Filter out the final trigger backspace.
-            //if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
-            //  replayBufferedKeys(); // Does we need drop this?
             return true;
         }
         return false;
@@ -958,8 +972,6 @@ namespace fcitx {
             }
             replacement_thread_id_.store(0, std::memory_order_release);
             replacement_start_ms_.store(0, std::memory_order_release);
-            //if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
-            //   replayBufferedKeys(); // Does we need drop this?
         }
         KeySym currentSym = keyEvent.rawKey().sym();
         if (*engine_->config().autoCapitalizeAfterPunctuation && realMode != LotusMode::Off) {

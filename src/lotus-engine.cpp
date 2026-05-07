@@ -394,7 +394,7 @@ namespace fcitx {
         // TODO: Properly fixes instead ugly WA
         state->wa_flag  = false;
         state->surrtp   = false;
-        state->waitAck_ = false;
+        bool prevAck = state->waitAck_;
         if (*config_.fixUinputWithAck) {
             if (targetMode == LotusMode::Uinput || targetMode == LotusMode::UinputHC || targetMode == LotusMode::Smooth) {
 #if __cplusplus >= 202002L
@@ -419,6 +419,12 @@ namespace fcitx {
                     }
                 }
             }
+        }
+        if (prevAck != state->waitAck_ && uinput_client_fd_ >= 0) {
+            // close(uinput_client_fd_);
+            // uinput_client_fd_ = -1;
+            char drain[64];
+            recv(uinput_client_fd_, drain, sizeof(drain), MSG_DONTWAIT | MSG_NOSIGNAL);
         }
         if (event.type() == EventType::InputContextFocusIn && is_dbus && !surrvalid) {
             LOTUS_INFO("Skip clearAllBuffers");

@@ -286,6 +286,10 @@ int main(int argc, char* argv[]) {
                 uinput.send_backspace();
                 --pending_backspaces;
                 last_bs_ms = now_ms;
+                if (pending_backspaces == 0) {
+                    char ack = '7';
+                    send(fds[3].fd, &ack, sizeof(ack), MSG_NOSIGNAL);
+                }
             }
         }
 

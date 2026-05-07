@@ -32,7 +32,7 @@ namespace {
         return static_cast<UkKeyEvName>(static_cast<int>(vneCount) + static_cast<int>(v));
     }
 
-    constexpr UkEventLabelPair UkEvLabelList[] = {
+    static const UkEventLabelPair UkEvLabelList[] = {
         {"Tone0", vneTone0},   {"Tone1", vneTone1},   {"Tone2", vneTone2},      {"Tone3", vneTone3},       {"Tone4", vneTone4},     {"Tone5", vneTone5},   {"Roof-All", vneRoofAll},
         {"Roof-A", vneRoof_a}, {"Roof-E", vneRoof_e}, {"Roof-O", vneRoof_o},    {"Hook-Bowl", vneHookAll}, {"Hook-UO", vneHook_uo}, {"Hook-U", vneHook_u}, {"Hook-O", vneHook_o},
         {"Bowl", vneBowl},     {"D-Mark", vneDd},     {"Telex-W", vne_telex_w}, {"Escape", vneEscChar},
