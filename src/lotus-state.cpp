@@ -31,8 +31,42 @@ namespace fcitx {
     constexpr int      MAX_SCAN_LENGTH = 15;
 
     static inline bool isWordBreak(uint32_t ucs4) {
-        // Space, tab, newline, carriage return, null, or punctuation/symbols (: ; < = > ? @)
-        return ucs4 == ' ' || ucs4 == '\t' || ucs4 == '\n' || ucs4 == '\r' || ucs4 == 0 || (ucs4 >= 58 && ucs4 <= 64);
+        if (__builtin_expect(ucs4 > 64, 1))
+            return false;
+        if (__builtin_expect(ucs4 == 64, 0))
+            return true; // '@'
+        // btq: single-cycle bit-test (Linux kernel bitmap technique); replaces 6-branch chain.
+        // Bits set: NUL(0) TAB(9) LF(10) CR(13) SPC(32) :;<=>?(58-63)
+        static constexpr uint64_t kMask =
+            (1ULL << 0) | (1ULL << 9) | (1ULL << 10) | (1ULL << 13) | (1ULL << 32) | (1ULL << 58) | (1ULL << 59) | (1ULL << 60) | (1ULL << 61) | (1ULL << 62) | (1ULL << 63);
+        bool r;
+        asm("btq %1, %2\n\t"
+            "setc %0"
+            : "=r"(r)
+            : "r"((uint64_t)ucs4), "r"(kMask)
+            : "cc");
+        return r;
+    }
+
+    // Word-at-a-time high-byte scan (glibc / Linux kernel byte-at-a-time.h technique).
+    // Reads 8 bytes per iteration; testq checks all 8 in one instruction.
+    static inline bool hasHighByte(const std::string& s) {
+        static constexpr uint64_t kHi = 0x8080808080808080ULL;
+        const uint8_t*            p   = reinterpret_cast<const uint8_t*>(s.data());
+        size_t                    n   = s.size();
+        bool                      r   = false;
+        for (; n >= 8 && !r; p += 8, n -= 8) {
+            uint64_t w;
+            __builtin_memcpy(&w, p, 8);
+            asm("testq %1, %2\n\t"
+                "setne %0"
+                : "=r"(r)
+                : "r"(w), "r"(kHi)
+                : "cc");
+        }
+        for (; n && !r; --n)
+            r = (*p++ & 0x80) != 0;
+        return r;
     }
 
     LotusState::LotusState(LotusEngine* engine, InputContext* ic) : engine_(engine), ic_(ic) {
@@ -467,7 +501,7 @@ namespace fcitx {
                 std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
             {
                 const unsigned int expected_cursor = static_cast<unsigned int>(realtextLen.load(std::memory_order_acquire));
-                const int          max_retries     = waitAck_ ? 15 : 8;
+                const int          max_retries     = waitAck_ ? 5 : 1;
                 for (int retry = 0; retry < max_retries; ++retry) {
                     const auto& surr = ic_->surroundingText();
                     if (surr.isValid() && surr.cursor() == expected_cursor)
@@ -670,15 +704,17 @@ namespace fcitx {
             return;
         }
 
-        if (!processed) {
-            if (checkEmptyPreedit) {
-                if (!preeditC || (*preeditC.get() == 0)) {
-                    hasHistory_ = false;
-                    ResetEngine(lotusEngine_.handle());
-                    oldPreBuffer_.clear();
-                    keyEvent.forward();
-                }
+        // Treat "processed but no effect" as passthrough
+        bool hasCommit  = (commitF && (*commitF.get() != 0));
+        bool hasPreedit = (preeditC && (*preeditC.get() != 0));
+
+        if (!processed || (!hasCommit && !hasPreedit)) {
+            if (checkEmptyPreedit && !hasPreedit) {
+                hasHistory_ = false;
+                ResetEngine(lotusEngine_.handle());
+                oldPreBuffer_.clear();
             }
+            keyEvent.forward();
             return;
         }
 
@@ -1007,7 +1043,7 @@ namespace fcitx {
             if (isBackspace(currentSym)) {
                 if (realtextLen.load(std::memory_order_acquire) > 0)
                     realtextLen.fetch_sub(1, std::memory_order_acq_rel);
-                if (handleUInputKeyPress(keyEvent, currentSym, (realMode == LotusMode::Smooth) ? 5 : 20)) {
+                if (handleUInputKeyPress(keyEvent, currentSym, (realMode == LotusMode::Smooth) ? 3 : 10)) {
                     return;
                 }
             } else {
@@ -1166,6 +1202,12 @@ namespace fcitx {
 
     bool LotusState::isEmptyHistory() const {
         return !hasHistory_;
+    }
+    bool LotusState::isReplacing() const {
+        return expected_backspaces_ > 0 && current_backspace_count_ < expected_backspaces_;
+    }
+    bool LotusState::isX11() const {
+        return false; //cat /proc/<PID>/maps | grep -E 'libX11|libxcb'
     }
     /*
     void LotusState::replayBufferedKeys() {

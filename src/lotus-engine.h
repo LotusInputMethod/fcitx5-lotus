@@ -187,6 +187,7 @@ namespace fcitx {
             }
             return *emojiLoader_;
         }
+        LotusMode getAppRule(const std::string& appName);
 
       private:
         Instance*                instance_;

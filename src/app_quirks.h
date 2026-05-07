@@ -27,4 +27,4 @@ inline constexpr std::array<std::string_view, 12> ack_apps = {"chrome", "chromiu
  * @brief List of application names have goood support surrowding text
  *
  */
-inline constexpr std::array<std::string_view, 1> surrtp_apps = {"soffice"};
+inline constexpr std::array<std::string_view, 4> surrtp_apps = {"soffice", "mullvad", "waterfox", "librewolf"};

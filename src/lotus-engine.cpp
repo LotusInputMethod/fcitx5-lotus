@@ -80,13 +80,17 @@ namespace fcitx {
 
     static inline std::vector<std::string> convertToStringList(char** list) {
         std::vector<std::string> result;
-        if (list != nullptr) {
-            for (size_t i = 0; list[i] != nullptr; ++i) { //NOLINT
-                result.emplace_back(list[i]);             //NOLINT
-                free(list[i]);                            //NOLINT
-            }
-            free(list); //NOLINT
-        }
+        if (list == nullptr)
+            return result;
+        size_t count = 0;
+        while (list[count] != nullptr)
+            ++count; //NOLINT
+        result.reserve(count);
+        for (size_t i = 0; i < count; ++i)
+            result.emplace_back(list[i]); //NOLINT
+        for (size_t i = 0; i < count; ++i)
+            free(list[i]); //NOLINT
+        free(list);        //NOLINT
         return result;
     }
 
@@ -407,11 +411,13 @@ namespace fcitx {
         } else if (surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100) {
             state->clearAllBuffers();
         }
-        is_deleting_.store(false);
+        if (!state->isReplacing())
+            is_deleting_.store(false);
         needEngineReset.store(false);
         if (targetMode == LotusMode::Emoji) {
             state->updateEmojiPreedit();
         } else {
+            LOTUS_INFO("inputPanel reset");
             ic->inputPanel().reset();
             ic->updateUserInterface(UserInterfaceComponent::InputPanel);
             ic->updatePreedit();
@@ -426,6 +432,7 @@ namespace fcitx {
 
         if (isSelectingAppMode_ && g_mouse_clicked.load(std::memory_order_acquire)) {
             closeAppModeMenu();
+            LOTUS_INFO("reset inputPanel");
             ic->inputPanel().reset();
             ic->updateUserInterface(UserInterfaceComponent::InputPanel);
             auto* state = ic->propertyFor(&factory_);
@@ -605,13 +612,21 @@ namespace fcitx {
     }
 
     void LotusEngine::reset(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
-        LOTUS_INFO("Reset engine");
         auto* state = event.inputContext()->propertyFor(&factory_);
+        if (is_deleting_.load(std::memory_order_acquire))
+            return;
         if (!state->isEmptyHistory() && event.type() != EventType::InputContextFocusOut) {
+            int64_t now = now_ms();
+            if (now - state->lastSkippedResetMs_ >= 500) {
+                LOTUS_INFO("Reset engine: skipping (has history)");
+                state->lastSkippedResetMs_ = now;
+            }
             return;
         }
-
+        state->lastSkippedResetMs_ = 0;
+        LOTUS_INFO("Reset engine");
         if (event.type() == EventType::InputContextFocusOut || event.type() == EventType::InputContextReset) {
+            LOTUS_INFO("reset stage");
             state->reset(event.type() == EventType::InputContextFocusOut);
         }
     }
@@ -631,7 +646,8 @@ namespace fcitx {
                 if (surrvalid && state->oldPreBuffer_.empty())
                     state->clearAllBuffers();
             }
-            is_deleting_.store(false);
+            if (!state->isReplacing())
+                is_deleting_.store(false);
             needEngineReset.store(false);
             ic->inputPanel().reset();
             ic->updateUserInterface(UserInterfaceComponent::InputPanel);
@@ -746,19 +762,40 @@ namespace fcitx {
         file.close();
     }
 
-    LotusMode LotusEngine::getAppRule(const std::string& appName) const {
+    LotusMode LotusEngine::getAppRule(const std::string& appName) {
         std::lock_guard<std::mutex> lock(appRulesMutex_);
+
         auto                        it = appRules_.find(appName);
         if (it != appRules_.end()) {
             return it->second;
         }
-        return modeStringToEnum(config_.mode.value());
+
+        const auto globalMode = modeStringToEnum(config_.mode.value());
+
+        // auto save new app rule from global mode
+        if (config_.autoSaveNewAppRules.value() && false) {
+            auto         rules = *appRulesTables_.rules;
+
+            lotusAppRule newRule;
+            newRule.app.setValue(appName);
+            newRule.mode.setValue(static_cast<int>(globalMode));
+
+            rules.push_back(std::move(newRule));
+
+            appRules_[appName] = globalMode;
+            appRulesTables_.rules.setValue(std::move(rules));
+
+            saveAppRules();
+        }
+
+        return globalMode;
     }
 
     void LotusEngine::setAppRule(const std::string& appName, LotusMode mode) {
-        auto rules = *appRulesTables_.rules;
+        std::lock_guard<std::mutex> lock(appRulesMutex_);
+        auto                        rules = *appRulesTables_.rules;
 
-        bool found = false;
+        bool                        found = false;
         for (auto& rule : rules) {
             if (*rule.app == appName) {
                 rule.mode.setValue(static_cast<int>(mode));
@@ -774,10 +811,7 @@ namespace fcitx {
             rules.push_back(std::move(newRule));
         }
 
-        {
-            std::lock_guard<std::mutex> lock(appRulesMutex_);
-            appRules_[appName] = mode;
-        }
+        appRules_[appName] = mode;
         appRulesTables_.rules.setValue(std::move(rules));
     }
 

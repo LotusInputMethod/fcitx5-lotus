@@ -83,6 +83,8 @@ namespace fcitx {
          * @return True if no history.
          */
         bool isEmptyHistory() const;
+        bool isReplacing() const;
+        bool isX11() const;
         friend class EmojiCandidateWord;
         friend class LotusEngine;
 
@@ -106,6 +108,7 @@ namespace fcitx {
         bool                    shouldCapitalize_   = false;
         bool                    isPrevPunctuation_  = false;
         int64_t                 lastDeactivateTime_ = 0;
+        int64_t                 lastSkippedResetMs_ = 0;
         bool                    wa_flag             = false;
         bool                    surrtp              = false;
 
