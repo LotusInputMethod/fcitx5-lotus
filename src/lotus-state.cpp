@@ -461,19 +461,18 @@ namespace fcitx {
             is_deleting_.store(false);
             replacement_start_ms_.store(0, std::memory_order_release);
             replacement_thread_id_.store(0, std::memory_order_release);
-            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
-            // Validate surr cursor pos should match realtextLen after all BS applied
-            if (waitAck_) {
-                const auto& surr = ic_->surroundingText();
-                if (!surr.isValid() || surr.cursor() != realtextLen.load(std::memory_order_acquire)) {
-                    // Retry x5 (1 ms each), khi can (chromium,electron,...)
-                    for (int retry = 0; retry < 5; ++retry) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                        const auto& surr2 = ic_->surroundingText();
-                        if (surr2.isValid() && surr2.cursor() == realtextLen.load(std::memory_order_acquire)) {
-                            break;
-                        }
-                    }
+            int64_t elapsed_ms = now_ms() - replacement_start_ms_.load(std::memory_order_acquire);
+            int64_t wait_ms    = static_cast<int64_t>(sleepTime) - elapsed_ms;
+            if (wait_ms > 0)
+                std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
+            {
+                const unsigned int expected_cursor = static_cast<unsigned int>(realtextLen.load(std::memory_order_acquire));
+                const int          max_retries     = waitAck_ ? 15 : 8;
+                for (int retry = 0; retry < max_retries; ++retry) {
+                    const auto& surr = ic_->surroundingText();
+                    if (surr.isValid() && surr.cursor() == expected_cursor)
+                        break;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }
             ic_->commitString(pending_commit_string_);
