@@ -38,4 +38,4 @@ refresh-contributor
 lotus-version.h
 # Logs
 *.log
-__pycache__/install.sh
+__pycache__/
