@@ -20,11 +20,8 @@
  *
  * Chromium-based browsers that need special handling for text replacement.
  */
-inline constexpr std::array<std::string_view, 13> ack_apps = {
-  "chrome", "chromium", "brave",  "edge",    "vivaldi", "opera",
-  "coccoc", "cromite",  "helium", "thorium", "slimjet", "yandex",
-  "vesktop"
-};
+inline constexpr std::array<std::string_view, 13> ack_apps = {"chrome",  "chromium", "brave",   "edge",    "vivaldi", "opera",  "coccoc",
+                                                              "cromite", "helium",   "thorium", "slimjet", "yandex",  "vesktop"};
 
 /**
  * @brief List of application names have goood support surrowding text

@@ -116,7 +116,7 @@ namespace fcitx {
             imNames_ = std::move(imNames);
         }
 #else
-        imNames_ = {"Telex", "VNI", "Telex 2", "Telex + VNI", "Telex + VNI + VIQR", "VIQR", "Microsoft layout", "VNI Bàn phím tiếng Pháp", "Custom"};
+        imNames_ = {"Telex", "VNI", "Telex 2", "Telex + VNI", "Telex + VNI + VIQR", "VIQR", "Microsoft layout", "VNI Bàn phím tiếng Pháp", "Simple","Custom"};
 #endif
         config_.inputMethod.annotation().setList(imNames_);
 

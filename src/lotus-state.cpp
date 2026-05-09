@@ -501,7 +501,7 @@ namespace fcitx {
             int64_t wait_ms    = static_cast<int64_t>(sleepTime) - elapsed_ms;
             if (wait_ms > 0)
                 std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
-            if (waitAck_){
+            if (waitAck_) {
                 const int wait_ms_ack = 5;
                 std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms_ack));
             }
@@ -530,11 +530,10 @@ namespace fcitx {
         bool test_flags = true; // use for testing only :v
         if (surrtp)
             LOTUS_INFO("surrtp");
-        if ( (test_flags || surrtp) // Lmfao, only this work :>
-            && (surrounding.isValid() && ic_->capabilityFlags().test(CapabilityFlag::SurroundingText)
-            && (!surrounding.text().empty()
-            && surrounding.text().back() != '\n') // firefox and discord insert '\n' into surr cause bug
-            && !autofillOffset)                // TODO: Guard, remove this when bug of surrounding is fixes
+        if ((test_flags || surrtp) // Lmfao, only this work :>
+            && (surrounding.isValid() && ic_->capabilityFlags().test(CapabilityFlag::SurroundingText) &&
+                (!surrounding.text().empty() && surrounding.text().back() != '\n') // firefox and discord insert '\n' into surr cause bug
+                && !autofillOffset)                                                // TODO: Guard, remove this when bug of surrounding is fixes
         ) {
             LOTUS_INFO("deleteSurroundingText branch");
             auto      cur     = static_cast<size_t>(surrounding.cursor());

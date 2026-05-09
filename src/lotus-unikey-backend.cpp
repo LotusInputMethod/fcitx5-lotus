@@ -33,7 +33,7 @@ namespace fcitx {
         }
 
         static UkInputMethod mapLotusIm(const std::string& name) {
-            if (name.find("Telex") != std::string::npos && name.find("VNI") == std::string::npos)
+            if (name.find("Telex 2") != std::string::npos && name.find("VNI") == std::string::npos)
                 return UkTelex;
             if (name.find("VNI") != std::string::npos || name == "VNI")
                 return UkVni;
@@ -41,8 +41,8 @@ namespace fcitx {
                 return UkViqr;
             if (name.find("Microsoft") != std::string::npos || name.find("Ms") != std::string::npos)
                 return UkMsVi;
-            if (name.find("Simple") != std::string::npos)
-                return UkSimpleTelex2;
+            if (name.find("Telex") != std::string::npos)
+                return UkSimpleTelex;
             return UkTelex;
         }
 
@@ -242,31 +242,12 @@ namespace fcitx {
                 if (rawSym >= FcitxKey_space && rawSym <= FcitxKey_asciitilde) {
                     const bool beginWord = uk_->isAtWordBeginning();
 
-                    // Forward numbers in Telex.
-                    // Prevent tone-number handling from eating digits.
-                    if (
-                        rawSym >= FcitxKey_0 &&
-                        rawSym <= FcitxKey_9) {
-                        return false;
-                    }
-
-                    // Keep leading "w" literal at beginning of word.
-                    // Avoid "w" -> "ư".
-                    if (
-                        beginWord &&
-                        (rawSym == FcitxKey_w || rawSym == FcitxKey_W)) {
-                        return false;
-                    }
-
-                    uk_->setCapsState(st.test(KeyState::Shift) ? 1 : 0,
-                                      st.test(KeyState::CapsLock) ? 1 : 0);
+                    uk_->setCapsState(st.test(KeyState::Shift) ? 1 : 0, st.test(KeyState::CapsLock) ? 1 : 0);
 
                     uk_->filter(sym);
                     syncState(rawSym);
 
-                    if (!preeditStr_.empty() &&
-                        preeditStr_.back() == static_cast<char>(sym) &&
-                        isWordBreakSym(static_cast<unsigned char>(sym))) {
+                    if (!preeditStr_.empty() && preeditStr_.back() == static_cast<char>(sym) && isWordBreakSym(static_cast<unsigned char>(sym))) {
                         pendingPullCommit_ = preeditStr_;
                         preeditStr_.clear();
                         uk_->resetBuf();
