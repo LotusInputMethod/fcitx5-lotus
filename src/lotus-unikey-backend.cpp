@@ -218,7 +218,7 @@ namespace fcitx {
                             pendingPullCommit_ = preeditStr_;
                         preeditStr_.clear();
                         uk_->resetBuf();
-                        return true;
+                        return !pendingPullCommit_.empty();
                     }
                     if (static_cast<int>(preeditStr_.length()) <= uk_->context()->backspaces())
                         preeditStr_.clear();

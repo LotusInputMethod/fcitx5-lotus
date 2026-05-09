@@ -392,13 +392,16 @@ namespace fcitx {
         // it not support surrounding text so can't know when it show suggestions
         //
         // TODO: Properly fixes instead ugly WA
+        state->isTerm = false;
         state->wa_flag  = false;
         state->surrtp   = false;
         bool prevAck = state->waitAck_;
+        state->waitAck_ = false;
         if (*config_.fixUinputWithAck) {
-            if (targetMode == LotusMode::Uinput || targetMode == LotusMode::UinputHC || targetMode == LotusMode::Smooth) {
+            if (targetMode == LotusMode::Uinput || targetMode == LotusMode::UinputWine || targetMode == LotusMode::Smooth) {
 #if __cplusplus >= 202002L
-                std::ranges::transform(appName, appName.begin(), ::tolower);
+                std::ranges::transform(appName, appName.begin(),
+                    [](unsigned char c) { return std::tolower(c); });
 #else
                 std::transform(appName.begin(), appName.end(), appName.begin(), ::tolower);
 #endif
@@ -414,13 +417,21 @@ namespace fcitx {
                 }
                 for (const auto& _App : surrtp_apps) {
                     if (appName.find(_App) != std::string::npos) {
+                        LOTUS_INFO(std::string(_App) + " support surr");
                         state->surrtp = true;
+                        break;
+                    }
+                }
+                for (const auto& _term : terminalm) {
+                    if (appName.find(_term) != std::string::npos) {
+                        LOTUS_INFO(std::string(_term) + " is terminal");
+                        state->isTerm = true;
                         break;
                     }
                 }
             }
         }
-        if (prevAck != state->waitAck_ && uinput_client_fd_ >= 0) {
+        if (prevAck != state->waitAck_ && !state->waitAck_  && uinput_client_fd_ >= 0) {
             // close(uinput_client_fd_);
             // uinput_client_fd_ = -1;
             char drain[64];
@@ -536,7 +547,7 @@ namespace fcitx {
                     break;
                 }
                 case FcitxKey_3: {
-                    selectedMode = LotusMode::UinputHC;
+                    selectedMode = LotusMode::UinputWine;
                     break;
                 }
                 case FcitxKey_4: {
@@ -885,7 +896,7 @@ namespace fcitx {
         candidateList->append(std::make_unique<DisplayOnlyCandidateWord>(Text(_("App: ") + currentConfigureApp_)));
         candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(LotusMode::Smooth, _("[1] Uinput (Smooth)")), applyMode(LotusMode::Smooth)));
         candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(LotusMode::Uinput, _("[2] Uinput (Slow)")), applyMode(LotusMode::Uinput)));
-        candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(LotusMode::UinputHC, _("[3] Uinput (Hardcore)")), applyMode(LotusMode::UinputHC)));
+        candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(LotusMode::UinputWine, _("[3] Uinput (Wine)")), applyMode(LotusMode::UinputWine)));
         candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(LotusMode::SurroundingText, _("[4] Surrounding Text")), applyMode(LotusMode::SurroundingText)));
         candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(LotusMode::Preedit, _("[q] Preedit")), applyMode(LotusMode::Preedit)));
         candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(LotusMode::Emoji, _("[w] Emoji Picker")), applyMode(LotusMode::Emoji)));
@@ -916,7 +927,7 @@ namespace fcitx {
         switch (realMode) {
             case LotusMode::Smooth: selectedIndex = 1; break;
             case LotusMode::Uinput: selectedIndex = 2; break;
-            case LotusMode::UinputHC: selectedIndex = 3; break;
+            case LotusMode::UinputWine: selectedIndex = 3; break;
             case LotusMode::SurroundingText: selectedIndex = 4; break;
             case LotusMode::Preedit: selectedIndex = 5; break;
             case LotusMode::Emoji: selectedIndex = 6; break;

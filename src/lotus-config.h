@@ -29,7 +29,7 @@ namespace fcitx {
         Off             = 0,
         Smooth          = 1,
         Uinput          = 2,
-        UinputHC        = 3,
+        UinputWine      = 3,
         SurroundingText = 4,
         Preedit         = 5,
         Emoji           = 6,
@@ -47,7 +47,7 @@ namespace fcitx {
             case LotusMode::Uinput: return "Uinput (Slow)";
             case LotusMode::SurroundingText: return "Surrounding Text";
             case LotusMode::Preedit: return "Preedit";
-            case LotusMode::UinputHC: return "Uinput (Hardcore)";
+            case LotusMode::UinputWine: return "Uinput (Wine)";
             case LotusMode::Emoji: return "Emoji Picker";
             case LotusMode::Smooth: return "Uinput (Smooth)";
             default: return "";
@@ -65,7 +65,7 @@ namespace fcitx {
             {"Uinput (Slow)", LotusMode::Uinput},
             {"Surrounding Text", LotusMode::SurroundingText},
             {"Preedit", LotusMode::Preedit},
-            {"Uinput (Hardcore)", LotusMode::UinputHC},
+            {"Uinput (Wine)", LotusMode::UinputWine},
             {"Emoji Picker", LotusMode::Emoji},
             {"Uinput (Smooth)", LotusMode::Smooth},
         };
@@ -153,7 +153,7 @@ namespace fcitx {
          * @brief Initializes with default mode list.
          */
         ModeListAnnotation() {
-            list_ = {"Uinput (Smooth)", "Uinput (Slow)", "Surrounding Text", "Preedit", "Uinput (Hardcore)", "OFF"};
+            list_ = {"Uinput (Smooth)", "Uinput (Slow)", "Surrounding Text", "Preedit", "Uinput (Wine)", "OFF"};
         }
     };
 

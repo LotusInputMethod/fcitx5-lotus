@@ -144,22 +144,28 @@ namespace fcitx {
 
         if (waitAck_) {
             LOTUS_INFO("Waiting for ack");
+            LOTUS_INFO("chrome x11 hit me");
             char ack;
             recv(uinput_client_fd_, &ack, sizeof(ack), MSG_NOSIGNAL);
+            // keep safe that bs is finish by app
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
             replacement_start_ms_.store(0, std::memory_order_release);
             // ez way but cause alot of problem
             //std::this_thread::sleep_for(std::chrono::milliseconds(count * 5));
+        } else {
+            LOTUS_INFO("firefox hit me");
+            std::this_thread::sleep_for(std::chrono::milliseconds(count * 2));
         }
     }
 
     void LotusState::send_backspace_forward(int count) const {
         if (count <= 0)
             return;
-        for (int i = 0; i < count - 1; ++i) {
+        for (int i = 0; i < count; ++i) {
             ic_->forwardKey(Key(FcitxKey_BackSpace, KeyState::NoState), false);
             ic_->forwardKey(Key(FcitxKey_BackSpace, KeyState::NoState), true);
         }
-        send_backspace_uinput(0); // trigger 1bs to make all bs prev release
+        //send_backspace_uinput(0); // trigger 1bs to make all bs prev release
     }
 
     bool LotusState::isAutofillCertain(const SurroundingText& s) {
@@ -504,7 +510,6 @@ namespace fcitx {
             expected_backspaces_     = 0;
             current_backspace_count_ = 0;
             pending_commit_string_   = "";
-
             event.filterAndAccept(); // Filter out the final trigger backspace.
             return true;
         }
@@ -519,29 +524,33 @@ namespace fcitx {
         const auto& surrounding    = ic_->surroundingText();
         int         autofillOffset = isAutofillCertain(surrounding) ? 1 : 0;
         expected_backspaces_       = static_cast<int>(utf8::length(deletedPart)) + 1 + autofillOffset;
+        if (realMode == LotusMode::UinputWine)
+            --expected_backspaces_;
         // Use deleteSurroundingText for apps that support it for smooth typing
-        if (surrtp // Lmfao, only this work :>
-            && surrounding.isValid() && ic_->capabilityFlags().test(CapabilityFlag::SurroundingText) &&
-            (surrounding.text()).back() != '\n' // firefox and discord insert '\n' into surrounding cause bug
-            && !(autofillOffset)                // TODO: Guard, remove this when bug of surrounding is fixes
+        bool test_flags = true; // use for testing only :v
+        if (surrtp)
+            LOTUS_INFO("surrtp");
+        if ( (test_flags || surrtp) // Lmfao, only this work :>
+            && (surrounding.isValid() && ic_->capabilityFlags().test(CapabilityFlag::SurroundingText)
+            && (!surrounding.text().empty()
+            && surrounding.text().back() != '\n') // firefox and discord insert '\n' into surr cause bug
+            && !autofillOffset)                // TODO: Guard, remove this when bug of surrounding is fixes
         ) {
+            LOTUS_INFO("deleteSurroundingText branch");
             auto      cur     = static_cast<size_t>(surrounding.cursor());
             const int bsCount = static_cast<int>(utf8::length(deletedPart));
             if (autofillOffset) {
+                LOTUS_INFO("have suggestions branch");
                 int surrLen       = static_cast<int>(utf8::length(surrounding.text()));
                 int realLen       = static_cast<int>(cur);
                 int suggestionLen = surrLen - realLen;
                 // delete suggestion tail
                 if (suggestionLen > 0)
                     ic_->deleteSurroundingText(0, 1);
-                // delete addedPart
-                if (bsCount > 0)
-                    ic_->deleteSurroundingText(-bsCount, static_cast<unsigned int>(bsCount));
-            } else {
-                if (bsCount > 0) {
-                    ic_->deleteSurroundingText(-bsCount, static_cast<unsigned int>(bsCount));
-                }
             }
+            // delete addedPart
+            if (bsCount > 0)
+                ic_->deleteSurroundingText(-bsCount, static_cast<unsigned int>(bsCount));
             ic_->commitString(addedPart);
             //clearAllBuffers();
             return true;
@@ -550,9 +559,14 @@ namespace fcitx {
             replacement_start_ms_.store(now_ms(), std::memory_order_release);
             is_deleting_.store(true, std::memory_order_release);
             monitor_cv.notify_one();
-            //send_backspace_forward(expected_backspaces_ - 1);
-            send_backspace_uinput(expected_backspaces_);
-            LOTUS_INFO("Send " + std::to_string(expected_backspaces_) + " backspaces");
+            if (0 && isTerm) {
+                send_backspace_forward(expected_backspaces_ - 1);
+                return true;
+            } else
+                send_backspace_uinput(expected_backspaces_);
+            LOTUS_INFO("Send " + std::to_string(expected_backspaces_ - 1 - autofillOffset) + " backspaces + 1 trigger");
+            if (autofillOffset)
+                LOTUS_INFO("Send more 1 extra delete suggestions");
         }
         return false;
     }
@@ -617,7 +631,7 @@ namespace fcitx {
         return false;
     }
 
-    void LotusState::handleUinputMode(KeyEvent& keyEvent, KeySym currentSym, bool checkEmptyPreedit) {
+    void LotusState::handleUinputMode(KeyEvent& keyEvent, KeySym currentSym) {
         if (checkForwardSpecialKey(keyEvent, currentSym)) {
             keyEvent.forward();
             return;
@@ -690,7 +704,7 @@ namespace fcitx {
 
         // Treat "processed but no effect" as passthrough
         if (!processed || (!commitStr.empty() && !preeditStrBuf.empty())) {
-            if (checkEmptyPreedit && !preeditStrBuf.empty()) {
+            if (!preeditStrBuf.empty()) {
                 hasHistory_ = false;
                 inputBackend_->resetEngine();
                 oldPreBuffer_.clear();
@@ -1049,11 +1063,11 @@ namespace fcitx {
         switch (realMode) {
             case LotusMode::Uinput:
             case LotusMode::Smooth: {
-                handleUinputMode(keyEvent, currentSym, true);
+                handleUinputMode(keyEvent, currentSym);
                 break;
             }
-            case LotusMode::UinputHC: {
-                handleUinputMode(keyEvent, currentSym, false);
+            case LotusMode::UinputWine: {
+                handleUinputMode(keyEvent, currentSym);
                 break;
             }
             case LotusMode::SurroundingText: {
@@ -1110,7 +1124,7 @@ namespace fcitx {
             }
             case LotusMode::SurroundingText:
             case LotusMode::Uinput:
-            case LotusMode::UinputHC:
+            case LotusMode::UinputWine:
             case LotusMode::Smooth: {
                 ic_->inputPanel().reset();
                 break;
@@ -1144,7 +1158,7 @@ namespace fcitx {
                 break;
             }
             case LotusMode::Uinput:
-            case LotusMode::UinputHC:
+            case LotusMode::UinputWine:
             case LotusMode::Smooth:
             case LotusMode::SurroundingText: {
                 if (inputBackend_) {
