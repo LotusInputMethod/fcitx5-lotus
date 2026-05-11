@@ -34,7 +34,7 @@ namespace fcitx {
 
         static UkInputMethod mapLotusIm(const std::string& name) {
             if (name.find("Telex 2") != std::string::npos && name.find("VNI") == std::string::npos)
-                return UkTelex;
+                return UkSimpleTelex;
             if (name.find("VNI") != std::string::npos || name == "VNI")
                 return UkVni;
             if (name.find("VIQR") != std::string::npos)
@@ -199,7 +199,6 @@ namespace fcitx {
                     rawSym == FcitxKey_Delete || rawSym == FcitxKey_KP_Enter || (rawSym >= FcitxKey_Home && rawSym <= FcitxKey_Insert) ||
                     (rawSym >= FcitxKey_KP_Home && rawSym <= FcitxKey_KP_Delete)) {
                     uk_->context()->filter(0);
-                    syncState(rawSym);
                     if (!preeditStr_.empty())
                         pendingPullCommit_ = preeditStr_;
                     preeditStr_.clear();
@@ -231,7 +230,6 @@ namespace fcitx {
 
                 if (rawSym >= FcitxKey_KP_Multiply && rawSym <= FcitxKey_KP_9) {
                     uk_->context()->filter(0);
-                    syncState(rawSym);
                     if (!preeditStr_.empty())
                         pendingPullCommit_ = preeditStr_;
                     preeditStr_.clear();
