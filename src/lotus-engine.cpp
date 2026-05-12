@@ -451,7 +451,8 @@ namespace fcitx {
             LOTUS_INFO("inputPanel reset");
             ic->inputPanel().reset();
             ic->updateUserInterface(UserInterfaceComponent::InputPanel);
-            ic->updatePreedit();
+            if (realMode == LotusMode::Preedit)
+                ic->updatePreedit();
         }
         for (const auto& action : toggleActions_) {
             statusArea.addAction(StatusGroup::InputMethod, action);
@@ -682,7 +683,8 @@ namespace fcitx {
             needEngineReset.store(false);
             ic->inputPanel().reset();
             ic->updateUserInterface(UserInterfaceComponent::InputPanel);
-            ic->updatePreedit();
+            if (realMode == LotusMode::Preedit)
+                ic->updatePreedit();
         }
     }
 

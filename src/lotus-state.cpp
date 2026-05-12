@@ -70,6 +70,20 @@ namespace fcitx {
         return r;
     }
 
+    inline void update_max(std::atomic<uint32_t>& value, uint32_t target) {
+        uint32_t current = value.load(std::memory_order_acquire);
+
+        asm volatile("1:\n\t"
+                     "cmpl %[target], %[current]\n\t"
+                     "jae 2f\n\t"
+                     "lock cmpxchgl %[target], %[mem]\n\t"
+                     "jne 1b\n\t"
+                     "2:\n\t"
+                     : [mem] "+m"(value), [current] "+a"(current)
+                     : [target] "r"(target)
+                     : "memory");
+    }
+
     LotusState::LotusState(LotusEngine* engine, InputContext* ic) : engine_(engine), ic_(ic) {
         setEngine();
     }
@@ -141,10 +155,10 @@ namespace fcitx {
                 send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
             }
         }
-
-        if (waitAck_) {
+        //HACK
+        //if (waitAck_) {
             LOTUS_INFO("Waiting for ack");
-            LOTUS_INFO("chrome x11 hit me");
+        //    LOTUS_INFO("chrome x11 hit me");
             char ack;
             recv(uinput_client_fd_, &ack, sizeof(ack), MSG_NOSIGNAL);
             // keep safe that bs is finish by app
@@ -152,10 +166,10 @@ namespace fcitx {
             replacement_start_ms_.store(0, std::memory_order_release);
             // ez way but cause alot of problem
             //std::this_thread::sleep_for(std::chrono::milliseconds(count * 5));
-        } else {
-            LOTUS_INFO("firefox hit me");
-            std::this_thread::sleep_for(std::chrono::milliseconds(count * 2));
-        }
+        //} else {
+        //    LOTUS_INFO("firefox hit me");
+        //    std::this_thread::sleep_for(std::chrono::milliseconds(count * 2));
+        //}
     }
 
     void LotusState::send_backspace_forward(int count) const {
@@ -176,22 +190,24 @@ namespace fcitx {
         const unsigned int cursor  = s.cursor();
         const unsigned int anchor  = s.anchor();
         const auto&        text    = s.text();
-        const size_t       textLen = utf8::length(text);
+        const size_t       cursor_sz = static_cast<size_t>(cursor);
 
         // Fix that surrounding text is delay update
         const size_t buffLen    = utf8::length(oldPreBuffer_);
         const size_t pb         = text.find(oldPreBuffer_);
-        size_t       rangeStart = buffLen >= static_cast<size_t>(cursor) ? 0 : static_cast<size_t>(cursor) - buffLen;
-        const bool   sameprefix = pb != std::string::npos && pb >= rangeStart && pb <= static_cast<size_t>(cursor);
+        size_t       rangeStart = buffLen >= cursor_sz ? 0 : cursor_sz - buffLen;
+        const bool   sameprefix = pb != std::string::npos && pb >= rangeStart && pb <= cursor_sz;
 
         // Detect browser autofill/autocomplete suggestions via selection.
+        // This check for wayland_input method v2/v3 and not dbus
         if (cursor != anchor) {
+            LOTUS_INFO("check suggest wayland");
             unsigned int selectionStart = std::min(anchor, cursor);
             unsigned int selectionEnd   = std::max(anchor, cursor);
 
             // Only consider it browser autofill if the selection starts at the cursor
             // and extends to the end of the line (common address bar behavior).
-            if (selectionStart >= cursor || (selectionStart < cursor && selectionEnd > cursor)) {
+            if (cursor <= selectionEnd) {
                 if (!sameprefix)
                     return false;
                 // If the selection contains a newline, it's likely a multiline editor (AI ghost text),
@@ -201,18 +217,22 @@ namespace fcitx {
             }
         }
 
-        if (textLen == static_cast<size_t>(cursor)) {
+        const size_t textLen = utf8::length(text);
+        if (textLen == cursor_sz) {
             realtextLen.store(textLen, std::memory_order_release);
             return false;
         }
 
         // Heuristic: rapid text growth in a single-line context.
         // Applied only when no newline is present after the cursor to distinguish from AI text in editors.
-        if (textLen > static_cast<size_t>(cursor) && cursor == realtextLen.load(std::memory_order_acquire) && text.find('\n', cursor) == std::string::npos && sameprefix)
-            return true;
+        // Check for wayland app that use dbus as backend
+        if (textLen > cursor_sz)
+            if(cursor == realtextLen.load(std::memory_order_acquire)
+                && text.find('\n', cursor) == std::string::npos
+                && sameprefix)
+                return true;
 
-        for (auto v = realtextLen.load(std::memory_order_acquire); v < cursor && !realtextLen.compare_exchange_weak(v, cursor, std::memory_order_acq_rel);)
-            ;
+        update_max(realtextLen, static_cast<uint32_t>(cursor));
         return false;
     }
 
