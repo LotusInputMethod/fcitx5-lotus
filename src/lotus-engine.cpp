@@ -399,14 +399,25 @@ namespace fcitx {
         state->waitAck_ = false;
         if (*config_.fixUinputWithAck) {
             if (targetMode == LotusMode::Uinput || targetMode == LotusMode::UinputWine || targetMode == LotusMode::Smooth) {
-#if __cplusplus >= 202002L
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+                tolower_avx512(appName.data(), appName.size());
+#elif __cplusplus >= 202002L
                 std::ranges::transform(appName, appName.begin(),
                     [](unsigned char c) { return std::tolower(c); });
 #else
                 std::transform(appName.begin(), appName.end(), appName.begin(), ::tolower);
 #endif
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+                auto contains = [&](std::string_view s) {
+                    return strfind_avx512(appName.data(), appName.size(), s.data(), s.size()) != static_cast<size_t>(-1);
+                };
+#else
+                auto contains = [&](std::string_view s) {
+                    return appName.find(s) != std::string::npos;
+                };
+#endif
                 for (const auto& ackApp : ack_apps) {
-                    if (appName.find(ackApp) != std::string::npos) {
+                    if (contains(ackApp)) {
                         if (is_dbus) {
                             state->waitAck_ = true;
                             LOTUS_INFO(std::string(ackApp) + " detected, waiting for ack");
@@ -416,14 +427,14 @@ namespace fcitx {
                     }
                 }
                 for (const auto& _App : surrtp_apps) {
-                    if (appName.find(_App) != std::string::npos) {
+                    if (contains(_App)) {
                         LOTUS_INFO(std::string(_App) + " support surr");
                         state->surrtp = true;
                         break;
                     }
                 }
                 for (const auto& _term : terminalm) {
-                    if (appName.find(_term) != std::string::npos) {
+                    if (contains(_term)) {
                         LOTUS_INFO(std::string(_term) + " is terminal");
                         state->isTerm = true;
                         break;

@@ -49,27 +49,6 @@ namespace fcitx {
         return r;
     }
 
-    // Word-at-a-time high-byte scan (glibc / Linux kernel byte-at-a-time.h technique).
-    // Reads 8 bytes per iteration; testq checks all 8 in one instruction.
-    static inline bool hasHighByte(const std::string& s) {
-        static constexpr uint64_t kHi = 0x8080808080808080ULL;
-        const uint8_t*            p   = reinterpret_cast<const uint8_t*>(s.data());
-        size_t                    n   = s.size();
-        bool                      r   = false;
-        for (; n >= 8 && !r; p += 8, n -= 8) {
-            uint64_t w;
-            __builtin_memcpy(&w, p, 8);
-            asm("testq %1, %2\n\t"
-                "setne %0"
-                : "=r"(r)
-                : "r"(w), "r"(kHi)
-                : "cc");
-        }
-        for (; n && !r; --n)
-            r = (*p++ & 0x80) != 0;
-        return r;
-    }
-
     inline void update_max(std::atomic<uint32_t>& value, uint32_t target) {
         uint32_t current = value.load(std::memory_order_acquire);
 
@@ -497,24 +476,6 @@ namespace fcitx {
                 return false; // Allow intermediate backspaces to reach the app to clear autofill/old text.
             }
             is_deleting_.store(false);
-            /*
-            replacement_start_ms_.store(0, std::memory_order_release);
-            replacement_thread_id_.store(0, std::memory_order_release);
-            int64_t elapsed_ms = now_ms() - replacement_start_ms_.load(std::memory_order_acquire);
-            int64_t wait_ms    = static_cast<int64_t>(sleepTime) - elapsed_ms;
-            if (wait_ms > 0)
-                std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
-            {
-                const unsigned int expected_cursor = static_cast<unsigned int>(realtextLen.load(std::memory_order_acquire));
-                const int          max_retries     = waitAck_ ? 5 : 1;
-                for (int retry = 0; retry < max_retries; ++retry) {
-                    const auto& surr = ic_->surroundingText();
-                    if (surr.isValid() && surr.cursor() == expected_cursor)
-                        break;
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                }
-            }
-            */
             replacement_start_ms_.store(0, std::memory_order_release);
             replacement_thread_id_.store(0, std::memory_order_release);
             int64_t elapsed_ms = now_ms() - replacement_start_ms_.load(std::memory_order_acquire);
@@ -547,7 +508,7 @@ namespace fcitx {
         if (realMode == LotusMode::UinputWine)
             --expected_backspaces_;
         // Use deleteSurroundingText for apps that support it for smooth typing
-        bool test_flags = true; // use for testing only :v
+        bool test_flags = false; // use for testing only :v
         if (surrtp)
             LOTUS_INFO("surrtp");
         if ((test_flags || surrtp) // Lmfao, only this work :>

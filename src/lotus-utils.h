@@ -22,6 +22,21 @@
 #include <fcitx/inputcontext.h>
 
 #include "lotus-config.h"
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+extern "C" size_t compare_split_avx512(
+    const char* A, const char* B, size_t lenA, size_t lenB, void* dummy);
+extern "C" size_t utf8_length_avx512(const char* str, size_t len);
+extern "C" size_t find_char_avx512(const char* str, size_t len, size_t start, int ch);
+extern "C" size_t compare_split_avx512(
+    const char* A,
+    const char* B,
+    size_t lenA,
+    size_t lenB,
+    void* dummy
+);
+extern "C" size_t tolower_avx512(char* str, size_t len);
+extern "C" size_t strfind_avx512(const char* hay, size_t hlen, const char* needle, size_t nlen);
+#endif
 
 /**
  * @brief Maximum length of Unix socket paths.

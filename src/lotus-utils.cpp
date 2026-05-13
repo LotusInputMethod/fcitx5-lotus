@@ -58,7 +58,12 @@ bool isBackspace(uint32_t sym) {
 int compareAndSplitStrings(const std::string& A, const std::string& B, std::string& commonPrefix, std::string& deletedPart, std::string& addedPart) {
     size_t i = 0;
     size_t j = 0;
-
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+    i = compare_split_avx512(A.data(), B.data(), A.size(), B.size(), nullptr);
+    while (i > 0 && i < A.size() && ((A[i] & 0xC0) == 0x80))
+        i--;
+    j = i;
+#else
     while (i < A.size() && j < B.size()) {
         unsigned int lenA = fcitx_utf8_char_len(&A[i]);
         unsigned int lenB = fcitx_utf8_char_len(&B[j]);
@@ -75,7 +80,7 @@ int compareAndSplitStrings(const std::string& A, const std::string& B, std::stri
             break;
         }
     }
-
+#endif
     commonPrefix.assign(A, 0, i);
     deletedPart.assign(A, i);
     addedPart.assign(B, j);
