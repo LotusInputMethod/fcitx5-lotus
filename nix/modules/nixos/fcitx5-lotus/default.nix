@@ -13,9 +13,11 @@ let
   legacyUsers = optional (cfg.user != null && cfg.user != "") cfg.user;
   effectiveUsers = unique (legacyUsers ++ cfg.users);
 
-  invalidUsers = filter (
-    user: user == "" || user == "multi-user" || (builtins.match "[A-Za-z_][A-Za-z0-9_-]*" user) == null
+  syntacticallyInvalidUsers = filter (
+    user: user == "" || (builtins.match "[A-Za-z_][A-Za-z0-9_-]*" user) == null
   ) effectiveUsers;
+
+  unknownUsers = filter (user: !(builtins.hasAttr user config.users.users)) effectiveUsers;
 in
 {
   options.services.fcitx5-lotus = {
@@ -58,8 +60,20 @@ in
   config = mkIf cfg.enable {
     assertions = [
       {
-        assertion = invalidUsers == [ ];
-        message = "services.fcitx5-lotus.users/user must contain real login users, not empty string, `multi-user`, or invalid usernames.";
+        assertion = cfg.user != "";
+        message = "services.fcitx5-lotus.user must not be an empty string; use null or services.fcitx5-lotus.users.";
+      }
+      {
+        assertion = effectiveUsers != [ ];
+        message = "services.fcitx5-lotus requires at least one user. Set services.fcitx5-lotus.users = [ \"alice\" ];";
+      }
+      {
+        assertion = syntacticallyInvalidUsers == [ ];
+        message = "services.fcitx5-lotus.users/user contains invalid Linux usernames.";
+      }
+      {
+        assertion = unknownUsers == [ ];
+        message = "services.fcitx5-lotus.users/user must contain users declared in users.users.";
       }
     ];
 
