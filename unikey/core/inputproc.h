@@ -48,60 +48,57 @@ enum UkKeyEvName {
     vneCount   // just to count how many event types there are
 };
 
-enum UkCharType {
-    ukcVn,
-    ukcWordBreak,
-    ukcNonVn,
-    ukcReset
-};
+enum UkCharType { ukcVn, ukcWordBreak, ukcNonVn, ukcReset };
 
 struct UkKeyEvent {
-    int          evType;
-    UkCharType   chType;
-    VnLexiName   vnSym; // meaningful only when chType==ukcVn
+    int evType;
+    UkCharType chType;
+    VnLexiName vnSym; // meaningful only when chType==ukcVn
     unsigned int keyCode;
-    int          tone; // meaningful only when this is a vowel
+    int tone; // meaningful only when this is a vowel
 };
 
 struct UkKeyMapping {
     unsigned char key;
-    int           action;
+    int action;
 };
 
 ///////////////////////////////////////////
 class UkInputProcessor {
 
-  public:
+public:
     // don't do anything with constructor, because
     // this object can be allocated in shared memory
     // Use init method instead
     // UkInputProcessor();
 
-    void          init();
+    void init();
 
-    UkInputMethod getIM() const {
-        return m_im;
-    }
+    UkInputMethod getIM() const { return m_im; }
 
-    void       keyCodeToEvent(unsigned int keyCode, UkKeyEvent& ev);
-    void       keyCodeToSymbol(unsigned int keyCode, UkKeyEvent& ev);
-    int        setIM(UkInputMethod im);
-    int        setIM(int map[256]);
-    void       getKeyMap(int map[256]) const;
+    void keyCodeToEvent(unsigned int keyCode, UkKeyEvent &ev);
+    void keyCodeToSymbol(unsigned int keyCode, UkKeyEvent &ev);
+    int setIM(UkInputMethod im);
+    int setIM(int map[256]);
+    void getKeyMap(int map[256]) const;
 
     UkCharType getCharType(unsigned int keyCode) const;
 
-  protected:
-    static bool   m_classInit;
+protected:
+    static bool m_classInit;
 
     UkInputMethod m_im;
-    int           m_keyMap[256];
+    int m_keyMap[256];
 
-    void          useBuiltIn(UkKeyMapping* map);
+    void useBuiltIn(UkKeyMapping *map);
 };
 
-void                             UkResetKeyMap(int keyMap[256]);
-void                             SetupInputClassifierTable();
+inline constexpr UkKeyEvName lexi(VnLexiName v) {
+    return static_cast<UkKeyEvName>(
+        static_cast<int>(vneCount) + static_cast<int>(v));
+}
+void UkResetKeyMap(int keyMap[256]);
+void SetupInputClassifierTable();
 
 DllInterface extern UkKeyMapping TelexMethodMapping[];
 DllInterface extern UkKeyMapping SimpleTelexMethodMapping[];
@@ -110,8 +107,8 @@ DllInterface extern UkKeyMapping VniMethodMapping[];
 DllInterface extern UkKeyMapping VIQRMethodMapping[];
 DllInterface extern UkKeyMapping MsViMethodMapping[];
 
-extern VnLexiName                IsoVnLexiMap[];
-inline VnLexiName                IsoToVnLexi(unsigned int keyCode) {
+extern VnLexiName IsoVnLexiMap[];
+inline VnLexiName IsoToVnLexi(unsigned int keyCode) {
     return (keyCode >= 256) ? vnl_nonVnChar : IsoVnLexiMap[keyCode];
 }
 

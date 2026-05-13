@@ -13,7 +13,7 @@
 #include <memory>
 
 class UnikeyInputMethod : public fcitx::ConnectableObject {
-  public:
+public:
     UnikeyInputMethod();
 
     // set input method
@@ -23,27 +23,25 @@ class UnikeyInputMethod : public fcitx::ConnectableObject {
     void setOutputCharset(int charset);
 
     // set extra options
-    void setOptions(UnikeyOptions* pOpt);
+    void setOptions(UnikeyOptions *pOpt);
 
     //--------------------------------------------
-    int loadMacroTable(const char* fileName) {
+    int loadMacroTable(const char *fileName) {
         return sharedMem_->macStore.loadFromFile(fileName);
     }
 
-    UkSharedMem* sharedMem() {
-        return sharedMem_.get();
-    }
+    UkSharedMem *sharedMem() { return sharedMem_.get(); }
 
     FCITX_DECLARE_SIGNAL(UnikeyInputMethod, Reset, void());
 
-  private:
+private:
     FCITX_DEFINE_SIGNAL(UnikeyInputMethod, Reset);
     std::unique_ptr<UkSharedMem> sharedMem_;
 };
 
 class UnikeyInputContext {
-  public:
-    UnikeyInputContext(UnikeyInputMethod* im);
+public:
+    UnikeyInputContext(UnikeyInputMethod *im);
     ~UnikeyInputContext();
 
     // call this to reset Unikey's state when focus, context is changed or
@@ -69,27 +67,21 @@ class UnikeyInputContext {
 
     bool isAtWordBeginning() const;
 
-    int  backspaces() const {
-        return backspaces_;
-    }
-    int bufChars() const {
-        return bufChars_;
-    }
-    const unsigned char* buf() const {
-        return buf_;
-    }
+    int backspaces() const { return backspaces_; }
+    int bufChars() const { return bufChars_; }
+    const unsigned char *buf() const { return buf_; }
 
-  private:
+private:
     fcitx::ScopedConnection conn_;
 
-    unsigned char           buf_[1024];
-    int                     backspaces_ = 0;
-    int                     bufChars_;
-    UkOutputType            output_;
-    UkEngine                engine_;
+    unsigned char buf_[1024];
+    int backspaces_ = 0;
+    int bufChars_;
+    UkOutputType output_;
+    UkEngine engine_;
 
-    int                     capsLockOn_   = 0;
-    int                     shiftPressed_ = 0;
+    int capsLockOn_ = 0;
+    int shiftPressed_ = 0;
 };
 
 #endif // _UNIKEY_UNIKEYINPUTCONTEXT_H_

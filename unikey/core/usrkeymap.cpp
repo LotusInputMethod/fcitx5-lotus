@@ -18,50 +18,56 @@
 
 namespace {
 
-    constexpr char OPT_COMMENT_CHAR = ';';
+constexpr char OPT_COMMENT_CHAR = ';';
 
-    struct UkEventLabelPair {
-        char label[32];
-        int  ev;
-    };
+struct UkEventLabelPair {
+    char label[32];
+    int ev;
+};
 
-    const char*           UkKeyMapHeader = "; This is UniKey user-defined key mapping file, "
-                                           "generated from UniKey (Fcitx 5)\n\n";
+const char *UkKeyMapHeader = "; This is UniKey user-defined key mapping file, "
+                             "generated from UniKey (Fcitx 5)\n\n";
 
-    constexpr UkKeyEvName lexi(VnLexiName v) {
-        return static_cast<UkKeyEvName>(static_cast<int>(vneCount) + static_cast<int>(v));
+constexpr UkEventLabelPair UkEvLabelList[] = {
+    {"Tone0", vneTone0},       {"Tone1", vneTone1},
+    {"Tone2", vneTone2},       {"Tone3", vneTone3},
+    {"Tone4", vneTone4},       {"Tone5", vneTone5},
+    {"Roof-All", vneRoofAll},  {"Roof-A", vneRoof_a},
+    {"Roof-E", vneRoof_e},     {"Roof-O", vneRoof_o},
+    {"Hook-Bowl", vneHookAll}, {"Hook-UO", vneHook_uo},
+    {"Hook-U", vneHook_u},     {"Hook-O", vneHook_o},
+    {"Bowl", vneBowl},         {"D-Mark", vneDd},
+    {"Telex-W", vne_telex_w},  {"Escape", vneEscChar},
+    {"DD", lexi(vnl_DD)}, {"dd", lexi(vnl_dd)},
+    {"A^", lexi(vnl_Ar)}, {"a^", lexi(vnl_ar)},
+    {"A(", lexi(vnl_Ab)}, {"a(", lexi(vnl_ab)},
+    {"E^", lexi(vnl_Er)}, {"e^", lexi(vnl_er)},
+    {"O^", lexi(vnl_Or)}, {"o^", lexi(vnl_or)},
+    {"O+", lexi(vnl_Oh)}, {"o+", lexi(vnl_oh)},
+    {"U+", lexi(vnl_Uh)}, {"u+", lexi(vnl_uh)}};
+
+constexpr auto UkEvLabelCount = FCITX_ARRAY_SIZE(UkEvLabelList);
+
+//-------------------------------------------
+void initKeyMap(int keyMap[256]) {
+    unsigned int c;
+    for (c = 0; c < 256; c++)
+        keyMap[c] = vneNormal;
+}
+
+int getLabelIndex(int event) {
+    for (size_t i = 0; i < UkEvLabelCount; i++) {
+        if (UkEvLabelList[i].ev == event)
+            return i;
     }
-
-    static const UkEventLabelPair UkEvLabelList[] = {
-        {"Tone0", vneTone0},   {"Tone1", vneTone1},   {"Tone2", vneTone2},      {"Tone3", vneTone3},       {"Tone4", vneTone4},     {"Tone5", vneTone5},   {"Roof-All", vneRoofAll},
-        {"Roof-A", vneRoof_a}, {"Roof-E", vneRoof_e}, {"Roof-O", vneRoof_o},    {"Hook-Bowl", vneHookAll}, {"Hook-UO", vneHook_uo}, {"Hook-U", vneHook_u}, {"Hook-O", vneHook_o},
-        {"Bowl", vneBowl},     {"D-Mark", vneDd},     {"Telex-W", vne_telex_w}, {"Escape", vneEscChar},
-
-        {"DD", lexi(vnl_DD)},  {"dd", lexi(vnl_dd)},  {"A^", lexi(vnl_Ar)},     {"a^", lexi(vnl_ar)},      {"A(", lexi(vnl_Ab)},    {"a(", lexi(vnl_ab)},  {"E^", lexi(vnl_Er)},
-        {"e^", lexi(vnl_er)},  {"O^", lexi(vnl_Or)},  {"o^", lexi(vnl_or)},     {"O+", lexi(vnl_Oh)},      {"o+", lexi(vnl_oh)},    {"U+", lexi(vnl_Uh)},  {"u+", lexi(vnl_uh)},
-    };
-
-    constexpr auto UkEvLabelCount = FCITX_ARRAY_SIZE(UkEvLabelList);
-
-    //-------------------------------------------
-    void initKeyMap(int keyMap[256]) {
-        unsigned int c;
-        for (c = 0; c < 256; c++)
-            keyMap[c] = vneNormal;
-    }
-
-    int getLabelIndex(int event) {
-        for (size_t i = 0; i < UkEvLabelCount; i++) {
-            if (UkEvLabelList[i].ev == event)
-                return i;
-        }
-        return -1;
-    }
+    return -1;
+}
 
 } // namespace
 
 //--------------------------------------------------
-static bool parseNameValue(std::string_view line, std::string_view* name, std::string_view* value) {
+static bool parseNameValue(std::string_view line, std::string_view *name,
+                           std::string_view *value) {
     if (line.empty()) {
         return false;
     }
@@ -85,7 +91,7 @@ static bool parseNameValue(std::string_view line, std::string_view* name, std::s
         return false;
     }
 
-    *name  = k;
+    *name = k;
     *value = v;
     return true;
 }
@@ -94,7 +100,7 @@ static bool parseNameValue(std::string_view line, std::string_view* name, std::s
 DllExport void UkLoadKeyMap(int fd, int keyMap[256]) {
     std::vector<UkKeyMapping> orderMap = UkLoadKeyOrderMap(fd);
     initKeyMap(keyMap);
-    for (const auto& item : orderMap) {
+    for (const auto &item : orderMap) {
         keyMap[item.key] = item.action;
         if (item.action < vneCount) {
             keyMap[tolower(item.key)] = item.action;
@@ -105,14 +111,14 @@ DllExport void UkLoadKeyMap(int fd, int keyMap[256]) {
 //------------------------------------------------------------------
 DllExport std::vector<UkKeyMapping> UkLoadKeyOrderMap(int fd) {
     size_t lineCount = 0;
-    int    keyMap[256];
+    int keyMap[256];
 
     initKeyMap(keyMap);
 
     std::vector<UkKeyMapping> pMap;
-    fcitx::IFDStreamBuf       buf(fd);
-    std::istream              in(&buf);
-    std::string               line;
+    fcitx::IFDStreamBuf buf(fd);
+    std::istream in(&buf);
+    std::string line;
     while (std::getline(in, line)) {
         lineCount++;
         auto text = fcitx::stringutils::trimView(line);
@@ -122,7 +128,8 @@ DllExport std::vector<UkKeyMapping> UkLoadKeyOrderMap(int fd) {
         std::string_view name, value;
         if (parseNameValue(text, &name, &value)) {
             if (name.size() != 1) {
-                FCITX_ERROR() << "Error in user key layout, line " << lineCount << ": key name is not a single character";
+                FCITX_ERROR() << "Error in user key layout, line " << lineCount
+                              << ": key name is not a single character";
                 continue;
             }
             size_t i = 0;
@@ -132,7 +139,8 @@ DllExport std::vector<UkKeyMapping> UkLoadKeyOrderMap(int fd) {
                 }
             }
             if (i == UkEvLabelCount) {
-                FCITX_ERROR() << "Error in user key layout, line " << lineCount << ": command not found";
+                FCITX_ERROR() << "Error in user key layout, line " << lineCount
+                              << ": command not found";
                 continue;
             }
 
@@ -147,7 +155,7 @@ DllExport std::vector<UkKeyMapping> UkLoadKeyOrderMap(int fd) {
             UkKeyMapping newPair;
             newPair.action = UkEvLabelList[i].ev;
             if (keyMap[c] < vneCount) {
-                newPair.key        = toupper(c);
+                newPair.key = toupper(c);
                 keyMap[toupper(c)] = UkEvLabelList[i].ev;
             } else {
                 newPair.key = c;
@@ -158,11 +166,12 @@ DllExport std::vector<UkKeyMapping> UkLoadKeyOrderMap(int fd) {
     return pMap;
 }
 
-DllExport void UkStoreKeyOrderMap(FILE* f, const std::vector<UkKeyMapping>& pMap) {
+DllExport void UkStoreKeyOrderMap(FILE *f,
+                                  const std::vector<UkKeyMapping> &pMap) {
     int labelIndex;
 
     fputs(UkKeyMapHeader, f);
-    for (const auto& item : pMap) {
+    for (const auto &item : pMap) {
         labelIndex = getLabelIndex(item.action);
         if (labelIndex != -1) {
             fprintf(f, "%c = %s\n", item.key, UkEvLabelList[labelIndex].label);

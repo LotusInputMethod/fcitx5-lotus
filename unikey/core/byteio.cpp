@@ -7,14 +7,14 @@
 #include <string.h>
 
 //------------------------------------------------
-StringBIStream::StringBIStream(UKBYTE* data, int len, int elementSize) {
+StringBIStream::StringBIStream(UKBYTE *data, int len, int elementSize) {
     m_data = m_current = data;
     m_len = m_left = len;
     if (len == -1) {
         if (elementSize == 2)
-            m_eos = (*(UKWORD*)data == 0);
+            m_eos = (*(UKWORD *)data == 0);
         else if (elementSize == 4)
-            m_eos = (*(UKDWORD*)data == 4);
+            m_eos = (*(UKDWORD *)data == 4);
         else
             m_eos = (*data == 0);
     } else
@@ -23,12 +23,10 @@ StringBIStream::StringBIStream(UKBYTE* data, int len, int elementSize) {
 }
 
 //------------------------------------------------
-int StringBIStream::eos() {
-    return m_eos;
-}
+int StringBIStream::eos() { return m_eos; }
 
 //------------------------------------------------
-int StringBIStream::getNext(UKBYTE& b) {
+int StringBIStream::getNext(UKBYTE &b) {
     if (m_eos)
         return 0;
     b = *m_current++;
@@ -45,7 +43,7 @@ int StringBIStream::getNext(UKBYTE& b) {
 int StringBIStream::unget(UKBYTE b) {
     if (m_current != m_data) {
         *--m_current = b;
-        m_eos        = 0;
+        m_eos = 0;
         if (m_len != -1)
             m_left++;
     }
@@ -53,10 +51,10 @@ int StringBIStream::unget(UKBYTE b) {
 }
 
 //------------------------------------------------
-int StringBIStream::getNextW(UKWORD& w) {
+int StringBIStream::getNextW(UKWORD &w) {
     if (m_eos)
         return 0;
-    w = *((UKWORD*)m_current);
+    w = *((UKWORD *)m_current);
     m_current += 2;
     if (m_len == -1)
         m_eos = (w == 0);
@@ -68,11 +66,11 @@ int StringBIStream::getNextW(UKWORD& w) {
 }
 
 //------------------------------------------------
-int StringBIStream::getNextDW(UKDWORD& dw) {
+int StringBIStream::getNextDW(UKDWORD &dw) {
     if (m_eos)
         return 0;
 
-    dw = *((UKDWORD*)m_current);
+    dw = *((UKDWORD *)m_current);
     m_current += 4;
     if (m_len == -1)
         m_eos = (dw == 0);
@@ -84,7 +82,7 @@ int StringBIStream::getNextDW(UKDWORD& dw) {
 }
 
 //------------------------------------------------
-int StringBIStream::peekNext(UKBYTE& b) {
+int StringBIStream::peekNext(UKBYTE &b) {
     if (m_eos)
         return 0;
     b = *m_current;
@@ -92,10 +90,10 @@ int StringBIStream::peekNext(UKBYTE& b) {
 }
 
 //------------------------------------------------
-int StringBIStream::peekNextW(UKWORD& w) {
+int StringBIStream::peekNextW(UKWORD &w) {
     if (m_eos)
         return 0;
-    w = *((UKWORD*)m_current);
+    w = *((UKWORD *)m_current);
     return 1;
 }
 
@@ -113,7 +111,7 @@ int StringBIStream::peekNextDW(UKDWORD & dw)
 //------------------------------------------------
 void StringBIStream::reopen() {
     m_current = m_data;
-    m_left    = m_len;
+    m_left = m_len;
     if (m_len == -1)
         m_eos = (m_data == 0);
     else
@@ -123,12 +121,12 @@ void StringBIStream::reopen() {
 
 //------------------------------------------------
 int StringBIStream::bookmark() {
-    m_didBookmark      = 1;
+    m_didBookmark = 1;
     m_bookmark.current = m_current;
-    m_bookmark.data    = m_data;
-    m_bookmark.eos     = m_eos;
-    m_bookmark.left    = m_left;
-    m_bookmark.len     = m_len;
+    m_bookmark.data = m_data;
+    m_bookmark.eos = m_eos;
+    m_bookmark.left = m_left;
+    m_bookmark.len = m_len;
     return 1;
 }
 
@@ -137,28 +135,26 @@ int StringBIStream::gotoBookmark() {
     if (!m_didBookmark)
         return 0;
     m_current = m_bookmark.current;
-    m_data    = m_bookmark.data;
-    m_eos     = m_bookmark.eos;
-    m_left    = m_bookmark.left;
-    m_len     = m_bookmark.len;
+    m_data = m_bookmark.data;
+    m_eos = m_bookmark.eos;
+    m_left = m_bookmark.left;
+    m_len = m_bookmark.len;
     return 1;
 }
 
 //------------------------------------------------
-int StringBIStream::close() {
-    return 1;
-};
+int StringBIStream::close() { return 1; };
 
 //////////////////////////////////////////////////
 // Class StringBOStream
 //////////////////////////////////////////////////
 
 //------------------------------------------------
-StringBOStream::StringBOStream(UKBYTE* buf, int len) {
+StringBOStream::StringBOStream(UKBYTE *buf, int len) {
     m_current = m_buf = buf;
-    m_len             = len;
-    m_out             = 0;
-    m_bad             = 0;
+    m_len = len;
+    m_out = 0;
+    m_bad = 0;
 }
 
 //------------------------------------------------
@@ -192,7 +188,7 @@ int StringBOStream::putW(UKWORD w) {
     if (m_bad)
         return 0;
     if (m_out <= m_len) {
-        *((UKWORD*)m_current) = w;
+        *((UKWORD *)m_current) = w;
         m_current += 2;
         return 1;
     }
@@ -201,7 +197,7 @@ int StringBOStream::putW(UKWORD w) {
 }
 
 //------------------------------------------------
-int StringBOStream::puts(const char* s, int size) {
+int StringBOStream::puts(const char *s, int size) {
     if (size == -1) {
         while (*s) {
             m_out++;
@@ -232,28 +228,26 @@ int StringBOStream::puts(const char* s, int size) {
 //------------------------------------------------
 void StringBOStream::reopen() {
     m_current = m_buf;
-    m_out     = 0;
-    m_bad     = 0;
+    m_out = 0;
+    m_bad = 0;
 }
 
 //------------------------------------------------
-int StringBOStream::isOK() {
-    return !m_bad;
-}
+int StringBOStream::isOK() { return !m_bad; }
 
 ////////////////////////////////////////////////////
 // Class FileBIStream                             //
 ////////////////////////////////////////////////////
 
 //----------------------------------------------------
-FileBIStream::FileBIStream(int bufSize, char* buf) {
-    m_file        = NULL;
-    m_buf         = buf;
-    m_bufSize     = bufSize;
-    m_own         = 1;
+FileBIStream::FileBIStream(int bufSize, char *buf) {
+    m_file = NULL;
+    m_buf = buf;
+    m_bufSize = bufSize;
+    m_own = 1;
     m_didBookmark = 0;
 
-    m_readAhead   = 0;
+    m_readAhead = 0;
     m_lastIsAhead = 0;
 }
 
@@ -264,13 +258,13 @@ FileBIStream::~FileBIStream() {
 }
 
 //----------------------------------------------------
-int FileBIStream::open(const char* fileName) {
+int FileBIStream::open(const char *fileName) {
     m_file = fopen(fileName, "rb");
     if (m_file == NULL)
         return 0;
     setvbuf(m_file, m_buf, _IOFBF, m_bufSize);
-    m_own         = 0;
-    m_readAhead   = 0;
+    m_own = 0;
+    m_readAhead = 0;
     m_lastIsAhead = 0;
     return 1;
 }
@@ -285,10 +279,10 @@ int FileBIStream::close() {
 }
 
 //----------------------------------------------------
-void FileBIStream::attach(FILE* f) {
-    m_file        = f;
-    m_own         = 0;
-    m_readAhead   = 0;
+void FileBIStream::attach(FILE *f) {
+    m_file = f;
+    m_own = 0;
+    m_readAhead = 0;
     m_lastIsAhead = 0;
 }
 
@@ -300,21 +294,21 @@ int FileBIStream::eos() {
 }
 
 //----------------------------------------------------
-int FileBIStream::getNext(UKBYTE& b) {
+int FileBIStream::getNext(UKBYTE &b) {
     if (m_readAhead) {
-        m_readAhead   = 0;
-        b             = m_readByte;
+        m_readAhead = 0;
+        b = m_readByte;
         m_lastIsAhead = 1;
         return 1;
     }
 
     m_lastIsAhead = 0;
-    b             = fgetc(m_file);
+    b = fgetc(m_file);
     return (!feof(m_file));
 }
 
 //----------------------------------------------------
-int FileBIStream::peekNext(UKBYTE& b) {
+int FileBIStream::peekNext(UKBYTE &b) {
     if (m_readAhead) {
         b = m_readByte;
         return 1;
@@ -331,8 +325,8 @@ int FileBIStream::peekNext(UKBYTE& b) {
 int FileBIStream::unget(UKBYTE b) {
     if (m_lastIsAhead) {
         m_lastIsAhead = 0;
-        m_readAhead   = 1;
-        m_readByte    = b;
+        m_readAhead = 1;
+        m_readByte = b;
         return 1;
     }
 
@@ -341,13 +335,13 @@ int FileBIStream::unget(UKBYTE b) {
 }
 
 //----------------------------------------------------
-int FileBIStream::getNextW(UKWORD& w) {
+int FileBIStream::getNextW(UKWORD &w) {
     UKBYTE b1, b2;
 
     if (getNext(b1)) {
         if (getNext(b2)) {
-            *((UKBYTE*)&w)       = b1;
-            *(((UKBYTE*)&w) + 1) = b2;
+            *((UKBYTE *)&w) = b1;
+            *(((UKBYTE *)&w) + 1) = b2;
             return 1;
         }
     }
@@ -355,33 +349,33 @@ int FileBIStream::getNextW(UKWORD& w) {
 }
 
 //----------------------------------------------------
-int FileBIStream::getNextDW(UKDWORD& dw) {
+int FileBIStream::getNextDW(UKDWORD &dw) {
     UKWORD w1, w2;
     if (getNextW(w1)) {
         if (getNextW(w2)) {
-            *((UKWORD*)&dw)       = w1;
-            *(((UKWORD*)&dw) + 1) = w2;
+            *((UKWORD *)&dw) = w1;
+            *(((UKWORD *)&dw) + 1) = w2;
             return 1;
         }
     }
     return 0;
 }
 //----------------------------------------------------
-int FileBIStream::peekNextW(UKWORD& w) {
+int FileBIStream::peekNextW(UKWORD &w) {
     UKBYTE hi, low;
     if (getNext(low)) {
         if (getNext(hi)) {
             unget(hi);
-            w             = hi;
-            w             = (w << 8) + low;
-            m_readAhead   = 1;
-            m_readByte    = low;
+            w = hi;
+            w = (w << 8) + low;
+            m_readAhead = 1;
+            m_readByte = low;
             m_lastIsAhead = 0;
             return 1;
         }
 
-        m_readAhead   = 1;
-        m_readByte    = low;
+        m_readAhead = 1;
+        m_readByte = low;
         m_lastIsAhead = 0;
         return 0;
     }
@@ -390,7 +384,7 @@ int FileBIStream::peekNextW(UKWORD& w) {
 
 //----------------------------------------------------
 int FileBIStream::bookmark() {
-    m_didBookmark  = 1;
+    m_didBookmark = 1;
     m_bookmark.pos = ftell(m_file);
     return 1;
 }
@@ -407,12 +401,12 @@ int FileBIStream::gotoBookmark() {
 // Class FileBOStream                             //
 ////////////////////////////////////////////////////
 //----------------------------------------------------
-FileBOStream::FileBOStream(int bufSize, char* buf) {
-    m_file    = NULL;
-    m_buf     = buf;
+FileBOStream::FileBOStream(int bufSize, char *buf) {
+    m_file = NULL;
+    m_buf = buf;
     m_bufSize = bufSize;
-    m_own     = 1;
-    m_bad     = 1;
+    m_own = 1;
+    m_bad = 1;
 }
 
 //----------------------------------------------------
@@ -422,7 +416,7 @@ FileBOStream::~FileBOStream() {
 }
 
 //----------------------------------------------------
-int FileBOStream::open(const char* fileName) {
+int FileBOStream::open(const char *fileName) {
     m_file = fopen(fileName, "wb");
     if (m_file == NULL)
         return 0;
@@ -433,10 +427,10 @@ int FileBOStream::open(const char* fileName) {
 }
 
 //----------------------------------------------------
-void FileBOStream::attach(FILE* f) {
+void FileBOStream::attach(FILE *f) {
     m_file = f;
-    m_own  = 0;
-    m_bad  = 0;
+    m_own = 0;
+    m_bad = 0;
 }
 
 //----------------------------------------------------
@@ -469,7 +463,7 @@ int FileBOStream::putW(UKWORD w) {
 }
 
 //----------------------------------------------------
-int FileBOStream::puts(const char* s, int size) {
+int FileBOStream::puts(const char *s, int size) {
     if (m_bad)
         return 0;
     if (size == -1) {
@@ -477,11 +471,9 @@ int FileBOStream::puts(const char* s, int size) {
         return (!m_bad);
     }
     int out = fwrite(s, 1, size, m_file);
-    m_bad   = (out != size);
+    m_bad = (out != size);
     return (!m_bad);
 }
 
 //----------------------------------------------------
-int FileBOStream::isOK() {
-    return !m_bad;
-}
+int FileBOStream::isOK() { return !m_bad; }

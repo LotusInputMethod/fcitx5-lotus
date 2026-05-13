@@ -16,11 +16,12 @@
 
 #include "vnconv.h"
 
-int           vnFileStreamConvert(int inCharset, int outCharset, FILE* inf, FILE* outf);
+int vnFileStreamConvert(int inCharset, int outCharset, FILE *inf, FILE *outf);
 
-DllExport int genConvert(VnCharset& incs, VnCharset& outcs, ByteInStream& input, ByteOutStream& output) {
+DllExport int genConvert(VnCharset &incs, VnCharset &outcs, ByteInStream &input,
+                         ByteOutStream &output) {
     StdVnChar stdChar;
-    int       bytesRead, bytesWritten;
+    int bytesRead, bytesWritten;
 
     incs.startInput();
     outcs.startOutput();
@@ -64,18 +65,19 @@ DllExport int genConvert(VnCharset& incs, VnCharset& outcs, ByteInStream& input,
 // int VnConvert(int inCharset, int outCharset, UKBYTE *input, UKBYTE *output,
 // int & inLen, int & maxOutLen)
 
-DllExport int VnConvert(int inCharset, int outCharset, UKBYTE* input, UKBYTE* output, int* pInLen, int* pMaxOutLen) {
+DllExport int VnConvert(int inCharset, int outCharset, UKBYTE *input,
+                        UKBYTE *output, int *pInLen, int *pMaxOutLen) {
     int inLen, maxOutLen;
     int ret = -1;
 
-    inLen     = *pInLen;
+    inLen = *pInLen;
     maxOutLen = *pMaxOutLen;
 
     if (inLen != -1 && inLen < 0) // invalid inLen
         return ret;
 
-    VnCharset* pInCharset  = VnCharsetLibObj.getVnCharset(inCharset);
-    VnCharset* pOutCharset = VnCharsetLibObj.getVnCharset(outCharset);
+    VnCharset *pInCharset = VnCharsetLibObj.getVnCharset(inCharset);
+    VnCharset *pOutCharset = VnCharsetLibObj.getVnCharset(outCharset);
 
     if (!pInCharset || !pOutCharset)
         return VNCONV_INVALID_CHARSET;
@@ -83,9 +85,9 @@ DllExport int VnConvert(int inCharset, int outCharset, UKBYTE* input, UKBYTE* ou
     StringBIStream is(input, inLen, pInCharset->elementSize());
     StringBOStream os(output, maxOutLen);
 
-    ret         = genConvert(*pInCharset, *pOutCharset, is, os);
+    ret = genConvert(*pInCharset, *pOutCharset, is, os);
     *pMaxOutLen = os.getOutBytes();
-    *pInLen     = is.left();
+    *pInLen = is.left();
     return ret;
 }
 
@@ -97,11 +99,12 @@ DllExport int VnConvert(int inCharset, int outCharset, UKBYTE* input, UKBYTE* ou
 //     0: successful
 //     errCode: if failed
 //---------------------------------------
-DllExport int VnFileConvert(int inCharset, int outCharset, const char* inFile, const char* outFile) {
-    FILE* inf  = NULL;
-    FILE* outf = NULL;
-    int   ret  = 0;
-    char  tmpName[32];
+DllExport int VnFileConvert(int inCharset, int outCharset, const char *inFile,
+                            const char *outFile) {
+    FILE *inf = NULL;
+    FILE *outf = NULL;
+    int ret = 0;
+    char tmpName[32];
 
     if (inFile == NULL) {
         inf = stdin;
@@ -125,9 +128,9 @@ DllExport int VnFileConvert(int inCharset, int outCharset, const char* inFile, c
         strcpy(outDir, outFile);
 
 #if defined(_WIN32)
-        char* p = strrchr(outDir, '\\');
+        char *p = strrchr(outDir, '\\');
 #else
-        char* p = strrchr(outDir, '/');
+        char *p = strrchr(outDir, '/');
 #endif
 
         if (p == NULL)
@@ -190,9 +193,9 @@ end:
 //     0: successful
 //     errCode: if failed
 //---------------------------------------
-int vnFileStreamConvert(int inCharset, int outCharset, FILE* inf, FILE* outf) {
-    VnCharset* pInCharset  = VnCharsetLibObj.getVnCharset(inCharset);
-    VnCharset* pOutCharset = VnCharsetLibObj.getVnCharset(outCharset);
+int vnFileStreamConvert(int inCharset, int outCharset, FILE *inf, FILE *outf) {
+    VnCharset *pInCharset = VnCharsetLibObj.getVnCharset(inCharset);
+    VnCharset *pOutCharset = VnCharsetLibObj.getVnCharset(outCharset);
 
     if (!pInCharset || !pOutCharset)
         return VNCONV_INVALID_CHARSET;
@@ -211,11 +214,17 @@ int vnFileStreamConvert(int inCharset, int outCharset, FILE* inf, FILE* outf) {
     return genConvert(*pInCharset, *pOutCharset, is, os);
 }
 
-const char* ErrTable[VNCONV_LAST_ERROR] = {
-    "No error", "Unknown error", "Invalid charset", "Error opening input file", "Error opening output file", "Error writing to output stream", "Not enough memory",
+const char *ErrTable[VNCONV_LAST_ERROR] = {
+    "No error",
+    "Unknown error",
+    "Invalid charset",
+    "Error opening input file",
+    "Error opening output file",
+    "Error writing to output stream",
+    "Not enough memory",
 };
 
-DllExport const char* VnConvErrMsg(int errCode) {
+DllExport const char *VnConvErrMsg(int errCode) {
     if (errCode < 0 || errCode >= VNCONV_LAST_ERROR)
         errCode = VNCONV_UNKNOWN_ERROR;
     return ErrTable[errCode];

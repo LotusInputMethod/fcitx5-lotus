@@ -13,6 +13,7 @@
 
 DllInterface void UkLoadKeyMap(int fd, int keyMap[256]);
 DllInterface std::vector<UkKeyMapping> UkLoadKeyOrderMap(int fd);
-DllInterface void                      UkStoreKeyOrderMap(FILE* f, const std::vector<UkKeyMapping>& pMap);
+DllInterface void UkStoreKeyOrderMap(FILE *f,
+                                     const std::vector<UkKeyMapping> &pMap);
 
 #endif
