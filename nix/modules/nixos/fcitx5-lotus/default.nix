@@ -36,8 +36,7 @@ in
       description = ''
         Backward-compatible single user to start the Lotus server for.
 
-        Prefer `services.fcitx5-lotus.users` for NixOS multi-user hosts, or enable
-        `services.fcitx5-lotus` from Home Manager for per-user/session setup.
+        Prefer `services.fcitx5-lotus.users` for new configurations.
       '';
     };
 
@@ -49,12 +48,9 @@ in
         "bob"
       ];
       description = ''
-        Users to start system-level fcitx5-lotus-server instances for.
+        Linux users to start system-level fcitx5-lotus-server instances for.
 
-        This is useful when the host wants to manage Lotus entirely from NixOS.
-        If you use the Home Manager module for each desktop user, leave this empty
-        and only keep `services.fcitx5-lotus.enable = true` at the NixOS level for
-        package, udev and input-method integration.
+        Each configured user gets one fcitx5-lotus-server@<user>.service instance.
       '';
     };
   };
