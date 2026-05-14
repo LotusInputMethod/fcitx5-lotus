@@ -777,13 +777,14 @@ namespace fcitx {
             // Ignore auto-capitalize side-effects if we're processing automated replacement backspaces
             bool isAutomatedBackspace = is_deleting_.load(std::memory_order_acquire) && isBackspace(currentSym);
             if (!isAutomatedBackspace) {
-                if (shouldCapitalize_)
+                if (shouldCapitalize_) {
                     if (currentSym >= FcitxKey_a && currentSym <= FcitxKey_z) {
                         auto upperSym = static_cast<KeySym>(currentSym - (FcitxKey_a - FcitxKey_A));
                         currentSym    = upperSym;
                         keyEvent.setKey(Key(upperSym, keyEvent.rawKey().states()));
                         shouldCapitalize_ = false;
                     } else if (currentSym != FcitxKey_space) shouldCapitalize_ = false;
+                }
                 switch (currentSym) {
                     case FcitxKey_period:
                     case FcitxKey_exclam:
