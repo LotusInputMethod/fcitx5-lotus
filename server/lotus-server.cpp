@@ -142,7 +142,7 @@ uid_t get_uid_for_user(const std::string& username) {
 
 void boost_process_priority() {
     if (setpriority(PRIO_PROCESS, 0, -10) != 0) { //NOLINT
-        LotusLogger::instance().error("Failed to boost process priority");
+        ;//LotusLogger::instance().error("Failed to boost process priority");
     }
 }
 
@@ -152,7 +152,7 @@ void pin_to_pcore() {
     for (int i = 0; i <= 3; ++i)
         CPU_SET(i, &cpuset);
     if (sched_setaffinity(0, sizeof(cpuset), &cpuset) != 0) {
-        LotusLogger::instance().error("Failed to pin process to core");
+        ;//LotusLogger::instance().error("Failed to pin process to core");
     }
 }
 
@@ -177,11 +177,11 @@ int main(int argc, char* argv[]) {
     } else {
         target_user = get_current_username();
     }
-    LotusLogger::instance().info("Target user: " + target_user);
+    //LotusLogger::instance().info("Target user: " + target_user);
 
     uid_t expected_uid = get_uid_for_user(target_user);
     if (expected_uid == (uid_t)-1) {
-        LotusLogger::instance().error("Failed to find UID for target user: " + target_user);
+        //LotusLogger::instance().error("Failed to find UID for target user: " + target_user);
         return 1;
     }
 
@@ -207,7 +207,7 @@ int main(int argc, char* argv[]) {
     // Setup Uinput
     UinputDevice uinput;
     if (!uinput.initialize()) {
-        LotusLogger::instance().error("Failed to initialize uinput device");
+        //LotusLogger::instance().error("Failed to initialize uinput device");
         return 1;
     }
 
@@ -230,12 +230,12 @@ int main(int argc, char* argv[]) {
     socklen_t mouse_len = offsetof(struct sockaddr_un, sun_path) + mouse_flag_socket.length() + 1;
 
     if (bind(server_fd.get(), (struct sockaddr*)&addr_kb, kb_len) != 0) {
-        LotusLogger::instance().error("Failed to bind socket");
+        //LotusLogger::instance().error("Failed to bind socket");
         return 1;
     }
 
     if (bind(mouse_server_fd.get(), (struct sockaddr*)&addr_mouse, mouse_len) != 0) {
-        LotusLogger::instance().error("Failed to bind socket");
+        //LotusLogger::instance().error("Failed to bind socket");
         return 1;
     }
 
@@ -244,7 +244,7 @@ int main(int argc, char* argv[]) {
 
     LibinputContext li_ctx(&interface);
     if (!li_ctx.is_valid()) {
-        LotusLogger::instance().error("Failed to create libinput/udev context");
+        //LotusLogger::instance().error("Failed to create libinput/udev context");
         return 1;
     }
 
@@ -317,17 +317,17 @@ int main(int argc, char* argv[]) {
                         if (strcmp(exe_path, "/usr/bin/fcitx5") == 0) {
                             authorized = true;
                         } else {
-                            LotusLogger::instance().warn("Unauthorized executable connection attempt to keyboard socket from: " + std::string(exe_path));
+                            ;//LotusLogger::instance().warn("Unauthorized executable connection attempt to keyboard socket from: " + std::string(exe_path));
                         }
                     } else {
-                        LotusLogger::instance().warn("Unauthorized UID connection attempt to keyboard socket from UID: " + std::to_string(cred.uid));
+                        ;//LotusLogger::instance().warn("Unauthorized UID connection attempt to keyboard socket from UID: " + std::to_string(cred.uid));
                     }
                 } else {
-                    LotusLogger::instance().warn("Failed to get peer credentials for keyboard socket");
+                    ;//LotusLogger::instance().warn("Failed to get peer credentials for keyboard socket");
                 }
 
                 if (authorized) {
-                    LotusLogger::instance().info("Fcitx5 connected to keyboard socket (PID: " + std::to_string(cred.pid) + ")");
+                    //LotusLogger::instance().info("Fcitx5 connected to keyboard socket (PID: " + std::to_string(cred.pid) + ")");
                     kb_client_fd.reset(client_fd);
                     fds[KB_CLIENT_INDEX].fd = kb_client_fd.get();
                 } else {
@@ -341,7 +341,7 @@ int main(int argc, char* argv[]) {
             int     count = 0;
             ssize_t n     = recv(fds[KB_CLIENT_INDEX].fd, &count, sizeof(count), 0);
             if (n <= 0) {
-                LotusLogger::instance().warn("Keyboard client disconnected or connection error");
+                //LotusLogger::instance().warn("Keyboard client disconnected or connection error");
                 kb_client_fd.reset(-1);
                 fds[KB_CLIENT_INDEX].fd = -1;
             } else if (count > 0) {
@@ -354,7 +354,7 @@ int main(int argc, char* argv[]) {
         if ((fds[2].revents & POLLIN) != 0) {
             int new_fd = accept4(mouse_server_fd.get(), nullptr, nullptr, SOCK_NONBLOCK);
             if (new_fd >= 0) {
-                LotusLogger::instance().info("New mouse flag client connected");
+                //LotusLogger::instance().info("New mouse flag client connected");
                 addon_fd.reset(new_fd);
             }
         }
@@ -371,7 +371,7 @@ int main(int argc, char* argv[]) {
                     if (libinput_event_pointer_get_button_state(p) == LIBINPUT_BUTTON_STATE_PRESSED) {
                         if (addon_fd.is_valid()) {
                             if (send(addon_fd.get(), "C", 1, MSG_NOSIGNAL | MSG_DONTWAIT) <= 0) {
-                                LotusLogger::instance().warn("Failed to send to mouse flag client, closing connection");
+                                //LotusLogger::instance().warn("Failed to send to mouse flag client, closing connection");
                                 addon_fd.reset(-1);
                             }
                         }
@@ -379,7 +379,7 @@ int main(int argc, char* argv[]) {
                 } else if (type == LIBINPUT_EVENT_DEVICE_ADDED) {
                     struct libinput_device* dev  = libinput_event_get_device(event);
                     const char*             name = libinput_device_get_name(dev);
-                    LotusLogger::instance().info("Device added: " + std::string(name));
+                    //LotusLogger::instance().info("Device added: " + std::string(name));
                     if (libinput_device_config_tap_get_finger_count(dev) > 0) {
                         libinput_device_config_tap_set_enabled(dev, LIBINPUT_CONFIG_TAP_ENABLED);
                         libinput_device_config_tap_set_button_map(dev, LIBINPUT_CONFIG_TAP_MAP_LRM);
@@ -389,6 +389,6 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    LotusLogger::instance().info("Terminating server...");
+    //LotusLogger::instance().info("Terminating server...");
     return 0;
 }

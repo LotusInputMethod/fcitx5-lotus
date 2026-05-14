@@ -172,7 +172,12 @@ namespace fcitx {
         const size_t       cursor_sz = static_cast<size_t>(cursor);
 
         // Fix that surrounding text is delay update
-        const size_t buffLen    = utf8::length(oldPreBuffer_);
+        const size_t buffLen    =
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+            utf8_length_avx512(oldPreBuffer_.data(), oldPreBuffer_.size());
+#else
+            utf8::length(oldPreBuffer_);
+#endif
         const size_t pb         = text.find(oldPreBuffer_);
         size_t       rangeStart = buffLen >= cursor_sz ? 0 : cursor_sz - buffLen;
         const bool   sameprefix = pb != std::string::npos && pb >= rangeStart && pb <= cursor_sz;
@@ -191,12 +196,22 @@ namespace fcitx {
                     return false;
                 // If the selection contains a newline, it's likely a multiline editor (AI ghost text),
                 // not a single-line URL/Search bar.
-                size_t p = text.find('\n', selectionStart);
+                size_t p =
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+                    find_char_avx512(text.data(), text.size(), selectionStart, '\n');
+#else
+                    text.find('\n', selectionStart);
+#endif
                 return p == std::string::npos || p >= static_cast<size_t>(selectionEnd);
             }
         }
 
-        const size_t textLen = utf8::length(text);
+        const size_t textLen =
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+            utf8_length_avx512(text.data(), text.size());
+#else
+            utf8::length(text);
+#endif
         if (textLen == cursor_sz) {
             realtextLen.store(textLen, std::memory_order_release);
             return false;
@@ -207,7 +222,11 @@ namespace fcitx {
         // Check for wayland app that use dbus as backend
         if (textLen > cursor_sz)
             if(cursor == realtextLen.load(std::memory_order_acquire)
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+                && find_char_avx512(text.data(), text.size(), cursor, '\n') == static_cast<size_t>(-1)
+#else
                 && text.find('\n', cursor) == std::string::npos
+#endif
                 && sameprefix)
                 return true;
 
@@ -504,24 +523,44 @@ namespace fcitx {
         pending_commit_string_     = addedPart;
         const auto& surrounding    = ic_->surroundingText();
         int         autofillOffset = isAutofillCertain(surrounding) ? 1 : 0;
-        expected_backspaces_       = static_cast<int>(utf8::length(deletedPart)) + 1 + autofillOffset;
+        expected_backspaces_       = static_cast<int>(
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+            utf8_length_avx512(deletedPart.data(), deletedPart.size())
+#else
+            utf8::length(deletedPart)
+#endif
+        ) + 1 + autofillOffset;
         if (realMode == LotusMode::UinputWine)
             --expected_backspaces_;
         // Use deleteSurroundingText for apps that support it for smooth typing
         bool test_flags = false; // use for testing only :v
+        LOTUS_INFO("surr: \""+surrounding.text()+"\"");
         if (surrtp)
             LOTUS_INFO("surrtp");
         if ((test_flags || surrtp) // Lmfao, only this work :>
-            && (surrounding.isValid() && ic_->capabilityFlags().test(CapabilityFlag::SurroundingText) &&
-                (!surrounding.text().empty() && surrounding.text().back() != '\n') // firefox and discord insert '\n' into surr cause bug
+            && (surrounding.isValid() && ic_->capabilityFlags().test(CapabilityFlag::SurroundingText))
+              && (!surrounding.text().empty() && surrounding.text().back() != '\n' // firefox and discord insert '\n' into surr cause bug
                 && !autofillOffset)                                                // TODO: Guard, remove this when bug of surrounding is fixes
         ) {
             LOTUS_INFO("deleteSurroundingText branch");
             auto      cur     = static_cast<size_t>(surrounding.cursor());
-            const int bsCount = static_cast<int>(utf8::length(deletedPart));
+            const int bsCount = static_cast<int>(
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+                  utf8_length_avx512(deletedPart.data(), deletedPart.size())
+#else
+                  utf8::length(deletedPart)
+#endif
+            );
             if (autofillOffset) {
                 LOTUS_INFO("have suggestions branch");
-                int surrLen       = static_cast<int>(utf8::length(surrounding.text()));
+                const auto surr = surrounding.text();
+                int surrLen       = static_cast<int>(
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+                  utf8_length_avx512(surr.data(), surr.size())
+#else
+                  utf8::length(surr)
+#endif
+                );
                 int realLen       = static_cast<int>(cur);
                 int suggestionLen = surrLen - realLen;
                 // delete suggestion tail
@@ -730,7 +769,13 @@ namespace fcitx {
                                 hasMultibyte = true;
                                 break;
                             }
-                        if (!hasMultibyte && utf8::length(oldPreBuffer_) > 8) {
+                        if (!hasMultibyte &&
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+                            utf8_length_avx512(oldPreBuffer_.data(), oldPreBuffer_.size())
+#else
+                            utf8::length(oldPreBuffer_)
+#endif
+                            > 8) {
                             inputBackend_->resetEngine();
                             hasHistory_ = false;
                             oldPreBuffer_.clear();
@@ -1071,7 +1116,12 @@ namespace fcitx {
     void LotusState::reset(bool isFocusOut) {
         const auto& surrounding = ic_->surroundingText();
         const auto& text        = surrounding.text();
-        size_t      textLen     = utf8::length(text);
+        const size_t textLen =
+#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
+            utf8_length_avx512(text.data(), text.size());
+#else
+            utf8::length(text);
+#endif
         realtextLen.store(textLen, std::memory_order_release);
         if (is_deleting_.load(std::memory_order_acquire)) {
             return;
