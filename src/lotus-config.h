@@ -218,7 +218,7 @@ namespace fcitx {
             this, "InputMethod", _("Input Method"), "Telex", InputMethodConstrain(&inputMethod), {}, InputMethodAnnotation()};
         OptionWithAnnotation<std::string, StringListAnnotation> outputCharset{this, "OutputCharset", _("Output Charset"), "Unicode", {}, {}, StringListAnnotation()};
         Option<bool> spellCheck{this, "SpellCheck", _("Enable Spell Check"), true}; Option<bool> enableMacro{this, "EnableMacro", _("Enable Macro"), true};
-        Option<bool> autoSaveNewAppRules{this, "autoSaveNewAppRules", _("Auto Save"), false}; Option<bool> capitalizeMacro{this, "CapitalizeMacro", _("Capitalize Macro"), true};
+        Option<bool> capitalizeMacro{this, "CapitalizeMacro", _("Capitalize Macro"), true};
         Option<bool> autoCapitalizeAfterPunctuation{this, "AutoCapitalizeAfterPunctuation", _("Auto capitalize after sentence-ending punctuation (. ! ? Enter) (experimental)"),
                                                     false};
         Option<bool> doubleSpaceToPeriod{this, "DoubleSpaceToPeriod", _("Double Space to Period (experimental)"), false};

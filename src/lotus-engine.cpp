@@ -689,23 +689,6 @@ namespace fcitx {
         }
 
         const auto globalMode = modeStringToEnum(config_.mode.value());
-
-        // auto save new app rule from global mode
-        if (config_.autoSaveNewAppRules.value() && false) {
-            auto         rules = *appRulesTables_.rules;
-
-            lotusAppRule newRule;
-            newRule.app.setValue(appName);
-            newRule.mode.setValue(static_cast<int>(globalMode));
-
-            rules.push_back(std::move(newRule));
-
-            appRules_[appName] = globalMode;
-            appRulesTables_.rules.setValue(std::move(rules));
-
-            saveAppRules();
-        }
-
         return globalMode;
     }
 
