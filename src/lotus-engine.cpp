@@ -120,7 +120,7 @@ namespace fcitx {
         appRulesPath_ = configDir + "/lotus-app-rules.conf";
         loadAppRules();
         toggleActions_ = {
-            charsetAction_.get(),          spellCheckAction_.get(),       macroAction_.get(),   capitalizeMacroAction_.get(),
+            spellCheckAction_.get(),       macroAction_.get(),   capitalizeMacroAction_.get(),
             autoNonVnRestoreAction_.get(), settingsAction_.get()};
     }
 
