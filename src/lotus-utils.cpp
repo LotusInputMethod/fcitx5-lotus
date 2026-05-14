@@ -55,7 +55,7 @@ bool isBackspace(uint32_t sym) {
     return sym == 65288 || sym == 8 || sym == FcitxKey_BackSpace;
 }
 
-int compareAndSplitStrings(const std::string& A, const std::string& B, std::string& commonPrefix, std::string& deletedPart, std::string& addedPart) {
+int compareAndSplitStrings(const std::string& A, const std::string& B, std::string& deletedPart, std::string& addedPart) {
     size_t i = 0;
     size_t j = 0;
 #if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
@@ -81,7 +81,6 @@ int compareAndSplitStrings(const std::string& A, const std::string& B, std::stri
         }
     }
 #endif
-    commonPrefix.assign(A, 0, i);
     deletedPart.assign(A, i);
     addedPart.assign(B, j);
     return (deletedPart.empty() && addedPart.empty()) ? 1 : 2;

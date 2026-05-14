@@ -51,7 +51,6 @@ namespace fcitx {
 
     inline void update_max(std::atomic<uint32_t>& value, uint32_t target) {
         uint32_t current = value.load(std::memory_order_acquire);
-
         asm volatile("1:\n\t"
                      "cmpl %[target], %[current]\n\t"
                      "jae 2f\n\t"
@@ -71,7 +70,6 @@ namespace fcitx {
         inputBackend_.reset();
         inputBackend_ = makeLotusInputBackend();
         realMode      = modeStringToEnum(engine_->config().mode.value());
-
         inputBackend_->recreateEngine(engine_);
         setOption();
     }
@@ -91,10 +89,8 @@ namespace fcitx {
             LOTUS_ERROR("Failed to create socket: " + std::string(strerror(errno)));
             return false;
         }
-
         struct sockaddr_un addr{};
         addr.sun_family = AF_UNIX;
-
         addr.sun_path[0] = '\0';
         memcpy(&addr.sun_path[1], current_path.c_str(), current_path.length());
         socklen_t len = offsetof(struct sockaddr_un, sun_path) + current_path.length() + 1;
@@ -105,9 +101,8 @@ namespace fcitx {
         }
         LOTUS_ERROR("Failed to connect to socket: " + std::string(strerror(errno)));
         int old_fd = uinput_client_fd_.exchange(-1);
-        if (old_fd != -1) {
+        if (old_fd != -1)
             close(old_fd);
-        }
         return false;
     }
 
@@ -120,9 +115,7 @@ namespace fcitx {
             LOTUS_ERROR("Cannot send backspace since cannot connect to uinput server");
             return;
         }
-
         ssize_t n = send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
-
         if (n < 0) {
             LOTUS_WARN("Failed to send backspace: " + std::string(strerror(errno)));
             int old_fd = uinput_client_fd_.exchange(-1);
@@ -158,19 +151,15 @@ namespace fcitx {
             ic_->forwardKey(Key(FcitxKey_BackSpace, KeyState::NoState), false);
             ic_->forwardKey(Key(FcitxKey_BackSpace, KeyState::NoState), true);
         }
-        //send_backspace_uinput(0); // trigger 1bs to make all bs prev release
     }
 
     bool LotusState::isAutofillCertain(const SurroundingText& s) {
-        if (!s.isValid() || oldPreBuffer_.empty()) {
+        if (!s.isValid() || oldPreBuffer_.empty())
             return false;
-        }
-
         const unsigned int cursor  = s.cursor();
         const unsigned int anchor  = s.anchor();
         const auto&        text    = s.text();
         const size_t       cursor_sz = static_cast<size_t>(cursor);
-
         // Fix that surrounding text is delay update
         const size_t buffLen    =
 #if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
@@ -188,7 +177,6 @@ namespace fcitx {
             LOTUS_INFO("check suggest wayland");
             unsigned int selectionStart = std::min(anchor, cursor);
             unsigned int selectionEnd   = std::max(anchor, cursor);
-
             // Only consider it browser autofill if the selection starts at the cursor
             // and extends to the end of the line (common address bar behavior).
             if (cursor <= selectionEnd) {
@@ -205,7 +193,6 @@ namespace fcitx {
                 return p == std::string::npos || p >= static_cast<size_t>(selectionEnd);
             }
         }
-
         const size_t textLen =
 #if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
             utf8_length_avx512(text.data(), text.size());
@@ -216,7 +203,6 @@ namespace fcitx {
             realtextLen.store(textLen, std::memory_order_release);
             return false;
         }
-
         // Heuristic: rapid text growth in a single-line context.
         // Applied only when no newline is present after the cursor to distinguish from AI text in editors.
         // Check for wayland app that use dbus as backend
@@ -262,15 +248,11 @@ namespace fcitx {
     }
 
     void LotusState::updateEmojiPageStatus(CommonCandidateList* commonList) {
-        if ((commonList == nullptr) || commonList->empty()) {
+        if ((commonList == nullptr) || commonList->empty())
             return;
-        }
-
         int pageSize = commonList->pageSize();
-        if (pageSize <= 0) {
+        if (pageSize <= 0)
             pageSize = 9;
-        }
-
         int         totalItems  = commonList->totalSize();
         int         currentPage = commonList->currentPage() + 1;
         int         totalPages  = (totalItems + pageSize - 1) / pageSize;
@@ -613,38 +595,14 @@ namespace fcitx {
         }
 
         switch (currentSym) {
-            case FcitxKey_KP_Add: {
-                currentSym = FcitxKey_plus;
-                break;
-            }
-            case FcitxKey_KP_Subtract: {
-                currentSym = FcitxKey_minus;
-                break;
-            }
-            case FcitxKey_KP_Divide: {
-                currentSym = FcitxKey_slash;
-                break;
-            }
-            case FcitxKey_KP_Multiply: {
-                currentSym = FcitxKey_asterisk;
-                break;
-            }
-            case FcitxKey_KP_Decimal: {
-                currentSym = FcitxKey_period;
-                break;
-            }
-            case FcitxKey_KP_Enter: {
-                currentSym = FcitxKey_Return;
-                break;
-            }
-            case FcitxKey_KP_Equal: {
-                currentSym = FcitxKey_equal;
-                break;
-            }
-            case FcitxKey_KP_Space: {
-                currentSym = FcitxKey_space;
-                break;
-            }
+            case FcitxKey_KP_Add:      currentSym = FcitxKey_plus; break;
+            case FcitxKey_KP_Subtract: currentSym = FcitxKey_minus; break;
+            case FcitxKey_KP_Divide:   currentSym = FcitxKey_slash; break;
+            case FcitxKey_KP_Multiply: currentSym = FcitxKey_asterisk; break;
+            case FcitxKey_KP_Decimal:  currentSym = FcitxKey_period; break;
+            case FcitxKey_KP_Enter:    currentSym = FcitxKey_Return; break;
+            case FcitxKey_KP_Equal:    currentSym = FcitxKey_equal; break;
+            case FcitxKey_KP_Space:    currentSym = FcitxKey_space; break;
             default: break;
         }
         return false;
@@ -686,10 +644,9 @@ namespace fcitx {
         bool        processed = inputBackend_->processKeyEventAndPull(currentSym, keyEvent.rawKey().states(), &commitStr, &preeditStrBuf);
 
         if (!commitStr.empty()) {
-            std::string commonPrefix;
             std::string deletedPart;
             std::string addedPart;
-            compareAndSplitStrings(oldPreBuffer_, commitStr, commonPrefix, deletedPart, addedPart);
+            compareAndSplitStrings(oldPreBuffer_, commitStr, deletedPart, addedPart);
 
             if (!deletedPart.empty()) {
                 keyEvent.filterAndAccept();
@@ -737,14 +694,13 @@ namespace fcitx {
 
         std::string preeditStr = preeditStrBuf;
 
-        std::string commonPrefix;
         std::string deletedPart;
         std::string addedPart;
 
         if (wa_flag)
             keyEvent.filterAndAccept();
 
-        if (compareAndSplitStrings(oldPreBuffer_, preeditStr, commonPrefix, deletedPart, addedPart) != 0) {
+        if (compareAndSplitStrings(oldPreBuffer_, preeditStr, deletedPart, addedPart) != 0) {
             if (deletedPart.empty()) {
                 bool isCommit           = false;
                 bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
@@ -880,44 +836,31 @@ namespace fcitx {
                 inputBackend_->resetEngine();
                 return;
             }
-
             std::string commitPart;
             std::string preeditPart;
             inputBackend_->pullCommitAndPreedit(&commitPart, &preeditPart);
-
             std::string newWord;
             if (!commitPart.empty())
                 newWord += commitPart;
             if (!preeditPart.empty())
                 newWord += preeditPart;
-
-            std::string commonPrefix;
             std::string deletedPart;
             std::string addedPart;
-            compareAndSplitStrings(oldWord, newWord, commonPrefix, deletedPart, addedPart);
+            compareAndSplitStrings(oldWord, newWord, deletedPart, addedPart);
             if (deletedPart.empty() && addedPart == keyEvent.key().toString()) {
                 inputBackend_->resetEngine();
                 keyEvent.forward();
                 return;
             }
-
             if (!deletedPart.empty() || !addedPart.empty()) {
                 size_t charsToDelete = utf8::length(deletedPart);
-
-                if (charsToDelete > 0) {
+                if (charsToDelete > 0)
                     ic->deleteSurroundingText(-static_cast<int>(charsToDelete), static_cast<int>(charsToDelete));
-                }
-
                 if (!addedPart.empty()) {
                     ic->commitString(addedPart);
                     LOTUS_INFO("Commit: " + addedPart);
                 }
-
-                inputBackend_->resetEngine();
-                keyEvent.filterAndAccept();
-                return;
             }
-
             inputBackend_->resetEngine();
             keyEvent.filterAndAccept();
             return;
@@ -936,12 +879,10 @@ namespace fcitx {
                 out += commitPart;
             if (!preeditPart.empty())
                 out += preeditPart;
-
             if (!out.empty()) {
                 LOTUS_INFO("Commit: " + out);
                 ic->commitString(out);
             }
-
             inputBackend_->resetEngine();
             keyEvent.filterAndAccept();
         } else {
@@ -1045,9 +986,8 @@ namespace fcitx {
                         }
                         break;
                     default:
-                        if (currentSym != FcitxKey_space) {
+                        if (currentSym != FcitxKey_space)
                             isPrevPunctuation_ = false;
-                        }
                         break;
                 }
             }
@@ -1086,30 +1026,11 @@ namespace fcitx {
         }
 
         switch (realMode) {
-            case LotusMode::Uinput:
-            case LotusMode::Smooth: {
-                handleUinputMode(keyEvent, currentSym);
-                break;
-            }
-            case LotusMode::UinputWine: {
-                handleUinputMode(keyEvent, currentSym);
-                break;
-            }
-            case LotusMode::SurroundingText: {
-                handleSurroundingText(keyEvent, currentSym);
-                break;
-            }
-            case LotusMode::Preedit: {
-                handlePreeditMode(keyEvent, currentSym);
-                break;
-            }
-            case LotusMode::Emoji: {
-                handleEmojiMode(keyEvent);
-                break;
-            }
-            default: {
-                break;
-            }
+            case LotusMode::Uinput: case LotusMode::Smooth: case LotusMode::UinputWine: handleUinputMode(keyEvent, currentSym); break;
+            case LotusMode::SurroundingText: handleSurroundingText(keyEvent, currentSym); break;
+            case LotusMode::Preedit:         handlePreeditMode(keyEvent, currentSym); break;
+            case LotusMode::Emoji:           handleEmojiMode(keyEvent); break;
+            default: break;
         }
     }
 
@@ -1123,10 +1044,8 @@ namespace fcitx {
             utf8::length(text);
 #endif
         realtextLen.store(textLen, std::memory_order_release);
-        if (is_deleting_.load(std::memory_order_acquire)) {
+        if (is_deleting_.load(std::memory_order_acquire))
             return;
-        }
-
         if (inputBackend_) {
             isPrevSpace_       = false;
             shouldCapitalize_  = false;
@@ -1144,34 +1063,25 @@ namespace fcitx {
         }
         if (getFrontendName(ic_) != "dbus")
             clearAllBuffers();
-
+        if (realMode == LotusMode::Off)
+            return;
+        ic_->inputPanel().reset();
         switch (realMode) {
-            case LotusMode::Preedit: {
-                ic_->inputPanel().reset();
-                ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
-                ic_->updatePreedit();
-                break;
-            }
-            case LotusMode::SurroundingText:
-            case LotusMode::Uinput:
-            case LotusMode::UinputWine:
-            case LotusMode::Smooth: {
-                ic_->inputPanel().reset();
-                break;
-            }
+            case LotusMode::Preedit:
             case LotusMode::Emoji: {
-                ic_->inputPanel().reset();
                 ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
                 ic_->updatePreedit();
                 break;
             }
-            default: {
-                break;
-            }
+            default: break;
         }
     }
 
     void LotusState::commitBuffer() {
+        if (realMode == LotusMode::Off)
+            return;
+        if (inputBackend_)
+            inputBackend_->resetEngine();
         switch (realMode) {
             case LotusMode::Preedit: {
                 ic_->inputPanel().reset();
@@ -1181,19 +1091,9 @@ namespace fcitx {
                     inputBackend_->pullCommit(&commit);
                     if (!commit.empty())
                         ic_->commitString(commit);
-                    inputBackend_->resetEngine();
                 }
                 ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
                 ic_->updatePreedit();
-                break;
-            }
-            case LotusMode::Uinput:
-            case LotusMode::UinputWine:
-            case LotusMode::Smooth:
-            case LotusMode::SurroundingText: {
-                if (inputBackend_) {
-                    inputBackend_->resetEngine();
-                }
                 break;
             }
             default: {

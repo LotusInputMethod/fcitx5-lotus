@@ -64,17 +64,13 @@ namespace fcitx {
 
     static inline std::vector<std::string> convertToStringList(char** list) {
         std::vector<std::string> result;
-        if (list == nullptr)
-            return result;
-        size_t count = 0;
-        while (list[count] != nullptr)
-            ++count; //NOLINT
-        result.reserve(count);
-        for (size_t i = 0; i < count; ++i)
-            result.emplace_back(list[i]); //NOLINT
-        for (size_t i = 0; i < count; ++i)
-            free(list[i]); //NOLINT
-        free(list);        //NOLINT
+        if (list != nullptr) {
+            for (size_t i = 0; list[i] != nullptr; ++i) { //NOLINT
+                result.emplace_back(list[i]);             //NOLINT
+                free(list[i]);                            //NOLINT
+            }
+            free(list); //NOLINT
+        }
         return result;
     }
 
@@ -335,9 +331,11 @@ namespace fcitx {
         } else {
             LOTUS_INFO("inputPanel reset");
             ic->inputPanel().reset();
-            ic->updateUserInterface(UserInterfaceComponent::InputPanel);
-            if (realMode == LotusMode::Preedit)
+            if (realMode == LotusMode::Preedit
+                || realMode == LotusMode::SurroundingText) {
+                ic->updateUserInterface(UserInterfaceComponent::InputPanel);
                 ic->updatePreedit();
+            }
         }
         for (const auto& action : toggleActions_) {
             statusArea.addAction(StatusGroup::InputMethod, action);
@@ -723,19 +721,15 @@ namespace fcitx {
 
     void LotusEngine::showAppModeMenu(InputContext* ic) {
         isSelectingAppMode_ = true;
-
         auto candidateList = std::make_unique<CommonCandidateList>();
-
         candidateList->setLayoutHint(CandidateLayoutHint::Vertical);
         candidateList->setPageSize(10);
-
         auto getLabel = [&](const LotusMode& modeName, const std::string& modeLabel) {
             if (modeName == realMode) {
                 return Text(">> " + modeLabel);
             }
             return Text("   " + modeLabel);
         };
-
         auto cleanup = [this](InputContext* ic) {
             isSelectingAppMode_ = false;
             ic->inputPanel().reset();
@@ -744,16 +738,13 @@ namespace fcitx {
             state->commitBuffer();
             state->reset();
         };
-
         auto applyMode = [this, cleanup](LotusMode mode) {
             return [this, mode, cleanup](InputContext* ic) {
                 if (mode != LotusMode::Emoji) {
                     setAppRule(currentConfigureApp_, mode);
-                    if (!isStartsWith(currentConfigureApp_, "ctx_")) {
+                    if (!isStartsWith(currentConfigureApp_, "ctx_"))
                         saveAppRules();
-                    }
                 }
-
                 cleanup(ic);
                 setMode(mode, ic);
                 if (mode == LotusMode::Emoji) {
@@ -843,9 +834,8 @@ namespace fcitx {
     }
 
     std::string LotusEngine::getProgramName(InputContext* ic) {
-        if (ic == nullptr) {
+        if (ic == nullptr)
             return "unknown-app";
-        }
         std::string programName = ic->program();
         if (programName.empty() || programName == "wayland" || programName == "x11") {
             // Fallback: InputContext address-based resolution
