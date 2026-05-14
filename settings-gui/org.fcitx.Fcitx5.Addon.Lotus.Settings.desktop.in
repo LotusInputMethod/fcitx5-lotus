@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=Fcitx5 Lotus Settings
-Comment=Configure Fcitx5 Lotus Input Method
-Exec=fcitx5-lotus-settings
-Icon=fcitx-lotus
-StartupWMClass=org.fcitx.Fcitx5.Addon.Lotus.Settings
-Terminal=false
-Type=Application
-Categories=Settings;DesktopSettings;
