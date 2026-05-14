@@ -25,11 +25,9 @@
 #include <fcitx/addonmanager.h>
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/instance.h>
-
 namespace fcitx {
 
     class LotusState;
-
     /**
      * @brief Main engine class for Lotus input method.
      *
@@ -303,7 +301,7 @@ namespace fcitx {
          * @param ic Current input context.
          * @return Name of current program
          */
-        std::string getProgramName(InputContext* ic);
+        static std::string getProgramName(InputContext* ic);
     };
 
     /**

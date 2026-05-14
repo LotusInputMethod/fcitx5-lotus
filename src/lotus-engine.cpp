@@ -29,6 +29,22 @@ namespace fcitx {
     constexpr const char* CharsetActionPrefix = "lotus-charset-";
     const std::string     CustomKeymapFile    = "conf/lotus-custom-keymap.conf";
     const std::string     MacroTableFile      = "conf/lotus-macro-table.conf";
+    class AppActivationCache {
+      public:
+          bool needsSetup(InputContext* ic, LotusMode mode) {
+              auto*  group = ic->focusGroup();
+              ICUUID uuid  = ic->uuid();
+              if (group == lastGroup_ && uuid == lastUUID_ && mode == lastMode_) return false;
+              lastGroup_ = group; lastUUID_ = uuid; lastMode_ = mode;
+              return true;
+          }
+          void invalidate() { lastGroup_ = nullptr; }
+      private:
+          FocusGroup* lastGroup_ = nullptr;
+          ICUUID      lastUUID_  = {};
+          LotusMode   lastMode_  = LotusMode::NoMode;
+    };
+    static AppActivationCache s_activationCache;
     // Returns the KeySym that triggers the "Type hotkey char" action in the mode menu.
     // If the hotkey itself conflicts with a reserved menu key, falls back to FcitxKey_f.
     static bool isAppModeMenuReservedKey(KeySym sym) {
@@ -171,6 +187,7 @@ namespace fcitx {
         }
     }
     std::string LotusEngine::subMode(const InputMethodEntry& /*entry*/, InputContext& /*inputContext*/) {return *config_.inputMethod;}
+
     void LotusEngine::activate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
         auto*                    ic        = event.inputContext();
         const bool               surrvalid = ic->surroundingText().isValid();
@@ -183,9 +200,11 @@ namespace fcitx {
         LOTUS_INFO("App name: " + appName);
         const LotusMode targetMode = getAppRule(appName);
         LOTUS_INFO("Target mode: " + modeEnumToString(targetMode));
+        auto* state = ic->propertyFor(&factory_);
+        const bool alreadySetup = !s_activationCache.needsSetup(ic, targetMode);
+if (!alreadySetup) {
         updateCharsetAction(event.inputContext());
         setMode(targetMode, event.inputContext());
-        auto* state = ic->propertyFor(&factory_);
         // Workaround for chromium wayland issue where suggestions cause a doubled
         // first character. Forwarding may prevent BS from being sent
         // to the client.
@@ -243,6 +262,7 @@ namespace fcitx {
         }
         if (event.type() == EventType::InputContextFocusIn && is_dbus && !surrvalid) { LOTUS_INFO("Skip clearAllBuffers");
         } else if (surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100) { state->clearAllBuffers(); }
+}
         if (!state->isReplacing()) is_deleting_.store(false);
         needEngineReset.store(false);
         if (targetMode == LotusMode::Emoji) {
@@ -415,6 +435,7 @@ namespace fcitx {
         }
     }
     void LotusEngine::refreshEngine() {
+        s_activationCache.invalidate();
         if (!factory_.registered()) return;
         instance_->inputContextManager().foreach ([this](InputContext* ic) {
             auto* state = ic->propertyFor(&factory_);

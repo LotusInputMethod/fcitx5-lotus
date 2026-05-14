@@ -15,18 +15,29 @@
 #include <string>
 #include <string_view>
 
+
+// TODO: alow user to set delay config per app
+// set defaut config in /etc
 /**
  * @brief List of application names requiring ACK workaround.
  *
  * Chromium-based browsers that need special handling for text replacement.
  */
-inline constexpr std::array<std::string_view, 14> ack_apps = {"chrome",  "chromium", "brave",   "edge",    "vivaldi", "opera",  "coccoc",
-                                                              "cromite", "helium",   "thorium", "slimjet", "yandex",  "vesktop", "obsidian"};
+inline constexpr std::array<std::string_view, 17> ack_apps = {
+  "chrome", "chromium", "brave", "edge", "vivaldi",
+  "opera", "coccoc", "cromite", "helium", "thorium",
+  "slimjet", "yandex", "vesktop", "obsidian", "mullvad",
+  "firefox", "zen"
+};
 
 /**
  * @brief List of application names have goood support surrowding text
  *
  */
-inline constexpr std::array<std::string_view, 1> surrtp_apps = {"soffice"};
+inline constexpr std::array<std::string_view, 1> surrtp_apps = {
+  "soffice"
+};
 
-inline constexpr std::array<std::string_view, 5> terminalm = {"foot", "kitty", "alacritty", "ghostty", "st"};
+inline constexpr std::array<std::string_view, 5> terminalm = {
+  "foot", "kitty", "alacritty", "ghostty", "st"
+};

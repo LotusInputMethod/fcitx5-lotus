@@ -100,9 +100,9 @@ namespace fcitx {
             }
         }
         //HACK
-        //if (waitAck_) {
+        if (waitAck_) {
             LOTUS_INFO("Waiting for ack");
-        //    LOTUS_INFO("chrome x11 hit me");
+            LOTUS_INFO("chrome x11 hit me");
             char ack;
             recv(uinput_client_fd_, &ack, sizeof(ack), MSG_NOSIGNAL);
             // keep safe that bs is finish by app
@@ -110,10 +110,11 @@ namespace fcitx {
             replacement_start_ms_.store(0, std::memory_order_release);
             // ez way but cause alot of problem
             //std::this_thread::sleep_for(std::chrono::milliseconds(count * 5));
-        //} else {
-        //    LOTUS_INFO("firefox hit me");
-        //    std::this_thread::sleep_for(std::chrono::milliseconds(count * 2));
-        //}
+        } else {
+            LOTUS_INFO("firefox hit me");
+            std::this_thread::sleep_for(std::chrono::milliseconds(count * 10));
+            replacement_start_ms_.store(0, std::memory_order_release);
+        }
     }
     void LotusState::send_backspace_forward(int count) const {
         if (count <= 0) return;
@@ -587,27 +588,9 @@ namespace fcitx {
                             isCommit = true;
                         }
                 }
-                if (!wa_flag)
-                    if (!isCommit) {
-                        keyEvent.forward();
-                        bool hasMultibyte = false;
-                        for (unsigned char c : oldPreBuffer_)
-                            if (c > 0x7F) {
-                                hasMultibyte = true;
-                                break;
-                            }
-                        if (!hasMultibyte &&
-#if defined(LOTUS_ENABLE_AVX512) && defined(__AVX512F__)
-                            utf8_length_avx512(oldPreBuffer_.data(), oldPreBuffer_.size())
-#else
-                            utf8::length(oldPreBuffer_)
-#endif
-                            > 8) {
-                            inputBackend_->resetEngine();
-                            hasHistory_ = false;
-                            oldPreBuffer_.clear();
-                        }
-                    }
+                if (!wa_flag && !isCommit) {
+                    keyEvent.forward();
+                }
             } else {
                 if (uinput_client_fd_ < 0) {
                     LOTUS_ERROR("Cannot connect to uinput server, commit rawkey");
