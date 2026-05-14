@@ -48,18 +48,6 @@ namespace fcitx {
             return UkSimpleTelex;
         }
 
-        static int mapLotusCharset(const std::string& name) {
-            if (name == "Unicode" || name.empty())
-                return CONV_CHARSET_XUTF8;
-            if (name.find("TCVN") != std::string::npos)
-                return CONV_CHARSET_TCVN3;
-            if (name.find("VNI") != std::string::npos && name != "VNI")
-                return CONV_CHARSET_VNIWIN;
-            if (name.find("VIQR") != std::string::npos)
-                return CONV_CHARSET_VIQR;
-            return CONV_CHARSET_XUTF8;
-        }
-
         class LotusUnikeyInputBackend final : public LotusInputBackend {
           public:
             void recreateEngine(LotusEngine* engine) override {
@@ -147,7 +135,7 @@ namespace fcitx {
                 UkInputMethod currentIM_ = mapLotusIm(engine->config().inputMethod.value());
 
                 uk_->setInputMethod(currentIM_);
-                uk_->setOutputCharset(mapLotusCharset(engine->config().outputCharset.value()));
+                uk_->setOutputCharset(CONV_CHARSET_XUTF8);
 
                 UnikeyOptions opt{};
                 opt.freeMarking         = *engine->config().freeMarking ? 1 : 0;

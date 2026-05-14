@@ -88,33 +88,6 @@ namespace fcitx {
 
         auto& uiManager = instance_->userInterfaceManager();
 
-        charsetAction_ = std::make_unique<SimpleAction>();
-        charsetAction_->setShortText(_("Charset"));
-        charsetAction_->setIcon("character-set");
-        uiManager.registerAction("lotus-charset", charsetAction_.get());
-        charsetMenu_ = std::make_unique<Menu>();
-        charsetAction_->setMenu(charsetMenu_.get());
-        std::vector<std::string> charsets = {"Unicode", "TCVN3", "VNI Win", "VIQR", "BK HCM 2", "UTF-8 VIQR"};
-        for (const auto& charset : charsets) {
-            charsetSubAction_.emplace_back(std::make_unique<SimpleAction>());
-            auto* action = charsetSubAction_.back().get();
-            action->setShortText(charset);
-            action->setCheckable(true);
-            uiManager.registerAction(stringutils::concat(CharsetActionPrefix, charset), action);
-            connections_.emplace_back(action->connect<SimpleAction::Activated>([this, charset](InputContext* ic) {
-                if (config_.outputCharset.value() == charset)
-                    return;
-                config_.outputCharset.setValue(charset);
-                saveConfig();
-                refreshEngine();
-                updateCharsetAction(ic);
-                if (ic)
-                    ic->updateUserInterface(UserInterfaceComponent::StatusArea);
-            }));
-            charsetMenu_->addAction(action);
-        }
-        config_.outputCharset.annotation().setList(charsets);
-
         initToggleAction(spellCheckAction_, config_.spellCheck, "lotus-spellcheck", "tools-check-spelling", _("Enable Spell Check"), _("Spell Check"), uiManager);
         initToggleAction(macroAction_, config_.enableMacro, "lotus-macro", "document-edit", _("Enable Macro"), _("Macro"), uiManager);
         initToggleAction(capitalizeMacroAction_, config_.capitalizeMacro, "lotus-capitalizemacro", "format-text-uppercase", _("Capitalize Macro"), _("Capitalize Macro"),
