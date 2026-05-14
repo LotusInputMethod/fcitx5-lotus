@@ -28,7 +28,6 @@
 
 namespace fcitx {
 
-    class Object;
     class LotusState;
 
     /**
@@ -164,20 +163,6 @@ namespace fcitx {
         const lotusCustomKeymap& customKeymap() const;
 
         /**
-         * @brief Gets the dictionary handle.
-         * @return CGo handle for the dictionary.
-         */
-        uintptr_t dictionary() const {
-            return dictionary_.handle();
-        }
-
-        /**
-         * @brief Gets the macro table handle.
-         * @return CGo handle for the macro table.
-         */
-        uintptr_t macroTable() const;
-
-        /**
          * @brief Gets the emoji loader.
          * @return Reference to emoji loader instance.
          */
@@ -195,16 +180,11 @@ namespace fcitx {
         lotusCustomKeymap        customKeymap_;
         lotusCustomKeymap        emptyCustomKeymap_;
 
-        lotusMacroTable          macroTables_;
-        Object                   macroTableObject_;
         lotusAppRules            appRulesTables_;
 
         FactoryFor<LotusState>   factory_;
         std::vector<std::string> imNames_;
 
-#ifndef DISABLE_VERSION_ACTION
-        std::unique_ptr<SimpleAction> versionAction_;
-#endif
         std::unique_ptr<SimpleAction>              charsetAction_;
         std::vector<std::unique_ptr<SimpleAction>> charsetSubAction_;
         std::unique_ptr<Menu>                      charsetMenu_;
@@ -213,11 +193,9 @@ namespace fcitx {
         std::unique_ptr<SimpleAction>              macroAction_;
         std::unique_ptr<SimpleAction>              capitalizeMacroAction_;
         std::unique_ptr<SimpleAction>              autoNonVnRestoreAction_;
-        std::unique_ptr<SimpleAction>              enableDictionaryAction_;
         std::unique_ptr<SimpleAction>              settingsAction_;
         std::vector<SimpleAction*>                 toggleActions_;
         std::vector<ScopedConnection>              connections_;
-        Object                                     dictionary_;
         std::unordered_map<std::string, LotusMode> appRules_;
         std::string                                appRulesPath_;
         bool                                       isSelectingAppMode_ = false;

@@ -34,7 +34,7 @@ namespace fcitx {
 
         static UkInputMethod mapLotusIm(const std::string& name) {
             if (name.find("Telex 2") != std::string::npos && name.find("VNI") == std::string::npos)
-                return UkSimpleTelex;
+                return UkSimpleTelex2;
             if (name.find("VNI") != std::string::npos || name == "VNI")
                 return UkVni;
             if (name.find("VIQR") != std::string::npos)
@@ -43,7 +43,9 @@ namespace fcitx {
                 return UkMsVi;
             if (name.find("Telex") != std::string::npos)
                 return UkSimpleTelex;
-            return UkTelex;
+            if (name.find("Telex + VNI") != std::string::npos)
+                return UkTelex;
+            return UkSimpleTelex;
         }
 
         static int mapLotusCharset(const std::string& name) {
