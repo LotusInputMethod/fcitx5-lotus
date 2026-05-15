@@ -24,7 +24,7 @@
 #define DllImport
 #endif
 
-enum UkKeyEvName {
+enum UkKeyEvName : int {
     vneRoofAll,
     vneRoof_a,
     vneRoof_e,

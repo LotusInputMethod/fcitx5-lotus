@@ -18,7 +18,9 @@
 #include <mutex>
 #include <atomic>
 #include <sys/un.h>
+#if defined(LOTUS_ENABLE_LOG)
 #include <fcitx-utils/log.h>
+#endif
 #include <fcitx/inputcontext.h>
 
 #include "lotus-config.h"
@@ -45,11 +47,17 @@ extern "C" size_t strfind_avx512(const char* hay, size_t hlen, const char* needl
 
 FCITX_DECLARE_LOG_CATEGORY(lotus);
 
+#if defined(LOTUS_ENABLE_LOG)
 #define LOTUS_DEBUG(msg) FCITX_LOGC(lotus, Debug) << "[DEBUG] " << msg
 #define LOTUS_INFO(msg)  FCITX_LOGC(lotus, Info) << "[INFO] " << msg
 #define LOTUS_WARN(msg)  FCITX_LOGC(lotus, Warn) << "[WARN] " << msg
 #define LOTUS_ERROR(msg) FCITX_LOGC(lotus, Error) << "[ERROR] " << msg
-
+#else
+#define LOTUS_DEBUG(msg) ((void)0)
+#define LOTUS_INFO(msg)  ((void)0)
+#define LOTUS_WARN(msg)  ((void)0)
+#define LOTUS_ERROR(msg) ((void)0)
+#endif
 // Forward declaration for fcitx types
 using KeySym = uint32_t;
 

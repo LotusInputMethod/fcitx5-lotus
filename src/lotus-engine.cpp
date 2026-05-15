@@ -56,17 +56,6 @@ namespace fcitx {
         }
     }
     static KeySym typeKeyForModeMenuHotkey(KeySym hotkeySym) { return isAppModeMenuReservedKey(hotkeySym) ? FcitxKey_f : hotkeySym;}
-    static inline std::vector<std::string> convertToStringList(char** list) {
-        std::vector<std::string> result;
-        if (list != nullptr) {
-            for (size_t i = 0; list[i] != nullptr; ++i) { //NOLINT
-                result.emplace_back(list[i]);             //NOLINT
-                free(list[i]);                            //NOLINT
-            }
-            free(list); //NOLINT
-        }
-        return result;
-    }
     LotusEngine::LotusEngine(Instance* instance) : instance_(instance), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
         const char* desktop = std::getenv("XDG_CURRENT_DESKTOP");
         isGnome_            = (desktop != nullptr) && std::string(desktop).find("GNOME") != std::string::npos;
@@ -190,8 +179,6 @@ namespace fcitx {
 
     void LotusEngine::activate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
         auto*                    ic        = event.inputContext();
-        const bool               surrvalid = ic->surroundingText().isValid();
-        const bool               is_dbus   = getFrontendName(ic) == "dbus";
         static std::atomic<bool> mouseThreadStarted{false};
         if (!mouseThreadStarted.exchange(true)) startMouseReset();
         auto& statusArea = event.inputContext()->statusArea();
@@ -203,6 +190,8 @@ namespace fcitx {
         auto* state = ic->propertyFor(&factory_);
         const bool alreadySetup = !s_activationCache.needsSetup(ic, targetMode);
 if (!alreadySetup) {
+        const bool surrvalid = ic->surroundingText().isValid();
+        const bool is_dbus   = getFrontendName(ic) == "dbus";
         updateCharsetAction(event.inputContext());
         setMode(targetMode, event.inputContext());
         // Workaround for chromium wayland issue where suggestions cause a doubled
