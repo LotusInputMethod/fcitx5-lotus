@@ -1,1 +1,17 @@
-fcitx-lotus-emoji.svg
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16" height="16" version="1.1" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <g id="vein">
+      <line x1="8" x2="8" y1="8" y2="1.2" stroke="#66bb6a" stroke-linecap="round" stroke-width=".4"/>
+    </g>
+  </defs>
+  <ellipse cx="8" cy="8" rx="6.6975293" ry="4.5825291" fill="#fff" stroke="#66bb6a" stroke-linecap="round" stroke-linejoin="round" stroke-width=".604942"/>
+  <use transform="matrix(1 0 0 .68222996 0 2.5421603)" href="#vein"/>
+  <use transform="matrix(.43751199 .75779299 -.75779299 .43751199 10.562248 -1.5624398)" href="#vein"/>
+  <use transform="rotate(90 8 8)" href="#vein"/>
+  <use transform="matrix(-.4403794 .7627595 -.7627595 -.4403794 17.625111 5.4209592)" href="#vein"/>
+  <use transform="matrix(-1 0 0 -.68222996 16 13.45784)" href="#vein"/>
+  <use transform="matrix(-.43751199 -.75779299 .75779299 -.43751199 5.437752 17.56244)" href="#vein"/>
+  <use transform="rotate(270 8 8)" href="#vein"/>
+  <use transform="matrix(.4403794 -.7627595 .7627595 .4403794 -1.6251112 10.579041)" href="#vein"/>
+</svg>

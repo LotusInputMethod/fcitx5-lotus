@@ -1,1 +1,10 @@
-fcitx-lotus-off.svg
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16" height="16" version="1.1" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <g transform="matrix(.46044587 0 0 .41458402 -3.0507009 -2.1573135)" fill="#fff" stroke="#ce93d8" stroke-linecap="round" stroke-linejoin="round" stroke-width=".674563">
+    <path transform="rotate(-22,24,35)" d="m24 35c-4-5-5-14 0-21 5 7 4 16 0 21"/>
+    <path transform="rotate(22,24,35)" d="m24 35c-4-5-5-14 0-21 5 7 4 16 0 21"/>
+    <path transform="rotate(-10,24,35)" d="m24 35c-4-5-5-14 0-21 5 7 4 16 0 21"/>
+    <path transform="rotate(10,24,35)" d="m24 35c-4-5-5-14 0-21 5 7 4 16 0 21"/>
+    <path d="m24 35c-4-5-5-14 0-21 5 7 4 16 0 21"/>
+  </g>
+</svg>

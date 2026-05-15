@@ -30,6 +30,8 @@ compile_commands.json
 !.all-contributorsrc
 refresh-contributor
 
+unikey-im/
+
 # Qt AUTOMOC generated files
 *_autogen/
 
