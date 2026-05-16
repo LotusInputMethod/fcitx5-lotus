@@ -101,7 +101,6 @@ namespace fcitx {
         int                                expected_backspaces_     = 0;
         int                                current_backspace_count_ = 0;
         std::string                        pending_commit_string_;
-        std::atomic<int>                   current_thread_id_{0};
         std::string                        emojiBuffer_;
         std::vector<EmojiEntry>            emojiCandidates_;
         bool                               waitAck_ = false;

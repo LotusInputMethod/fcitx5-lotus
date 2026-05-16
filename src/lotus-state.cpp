@@ -123,8 +123,6 @@ namespace fcitx {
     }
     void LotusState::finishReplacement() {
         is_deleting_.store(false, std::memory_order_release);
-        replacement_start_ms_.store(0, std::memory_order_release);
-        replacement_thread_id_.store(0, std::memory_order_release);
         expected_backspaces_     = 0;
         current_backspace_count_ = 0;
         pending_commit_string_.clear();
@@ -397,9 +395,7 @@ namespace fcitx {
         if (isBackspace(currentSym)) {
             current_backspace_count_ += 1;
             if (current_backspace_count_ < expected_backspaces_) return false; // Allow intermediate backspaces to reach the app to clear autofill/old text.
-            int64_t elapsed_ms = now_ms() - replacement_start_ms_.load(std::memory_order_acquire);
-            int64_t wait_ms    = static_cast<int64_t>(sleepTime) - elapsed_ms;
-            if (wait_ms > 0) std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
             if (waitAck_) std::this_thread::sleep_for(std::chrono::milliseconds(5)); //wait more
             ic_->commitString(pending_commit_string_);
             LOTUS_INFO("Commit: " + pending_commit_string_);
@@ -411,7 +407,6 @@ namespace fcitx {
     }
     bool LotusState::performReplacement(const std::string& deletedPart, const std::string& addedPart) {
         LOTUS_INFO("Perform replacement: " + deletedPart + " -> " + addedPart); //NOLINT
-        int my_id                  = ++current_thread_id_;
         current_backspace_count_   = 0;
         pending_commit_string_     = addedPart;
         const auto& surrounding    = ic_->surroundingText();
@@ -460,10 +455,7 @@ namespace fcitx {
             ic_->commitString(addedPart);
             return true;
         } else {
-            replacement_thread_id_.store(my_id, std::memory_order_release);
-            replacement_start_ms_.store(now_ms(), std::memory_order_release);
             is_deleting_.store(true, std::memory_order_release);
-            monitor_cv.notify_one();
             if (0 && isTerm) {
                 send_backspace_forward(expected_backspaces_ - 1);
                 return true;
@@ -742,19 +734,6 @@ namespace fcitx {
             clearAllBuffers();
         }
         KeySym currentSym = keyEvent.rawKey().sym();
-        if (needFallbackCommit.load(std::memory_order_acquire)) {
-            LOTUS_INFO("Need fallback commit");
-            needFallbackCommit.store(false, std::memory_order_release);
-            if (current_thread_id_.load(std::memory_order_acquire) == replacement_thread_id_.load(std::memory_order_acquire))
-                if (!pending_commit_string_.empty()) {
-                    ic_->commitString(pending_commit_string_);
-                }
-            finishReplacement();
-            if (isBackspace(currentSym)) {
-                keyEvent.filterAndAccept();
-                return;
-            }
-        }
         if (*engine_->config().autoCapitalizeAfterPunctuation && realMode != LotusMode::Off) {
             // Ignore auto-capitalize side-effects if we're processing automated replacement backspaces
             bool isAutomatedBackspace = is_deleting_.load(std::memory_order_acquire) && isBackspace(currentSym);

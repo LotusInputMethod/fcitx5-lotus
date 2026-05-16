@@ -24,9 +24,6 @@ std::atomic<int>              uinput_client_fd_{-1};
 std::atomic<unsigned int>     realtextLen{0};
 std::atomic<int>              mouse_socket_fd{-1};
 
-std::atomic<int64_t>          replacement_start_ms_{0};
-std::atomic<int>              replacement_thread_id_{0};
-std::atomic<bool>             needFallbackCommit{false};
 
 std::mutex                    monitor_mutex;
 std::condition_variable       monitor_cv;

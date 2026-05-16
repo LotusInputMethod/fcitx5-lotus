@@ -15,7 +15,7 @@ if (LOTUS_ENABLE_AVX512)
 endif()
 enable_language(ASM)
 set_source_files_properties(lotus-utils-avx512.S PROPERTIES LANGUAGE ASM)
-list(APPEND fcitx_lotus_sources lotus-unikey-backend.cpp)
+list(APPEND fcitx_lotus_sources lotus-input-backend.cpp)
 
 add_library(lotus MODULE ${fcitx_lotus_sources})
 set_target_properties(lotus PROPERTIES OUTPUT_NAME "lotus")

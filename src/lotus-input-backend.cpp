@@ -3,7 +3,8 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Native Unikey engine (fcitx5-unikey patterns; no Go/CGO).
+ * Lotus input backend using the native Unikey engine
+ * (fcitx5-unikey patterns; no Go/CGO).
  */
 #ifdef LOTUS_ENGINE_UNIKEY
 #include "lotus-input-backend.hpp"

@@ -60,7 +60,6 @@ namespace fcitx {
         const char* desktop = std::getenv("XDG_CURRENT_DESKTOP");
         isGnome_            = (desktop != nullptr) && std::string(desktop).find("GNOME") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
-        startMonitoring();
         imNames_ = {"Telex", "VNI", "Telex 2", "Telex + VNI", "VIQR", "Microsoft"};
         config_.inputMethod.annotation().setList(imNames_);
         auto& uiManager = instance_->userInterfaceManager();
@@ -114,11 +113,9 @@ namespace fcitx {
     }
     LotusEngine::~LotusEngine() {
         stop_flag_monitor.store(true, std::memory_order_release);
-        monitor_cv.notify_all();
         int fd = mouse_socket_fd.load(std::memory_order_acquire);
         if (fd >= 0) shutdown(fd, SHUT_RDWR);
         if (mouse_thread.joinable()) mouse_thread.join();
-        if (monitor_thread.joinable()) monitor_thread.join();
         int old_fd = uinput_client_fd_.exchange(-1);
         if (old_fd != -1) close(old_fd);
         LOTUS_INFO("Engine destroyed.");

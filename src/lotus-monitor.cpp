@@ -19,70 +19,8 @@
 #include <unistd.h>
 #include <limits.h>
 
-std::thread monitor_thread = std::thread();
-std::thread mouse_thread   = std::thread();
-
-void        deletingTimeMonitor() {
-    LOTUS_INFO("Deleting monitor thread started.");
-    while (!stop_flag_monitor.load()) {
-        int64_t deleting_since = 0;
-
-        {
-            std::unique_lock<std::mutex> lock(monitor_mutex);
-            monitor_cv.wait(lock, [] { return is_deleting_.load(std::memory_order_acquire) || stop_flag_monitor.load(std::memory_order_acquire); });
-        }
-
-        if (stop_flag_monitor.load())
-            break;
-
-        deleting_since = now_ms();
-
-        while (is_deleting_.load(std::memory_order_acquire) && !stop_flag_monitor.load()) {
-            int64_t current_time = now_ms();
-
-            int64_t rep_start = replacement_start_ms_.load(std::memory_order_acquire);
-            if (rep_start > 0 && (current_time - rep_start) > 200) {
-                LOTUS_WARN("Replacement timeout (200ms). Falling back to commit.");
-                int expected_id = replacement_thread_id_.load(std::memory_order_acquire);
-                if (expected_id > 0) {
-                    is_deleting_.store(false, std::memory_order_release);
-                    needFallbackCommit.store(true, std::memory_order_release);
-                    replacement_start_ms_.store(0, std::memory_order_release);
-                    break;
-                }
-            }
-
-            if ((current_time - deleting_since) >= 1500) {
-                LOTUS_WARN("Critical delete timeout (1500ms). Forcing engine reset.");
-                is_deleting_.store(false);
-                needEngineReset.store(true);
-                replacement_start_ms_.store(0, std::memory_order_release);
-                break;
-            }
-
-            {
-                std::unique_lock<std::mutex> lock(monitor_mutex);
-                monitor_cv.wait_for(lock, std::chrono::milliseconds(2));
-            }
-        }
-    }
-    monitor_running.store(false, std::memory_order_release);
-    LOTUS_INFO("Deleting monitor thread stopped.");
-}
-
-void startMonitoring() {
-    if (monitor_running.load())
-        return;
-    if (!monitor_running.exchange(true, std::memory_order_acq_rel)) {
-        LOTUS_INFO("Initializing monitor threads...");
-        if (monitor_thread.joinable()) {
-            monitor_thread.join();
-        }
-        stop_flag_monitor.store(false, std::memory_order_release);
-        monitor_thread = std::thread(deletingTimeMonitor);
-    }
-}
-
+std::thread mouse_thread = std::thread();
+//
 void mousePressResetThread() {
     const std::string mouse_socket_path = buildSocketPath("mouse_socket");
     LOTUS_INFO("Mouse press reset thread started.");
