@@ -11,10 +11,12 @@
 #include "lotus-config.h"
 #include "lotus-engine.h"
 #include "unikeyinputcontext.h"
+#include "usrkeymap.h"
 #include <vnconv.h>
 #include <fcitx-utils/key.h>
 #include <fcitx-utils/keysym.h>
 #include <fcitx-utils/log.h>
+#include <fcitx-utils/standardpaths.h>
 #include <fcitx-utils/utf8.h>
 #include <unordered_set>
 namespace fcitx {
@@ -34,6 +36,8 @@ namespace fcitx {
                 return UkViqr;
             if (name.find("Microsoft") != std::string::npos || name.find("Ms") != std::string::npos)
                 return UkMsVi;
+            if (name.find("User") != std::string::npos || name.find("Custom") != std::string::npos)
+                return UkUsrIM;
             if (name.find("Telex") != std::string::npos)
                 return UkSimpleTelex;
             if (name.find("Telex + VNI") != std::string::npos)
@@ -101,6 +105,8 @@ namespace fcitx {
           private:
             void applyFromConfig(LotusEngine* engine) {
                 if (!im_) return;
+                reloadKeymap();
+                reloadMacroTable();
                 UkInputMethod currentIM_ = mapLotusIm(engine->config().inputMethod.value());
                 im_->setInputMethod(currentIM_);
                 im_->setOutputCharset(CONV_CHARSET_XUTF8);
@@ -115,6 +121,19 @@ namespace fcitx {
                 opt.spellCheckEnabled   = *engine->config().spellCheck ? 1 : 0;
                 opt.autoNonVnRestore    = *engine->config().autoNonVnRestore ? 1 : 0;
                 im_->setOptions(&opt);
+            }
+            void reloadKeymap() {
+                auto keymapFile = StandardPaths::global().open(StandardPathsType::PkgConfig, "lotus/keymap.txt");
+                if (keymapFile.isValid()) {
+                    UkLoadKeyMap(keymapFile.fd(), im_->sharedMem()->usrKeyMap);
+                    im_->sharedMem()->usrKeyMapLoaded = true;
+                } else {
+                    im_->sharedMem()->usrKeyMapLoaded = false;
+                }
+            }
+            void reloadMacroTable() {
+                auto path = StandardPaths::global().locate(StandardPathsType::PkgConfig, "lotus/macro");
+                if (!path.empty()) im_->loadMacroTable(path.string().c_str());
             }
             void eraseChars(int num_chars) {
                 int           i;

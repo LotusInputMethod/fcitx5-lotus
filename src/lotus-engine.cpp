@@ -60,7 +60,7 @@ namespace fcitx {
         const char* desktop = std::getenv("XDG_CURRENT_DESKTOP");
         isGnome_            = (desktop != nullptr) && std::string(desktop).find("GNOME") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
-        imNames_ = {"Telex", "VNI", "Telex 2", "Telex + VNI", "VIQR", "Microsoft"};
+        imNames_ = {"Telex", "VNI", "Telex 2", "Telex + VNI", "VIQR", "Microsoft", "UserIM"};
         config_.inputMethod.annotation().setList(imNames_);
         auto& uiManager = instance_->userInterfaceManager();
         initToggleAction(spellCheckAction_, config_.spellCheck, "lotus-spellcheck", "tools-check-spelling", _("Enable Spell Check"), _("Spell Check"), uiManager);
@@ -154,6 +154,8 @@ namespace fcitx {
             customKeymap_.load(config, true);
             safeSaveAsIni(customKeymap_, CustomKeymapFile);
             refreshEngine();
+        } else if (path == "macro" || path == "keymap.txt") {
+            refreshOption();
         } else if (path == "app_rules") {
             appRulesTables_.load(config, true);
             {

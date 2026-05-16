@@ -233,7 +233,8 @@ namespace fcitx {
         Option<bool>                                            enableCustomKeymap{this, "EnableCustomKeymap", _("Enable Custom Keymap"), false};
         OptionWithAnnotation<std::string, TimeFormatAnnotation> timeFormat{this, "TimeFormat", _("Time Format ($TIME in macro)"), "%H:%M", {}, {}, TimeFormatAnnotation()};
         OptionWithAnnotation<std::string, DateFormatAnnotation> dateFormat{this, "DateFormat", _("Date Format ($DATE in macro)"), "%d/%m/%Y", {}, {}, DateFormatAnnotation()};
-        SubConfigOption                                         macroEditor{this, "MacroEditor", _("Macro"), "fcitx://config/addon/lotus/lotus-macro"};
+        ExternalOption                                          macroEditor{this, "MacroEditor", _("Macro Editor"), "fcitx://config/addon/lotus/macro"};
+        ExternalOption                                          keymapEditor{this, "KeymapEditor", _("Keymap Editor"), "fcitx://config/addon/lotus/keymap.txt"};
         SubConfigOption                                         customKeymap{this, "CustomKeymap", _("Custom Keymap"), "fcitx://config/addon/lotus/custom_keymap"};
         SubConfigOption appRules{this, "AppRules", _("App Rules"), "fcitx://config/addon/lotus/app_rules"}; KeyListOption modeMenuKey{
             this, "ModeMenuKey", _("Mode Menu Hotkey"), {Key("grave")}, KeyListConstrain({KeyConstrainFlag::AllowModifierLess, KeyConstrainFlag::AllowModifierOnly})};);

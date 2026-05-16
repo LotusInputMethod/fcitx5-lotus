@@ -32,7 +32,7 @@ if (LOTUS_ENABLE_LOG)
   target_compile_definitions(lotus PRIVATE LOTUS_ENABLE_LOG=1)
 endif()
 target_compile_definitions(lotus PRIVATE LOTUS_ENGINE_UNIKEY=1)
-target_include_directories(lotus PRIVATE "${PROJECT_SOURCE_DIR}/unikey/core")
+target_include_directories(lotus PRIVATE "${PROJECT_SOURCE_DIR}/unikey")
 
 target_include_directories(lotus PRIVATE
     ${PROJECT_BINARY_DIR}
