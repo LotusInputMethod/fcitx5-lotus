@@ -1,4 +1,4 @@
-option(LOTUS_ENABLE_AVX512 "Enable AVX-512 acceleration for lotus-utils" ON)
+option(LOTUS_ENABLE_AVX512 "Enable AVX-512 acceleration for lotus-utils" OFF)
 option(LOTUS_ENABLE_LOG "Enable LOG" ON)
 set(fcitx_lotus_sources
   lotus.cpp
