@@ -107,13 +107,11 @@ namespace fcitx {
             recv(uinput_client_fd_, &ack, sizeof(ack), MSG_NOSIGNAL);
             // keep safe that bs is finish by app
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            replacement_start_ms_.store(0, std::memory_order_release);
             // ez way but cause alot of problem
             //std::this_thread::sleep_for(std::chrono::milliseconds(count * 5));
         } else {
             LOTUS_INFO("firefox hit me");
             std::this_thread::sleep_for(std::chrono::milliseconds(count * 10));
-            replacement_start_ms_.store(0, std::memory_order_release);
         }
     }
     void LotusState::send_backspace_forward(int count) const {
@@ -122,6 +120,15 @@ namespace fcitx {
             ic_->forwardKey(Key(FcitxKey_BackSpace, KeyState::NoState), false);
             ic_->forwardKey(Key(FcitxKey_BackSpace, KeyState::NoState), true);
         }
+    }
+    void LotusState::finishReplacement() {
+        is_deleting_.store(false, std::memory_order_release);
+        replacement_start_ms_.store(0, std::memory_order_release);
+        replacement_thread_id_.store(0, std::memory_order_release);
+        expected_backspaces_     = 0;
+        current_backspace_count_ = 0;
+        pending_commit_string_.clear();
+        buffered_keys_.clear();
     }
     bool LotusState::isAutofillCertain(const SurroundingText& s) {
         if (!s.isValid() || oldPreBuffer_.empty()) return false;
@@ -390,18 +397,13 @@ namespace fcitx {
         if (isBackspace(currentSym)) {
             current_backspace_count_ += 1;
             if (current_backspace_count_ < expected_backspaces_) return false; // Allow intermediate backspaces to reach the app to clear autofill/old text.
-            is_deleting_.store(false);
-            replacement_start_ms_.store(0, std::memory_order_release);
-            replacement_thread_id_.store(0, std::memory_order_release);
             int64_t elapsed_ms = now_ms() - replacement_start_ms_.load(std::memory_order_acquire);
             int64_t wait_ms    = static_cast<int64_t>(sleepTime) - elapsed_ms;
             if (wait_ms > 0) std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
             if (waitAck_) std::this_thread::sleep_for(std::chrono::milliseconds(5)); //wait more
             ic_->commitString(pending_commit_string_);
             LOTUS_INFO("Commit: " + pending_commit_string_);
-            expected_backspaces_     = 0;
-            current_backspace_count_ = 0;
-            pending_commit_string_   = "";
+            finishReplacement();
             event.filterAndAccept(); // Filter out the final trigger backspace.
             return true;
         }
@@ -474,10 +476,7 @@ namespace fcitx {
     bool LotusState::checkForwardSpecialKey(KeyEvent& keyEvent, KeySym& currentSym) {
         if (keyEvent.key().isCursorMove() || currentSym == FcitxKey_Tab || currentSym == FcitxKey_KP_Tab || currentSym == FcitxKey_ISO_Left_Tab || currentSym == FcitxKey_Escape ||
             keyEvent.key().hasModifier()) {
-            is_deleting_.store(false, std::memory_order_release);
-            expected_backspaces_     = 0;
-            current_backspace_count_ = 0;
-            pending_commit_string_.clear();
+            finishReplacement();
             hasHistory_ = false;
             inputBackend_->resetEngine();
             oldPreBuffer_.clear();
@@ -572,6 +571,7 @@ namespace fcitx {
         std::string preeditStr = preeditStrBuf;
         std::string deletedPart;
         std::string addedPart;
+        wa_flag = false;
         if (wa_flag) keyEvent.filterAndAccept();
         if (compareAndSplitStrings(oldPreBuffer_, preeditStr, deletedPart, addedPart) != 0) {
             if (deletedPart.empty()) {
@@ -598,7 +598,7 @@ namespace fcitx {
                     if (!rawKey.empty()) ic_->commitString(rawKey);
                     return;
                 }
-                if (is_deleting_.load()) is_deleting_.store(false, std::memory_order_release);
+                if (is_deleting_.load()) finishReplacement();
                 if (!wa_flag) keyEvent.filterAndAccept();
                 performReplacement(deletedPart, addedPart);
                 oldPreBuffer_ = preeditStr;
@@ -724,17 +724,14 @@ namespace fcitx {
             connect_uinput_server();
         }
         if (current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
-            is_deleting_.store(false);
-            current_backspace_count_ = 0;
-            expected_backspaces_     = 0;
+            finishReplacement();
         }
         if (needEngineReset.load() && realMode != LotusMode::Off) {
             LOTUS_INFO("Need engine reset");
             oldPreBuffer_.clear();
             hasHistory_ = false;
             inputBackend_->resetEngine();
-            is_deleting_.store(false);
-            current_backspace_count_ = 0;
+            finishReplacement();
             isPrevSpace_             = false;
             shouldCapitalize_        = false;
             isPrevPunctuation_       = false;
@@ -744,18 +741,20 @@ namespace fcitx {
             g_mouse_clicked.store(false, std::memory_order_release);
             clearAllBuffers();
         }
+        KeySym currentSym = keyEvent.rawKey().sym();
         if (needFallbackCommit.load(std::memory_order_acquire)) {
             LOTUS_INFO("Need fallback commit");
             needFallbackCommit.store(false, std::memory_order_release);
             if (current_thread_id_.load(std::memory_order_acquire) == replacement_thread_id_.load(std::memory_order_acquire))
                 if (!pending_commit_string_.empty()) {
                     ic_->commitString(pending_commit_string_);
-                    pending_commit_string_.clear();
                 }
-            replacement_thread_id_.store(0, std::memory_order_release);
-            replacement_start_ms_.store(0, std::memory_order_release);
+            finishReplacement();
+            if (isBackspace(currentSym)) {
+                keyEvent.filterAndAccept();
+                return;
+            }
         }
-        KeySym currentSym = keyEvent.rawKey().sym();
         if (*engine_->config().autoCapitalizeAfterPunctuation && realMode != LotusMode::Off) {
             // Ignore auto-capitalize side-effects if we're processing automated replacement backspaces
             bool isAutomatedBackspace = is_deleting_.load(std::memory_order_acquire) && isBackspace(currentSym);

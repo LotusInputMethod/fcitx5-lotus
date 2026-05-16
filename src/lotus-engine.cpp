@@ -87,6 +87,7 @@ namespace fcitx {
         if (!std::filesystem::exists(configDir)) { std::filesystem::create_directories(configDir);}
         reloadConfig();
         instance_->inputContextManager().registerProperty("LotusState", &factory_);
+        instance_->inputContextManager().setPreeditEnabledByDefault(true);
         appRulesPath_ = configDir + "/lotus-app-rules.conf";
         loadAppRules();
         toggleActions_ = {
@@ -182,18 +183,19 @@ namespace fcitx {
         static std::atomic<bool> mouseThreadStarted{false};
         if (!mouseThreadStarted.exchange(true)) startMouseReset();
         auto& statusArea = event.inputContext()->statusArea();
-        if (ic->capabilityFlags().test(CapabilityFlag::Preedit)) instance_->inputContextManager().setPreeditEnabledByDefault(true);
         std::string appName = getProgramName(ic);
         LOTUS_INFO("App name: " + appName);
         const LotusMode targetMode = getAppRule(appName);
         LOTUS_INFO("Target mode: " + modeEnumToString(targetMode));
-        auto* state = ic->propertyFor(&factory_);
         const bool alreadySetup = !s_activationCache.needsSetup(ic, targetMode);
-if (!alreadySetup) {
         const bool surrvalid = ic->surroundingText().isValid();
         const bool is_dbus   = getFrontendName(ic) == "dbus";
-        updateCharsetAction(event.inputContext());
-        setMode(targetMode, event.inputContext());
+        auto* state = ic->propertyFor(&factory_);
+if (!alreadySetup) {
+        if (event.type() == EventType::InputContextFocusIn) {
+            updateCharsetAction(ic);
+            setMode(targetMode, ic);
+        }
         // Workaround for chromium wayland issue where suggestions cause a doubled
         // first character. Forwarding may prevent BS from being sent
         // to the client.
@@ -249,17 +251,20 @@ if (!alreadySetup) {
             char drain[64];
             recv(uinput_client_fd_,drain,sizeof(drain),MSG_DONTWAIT | MSG_NOSIGNAL);
         }
-        if (event.type() == EventType::InputContextFocusIn && is_dbus && !surrvalid) { LOTUS_INFO("Skip clearAllBuffers");
-        } else if (surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100) { state->clearAllBuffers(); }
+        if (event.type() == EventType::InputContextFocusIn && is_dbus && !surrvalid) {
+            LOTUS_INFO("Skip clearAllBuffers");
+        } else if (surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100) {
+            state->clearAllBuffers();
+        }
 }
         if (!state->isReplacing()) is_deleting_.store(false);
         needEngineReset.store(false);
         if (targetMode == LotusMode::Emoji) {
             state->updateEmojiPreedit();
-        } else {
-            LOTUS_INFO("inputPanel reset");
-            ic->inputPanel().reset();
+        } else if (event.type() == EventType::InputContextFocusIn) {
             if (realMode == LotusMode::Preedit || realMode == LotusMode::SurroundingText) {
+                LOTUS_INFO("inputPanel reset");
+                ic->inputPanel().reset();
                 ic->updateUserInterface(UserInterfaceComponent::InputPanel);
                 ic->updatePreedit();
             }
@@ -402,6 +407,7 @@ if (!alreadySetup) {
     }
     void LotusEngine::deactivate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
         auto*      ic        = event.inputContext();
+        if (!ic->hasFocus() && event.type() != EventType::InputContextFocusOut) return;
         auto*      state     = ic->propertyFor(&factory_);
         const bool surrvalid = ic->surroundingText().isValid();
         const bool is_dbus   = getFrontendName(ic) == "dbus";
@@ -416,10 +422,12 @@ if (!alreadySetup) {
             }
             if (!state->isReplacing()) is_deleting_.store(false);
             needEngineReset.store(false);
-            ic->inputPanel().reset();
-            if (realMode == LotusMode::Preedit || realMode == LotusMode::SurroundingText || realMode == LotusMode::Emoji) {
-                ic->updateUserInterface(UserInterfaceComponent::InputPanel);
-                ic->updatePreedit();
+            if (event.type() != EventType::InputContextFocusOut) {
+                if (realMode == LotusMode::Preedit || realMode == LotusMode::SurroundingText || realMode == LotusMode::Emoji) {
+                    ic->inputPanel().reset();
+                    ic->updateUserInterface(UserInterfaceComponent::InputPanel);
+                    ic->updatePreedit();
+                }
             }
         }
     }
@@ -612,7 +620,7 @@ if (!alreadySetup) {
     }
     void LotusEngine::setMode(LotusMode mode, InputContext* ic) {
         realMode = mode;
-        if (ic != nullptr) { ic->updateUserInterface(UserInterfaceComponent::StatusArea);}
+        if (ic != nullptr && ic->hasFocus()) { ic->updateUserInterface(UserInterfaceComponent::StatusArea);}
     }
     std::string LotusEngine::subModeIconImpl(const InputMethodEntry& /*entry*/, InputContext& /*inputContext*/) {
         if (!*config_.useLotusIcons) {

@@ -133,6 +133,7 @@ namespace fcitx {
          */
         void send_backspace_uinput(int count) const;
         void send_backspace_forward(int count) const;
+        void finishReplacement();
         /**
          * @brief Checks if autofill is certain for surrounding text.
          * @param s The surrounding text.
