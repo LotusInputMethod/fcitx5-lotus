@@ -67,7 +67,6 @@ extern std::atomic<bool>             needEngineReset;        ///< Flag to trigge
 extern std::atomic<bool>             g_mouse_clicked;        ///< Mouse click detection flag
 extern std::atomic<bool>             is_deleting_;           ///< Deletion in progress flag
 extern std::atomic<bool>             stop_flag_monitor;      ///< Signal to stop monitor threads
-extern std::atomic<bool>             monitor_running;        ///< Monitor thread status
 extern std::atomic<int>              uinput_client_fd_;      ///< Uinput client file descriptor
 extern std::atomic<unsigned int>     realtextLen;            ///< Current text length
 extern std::atomic<int>              mouse_socket_fd;        ///< Mouse socket file descriptor

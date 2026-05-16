@@ -10,7 +10,6 @@
 #include "lotus-input-backend.hpp"
 #include "lotus-config.h"
 #include "lotus-engine.h"
-#include "../unikey/LotusUnikeyEngine.hpp"
 #include "unikeyinputcontext.h"
 #include <vnconv.h>
 #include <fcitx-utils/key.h>
@@ -44,8 +43,8 @@ namespace fcitx {
         class LotusUnikeyInputBackend final : public LotusInputBackend {
           public:
             void recreateEngine(LotusEngine* engine) override {
-                engineRef_ = engine;
-                uk_        = std::make_unique<::fcitx::lotus::LotusUnikeyEngine>();
+                im_        = std::make_unique<UnikeyInputMethod>();
+                uic_       = std::make_unique<UnikeyInputContext>(im_.get());
                 applyFromConfig(engine);
                 resetEngine();
             }
@@ -58,15 +57,15 @@ namespace fcitx {
                 lastShiftPressed_ = FcitxKey_None;
                 lastKeyWithShift_ = false;
                 autoCommit_       = false;
-                if (uk_) uk_->resetBuf();
+                if (uic_) uic_->resetBuf();
             }
             void rebuildFromText(const char* utf8) override {
                 resetEngine();
-                if (!uk_ || utf8 == nullptr) return;
+                if (!uic_ || utf8 == nullptr) return;
                 for (auto ucs : utf8::MakeUTF8CharRange(std::string_view(utf8))) {
                     if (ucs < 128U)
-                        uk_->putChar(static_cast<unsigned int>(ucs));
-                    else uk_->putChar(ucs);
+                        uic_->putChar(static_cast<unsigned int>(ucs));
+                    else uic_->putChar(ucs);
                 }
                 syncState(FcitxKey_None);
             }
@@ -97,14 +96,14 @@ namespace fcitx {
             void commitPreedit() override {
                 if (!preeditStr_.empty()) pendingPullCommit_ = preeditStr_;
                 preeditStr_.clear();
-                if (uk_) uk_->resetBuf();
+                if (uic_) uic_->resetBuf();
             }
           private:
             void applyFromConfig(LotusEngine* engine) {
-                if (!uk_) return;
+                if (!im_) return;
                 UkInputMethod currentIM_ = mapLotusIm(engine->config().inputMethod.value());
-                uk_->setInputMethod(currentIM_);
-                uk_->setOutputCharset(CONV_CHARSET_XUTF8);
+                im_->setInputMethod(currentIM_);
+                im_->setOutputCharset(CONV_CHARSET_XUTF8);
                 UnikeyOptions opt{};
                 opt.freeMarking         = *engine->config().freeMarking ? 1 : 0;
                 opt.modernStyle         = *engine->config().modernStyle ? 1 : 0;
@@ -115,7 +114,7 @@ namespace fcitx {
                 opt.useIME              = 0;
                 opt.spellCheckEnabled   = *engine->config().spellCheck ? 1 : 0;
                 opt.autoNonVnRestore    = *engine->config().autoNonVnRestore ? 1 : 0;
-                uk_->setOptions(&opt);
+                im_->setOptions(&opt);
             }
             void eraseChars(int num_chars) {
                 int           i;
@@ -129,79 +128,79 @@ namespace fcitx {
                 preeditStr_.erase(static_cast<size_t>(i + 1));
             }
             void syncState(KeySym sym) {
-                auto* uic = uk_->context();
-                if (uic->backspaces() > 0) {
-                    if (static_cast<int>(preeditStr_.length()) <= uic->backspaces())
+                if (!uic_) return;
+                if (uic_->backspaces() > 0) {
+                    if (static_cast<int>(preeditStr_.length()) <= uic_->backspaces())
                         preeditStr_.clear();
                     else
-                        eraseChars(uic->backspaces());
+                        eraseChars(uic_->backspaces());
                 }
-                if (uic->bufChars() > 0) {
-                    preeditStr_.append(reinterpret_cast<const char*>(uic->buf()), static_cast<size_t>(uic->bufChars()));
+                if (uic_->bufChars() > 0) {
+                    preeditStr_.append(reinterpret_cast<const char*>(uic_->buf()), static_cast<size_t>(uic_->bufChars()));
                 } else if (sym != FcitxKey_Shift_L && sym != FcitxKey_Shift_R && sym != FcitxKey_None) {
                     preeditStr_.append(utf8::UCS4ToUTF8(sym));
                 }
             }
             bool dispatch(uint32_t sym, uint32_t state) {
-                if (!uk_) return false;
+                if (!uic_) return false;
                 KeyStates  st(static_cast<KeyStates>(state));
                 const auto rawSym = static_cast<KeySym>(sym);
                 if (st.testAny(KeyState::Ctrl_Alt) || rawSym == FcitxKey_Control_L || rawSym == FcitxKey_Control_R || rawSym == FcitxKey_Tab || rawSym == FcitxKey_Return ||
                     rawSym == FcitxKey_Delete || rawSym == FcitxKey_KP_Enter || (rawSym >= FcitxKey_Home && rawSym <= FcitxKey_Insert) ||
                     (rawSym >= FcitxKey_KP_Home && rawSym <= FcitxKey_KP_Delete)) {
-                    uk_->context()->filter(0);
+                    uic_->filter(0);
                     if (!preeditStr_.empty()) pendingPullCommit_ = preeditStr_;
                     preeditStr_.clear();
-                    uk_->resetBuf();
+                    uic_->resetBuf();
                     return false;
                 }
                 if (st.test(KeyState::Super)) return false;
                 if ((rawSym >= FcitxKey_Caps_Lock && rawSym <= FcitxKey_Hyper_R) || rawSym == FcitxKey_Shift_L || rawSym == FcitxKey_Shift_R) return false;
                 if (rawSym == FcitxKey_BackSpace) {
-                    uk_->backspacePress();
-                    if (uk_->context()->backspaces() == 0 || preeditStr_.empty()) {
+                    uic_->backspacePress();
+                    if (uic_->backspaces() == 0 || preeditStr_.empty()) {
                         if (!preeditStr_.empty()) pendingPullCommit_ = preeditStr_;
                         preeditStr_.clear();
-                        uk_->resetBuf();
+                        uic_->resetBuf();
                         return !pendingPullCommit_.empty();
                     }
-                    if (static_cast<int>(preeditStr_.length()) <= uk_->context()->backspaces())
+                    if (static_cast<int>(preeditStr_.length()) <= uic_->backspaces())
                         preeditStr_.clear();
                     else
-                        eraseChars(uk_->context()->backspaces());
-                    if (uk_->context()->bufChars() > 0)
-                        preeditStr_.append(reinterpret_cast<const char*>(uk_->context()->buf()), static_cast<size_t>(uk_->context()->bufChars()));
+                        eraseChars(uic_->backspaces());
+                    if (uic_->bufChars() > 0)
+                        preeditStr_.append(reinterpret_cast<const char*>(uic_->buf()), static_cast<size_t>(uic_->bufChars()));
                     return true;
                 }
                 if (rawSym >= FcitxKey_KP_Multiply && rawSym <= FcitxKey_KP_9) {
-                    uk_->context()->filter(0);
+                    uic_->filter(0);
                     if (!preeditStr_.empty()) pendingPullCommit_ = preeditStr_;
                     preeditStr_.clear();
-                    uk_->resetBuf();
+                    uic_->resetBuf();
                     return false;
                 }
                 if (rawSym >= FcitxKey_space && rawSym <= FcitxKey_asciitilde) {
                     //const bool beginWord = uk_->isAtWordBeginning();
-                    uk_->setCapsState(st.test(KeyState::Shift) ? 1 : 0, st.test(KeyState::CapsLock) ? 1 : 0);
-                    uk_->filter(sym);
+                    uic_->setCapsState(st.test(KeyState::Shift) ? 1 : 0, st.test(KeyState::CapsLock) ? 1 : 0);
+                    uic_->filter(sym);
                     syncState(rawSym);
                     if (!preeditStr_.empty() && preeditStr_.back() == static_cast<char>(sym) && isWordBreakSym(static_cast<unsigned char>(sym))) {
                         pendingPullCommit_ = preeditStr_;
                         preeditStr_.clear();
-                        uk_->resetBuf();
+                        uic_->resetBuf();
                         return true;
                     }
                     return true;
                 }
-                uk_->context()->filter(0);
+                uic_->filter(0);
                 syncState(rawSym);
                 if (!preeditStr_.empty()) pendingPullCommit_ = preeditStr_;
                 preeditStr_.clear();
-                uk_->resetBuf();
+                uic_->resetBuf();
                 return false;
             }
-            std::unique_ptr<::fcitx::lotus::LotusUnikeyEngine> uk_;
-            LotusEngine* engineRef_ = nullptr;
+            std::unique_ptr<UnikeyInputMethod> im_;
+            std::unique_ptr<UnikeyInputContext> uic_;
             std::string preeditStr_;
             std::string pendingPullCommit_;
             KeySym lastShiftPressed_ = FcitxKey_None;

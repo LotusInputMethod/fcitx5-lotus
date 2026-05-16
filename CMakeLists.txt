@@ -45,19 +45,17 @@ add_subdirectory(data)
 add_subdirectory(server)
 add_subdirectory(misc)
 
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in"
-    @ONLY
-)
+set(LOTUS_METAINFO_ID org.fcitx.Fcitx5.Addon.Lotus.metainfo)
+set(LOTUS_METAINFO_TRANSLATION_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/${LOTUS_METAINFO_ID}.xml.in")
+set(LOTUS_METAINFO_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${LOTUS_METAINFO_ID}.xml")
 
 fcitx5_translate_desktop_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in"
-    org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
+    "${LOTUS_METAINFO_TRANSLATION_INPUT}"
+    "${LOTUS_METAINFO_ID}.xml"
     XML
 )
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml" DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
+install(FILES "${LOTUS_METAINFO_OUTPUT}" DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
 
 install(FILES
         LICENSES/GPL-3.0-or-later.txt

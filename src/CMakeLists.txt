@@ -24,7 +24,7 @@ target_link_libraries(lotus
   Fcitx5::Core
   Fcitx5::Config
   Fcitx5::Module::Emoji
-  lotus-unikey-bridge
+  Unikey::Core
   Pthread::Pthread
   X11::X11
 )

@@ -197,15 +197,15 @@ msgstr "Lotus - Tắt"
 msgid "Page "
 msgstr "Trang "
 
-#: org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in:7
+#: org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in:7
 msgid "Lotus"
 msgstr "Lotus"
 
-#: org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in:8
+#: org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in:8
 msgid "Vietnamese input method (Lotus)"
 msgstr "Bộ gõ tiếng Việt (Lotus)"
 
-#: org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in:10
+#: org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in:10
 msgid ""
 "Lotus is a Vietnamese input method for Fcitx5, supporting multiple typing "
 "modes and input methods."

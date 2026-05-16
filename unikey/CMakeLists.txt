@@ -14,6 +14,12 @@ set(LOTUS_UNIKEY_CORE_SRCS
     ${_UK_CORE}/unikeyinputcontext.cpp
 )
 add_library(lotus-unikey-core STATIC ${LOTUS_UNIKEY_CORE_SRCS})
+if (NOT TARGET Unikey::Core)
+    add_library(Unikey::Core INTERFACE IMPORTED GLOBAL)
+    set_target_properties(Unikey::Core PROPERTIES
+        INTERFACE_LINK_LIBRARIES lotus-unikey-core
+        INTERFACE_INCLUDE_DIRECTORIES "${_UK_CORE}")
+endif()
 set_target_properties(lotus-unikey-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(lotus-unikey-core PUBLIC Fcitx5::Utils)
 target_include_directories(lotus-unikey-core PUBLIC "${_UK_CORE}")

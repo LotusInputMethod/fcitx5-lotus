@@ -12,7 +12,7 @@ xgettext \
 --language=appdata \
 --from-code=UTF-8 \
 -o /tmp/lotus-xml.pot \
-org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in
+org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in
 
 xgettext \
 --language=Python \

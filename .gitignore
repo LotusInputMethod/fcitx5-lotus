@@ -23,7 +23,6 @@ cmake_install.cmake
 ecm_uninstall.cmake
 install_manifest.txt
 org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
-org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in
 Makefile
 .vscode/
 compile_commands.json
