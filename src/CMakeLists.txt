@@ -1,4 +1,5 @@
 option(LOTUS_ENABLE_AVX512 "Enable AVX-512 acceleration for lotus-utils" ON)
+option(LOTUS_ENABLE_LOG "Enable LOG" ON)
 set(fcitx_lotus_sources
   lotus.cpp
   lotus-engine.cpp
@@ -27,6 +28,9 @@ target_link_libraries(lotus
   Pthread::Pthread
   X11::X11
 )
+if (LOTUS_ENABLE_LOG)
+  target_compile_definitions(lotus PRIVATE LOTUS_ENABLE_LOG=1)
+endif()
 target_compile_definitions(lotus PRIVATE LOTUS_ENGINE_UNIKEY=1)
 target_include_directories(lotus PRIVATE "${PROJECT_SOURCE_DIR}/unikey/core")
 

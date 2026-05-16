@@ -23,11 +23,11 @@
  *
  * Chromium-based browsers that need special handling for text replacement.
  */
-inline constexpr std::array<std::string_view, 18> ack_apps = {
+inline constexpr std::array<std::string_view, 19> ack_apps = {
   "chrome", "chromium", "brave", "edge", "vivaldi",
   "opera", "coccoc", "cromite", "helium", "thorium",
   "slimjet", "yandex", "vesktop", "obsidian", "mullvad",
-  "firefox", "zen", "waterfox"
+  "firefox", "zen", "waterfox", "wps"
 };
 
 /**
