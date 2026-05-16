@@ -1,33 +1,27 @@
-# Vendored Unikey engine (core/) + Lotus wrapper
-# SPDX-FileCopyrightText: Unikey authors (LGPL/GPL); Lotus wrapper GPL-3.0-or-later
-set(_UK_CORE "${CMAKE_CURRENT_SOURCE_DIR}/core")
-set(LOTUS_UNIKEY_CORE_SRCS
-    ${_UK_CORE}/byteio.cpp
-    ${_UK_CORE}/charset.cpp
-    ${_UK_CORE}/convert.cpp
-    ${_UK_CORE}/data.cpp
-    ${_UK_CORE}/inputproc.cpp
-    ${_UK_CORE}/mactab.cpp
-    ${_UK_CORE}/pattern.cpp
-    ${_UK_CORE}/ukengine.cpp
-    ${_UK_CORE}/usrkeymap.cpp
-    ${_UK_CORE}/unikeyinputcontext.cpp
+# Vendored Unikey engine.
+# SPDX-FileCopyrightText: Unikey authors (LGPL/GPL)
+
+set(UNIKEY_SRCS
+    byteio.cpp
+    charset.cpp
+    convert.cpp
+    data.cpp
+    inputproc.cpp
+    mactab.cpp
+    pattern.cpp
+    ukengine.cpp
+    usrkeymap.cpp
+    unikeyinputcontext.cpp
 )
-add_library(lotus-unikey-core STATIC ${LOTUS_UNIKEY_CORE_SRCS})
+
+add_library(unikey-lib STATIC ${UNIKEY_SRCS})
+target_link_libraries(unikey-lib PUBLIC Fcitx5::Utils)
+set_target_properties(unikey-lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(unikey-lib PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
+
 if (NOT TARGET Unikey::Core)
     add_library(Unikey::Core INTERFACE IMPORTED GLOBAL)
     set_target_properties(Unikey::Core PROPERTIES
-        INTERFACE_LINK_LIBRARIES lotus-unikey-core
-        INTERFACE_INCLUDE_DIRECTORIES "${_UK_CORE}")
+        INTERFACE_LINK_LIBRARIES unikey-lib
+        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
-set_target_properties(lotus-unikey-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(lotus-unikey-core PUBLIC Fcitx5::Utils)
-target_include_directories(lotus-unikey-core PUBLIC "${_UK_CORE}")
-add_library(lotus-unikey-bridge STATIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/LotusUnikeyEngine.cpp"
-)
-target_link_libraries(lotus-unikey-bridge PUBLIC lotus-unikey-core)
-target_include_directories(lotus-unikey-bridge PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${_UK_CORE}"
-)
