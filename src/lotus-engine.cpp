@@ -418,13 +418,8 @@ namespace fcitx {
 
         state->waitAck_ = false;
 
-#if __cplusplus >= 202002L
         std::string appNameLower = appName;
-        std::ranges::transform(appNameLower, appNameLower.begin(), ::tolower);
-#else
-        std::string appNameLower = appName;
-        std::transform(appNameLower.begin(), appNameLower.end(), appNameLower.begin(), ::tolower);
-#endif
+        std::transform(appNameLower.begin(), appNameLower.end(), appNameLower.begin(), [](unsigned char c) { return std::tolower(c); });
 
         if (is_dbus && (targetMode == LotusMode::Uinput || targetMode == LotusMode::Smooth || targetMode == LotusMode::Minecraft || targetMode == LotusMode::SuperSmooth)) {
             for (const auto& ackApp : ack_apps) {
@@ -455,6 +450,10 @@ namespace fcitx {
             LOTUS_INFO("Skip clearAllBuffers");
         } else if (surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100) {
             state->clearAllBuffers();
+        }
+        // After focus-in, forward the first key raw so Chrome updates surrounding text before engine rebuild.
+        if (event.type() == EventType::InputContextFocusIn && targetMode == LotusMode::SurroundingText) {
+            state->skipSurrTextRebuild_ = true;
         }
         is_deleting_.store(false);
         needEngineReset.store(false);
@@ -634,7 +633,7 @@ namespace fcitx {
         state->keyEvent(keyEvent);
         const auto&  s       = ic->surroundingText();
         const auto&  text    = s.text();
-        size_t       textLen = fcitx_utf8_strlen(text.c_str());
+        size_t       textLen = text.size(); // byte length, matches cursor which is a byte offset
         unsigned int cursor  = s.cursor();
         if (textLen == static_cast<size_t>(cursor))
             realtextLen.store(static_cast<unsigned int>(textLen), std::memory_order_release);

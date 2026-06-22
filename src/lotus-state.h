@@ -192,6 +192,14 @@ namespace fcitx {
         bool checkForwardSpecialKey(KeyEvent& keyEvent, KeySym& currentSym);
 
         /**
+         * @brief Performs Chrome-specific deletion via forwarded BackSpace keys then commits added text.
+         * @param keyEvent The triggering key event (accepted here).
+         * @param deletedPart Text to delete.
+         * @param addedPart Text to insert after deletion.
+         */
+        void chromeForwardDelete(KeyEvent& keyEvent, const std::string& deletedPart, const std::string& addedPart);
+
+        /**
          * @brief Handles uinput mode processing.
          * @param keyEvent The key event.
          * @param currentSym Current key symbol.

@@ -144,13 +144,13 @@ namespace fcitx {
             return false;
         }
 
-        const unsigned int cursor  = s.cursor();
-        const unsigned int anchor  = s.anchor();
-        const auto&        text    = s.text();
-        const size_t       textLen = utf8::length(text);
+        const unsigned int cursor = s.cursor();
+        const unsigned int anchor = s.anchor();
+        const auto&        text   = s.text();
+        // Use byte lengths to match cursor/anchor which are byte offsets in text-input-v3.
+        const size_t textLen = text.size();
+        const size_t buffLen = oldPreBuffer_.size();
 
-        // Fix that surrounding text is delay update
-        const size_t buffLen    = utf8::length(oldPreBuffer_);
         const size_t pb         = text.find(oldPreBuffer_);
         size_t       rangeStart = static_cast<size_t>(cursor) >= buffLen ? static_cast<size_t>(cursor) - buffLen : 0;
         const bool   sameprefix = pb != std::string::npos && pb >= rangeStart && pb <= static_cast<size_t>(cursor);
@@ -162,7 +162,8 @@ namespace fcitx {
 
             // Only consider it browser autofill if the selection starts at the cursor
             // and extends to the end of the line (common address bar behavior).
-            if (selectionStart >= cursor || (selectionStart < cursor && selectionEnd > cursor)) {
+            // selectionStart == cursor means anchor > cursor (selection extends forward).
+            if (selectionStart == cursor) {
                 if (!sameprefix)
                     return false;
                 // If the selection contains a newline, it's likely a multiline editor (AI ghost text),
@@ -173,7 +174,7 @@ namespace fcitx {
         }
 
         if (textLen == static_cast<size_t>(cursor)) {
-            realtextLen.store(textLen, std::memory_order_release);
+            realtextLen.store(static_cast<unsigned int>(textLen), std::memory_order_release);
             return false;
         }
 
@@ -556,6 +557,23 @@ namespace fcitx {
         return false;
     }
 
+    void LotusState::chromeForwardDelete(KeyEvent& keyEvent, const std::string& deletedPart, const std::string& addedPart) {
+        keyEvent.filterAndAccept();
+        size_t charsToDelete = utf8::length(deletedPart);
+        if (realMode != LotusMode::Minecraft && realMode != LotusMode::SuperSmooth) {
+            if (ic_->capabilityFlags().test(CapabilityFlag::Url) || isAutofillCertain(ic_->surroundingText())) {
+                ic_->forwardKey(Key(FcitxKey_BackSpace));
+            }
+        }
+        for (size_t i = 0; i < charsToDelete; i++) {
+            ic_->forwardKey(Key(FcitxKey_BackSpace));
+        }
+        if (!addedPart.empty()) {
+            ic_->commitString(addedPart);
+            LOTUS_INFO("Commit: " + addedPart);
+        }
+    }
+
     void LotusState::handleUinputMode(KeyEvent& keyEvent, KeySym currentSym) {
         if (checkForwardSpecialKey(keyEvent, currentSym)) {
             keyEvent.forward();
@@ -598,21 +616,7 @@ namespace fcitx {
 
             if (!deletedPart.empty()) {
                 if (wa_chrome_forwardkey_delete_) {
-                    keyEvent.filterAndAccept();
-                    size_t charsToDelete = utf8::length(deletedPart);
-                    if (realMode != LotusMode::Minecraft && realMode != LotusMode::SuperSmooth) {
-                        // Extra BS dismisses Chrome URL bar inline autocomplete before deleting.
-                        if (ic_->capabilityFlags().test(CapabilityFlag::Url) || isAutofillCertain(ic_->surroundingText())) {
-                            ic_->forwardKey(Key(FcitxKey_BackSpace));
-                        }
-                    }
-                    for (size_t i = 0; i < charsToDelete; i++) {
-                        ic_->forwardKey(Key(FcitxKey_BackSpace));
-                    }
-                    if (!addedPart.empty()) {
-                        ic_->commitString(addedPart);
-                        LOTUS_INFO("Commit: " + addedPart);
-                    }
+                    chromeForwardDelete(keyEvent, deletedPart, addedPart);
                 } else {
                     performReplacement(deletedPart, addedPart);
                     keyEvent.filterAndAccept();
@@ -687,20 +691,7 @@ namespace fcitx {
                 }
             } else {
                 if (wa_chrome_forwardkey_delete_) {
-                    keyEvent.filterAndAccept();
-                    size_t charsToDelete = utf8::length(deletedPart);
-                    if (realMode != LotusMode::Minecraft && realMode != LotusMode::SuperSmooth) {
-                        if (ic_->capabilityFlags().test(CapabilityFlag::Url) || isAutofillCertain(ic_->surroundingText())) {
-                            ic_->forwardKey(Key(FcitxKey_BackSpace));
-                        }
-                    }
-                    for (size_t i = 0; i < charsToDelete; i++) {
-                        ic_->forwardKey(Key(FcitxKey_BackSpace));
-                    }
-                    if (!addedPart.empty()) {
-                        ic_->commitString(addedPart);
-                        LOTUS_INFO("Commit: " + addedPart);
-                    }
+                    chromeForwardDelete(keyEvent, deletedPart, addedPart);
                     oldPreBuffer_ = preeditStr;
                 } else {
                     if (uinput_client_fd_ < 0) {
@@ -752,10 +743,11 @@ namespace fcitx {
             return;
         }
 
-        // Surrounding text lags after a forwarded key; use a fresh engine on the next keystroke.
+        // Surrounding text state is unreliable right after a context switch (Ctrl+Tab, FocusIn+Reset);
+        // forward the key raw so Chrome handles it natively and updates surrounding text correctly.
         if (skipSurrTextRebuild_) {
             skipSurrTextRebuild_ = false;
-            processNormalKey(keyEvent, currentSym);
+            keyEvent.forward();
             return;
         }
 
@@ -1099,8 +1091,13 @@ namespace fcitx {
             }
             ResetEngine(lotusEngine_.handle());
         }
-        if (getFrontendName(ic_) != "dbus")
+        if (getFrontendName(ic_) != "dbus") {
             clearAllBuffers();
+            // InputContextReset arrives after FocusIn on tab switch; re-arm the flag so
+            // the first keystroke is forwarded raw and Chrome can resync surrounding text.
+            if (!isFocusOut)
+                skipSurrTextRebuild_ = true;
+        }
 
         switch (realMode) {
             case LotusMode::Preedit: {
