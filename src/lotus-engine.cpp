@@ -413,25 +413,41 @@ namespace fcitx {
         // it not support surrounding text so can't know when it show suggestions
         //
         // TODO: Properly fixes instead ugly WA
-        state->wa_chromium_flag = false;
+        state->wa_chromium_flag             = false;
+        state->wa_chrome_forwardkey_delete_ = false;
 
         state->waitAck_ = false;
-        if (*config_.fixUinputWithAck) {
-            if (targetMode == LotusMode::Uinput || targetMode == LotusMode::Smooth || targetMode == LotusMode::Minecraft || targetMode == LotusMode::SuperSmooth) {
+
 #if __cplusplus >= 202002L
-                std::ranges::transform(appName, appName.begin(), ::tolower);
+        std::string appNameLower = appName;
+        std::ranges::transform(appNameLower, appNameLower.begin(), ::tolower);
 #else
-                std::transform(appName.begin(), appName.end(), appName.begin(), ::tolower);
+        std::string appNameLower = appName;
+        std::transform(appNameLower.begin(), appNameLower.end(), appNameLower.begin(), ::tolower);
 #endif
-                for (const auto& ackApp : ack_apps) {
-                    if (appName.find(ackApp) != std::string::npos) {
-                        if (is_dbus) {
-                            state->waitAck_ = true;
-                            LOTUS_INFO(ackApp + " detected, waiting for ack");
-                        }
-                        state->wa_chromium_flag = true;
-                        break;
+
+        if (is_dbus && (targetMode == LotusMode::Uinput || targetMode == LotusMode::Smooth || targetMode == LotusMode::Minecraft || targetMode == LotusMode::SuperSmooth)) {
+            for (const auto& ackApp : ack_apps) {
+                if (appNameLower.find(ackApp) != std::string::npos) {
+                    state->wa_chromium_flag             = true;
+                    state->wa_chrome_forwardkey_delete_ = true;
+                    if (*config_.fixUinputWithAck) {
+                        state->waitAck_ = true;
+                        LOTUS_INFO(ackApp + " detected, waiting for ack");
+                    } else {
+                        LOTUS_INFO(ackApp + " detected, using commit+forwardKey workaround");
                     }
+                    break;
+                }
+            }
+        }
+        // Chrome ignores deleteSurroundingText when URL bar autocomplete is active; use forwardKey.
+        if (targetMode == LotusMode::SurroundingText) {
+            for (const auto& ackApp : ack_apps) {
+                if (appNameLower.find(ackApp) != std::string::npos) {
+                    state->wa_chrome_forwardkey_delete_ = true;
+                    LOTUS_INFO(ackApp + " detected in SurroundingText mode, using forwardKey for delete");
+                    break;
                 }
             }
         }
@@ -627,7 +643,8 @@ namespace fcitx {
     void LotusEngine::reset(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
         LOTUS_INFO("Reset engine");
         auto* state = event.inputContext()->propertyFor(&factory_);
-        if (!state->isEmptyHistory() && event.type() != EventType::InputContextFocusOut) {
+        // InputContextReset (e.g., Chrome Ctrl+Tab) must bypass the history guard or the engine stays stale.
+        if (!state->isEmptyHistory() && event.type() != EventType::InputContextFocusOut && event.type() != EventType::InputContextReset) {
             return;
         }
 

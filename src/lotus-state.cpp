@@ -597,8 +597,26 @@ namespace fcitx {
             compareAndSplitStrings(oldPreBuffer_, commitStr, deletedPart, addedPart);
 
             if (!deletedPart.empty()) {
-                performReplacement(deletedPart, addedPart);
-                keyEvent.filterAndAccept();
+                if (wa_chrome_forwardkey_delete_) {
+                    keyEvent.filterAndAccept();
+                    size_t charsToDelete = utf8::length(deletedPart);
+                    if (realMode != LotusMode::Minecraft && realMode != LotusMode::SuperSmooth) {
+                        // Extra BS dismisses Chrome URL bar inline autocomplete before deleting.
+                        if (ic_->capabilityFlags().test(CapabilityFlag::Url) || isAutofillCertain(ic_->surroundingText())) {
+                            ic_->forwardKey(Key(FcitxKey_BackSpace));
+                        }
+                    }
+                    for (size_t i = 0; i < charsToDelete; i++) {
+                        ic_->forwardKey(Key(FcitxKey_BackSpace));
+                    }
+                    if (!addedPart.empty()) {
+                        ic_->commitString(addedPart);
+                        LOTUS_INFO("Commit: " + addedPart);
+                    }
+                } else {
+                    performReplacement(deletedPart, addedPart);
+                    keyEvent.filterAndAccept();
+                }
             } else {
                 bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
                 if (!addedPart.empty() && (keyUtf8 != addedPart || wasAutoCapitalized)) {
@@ -668,29 +686,48 @@ namespace fcitx {
                     keyEvent.forward();
                 }
             } else {
-                if (uinput_client_fd_ < 0) {
-                    LOTUS_ERROR("Cannot connect to uinput server, commit rawkey");
-                    std::string rawKey = keyEvent.key().toString();
-                    if (!rawKey.empty()) {
-                        ic_->commitString(rawKey);
-                    }
-                    return;
-                }
-
-                if (is_deleting_.load()) {
-                    is_deleting_.store(false, std::memory_order_release);
-                }
-
-                if (!wa_chromium_flag)
+                if (wa_chrome_forwardkey_delete_) {
                     keyEvent.filterAndAccept();
-                performReplacement(deletedPart, addedPart);
-                oldPreBuffer_ = preeditStr;
+                    size_t charsToDelete = utf8::length(deletedPart);
+                    if (realMode != LotusMode::Minecraft && realMode != LotusMode::SuperSmooth) {
+                        if (ic_->capabilityFlags().test(CapabilityFlag::Url) || isAutofillCertain(ic_->surroundingText())) {
+                            ic_->forwardKey(Key(FcitxKey_BackSpace));
+                        }
+                    }
+                    for (size_t i = 0; i < charsToDelete; i++) {
+                        ic_->forwardKey(Key(FcitxKey_BackSpace));
+                    }
+                    if (!addedPart.empty()) {
+                        ic_->commitString(addedPart);
+                        LOTUS_INFO("Commit: " + addedPart);
+                    }
+                    oldPreBuffer_ = preeditStr;
+                } else {
+                    if (uinput_client_fd_ < 0) {
+                        LOTUS_ERROR("Cannot connect to uinput server, commit rawkey");
+                        std::string rawKey = keyEvent.key().toString();
+                        if (!rawKey.empty()) {
+                            ic_->commitString(rawKey);
+                        }
+                        return;
+                    }
+
+                    if (is_deleting_.load()) {
+                        is_deleting_.store(false, std::memory_order_release);
+                    }
+
+                    if (!wa_chromium_flag)
+                        keyEvent.filterAndAccept();
+                    performReplacement(deletedPart, addedPart);
+                    oldPreBuffer_ = preeditStr;
+                }
             }
         }
     }
 
     void LotusState::handleSurroundingText(KeyEvent& keyEvent, KeySym currentSym) {
         if (checkForwardSpecialKey(keyEvent, currentSym)) {
+            skipSurrTextRebuild_ = true;
             keyEvent.forward();
             return;
         }
@@ -710,7 +747,15 @@ namespace fcitx {
 
         if (isBackspace(keyEvent.rawKey().sym())) {
             ResetEngine(lotusEngine_.handle());
+            skipSurrTextRebuild_ = true;
             keyEvent.forward();
+            return;
+        }
+
+        // Surrounding text lags after a forwarded key; use a fresh engine on the next keystroke.
+        if (skipSurrTextRebuild_) {
+            skipSurrTextRebuild_ = false;
+            processNormalKey(keyEvent, currentSym);
             return;
         }
 
@@ -786,7 +831,17 @@ namespace fcitx {
                 size_t charsToDelete = utf8::length(deletedPart);
 
                 if (charsToDelete > 0) {
-                    ic->deleteSurroundingText(-static_cast<int>(charsToDelete), static_cast<int>(charsToDelete));
+                    if (wa_chrome_forwardkey_delete_) {
+                        // Chrome ignores deleteSurroundingText when autocomplete is active; extra BS dismisses it.
+                        if (surrounding.anchor() != surrounding.cursor()) {
+                            ic->forwardKey(Key(FcitxKey_BackSpace));
+                        }
+                        for (size_t i = 0; i < charsToDelete; i++) {
+                            ic->forwardKey(Key(FcitxKey_BackSpace));
+                        }
+                    } else {
+                        ic->deleteSurroundingText(-static_cast<int>(charsToDelete), static_cast<int>(charsToDelete));
+                    }
                 }
 
                 if (!addedPart.empty()) {
@@ -1019,7 +1074,14 @@ namespace fcitx {
         size_t      textLen     = utf8::length(text);
         realtextLen.store(textLen, std::memory_order_release);
         if (is_deleting_.load(std::memory_order_acquire)) {
-            return;
+            if (isFocusOut) {
+                return; // Don't interrupt an active uinput deletion sequence during focus-out
+            }
+            is_deleting_.store(false, std::memory_order_release);
+            expected_backspaces_     = 0;
+            current_backspace_count_ = 0;
+            pending_commit_string_.clear();
+            buffered_keys_.clear();
         }
 
         if (lotusEngine_) {
@@ -1113,10 +1175,11 @@ namespace fcitx {
         emojiBuffer_.clear();
         emojiCandidates_.clear();
         buffered_keys_.clear();
-        shouldCapitalize_  = false;
-        isPrevSpace_       = false;
-        isPrevHyphen_      = false;
-        isPrevPunctuation_ = false;
+        shouldCapitalize_    = false;
+        isPrevSpace_         = false;
+        isPrevHyphen_        = false;
+        isPrevPunctuation_   = false;
+        skipSurrTextRebuild_ = false;
         if (lotusEngine_)
             ResetEngine(lotusEngine_.handle());
     }

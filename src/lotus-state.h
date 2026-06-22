@@ -99,12 +99,14 @@ namespace fcitx {
         std::vector<EmojiEntry> emojiCandidates_;
         bool                    waitAck_ = false;
         std::vector<KeyEntry>   buffered_keys_; ///< Keystrokes buffered during replacement
-        bool                    isPrevSpace_        = false;
-        bool                    isPrevHyphen_       = false;
-        bool                    shouldCapitalize_   = false;
-        bool                    isPrevPunctuation_  = false;
-        int64_t                 lastDeactivateTime_ = 0;
-        bool                    wa_chromium_flag    = false;
+        bool                    isPrevSpace_                 = false;
+        bool                    isPrevHyphen_                = false;
+        bool                    shouldCapitalize_            = false;
+        bool                    isPrevPunctuation_           = false;
+        int64_t                 lastDeactivateTime_          = 0;
+        bool                    wa_chromium_flag             = false;
+        bool                    wa_chrome_forwardkey_delete_ = false; ///< Chrome: use forwardKey(BackSpace)+commitString instead of async uinput backspaces
+        bool                    skipSurrTextRebuild_         = false; ///< Skip surrounding-text rebuild on the next key after a forwarded BackSpace/special key
 
         /**
          * @brief Connects to the uinput server.
