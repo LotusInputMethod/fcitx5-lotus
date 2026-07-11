@@ -11,6 +11,7 @@
 #include "lotus-candidates.h"
 #include "lotus-utils.h"
 #include "lotus.h"
+#include "ack-apps.h"
 
 #include <cstddef>
 #include <fcitx-utils/log.h>
@@ -144,13 +145,13 @@ namespace fcitx {
             return false;
         }
 
-        const unsigned int cursor  = s.cursor();
-        const unsigned int anchor  = s.anchor();
-        const auto&        text    = s.text();
-        const size_t       textLen = utf8::length(text);
+        const unsigned int cursor = s.cursor();
+        const unsigned int anchor = s.anchor();
+        const auto&        text   = s.text();
+        // Use byte lengths to match cursor/anchor which are byte offsets in text-input-v3.
+        const size_t textLen = text.size();
+        const size_t buffLen = oldPreBuffer_.size();
 
-        // Fix that surrounding text is delay update
-        const size_t buffLen    = utf8::length(oldPreBuffer_);
         const size_t pb         = text.find(oldPreBuffer_);
         size_t       rangeStart = static_cast<size_t>(cursor) >= buffLen ? static_cast<size_t>(cursor) - buffLen : 0;
         const bool   sameprefix = pb != std::string::npos && pb >= rangeStart && pb <= static_cast<size_t>(cursor);
@@ -162,7 +163,8 @@ namespace fcitx {
 
             // Only consider it browser autofill if the selection starts at the cursor
             // and extends to the end of the line (common address bar behavior).
-            if (selectionStart >= cursor || (selectionStart < cursor && selectionEnd > cursor)) {
+            // selectionStart == cursor means anchor > cursor (selection extends forward).
+            if (selectionStart == cursor) {
                 if (!sameprefix)
                     return false;
                 // If the selection contains a newline, it's likely a multiline editor (AI ghost text),
@@ -173,7 +175,7 @@ namespace fcitx {
         }
 
         if (textLen == static_cast<size_t>(cursor)) {
-            realtextLen.store(textLen, std::memory_order_release);
+            realtextLen.store(static_cast<unsigned int>(textLen), std::memory_order_release);
             return false;
         }
 
@@ -460,6 +462,7 @@ namespace fcitx {
             }
             ic_->commitString(pending_commit_string_);
             LOTUS_INFO("Commit: " + pending_commit_string_);
+            lastSelfEditTime_        = now_ms();
             expected_backspaces_     = 0;
             current_backspace_count_ = 0;
             pending_commit_string_.clear();
@@ -556,7 +559,53 @@ namespace fcitx {
         return false;
     }
 
+    void LotusState::chromeForwardDelete(KeyEvent& keyEvent, const std::string& deletedPart, const std::string& addedPart) {
+        keyEvent.filterAndAccept();
+        size_t charsToDelete = utf8::length(deletedPart);
+        if (realMode != LotusMode::Minecraft && realMode != LotusMode::SuperSmooth) {
+            if (ic_->capabilityFlags().test(CapabilityFlag::Url) || isAutofillCertain(ic_->surroundingText())) {
+                ic_->forwardKey(Key(FcitxKey_BackSpace));
+            }
+        }
+        for (size_t i = 0; i < charsToDelete; i++) {
+            ic_->forwardKey(Key(FcitxKey_BackSpace));
+        }
+        if (!addedPart.empty()) {
+            ic_->commitString(addedPart);
+            LOTUS_INFO("Commit: " + addedPart);
+        }
+        lastSelfEditTime_ = now_ms();
+    }
+
+    void LotusState::ensureChromiumWorkarounds() {
+        if (wa_chromium_flag || ackAppCached_ == 0) {
+            return;
+        }
+        if (ackAppCached_ == -1) {
+            std::string appNameLower = ic_->program();
+            std::transform(appNameLower.begin(), appNameLower.end(), appNameLower.begin(), [](unsigned char c) { return std::tolower(c); });
+            ackAppCached_ = 0;
+            for (const auto& ackApp : ack_apps) {
+                if (appNameLower.find(ackApp) != std::string::npos) {
+                    ackAppCached_ = 1;
+                    break;
+                }
+            }
+        }
+        if (ackAppCached_ == 1) {
+            const std::string frontend = getFrontendName(ic_);
+            if (frontend == "dbus" || frontend == "wayland") {
+                wa_chromium_flag             = true;
+                wa_chrome_forwardkey_delete_ = true;
+                waitAck_                     = *engine_->config().fixUinputWithAck;
+                forwardNextKeyRaw_           = true;
+                LOTUS_INFO("Chromium app detected on first key, enabling workarounds");
+            }
+        }
+    }
+
     void LotusState::handleUinputMode(KeyEvent& keyEvent, KeySym currentSym) {
+        ensureChromiumWorkarounds();
         if (checkForwardSpecialKey(keyEvent, currentSym)) {
             keyEvent.forward();
             return;
@@ -597,8 +646,12 @@ namespace fcitx {
             compareAndSplitStrings(oldPreBuffer_, commitStr, deletedPart, addedPart);
 
             if (!deletedPart.empty()) {
-                performReplacement(deletedPart, addedPart);
-                keyEvent.filterAndAccept();
+                if (wa_chrome_forwardkey_delete_) {
+                    chromeForwardDelete(keyEvent, deletedPart, addedPart);
+                } else {
+                    performReplacement(deletedPart, addedPart);
+                    keyEvent.filterAndAccept();
+                }
             } else {
                 bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
                 if (!addedPart.empty() && (keyUtf8 != addedPart || wasAutoCapitalized)) {
@@ -646,7 +699,17 @@ namespace fcitx {
         std::string      deletedPart;
         std::string      addedPart;
 
-        if (wa_chromium_flag)
+        // Chromium silently drops the first commitString right after a tab
+        // switch (Ctrl+Tab/FocusIn) while its renderer re-binds the IME.
+        // Deliver that key as a raw event instead: Chrome inserts it natively
+        // and the raw key completes the IME re-bind.
+        bool firstKeyRaw = false;
+        if (forwardNextKeyRaw_) {
+            forwardNextKeyRaw_ = false;
+            firstKeyRaw        = wa_chromium_flag && oldPreBuffer_.empty() && !keyEvent.key().hasModifier();
+        }
+
+        if (wa_chromium_flag && !firstKeyRaw)
             keyEvent.filterAndAccept();
 
         if (compareAndSplitStrings(oldPreBuffer_, preeditStr, deletedPart, addedPart) != 0) {
@@ -655,9 +718,13 @@ namespace fcitx {
                 bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
                 if (!addedPart.empty()) {
                     oldPreBuffer_ = preeditStr;
-                    if (wa_chromium_flag || wasAutoCapitalized || addedPart != keyUtf8) {
+                    if (firstKeyRaw && !wasAutoCapitalized && addedPart == keyUtf8) {
+                        keyEvent.forward();
+                        isCommit = true;
+                    } else if (wa_chromium_flag || wasAutoCapitalized || addedPart != keyUtf8) {
                         ic_->commitString(addedPart);
                         LOTUS_INFO("Commit: " + addedPart);
+                        lastSelfEditTime_ = now_ms();
                         if (!wa_chromium_flag) {
                             keyEvent.filterAndAccept();
                             isCommit = true;
@@ -668,29 +735,35 @@ namespace fcitx {
                     keyEvent.forward();
                 }
             } else {
-                if (uinput_client_fd_ < 0) {
-                    LOTUS_ERROR("Cannot connect to uinput server, commit rawkey");
-                    std::string rawKey = keyEvent.key().toString();
-                    if (!rawKey.empty()) {
-                        ic_->commitString(rawKey);
+                if (wa_chrome_forwardkey_delete_) {
+                    chromeForwardDelete(keyEvent, deletedPart, addedPart);
+                    oldPreBuffer_ = preeditStr;
+                } else {
+                    if (uinput_client_fd_ < 0) {
+                        LOTUS_ERROR("Cannot connect to uinput server, commit rawkey");
+                        std::string rawKey = keyEvent.key().toString();
+                        if (!rawKey.empty()) {
+                            ic_->commitString(rawKey);
+                        }
+                        return;
                     }
-                    return;
-                }
 
-                if (is_deleting_.load()) {
-                    is_deleting_.store(false, std::memory_order_release);
-                }
+                    if (is_deleting_.load()) {
+                        is_deleting_.store(false, std::memory_order_release);
+                    }
 
-                if (!wa_chromium_flag)
-                    keyEvent.filterAndAccept();
-                performReplacement(deletedPart, addedPart);
-                oldPreBuffer_ = preeditStr;
+                    if (!wa_chromium_flag)
+                        keyEvent.filterAndAccept();
+                    performReplacement(deletedPart, addedPart);
+                    oldPreBuffer_ = preeditStr;
+                }
             }
         }
     }
 
     void LotusState::handleSurroundingText(KeyEvent& keyEvent, KeySym currentSym) {
         if (checkForwardSpecialKey(keyEvent, currentSym)) {
+            skipSurrTextRebuild_ = true;
             keyEvent.forward();
             return;
         }
@@ -710,6 +783,15 @@ namespace fcitx {
 
         if (isBackspace(keyEvent.rawKey().sym())) {
             ResetEngine(lotusEngine_.handle());
+            skipSurrTextRebuild_ = true;
+            keyEvent.forward();
+            return;
+        }
+
+        // Surrounding text state is unreliable right after a context switch (Ctrl+Tab, FocusIn+Reset);
+        // forward the key raw so Chrome handles it natively and updates surrounding text correctly.
+        if (skipSurrTextRebuild_) {
+            skipSurrTextRebuild_ = false;
             keyEvent.forward();
             return;
         }
@@ -786,7 +868,17 @@ namespace fcitx {
                 size_t charsToDelete = utf8::length(deletedPart);
 
                 if (charsToDelete > 0) {
-                    ic->deleteSurroundingText(-static_cast<int>(charsToDelete), static_cast<int>(charsToDelete));
+                    if (wa_chrome_forwardkey_delete_) {
+                        // Chrome ignores deleteSurroundingText when autocomplete is active; extra BS dismisses it.
+                        if (surrounding.anchor() != surrounding.cursor()) {
+                            ic->forwardKey(Key(FcitxKey_BackSpace));
+                        }
+                        for (size_t i = 0; i < charsToDelete; i++) {
+                            ic->forwardKey(Key(FcitxKey_BackSpace));
+                        }
+                    } else {
+                        ic->deleteSurroundingText(-static_cast<int>(charsToDelete), static_cast<int>(charsToDelete));
+                    }
                 }
 
                 if (!addedPart.empty()) {
@@ -1117,7 +1209,14 @@ namespace fcitx {
         size_t      textLen     = utf8::length(text);
         realtextLen.store(textLen, std::memory_order_release);
         if (is_deleting_.load(std::memory_order_acquire)) {
-            return;
+            if (isFocusOut) {
+                return; // Don't interrupt an active uinput deletion sequence during focus-out
+            }
+            is_deleting_.store(false, std::memory_order_release);
+            expected_backspaces_     = 0;
+            current_backspace_count_ = 0;
+            pending_commit_string_.clear();
+            buffered_keys_.clear();
         }
 
         if (lotusEngine_) {
@@ -1137,8 +1236,13 @@ namespace fcitx {
             oldPreBuffer_.clear();
             hasHistory_ = false;
         }
-        if (getFrontendName(ic_) != "dbus")
+        if (getFrontendName(ic_) != "dbus") {
             clearAllBuffers();
+            // InputContextReset arrives after FocusIn on tab switch; re-arm the flag so
+            // the first keystroke is forwarded raw and Chrome can resync surrounding text.
+            if (!isFocusOut)
+                skipSurrTextRebuild_ = true;
+        }
 
         switch (realMode) {
             case LotusMode::Preedit: {
@@ -1213,10 +1317,11 @@ namespace fcitx {
         emojiBuffer_.clear();
         emojiCandidates_.clear();
         buffered_keys_.clear();
-        shouldCapitalize_  = false;
-        isPrevSpace_       = false;
-        isPrevHyphen_      = false;
-        isPrevPunctuation_ = false;
+        shouldCapitalize_    = false;
+        isPrevSpace_         = false;
+        isPrevHyphen_        = false;
+        isPrevPunctuation_   = false;
+        skipSurrTextRebuild_ = false;
         if (lotusEngine_)
             ResetEngine(lotusEngine_.handle());
     }

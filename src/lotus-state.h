@@ -104,7 +104,15 @@ namespace fcitx {
         bool                    shouldCapitalize_   = false;
         bool                    isPrevPunctuation_  = false;
         int64_t                 lastDeactivateTime_ = 0;
-        bool                    wa_chromium_flag    = false;
+        /// Chromium fires FocusOut/Reset milliseconds after our own forwarded BackSpace+commit
+        /// (e.g. MS365 recreates its edit field); resets inside this window must not wipe compose state.
+        static constexpr int64_t kSelfEditResetGuardMs        = 60;
+        int64_t                  lastSelfEditTime_            = 0; ///< now_ms() of the last self-inflicted edit (forwarded BS/commit)
+        bool                     wa_chromium_flag             = false;
+        bool                     wa_chrome_forwardkey_delete_ = false; ///< Chrome: use forwardKey(BackSpace)+commitString instead of async uinput backspaces
+        int                      ackAppCached_                = -1;    ///< -1 unknown, 0 not a chromium-family app, 1 chromium-family app
+        bool                     skipSurrTextRebuild_         = false; ///< Skip surrounding-text rebuild on the next key after a forwarded BackSpace/special key
+        bool                     forwardNextKeyRaw_           = false; ///< Chromium drops the first commitString while re-binding IME after a tab switch; deliver that key raw
 
         /**
          * @brief Connects to the uinput server.
@@ -188,6 +196,22 @@ namespace fcitx {
          * @return True if key was forwarded.
          */
         bool checkForwardSpecialKey(KeyEvent& keyEvent, KeySym& currentSym);
+
+        /**
+         * @brief Performs Chrome-specific deletion via forwarded BackSpace keys then commits added text.
+         * @param keyEvent The triggering key event (accepted here).
+         * @param deletedPart Text to delete.
+         * @param addedPart Text to insert after deletion.
+         */
+        void chromeForwardDelete(KeyEvent& keyEvent, const std::string& deletedPart, const std::string& addedPart);
+
+        /**
+         * @brief Enables chromium workarounds even when keys arrive before activate().
+         *
+         * Chrome re-enables text-input only on the first keystroke after a tab/window
+         * switch, so that key can be processed before FocusIn set the workaround flags.
+         */
+        void ensureChromiumWorkarounds();
 
         /**
          * @brief Handles uinput mode processing.

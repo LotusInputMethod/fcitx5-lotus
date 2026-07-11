@@ -383,9 +383,10 @@ namespace fcitx {
     }
 
     void LotusEngine::activate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
-        auto*                    ic        = event.inputContext();
-        const bool               surrvalid = ic->surroundingText().isValid();
-        const bool               is_dbus   = getFrontendName(ic) == "dbus";
+        auto*                    ic         = event.inputContext();
+        const bool               surrvalid  = ic->surroundingText().isValid();
+        const bool               is_dbus    = getFrontendName(ic) == "dbus";
+        const bool               is_wayland = getFrontendName(ic) == "wayland";
         static std::atomic<bool> mouseThreadStarted{false};
         if (!mouseThreadStarted.exchange(true))
             startMouseReset();
@@ -414,32 +415,56 @@ namespace fcitx {
         // it not support surrounding text so can't know when it show suggestions
         //
         // TODO: Properly fixes instead ugly WA
-        state->wa_chromium_flag = false;
+        state->wa_chromium_flag             = false;
+        state->wa_chrome_forwardkey_delete_ = false;
 
         state->waitAck_ = false;
-        if (*config_.fixUinputWithAck) {
-            if (targetMode == LotusMode::Uinput || targetMode == LotusMode::Smooth || targetMode == LotusMode::Minecraft || targetMode == LotusMode::SuperSmooth) {
-#if __cplusplus >= 202002L
-                std::ranges::transform(appName, appName.begin(), ::tolower);
-#else
-                std::transform(appName.begin(), appName.end(), appName.begin(), ::tolower);
-#endif
-                for (const auto& ackApp : ack_apps) {
-                    if (appName.find(ackApp) != std::string::npos) {
-                        if (is_dbus) {
-                            state->waitAck_ = true;
-                            LOTUS_INFO(ackApp + " detected, waiting for ack");
-                        }
-                        state->wa_chromium_flag = true;
-                        break;
+
+        std::string appNameLower = appName;
+        std::transform(appNameLower.begin(), appNameLower.end(), appNameLower.begin(), [](unsigned char c) { return std::tolower(c); });
+
+        // Wayland frontend needs the same chromium workarounds as dbus: uinput
+        // backspaces race against text-input commits inside chromium's pipeline.
+        if ((is_dbus || is_wayland) &&
+            (targetMode == LotusMode::Uinput || targetMode == LotusMode::Smooth || targetMode == LotusMode::Minecraft || targetMode == LotusMode::SuperSmooth)) {
+            for (const auto& ackApp : ack_apps) {
+                if (appNameLower.find(ackApp) != std::string::npos) {
+                    state->wa_chromium_flag             = true;
+                    state->wa_chrome_forwardkey_delete_ = true;
+                    if (*config_.fixUinputWithAck) {
+                        state->waitAck_ = true;
+                        LOTUS_INFO(ackApp + " detected, waiting for ack");
+                    } else {
+                        LOTUS_INFO(ackApp + " detected, using commit+forwardKey workaround");
                     }
+                    break;
+                }
+            }
+        }
+        // Chromium drops the first commitString after FocusIn (tab/window
+        // switch) while its renderer re-binds the IME; deliver that key raw.
+        if (state->wa_chromium_flag && event.type() == EventType::InputContextFocusIn) {
+            state->forwardNextKeyRaw_ = true;
+        }
+        // Chrome ignores deleteSurroundingText when URL bar autocomplete is active; use forwardKey.
+        if (targetMode == LotusMode::SurroundingText) {
+            for (const auto& ackApp : ack_apps) {
+                if (appNameLower.find(ackApp) != std::string::npos) {
+                    state->wa_chrome_forwardkey_delete_ = true;
+                    LOTUS_INFO(ackApp + " detected in SurroundingText mode, using forwardKey for delete");
+                    break;
                 }
             }
         }
         if (event.type() == EventType::InputContextFocusIn && is_dbus && !surrvalid) {
             LOTUS_INFO("Skip clearAllBuffers");
-        } else if (surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100) {
+        } else if (surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) < 100 &&
+                   (now_ms() - state->lastSelfEditTime_) >= LotusState::kSelfEditResetGuardMs) {
             state->clearAllBuffers();
+        }
+        // After focus-in, forward the first key raw so Chrome updates surrounding text before engine rebuild.
+        if (event.type() == EventType::InputContextFocusIn && targetMode == LotusMode::SurroundingText) {
+            state->skipSurrTextRebuild_ = true;
         }
         is_deleting_.store(false);
         needEngineReset.store(false);
@@ -701,7 +726,7 @@ namespace fcitx {
         state->keyEvent(keyEvent);
         const auto&  s       = ic->surroundingText();
         const auto&  text    = s.text();
-        size_t       textLen = fcitx_utf8_strlen(text.c_str());
+        size_t       textLen = text.size(); // byte length, matches cursor which is a byte offset
         unsigned int cursor  = s.cursor();
         if (textLen == static_cast<size_t>(cursor))
             realtextLen.store(static_cast<unsigned int>(textLen), std::memory_order_release);
@@ -710,12 +735,25 @@ namespace fcitx {
     void LotusEngine::reset(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
         LOTUS_INFO("Reset engine");
         auto* state = event.inputContext()->propertyFor(&factory_);
-        if (!state->isEmptyHistory() && event.type() != EventType::InputContextFocusOut) {
+        // Chromium fires FocusOut/Reset milliseconds after our own forwarded
+        // BackSpace+commit (e.g. MS365 recreates its edit field); honoring it
+        // would wipe the compose state right before the word's tone key.
+        if (now_ms() - state->lastSelfEditTime_ < LotusState::kSelfEditResetGuardMs) {
+            LOTUS_INFO("Skip reset right after self edit");
+            return;
+        }
+        // InputContextReset (e.g., Chrome Ctrl+Tab) must bypass the history guard or the engine stays stale.
+        if (!state->isEmptyHistory() && event.type() != EventType::InputContextFocusOut && event.type() != EventType::InputContextReset) {
             return;
         }
 
         if (event.type() == EventType::InputContextFocusOut || event.type() == EventType::InputContextReset) {
             state->reset(event.type() == EventType::InputContextFocusOut);
+            // Chromium re-binds its IME after the reset and drops the first
+            // commitString; have the next key delivered raw to bridge the gap.
+            if (state->wa_chromium_flag) {
+                state->forwardNextKeyRaw_ = true;
+            }
         }
     }
 
