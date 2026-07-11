@@ -1206,7 +1206,8 @@ namespace fcitx {
     void LotusState::reset(bool isFocusOut) {
         const auto& surrounding = ic_->surroundingText();
         const auto& text        = surrounding.text();
-        size_t      textLen     = utf8::length(text);
+        // Byte length: realtextLen is compared against cursor(), a byte offset in text-input-v3.
+        size_t textLen = text.size();
         realtextLen.store(textLen, std::memory_order_release);
         if (is_deleting_.load(std::memory_order_acquire)) {
             if (isFocusOut) {
