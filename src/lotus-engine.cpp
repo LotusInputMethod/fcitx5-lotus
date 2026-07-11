@@ -1129,10 +1129,16 @@ namespace fcitx {
     }
 
     void LotusEngine::setMode(LotusMode mode, InputContext* ic) {
-        realMode = mode;
+        // Only clear on an actual mode switch. activate() calls setMode() on
+        // every FocusIn, and web editors (MS365) refocus after each replacement:
+        // clearing unconditionally wipes the compose state mid-word.
+        const bool modeChanged = (realMode != mode);
+        realMode               = mode;
         if (ic != nullptr) {
-            if (auto* state = ic->propertyFor(&factory_)) {
-                state->clearAllBuffers();
+            if (modeChanged) {
+                if (auto* state = ic->propertyFor(&factory_)) {
+                    state->clearAllBuffers();
+                }
             }
             ic->updateUserInterface(UserInterfaceComponent::StatusArea);
         }
