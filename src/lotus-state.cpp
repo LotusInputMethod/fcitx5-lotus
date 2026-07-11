@@ -485,11 +485,12 @@ namespace fcitx {
             ++expected_backspaces_;
             if (realMode != LotusMode::SuperSmooth) {
                 const auto& surrounding = ic_->surroundingText();
-                // Enable Autofill detection for all frontends (Wayland/IBus).
-                // This fixes the "toôi" duplication bug in Chromium-based search bars.
-                // The isAutofillCertain function has been optimized to differentiate
-                // between browser autofill and AI ghost text.
-                if (isAutofillCertain(surrounding)) {
+                // Autofill detection fixes the "toôi" duplication bug in
+                // Chromium-based search bars, so only apply it to chromium-family
+                // apps: in code editors (VSCode/Monaco) text after the cursor on
+                // the same line is normal, and the heuristic would add a spurious
+                // extra backspace that eats a real character.
+                if (ackAppCached_ == 1 && isAutofillCertain(surrounding)) {
                     ++expected_backspaces_;
                 }
             }
