@@ -564,7 +564,12 @@ namespace fcitx {
         keyEvent.filterAndAccept();
         size_t charsToDelete = utf8::length(deletedPart);
         if (realMode != LotusMode::Minecraft && realMode != LotusMode::SuperSmooth) {
-            if (ic_->capabilityFlags().test(CapabilityFlag::Url) || isAutofillCertain(ic_->surroundingText())) {
+            // CapabilityFlag::Url is static (always set for the address bar) and does not
+            // indicate an actual autofill/ghost-suggestion is showing; relying on it alone
+            // sends a spurious extra backspace on every replacement, eating a real character
+            // (e.g. "nguyễn" -> "ngễn"). Only add it when isAutofillCertain() finds real
+            // evidence of autofill, matching handleSurroundingText's anchor()!=cursor() check.
+            if (isAutofillCertain(ic_->surroundingText())) {
                 ic_->forwardKey(Key(FcitxKey_BackSpace));
             }
         }
