@@ -770,7 +770,13 @@ namespace fcitx {
                 state->lastDeactivateTime_ = now_ms();
                 LOTUS_INFO("Skip clearAllBuffers");
             } else {
-                if (surrvalid && state->oldPreBuffer_.empty())
+                // Clear on a genuine focus-out, but not one that immediately follows
+                // our own forwarded edit (e.g. MS365 recreating its field after a
+                // replacement) — that guard mirrors reset()/activate() below and
+                // keeps mid-word compose state alive for that case. A real
+                // Alt-Tab away leaves oldPreBuffer_ stale otherwise, corrupting the
+                // next word typed after switching back (e.g. into Chrome).
+                if (surrvalid && (now_ms() - state->lastSelfEditTime_) >= LotusState::kSelfEditResetGuardMs)
                     state->clearAllBuffers();
             }
             is_deleting_.store(false);
