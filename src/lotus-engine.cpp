@@ -743,7 +743,11 @@ namespace fcitx {
             return;
         }
         // InputContextReset (e.g., Chrome Ctrl+Tab) must bypass the history guard or the engine stays stale.
-        if (!state->isEmptyHistory() && event.type() != EventType::InputContextFocusOut && event.type() != EventType::InputContextReset) {
+        // Scope the bypass to chromium-family apps only: non-ack apps (Firefox, etc.) can fire
+        // InputContextReset mid-word during normal typing, and resetting the engine there wipes
+        // compose state, causing the next key to fall through as a raw, unconverted keystroke.
+        const bool chromiumResetBypass = event.type() == EventType::InputContextReset && state->wa_chromium_flag;
+        if (!state->isEmptyHistory() && event.type() != EventType::InputContextFocusOut && !chromiumResetBypass) {
             return;
         }
 
