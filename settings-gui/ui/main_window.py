@@ -5,7 +5,7 @@
 Main window assembling all configuration tabs with a modern layout.
 """
 
-from qtpy.QtWidgets import (
+from PyQt6.QtWidgets import (
     QMainWindow,
     QWidget,
     QHBoxLayout,
@@ -16,20 +16,11 @@ from qtpy.QtWidgets import (
     QApplication,
     QFrame,
     QPushButton,
-    QSpacerItem,
 )
-from qtpy.QtGui import QIcon, QPalette
-from qtpy.QtCore import Qt, QSize
+from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt, QSize
 from i18n import _
 from core.dbus_handler import LotusDBusHandler
-
-from ui.pages.dynamic_settings import DynamicSettingsPage, SettingsCategory
-from ui.pages.macro_editor import MacroEditorPage
-from ui.pages.dict_editor import DictEditorPage
-from ui.pages.keymap_editor import KeymapEditorPage
-from ui.pages.about import AboutPage
-from ui.pages.mode_manager import ModeManagerPage
-from ui.pages.backup import BackupPage
 
 
 class LotusSettingsWindow(QMainWindow):
@@ -43,15 +34,19 @@ class LotusSettingsWindow(QMainWindow):
 
         self._setup_ui()
         self._setup_window_size()
-        self._apply_global_styles()
+        # self._apply_global_styles()
         self.update_reset_button_state()
 
     def update_reset_button_state(self):
         any_modified_from_default = any(
-            (hasattr(self.content_stack.widget(i), "is_modified_from_default")
-             and self.content_stack.widget(i).is_modified_from_default())
-            or (hasattr(self.content_stack.widget(i), "is_modified")
-                and self.content_stack.widget(i).is_modified())
+            (
+                hasattr(self.content_stack.widget(i), "is_modified_from_default")
+                and self.content_stack.widget(i).is_modified_from_default()
+            )
+            or (
+                hasattr(self.content_stack.widget(i), "is_modified")
+                and self.content_stack.widget(i).is_modified()
+            )
             for i in range(self.content_stack.count())
         )
         self.btn_reset.setEnabled(any_modified_from_default)
@@ -94,8 +89,7 @@ class LotusSettingsWindow(QMainWindow):
 
         self.sidebar = QListWidget()
         self.sidebar.setFixedWidth(200)
-        self.sidebar.setStyleSheet(
-            """
+        self.sidebar.setStyleSheet("""
             QListWidget {
                 border: none;
                 background: transparent;
@@ -114,10 +108,9 @@ class LotusSettingsWindow(QMainWindow):
             QListWidget::item:hover:!selected {
                 background: palette(alternate-base);
             }
-        """
-        )
+        """)
         self.sidebar.setObjectName("Sidebar")
-        self.sidebar.setFrameShape(QFrame.NoFrame)
+        self.sidebar.setFrameShape(QFrame.Shape.NoFrame)
 
         self.content_stack = QStackedWidget()
 
@@ -168,78 +161,45 @@ class LotusSettingsWindow(QMainWindow):
         layout.addWidget(container)
 
     def _setup_pages(self):
-        # Top-level Settings Pages
-        self._add_page(
-            _("General"),
-            "preferences-system",
-            DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.GENERAL),
-        )
-        self._add_page(
-            _("Typing"),
-            "input-keyboard",
-            DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.TYPING),
-        )
-        self._add_page(
-            _("Applications"),
-            "applications-other",
-            ModeManagerPage(self.dbus_handler),
-        )
-        self._add_page(
-            _("Macros"),
-            "accessories-text-editor",
-            MacroEditorPage(self.dbus_handler),
-        )
-        self._add_page(
-            _("Dictionary"),
-            "edit-copy",
-            DictEditorPage(self.dbus_handler),
-        )
-        self._add_page(
-            _("Keymap"),
-            "preferences-desktop-keyboard",
-            KeymapEditorPage(self.dbus_handler),
-        )
-        self._add_page(
-            _("Shortcuts"),
-            "preferences-desktop-keyboard-shortcuts",
-            DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.SHORTCUTS),
-        )
-        self._add_page(
-            _("Appearance"),
-            "preferences-desktop-theme",
-            DynamicSettingsPage(
-                self.dbus_handler, category=SettingsCategory.APPEARANCE
-            ),
-        )
-        self._add_page(
-            _("Backup"),
-            "document-save-as",
-            BackupPage(self.dbus_handler),
-        )
+        from ui.pages.dynamic_settings import SettingsCategory
 
-        # Bottom section
-        spacer = QListWidgetItem()
-        spacer.setFlags(Qt.NoItemFlags)
-        spacer.setSizeHint(QSize(0, 20))
-        self.sidebar.addItem(spacer)
-        self._add_page(_("About"), "help-about", AboutPage())
+        self._add_page(_("General"), "preferences-system", "general",
+                       lambda: __import__("ui.pages.dynamic_settings", fromlist=["DynamicSettingsPage"]).DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.GENERAL))
+        self._add_page(_("Keymap"), "input-keyboard", "keymap",
+                       lambda: __import__("ui.pages.keymap_editor", fromlist=["KeymapEditorPage"]).KeymapEditorPage(self.dbus_handler))
+        self._add_page(_("Dictionary"), "accessories-dictionary", "dict",
+                       lambda: __import__("ui.pages.dict_editor", fromlist=["DictEditorPage"]).DictEditorPage(self.dbus_handler))
+        self._add_page(_("Macro"), "text-x-generic", "macro",
+                       lambda: __import__("ui.pages.macro_editor", fromlist=["MacroEditorPage"]).MacroEditorPage(self.dbus_handler))
+        self._add_page(_("Mode Manager"), "preferences-desktop", "mode",
+                       lambda: __import__("ui.pages.mode_manager", fromlist=["ModeManagerPage"]).ModeManagerPage(self.dbus_handler))
+        self._add_page(_("Backup & Restore"), "drive-harddisk", "backup",
+                       lambda: __import__("ui.pages.backup", fromlist=["BackupPage"]).BackupPage(self.dbus_handler))
+        self._add_page(_("About"), "help-about", "about",
+                       lambda: __import__("ui.pages.about", fromlist=["AboutPage"]).AboutPage(self.dbus_handler))
+
+        if self.sidebar.count() > 0:
+            self.sidebar.setCurrentRow(0)
+            first_item = self.sidebar.item(0)
+            if first_item:
+                self._on_sidebar_changed(first_item)
+
 
     def on_restore_defaults(self):
         """Resets all settings to their default values."""
-        from qtpy.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
 
         reply = QMessageBox.question(
             self,
             _("Confirm Reset"),
             _("Restore all settings to defaults?"),
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             for i in range(self.content_stack.count()):
                 page = self.content_stack.widget(i)
                 if hasattr(page, "restore_defaults"):
                     page.restore_defaults()
-            # After reset, we definitely have "unsaved changes" relative to previous
             self.on_changed()
 
     def on_changed(self):
@@ -275,7 +235,7 @@ class LotusSettingsWindow(QMainWindow):
     def on_save_all(self, quiet=False):
         """Triggers save on all pages that support it."""
         if self.has_validation_errors():
-            from qtpy.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
 
             QMessageBox.warning(
                 self,
@@ -294,11 +254,9 @@ class LotusSettingsWindow(QMainWindow):
         self.btn_cancel.setEnabled(False)
         self.update_reset_button_state()
         if not quiet:
-            from qtpy.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
 
-            QMessageBox.information(
-                self, _("Success"), _("Settings saved.")
-            )
+            QMessageBox.information(self, _("Success"), _("Settings saved."))
         return True
 
     def on_ok(self):
@@ -319,21 +277,26 @@ class LotusSettingsWindow(QMainWindow):
         self.btn_ok.setEnabled(not self.has_validation_errors())
         self.update_reset_button_state()
 
-    def _on_sidebar_changed(self, index):
-        item = self.sidebar.item(index)
-        if not item:
+    def _on_sidebar_changed(self, current, previous=None):
+        if isinstance(current, int):
+            current_item = self.sidebar.item(current)
+        else:
+            current_item = current
+
+        if not current_item:
             return
 
-        role = item.data(Qt.UserRole)
-        if role == "page":
-            widget = item.data(Qt.UserRole + 1)
-            if widget:
-                self.content_stack.setCurrentWidget(widget)
-            self.update_reset_button_state()
-        elif role == "header":
-            # Don't allow selecting headers, move to next item
-            if index + 1 < self.sidebar.count():
-                self.sidebar.setCurrentRow(index + 1)
+        page_id = current_item.data(Qt.ItemDataRole.UserRole)
+        if not page_id or not hasattr(self, "_pages") or page_id not in self._pages:
+            return
+
+        page_info = self._pages[page_id]
+        if page_info.get("instance") is None:
+            page_info["instance"] = page_info["factory"]()
+            self.content_stack.addWidget(page_info["instance"])
+
+        self.content_stack.setCurrentWidget(page_info["instance"])
+
 
     def _setup_window_size(self):
         screen = QApplication.primaryScreen().availableGeometry()
@@ -343,11 +306,11 @@ class LotusSettingsWindow(QMainWindow):
         self.resize(w, h)
         self.move((screen.width() - w) // 2, (screen.height() - h) // 2)
 
-    def _add_page(self, title: str, icon_name: str, widget: QWidget):
+    def _add_page(self, title, icon_name, page_id, factory):
+        if not hasattr(self, "_pages"):
+            self._pages = {}
         item = QListWidgetItem(QIcon.fromTheme(icon_name), title)
-        item.setData(Qt.UserRole, "page")
-
-        self.content_stack.addWidget(widget)
-        item.setData(Qt.UserRole + 1, widget)
-
+        item.setData(Qt.ItemDataRole.UserRole, page_id)
         self.sidebar.addItem(item)
+        self._pages[page_id] = {"factory": factory, "instance": None}
+

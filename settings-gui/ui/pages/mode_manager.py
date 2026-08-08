@@ -7,7 +7,7 @@ Mode Manager Page for per-application input mode configuration.
 
 import os
 import re
-from qtpy.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -25,8 +25,8 @@ from qtpy.QtWidgets import (
     QGridLayout,
     QMessageBox,
 )
-from qtpy.QtCore import Qt, QSize, Signal
-from qtpy.QtGui import QIcon
+from PyQt6.QtCore import Qt, QSize, pyqtSignal as Signal
+from PyQt6.QtGui import QIcon
 from i18n import _
 from ui.pages.dynamic_settings import CardWidget
 from core.dbus_handler import LotusDBusHandler
@@ -66,7 +66,7 @@ class ModeCard(QFrame):
         self.mode = mode
         self.selected = selected
         self.setObjectName("ModeCard")
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._setup_ui()
         self.update_style()
 
@@ -78,7 +78,7 @@ class ModeCard(QFrame):
         info = MODE_INFO[self.mode]
         title_label = QLabel(_(info["title"]))
         title_label.setObjectName("ModeCardTitle")
-        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setWordWrap(True)
         title_label.setStyleSheet("font-weight: bold; font-size: 13px;")
 
@@ -108,7 +108,7 @@ class ModeCard(QFrame):
             )
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.mode)
 
 
@@ -305,7 +305,7 @@ class AddAppDialog(QDialog):
         for app in apps:
             item = QListWidgetItem()
             item.setText(f"{app['name']}\n{app['exe']}")
-            item.setData(Qt.UserRole, app)
+            item.setData(Qt.ItemDataRole.UserRole, app)
             
             icon_name = self._icon_cache.get(app["name"].lower())
             if not icon_name:
@@ -319,7 +319,7 @@ class AddAppDialog(QDialog):
         self._populate_list(filtered)
 
     def _on_app_selected(self, item):
-        app = item.data(Qt.UserRole)
+        app = item.data(Qt.ItemDataRole.UserRole)
         self.selected_app = app["name"]
         self.selection_label.setText(f"{_('Selected:')} {self.selected_app}")
         self.btn_add.setEnabled(True)
@@ -388,7 +388,7 @@ class ModeManagerPage(QWidget):
         # Right Content Area
         self.content_widget = QScrollArea()
         self.content_widget.setWidgetResizable(True)
-        self.content_widget.setFrameShape(QFrame.NoFrame)
+        self.content_widget.setFrameShape(QFrame.Shape.NoFrame)
         
         self.main_container = QWidget()
         self.main_layout = QVBoxLayout(self.main_container)
@@ -500,7 +500,7 @@ class ModeManagerPage(QWidget):
             
             item = QListWidgetItem()
             item.setText(f"{app}\n{mode_text}")
-            item.setData(Qt.UserRole, (app, mode))
+            item.setData(Qt.ItemDataRole.UserRole, (app, mode))
             item.setIcon(self._resolve_icon(app))
             self.app_list.addItem(item)
             
@@ -606,7 +606,7 @@ class ModeManagerPage(QWidget):
             item.setHidden(text.lower() not in item.text().split("\n")[0].lower())
 
     def _on_app_selected(self, item):
-        app_name, mode = item.data(Qt.UserRole)
+        app_name, mode = item.data(Qt.ItemDataRole.UserRole)
         self.selected_app = app_name
         self.current_app_mode = mode
         
@@ -657,9 +657,9 @@ class ModeManagerPage(QWidget):
         reply = QMessageBox.question(
             self, _("Confirm Remove"),
             _("Remove rules for this application?"),
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
-        if reply == QMessageBox.No:
+        if reply == QMessageBox.StandardButton.No:
             return
             
         if self.selected_app in self.app_rules:

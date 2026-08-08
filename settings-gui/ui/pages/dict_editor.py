@@ -7,7 +7,7 @@ Implements UI with row reordering and TSV import/export.
 """
 
 import os
-from qtpy.QtWidgets import (
+from PyQt6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QPushButton,
@@ -21,8 +21,8 @@ from qtpy.QtWidgets import (
     QFileDialog,
     QCheckBox,
 )
-from qtpy.QtGui import QIcon, QColor
-from qtpy.QtCore import Qt
+from PyQt6.QtGui import QIcon, QColor
+from PyQt6.QtCore import Qt
 from i18n import _
 from core.dbus_handler import LotusDBusHandler
 from ui.pages.base_editor import BaseEditorPage
@@ -41,8 +41,17 @@ class DictEditorPage(BaseEditorPage):
         self.dbus = dbus_handler
         self.words = []  # List of all words
         self.initial_state = {}
+        self._warning_icon = None
+        self._invalid_bg = None
+        self._data_loaded = False
         self._setup_ui()
-        self.load_data()
+        # self.load_data()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._data_loaded:
+            self.load_data()
+            self._data_loaded = True
 
     def _get_local_dict_path(self) -> str:
         xdg_data_home = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
@@ -119,9 +128,9 @@ class DictEditorPage(BaseEditorPage):
         self.table.horizontalHeader().setVisible(False)
         self.table.verticalHeader().setVisible(False)
         for i in range(3):
-            self.table.horizontalHeader().setSectionResizeMode(i, QHeaderView.Stretch)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectItems)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+            self.table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
         self.apply_table_style()  # Apply custom table styling
         self.table.cellClicked.connect(self.on_cell_clicked)
@@ -263,11 +272,11 @@ class DictEditorPage(BaseEditorPage):
     def _apply_cell_highlight(self, item: QTableWidgetItem, word: str):
         """Applies red background and warning icon to items with invalid words."""
         is_invalid = self._is_invalid_word(word)
-        bg_color = Qt.transparent
+        bg_color = Qt.GlobalColor.transparent
         tooltip = ""
         icon = QIcon()
         if is_invalid:
-            bg_color = QColor(Qt.red)
+            bg_color = QColor(Qt.GlobalColor.red)
             bg_color.setAlpha(60)
             icon = QIcon.fromTheme("dialog-warning")
             tooltip = _("Warning: Dictionary words should not contain spaces.")

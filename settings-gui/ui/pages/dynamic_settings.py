@@ -5,7 +5,7 @@
 Dynamic Settings Page with Card-based Layout matching modern guidelines.
 """
 
-from qtpy.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -16,8 +16,8 @@ from qtpy.QtWidgets import (
     QFrame,
     QComboBox,
 )
-from qtpy.QtCore import Qt, QSize, QTimer
-from qtpy.QtGui import QIcon
+from PyQt6.QtCore import Qt, QSize, QTimer
+from PyQt6.QtGui import QIcon
 from ui.components import (
     HotkeyEditorWidget,
     HelpIcon,
@@ -189,7 +189,7 @@ class DynamicSettingsPage(QWidget):
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.NoFrame)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         self.container = QWidget()
         self.container_layout = QVBoxLayout(self.container)
@@ -450,18 +450,18 @@ class DynamicSettingsPage(QWidget):
         layout.addLayout(wrapper)
 
     def _render_mode_list(self, card_layout):
-        from qtpy.QtWidgets import QListWidget, QListWidgetItem, QAbstractItemView
+        from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QAbstractItemView
 
         card = CardWidget("")
         card.content_layout.setContentsMargins(4, 4, 4, 4)
 
         list_widget = QListWidget()
         list_widget.setDragDropMode(QAbstractItemView.InternalMove)
-        list_widget.setSelectionMode(QAbstractItemView.SingleSelection)
-        list_widget.setFocusPolicy(Qt.NoFocus)
-        list_widget.setFrameShape(QFrame.NoFrame)
-        list_widget.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        list_widget.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        list_widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        list_widget.setFrameShape(QFrame.Shape.NoFrame)
+        list_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         list_widget.setStyleSheet(
             "QListWidget { background: transparent; } QListWidget::item { margin: 2px 0; }"
         )
@@ -515,7 +515,7 @@ class DynamicSettingsPage(QWidget):
                 )
 
             handle.setFixedSize(24, 24)
-            handle.setAlignment(Qt.AlignCenter)
+            handle.setAlignment(Qt.AlignmentFlag.AlignCenter)
             row_layout.addWidget(handle)
 
             # Use the existing render logic but into our row
@@ -531,7 +531,7 @@ class DynamicSettingsPage(QWidget):
             list_widget.setItemWidget(list_item, container)
 
             # Store internal name in the item's data for reordering
-            list_item.setData(Qt.UserRole, name)
+            list_item.setData(Qt.ItemDataRole.UserRole, name)
 
         self.list_widgets.append(list_widget)
         list_widget.model().rowsMoved.connect(
@@ -545,7 +545,7 @@ class DynamicSettingsPage(QWidget):
         new_order = []
         for i in range(list_widget.count()):
             item = list_widget.item(i)
-            new_order.append(item.data(Qt.UserRole))
+            new_order.append(item.data(Qt.ItemDataRole.UserRole))
 
         self.update_config("ModeOrder", ",".join(new_order))
 

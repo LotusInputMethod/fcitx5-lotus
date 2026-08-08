@@ -5,10 +5,10 @@ import os
 import subprocess
 import getpass
 import tempfile
-from qtpy.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, QFrame, 
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, QFrame, 
                              QPushButton, QFileDialog, QMessageBox, QGridLayout, QScrollArea)
-from qtpy.QtCore import Qt, QUrl
-from qtpy.QtGui import QIcon, QDesktopServices
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QIcon, QDesktopServices
 from i18n import _
 
 try:
@@ -17,7 +17,7 @@ except ImportError:
     __version__ = "dev version" # Fallback for local development
 
 class AboutPage(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, dbus_handler=None, parent=None):
         super().__init__(parent)
         self._setup_ui()
 
@@ -29,9 +29,9 @@ class AboutPage(QWidget):
         # Scroll Area to handle overcrowding
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setAttribute(Qt.WA_TranslucentBackground)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
         content_widget = QWidget()
         content_widget.setObjectName("AboutContent")
@@ -39,7 +39,7 @@ class AboutPage(QWidget):
         layout = QVBoxLayout(content_widget)
         layout.setContentsMargins(40, 30, 40, 40)
         layout.setSpacing(20)
-        layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
 
         # Logo/Icon 
         try:
@@ -55,15 +55,15 @@ class AboutPage(QWidget):
             logo = QLabel("🪷")
             logo.setStyleSheet("font-size: 64px; margin-bottom: 5px;")
             
-        layout.addWidget(logo, alignment=Qt.AlignCenter)
+        layout.addWidget(logo, alignment=Qt.AlignmentFlag.AlignCenter)
 
         title = QLabel("Fcitx5 Lotus")
         title.setObjectName("AboutTitle")
-        layout.addWidget(title, alignment=Qt.AlignCenter)
+        layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignCenter)
 
         version = QLabel(_("Version {}").format(__version__))
         version.setObjectName("VersionTag")
-        version.setAlignment(Qt.AlignCenter)
+        version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         version.setStyleSheet("""
             QLabel#VersionTag {
                 background-color: palette(highlight);
@@ -74,24 +74,24 @@ class AboutPage(QWidget):
                 font-weight: bold;
             }
         """)
-        layout.addWidget(version, alignment=Qt.AlignCenter)
+        layout.addWidget(version, alignment=Qt.AlignmentFlag.AlignCenter)
 
         desc = QLabel(_("Modern, fast, and stable Vietnamese input method for Linux."))
         desc.setWordWrap(True)
-        desc.setAlignment(Qt.AlignCenter)
+        desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setObjectName("AboutDescription")
         desc.setMinimumHeight(60)
-        layout.addWidget(desc, alignment=Qt.AlignCenter)
+        layout.addWidget(desc, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # GitHub Project Link
         github_link = QLabel('<a href="https://github.com/LotusInputMethod/fcitx5-lotus" style="text-decoration: none;">https://github.com/LotusInputMethod/fcitx5-lotus</a>')
         github_link.setOpenExternalLinks(True)
-        layout.addWidget(github_link, alignment=Qt.AlignCenter)
+        layout.addWidget(github_link, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Support Buttons Row
         support_layout = QHBoxLayout()
         support_layout.setSpacing(15)
-        support_layout.setAlignment(Qt.AlignCenter)
+        support_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         btn_bug = QPushButton(_("Report Bug"))
         btn_bug.setObjectName("BugReport")
@@ -112,17 +112,17 @@ class AboutPage(QWidget):
         self.btn_export_log.setObjectName("ExportLogs")
         self.btn_export_log.setFixedWidth(415) # 200 + 200 + 15 spacing
         self.btn_export_log.clicked.connect(self._on_export_logs)
-        layout.addWidget(self.btn_export_log, alignment=Qt.AlignCenter)
+        layout.addWidget(self.btn_export_log, alignment=Qt.AlignmentFlag.AlignCenter)
 
         line = QFrame()
-        line.setFrameShape(QFrame.HLine)
+        line.setFrameShape(QFrame.Shape.HLine)
         line.setObjectName("AboutLine")
         layout.addWidget(line)
 
         # Credits Section
         credits_title = QLabel(_("Developed by"))
         credits_title.setObjectName("CreditsTitle")
-        layout.addWidget(credits_title, alignment=Qt.AlignCenter)
+        layout.addWidget(credits_title, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Authors List - Single Column with wrap-round support
         authors_layout = QVBoxLayout()
@@ -139,9 +139,9 @@ class AboutPage(QWidget):
         for name, profile_url in authors_data:
             author_link = QLabel(f'<a href="{profile_url}" style="text-decoration: none;">{name}</a>')
             author_link.setOpenExternalLinks(True)
-            author_link.setCursor(Qt.PointingHandCursor)
+            author_link.setCursor(Qt.CursorShape.PointingHandCursor)
             author_link.setObjectName("AuthorLink")
-            author_link.setAlignment(Qt.AlignCenter)
+            author_link.setAlignment(Qt.AlignmentFlag.AlignCenter)
             author_link.setMinimumHeight(24)
             authors_layout.addWidget(author_link)
 
@@ -150,13 +150,13 @@ class AboutPage(QWidget):
 
         # Footer
         footer_line = QFrame()
-        footer_line.setFrameShape(QFrame.HLine)
+        footer_line.setFrameShape(QFrame.Shape.HLine)
         footer_line.setObjectName("AboutLine")
         layout.addWidget(footer_line)
 
         license_info = QLabel(_("Licensed under the GNU General Public License v3.0"))
         license_info.setObjectName("LicenseInfo")
-        layout.addWidget(license_info, alignment=Qt.AlignCenter)
+        layout.addWidget(license_info, alignment=Qt.AlignmentFlag.AlignCenter)
 
         scroll.setWidget(content_widget)
         root_layout.addWidget(scroll)

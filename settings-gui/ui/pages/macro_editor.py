@@ -6,7 +6,7 @@ Macro Editor Page. Edits lotus-macro-table.conf.
 Implements UI with row reordering and TSV import/export.
 """
 
-from qtpy.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -22,8 +22,8 @@ from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
 )
-from qtpy.QtGui import QIcon, QColor
-from qtpy.QtCore import Qt
+from PyQt6.QtGui import QIcon, QColor
+from PyQt6.QtCore import Qt
 from i18n import _
 from core.dbus_handler import LotusDBusHandler
 from ui.pages.base_editor import BaseEditorPage
@@ -138,7 +138,7 @@ class MacroEditorPage(BaseEditorPage):
         for fmt, desc in time_presets:
             self.input_time_format.addItem(fmt, fmt)
             self.input_time_format.setItemData(
-                self.input_time_format.count() - 1, desc, Qt.ToolTipRole
+                self.input_time_format.count() - 1, desc, Qt.ItemDataRole.ToolTipRole
             )
 
         time_layout.addWidget(QLabel(_("Time Format:")))
@@ -161,7 +161,7 @@ class MacroEditorPage(BaseEditorPage):
         for fmt, desc in date_presets:
             self.input_date_format.addItem(fmt, fmt)
             self.input_date_format.setItemData(
-                self.input_date_format.count() - 1, desc, Qt.ToolTipRole
+                self.input_date_format.count() - 1, desc, Qt.ItemDataRole.ToolTipRole
             )
 
         date_layout.addWidget(QLabel(_("Date Format:")))
@@ -202,11 +202,11 @@ class MacroEditorPage(BaseEditorPage):
         self.table = QTableWidget(0, 2)
         self.table.setHorizontalHeaderLabels([_("Abbreviation"), _("Expanded Text")])
         self.table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeToContents
+            0, QHeaderView.ResizeMode.ResizeToContents
         )
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
         self.apply_table_style()  # Apply custom table styling
         self.table.cellClicked.connect(self.on_row_selected)
@@ -423,12 +423,12 @@ class MacroEditorPage(BaseEditorPage):
     def _apply_row_highlight(self, row: int, key: str):
         """Applies red background and warning icon to rows with invalid keys."""
         is_invalid = self._is_invalid_macro(key)
-        bg_color = Qt.transparent
+        bg_color = Qt.GlobalColor.transparent
         tooltip = ""
         icon = QIcon()
         if is_invalid:
             # Use a soft red for warning background
-            bg_color = QColor(Qt.red)
+            bg_color = QColor(Qt.GlobalColor.red)
             bg_color.setAlpha(60)
             icon = QIcon.fromTheme("dialog-warning")
             tooltip = _("Macro keys cannot contain spaces or special characters.")

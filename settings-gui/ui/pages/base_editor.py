@@ -5,7 +5,7 @@
 Base class for Table-based editors (Macros, Keymap).
 """
 
-from qtpy.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -17,8 +17,8 @@ from qtpy.QtWidgets import (
     QLabel,
     QAbstractItemView,
 )
-from qtpy.QtCore import Qt
-from qtpy.QtGui import QIcon
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
 from i18n import _
 
 
@@ -34,7 +34,7 @@ class BaseEditorPage(QWidget):
         if not self.table:
             return
 
-        self.table.setFocusPolicy(Qt.NoFocus)
+        self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
         self.table.itemSelectionChanged.connect(self.update_button_states)

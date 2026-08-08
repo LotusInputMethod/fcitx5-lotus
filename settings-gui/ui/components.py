@@ -9,9 +9,9 @@ convert keysyms to Unicode, and mathematically handle Shift modifiers.
 
 import ctypes
 import ctypes.util
-from qtpy.QtWidgets import QPushButton, QLabel, QHBoxLayout, QWidget
-from qtpy.QtGui import QKeySequence, QIcon
-from qtpy.QtCore import Qt, Signal, QEvent
+from PyQt6.QtWidgets import QPushButton, QLabel, QHBoxLayout, QWidget
+from PyQt6.QtGui import QKeySequence, QIcon
+from PyQt6.QtCore import Qt, pyqtSignal as Signal, QEvent
 from i18n import _
 
 libxkb = None
@@ -145,7 +145,7 @@ class KeyCap(QLabel):
     """A label styled as a keyboard keycap."""
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
-        self.setAlignment(Qt.AlignCenter)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setObjectName("KeyCap")
 
 
@@ -220,7 +220,7 @@ class HotkeyCaptureWidget(QPushButton):
         self.main_layout = QHBoxLayout(self)
         self.main_layout.setContentsMargins(8, 2, 8, 2)
         self.main_layout.setSpacing(4)
-        self.main_layout.setAlignment(Qt.AlignCenter)
+        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         self.toggled.connect(self._on_toggled)
         self._update_display()
@@ -329,7 +329,7 @@ class HotkeyCaptureWidget(QPushButton):
             base_key = event.text() if event.text() and event.text().isprintable() else QKeySequence(key_code).toString()
 
         has_non_shift_modifier = bool(
-            modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)
+            modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier | Qt.MetaModifier)
         )
         is_ascii_alpha = (
             len(base_key) == 1 and base_key.isascii() and base_key.isalpha()
@@ -340,12 +340,12 @@ class HotkeyCaptureWidget(QPushButton):
 
         # Build modifier list from current event state
         mods = []
-        if modifiers & Qt.ControlModifier: mods.append("Control")
-        if modifiers & Qt.AltModifier: mods.append("Alt")
+        if modifiers & Qt.KeyboardModifier.ControlModifier: mods.append("Control")
+        if modifiers & Qt.KeyboardModifier.AltModifier: mods.append("Alt")
         if modifiers & Qt.MetaModifier: mods.append("Super")
 
         # Selective Shift suppression for symbols
-        if (modifiers & Qt.ShiftModifier) and (
+        if (modifiers & Qt.KeyboardModifier.ShiftModifier) and (
             (has_non_shift_modifier and is_ascii_alpha)
             or (base_key not in HOTKEY_UI_UNSHIFT_MAP)
         ):

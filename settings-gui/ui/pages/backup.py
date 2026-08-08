@@ -9,7 +9,7 @@ Supports JSON-based backups and selective export/import.
 import os
 import json
 from datetime import datetime
-from qtpy.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -22,8 +22,8 @@ from qtpy.QtWidgets import (
     QCheckBox,
     QGroupBox,
 )
-from qtpy.QtCore import Qt
-from qtpy.QtGui import QIcon
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
 from i18n import _
 from core.dbus_handler import LotusDBusHandler
 from ui.pages.dynamic_settings import CardWidget
@@ -42,7 +42,7 @@ class BackupPage(QWidget):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         content_widget = QWidget()
         layout = QVBoxLayout(content_widget)
@@ -262,9 +262,9 @@ class BackupPage(QWidget):
             _(
                 "Are you sure you want to restore selected components? This will overwrite current configuration."
             ),
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             return
 
         try:

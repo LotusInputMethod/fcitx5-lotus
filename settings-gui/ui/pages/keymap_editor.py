@@ -7,7 +7,7 @@ Implements custom keymap presets and TSV import/export.
 """
 
 import os
-from qtpy.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -24,8 +24,8 @@ from qtpy.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
 )
-from qtpy.QtCore import Qt
-from qtpy.QtGui import QIcon
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
 from i18n import _
 from core.dbus_handler import LotusDBusHandler
 from ui.pages.base_editor import BaseEditorPage
@@ -291,11 +291,11 @@ class KeymapEditorPage(BaseEditorPage):
         self.table = QTableWidget(0, 2)
         self.table.setHorizontalHeaderLabels([_("Key"), _("Action")])
         self.table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeToContents
+            0, QHeaderView.ResizeMode.ResizeToContents
         )
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
         self.apply_table_style()
         self.table.cellClicked.connect(self.on_row_selected)
@@ -462,9 +462,9 @@ class KeymapEditorPage(BaseEditorPage):
             _("This operation will replace all existing keys with ")
             + preset_name
             + _(". Are you sure?"),
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.No:
+        if reply == QMessageBox.StandardButton.No:
             return
 
         self.table.setRowCount(0)
