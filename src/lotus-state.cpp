@@ -573,8 +573,22 @@ namespace fcitx {
                 ic_->forwardKey(Key(FcitxKey_BackSpace));
             }
         }
-        for (size_t i = 0; i < charsToDelete; i++) {
-            ic_->forwardKey(Key(FcitxKey_BackSpace));
+        // Prefer deleteSurroundingText over forwardKey(BackSpace) for the actual
+        // replacement: it stays on the same text-input-v3 IME channel as commitString().
+        // Some React-controlled contenteditable editors (e.g. Facebook/Lexical) apply a
+        // raw forwarded BackSpace (native key event) but don't pick up the commitString()
+        // that follows it, so the deleted character never gets replaced and just vanishes.
+        // deleteSurroundingText + commitString are both IME-channel ops the editor's own
+        // input listeners observe consistently.
+        const auto& surrounding = ic_->surroundingText();
+        if (charsToDelete > 0) {
+            if (surrounding.isValid()) {
+                ic_->deleteSurroundingText(-static_cast<int>(charsToDelete), static_cast<int>(charsToDelete));
+            } else {
+                for (size_t i = 0; i < charsToDelete; i++) {
+                    ic_->forwardKey(Key(FcitxKey_BackSpace));
+                }
+            }
         }
         if (!addedPart.empty()) {
             ic_->commitString(addedPart);
