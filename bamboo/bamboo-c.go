@@ -93,6 +93,15 @@ func EnginePullCommit(engine uintptr) *C.char {
 	return C.CString(encodedText)
 }
 
+//export EngineSetMacroEnabled
+func EngineSetMacroEnabled(engine uintptr, enabled bool) {
+	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	if !ok {
+		return
+	}
+	bambooEngine.macroEnabled = enabled
+}
+
 //export EngineSetOption
 func EngineSetOption(engine uintptr, option *C.FcitxBambooEngineOption) {
 	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)

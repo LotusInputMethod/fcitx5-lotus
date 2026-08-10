@@ -34,7 +34,7 @@
       <img src="https://img.shields.io/github/issues/LotusInputMethod/fcitx5-lotus?style=flat&color=red" alt="Issues">
     </a>
     <a href="#contributors-">
-      <img src="https://img.shields.io/badge/all_contributors-8-orange.svg?style=flat-square" alt="All Contributors">
+      <img src="https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square" alt="All Contributors">
     </a>
     <a href="https://deepwiki.com/LotusInputMethod/fcitx5-lotus"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   </p>
@@ -70,11 +70,12 @@ If you want to compile the input method from source to contribute or customize:
 - **Debian/Ubuntu:** `sudo apt-get install cmake extra-cmake-modules libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev libinput-dev libudev-dev g++ golang hicolor-icon-theme pkg-config libx11-dev fcitx5-modules-dev python3-qtpy python3-dbus acl`
 - **Fedora/RHEL:** `sudo dnf install cmake extra-cmake-modules fcitx5-devel libinput-devel libudev-devel gcc-c++ golang hicolor-icon-theme systemd-devel libX11-devel python3-pyside6 python3-QtPy python3-dbus acl`
 - **openSUSE:** `sudo zypper install cmake extra-cmake-modules fcitx5-devel libinput-devel systemd-devel gcc-c++ go hicolor-icon-theme systemd-devel libX11-devel udev python3-pyside6 python3-QtPy python3-dbus-python acl`
+- **Arch:** `sudo pacman -S --needed cmake extra-cmake-modules gcc go git libx11 python make pkgconf acl fcitx5 libinput hicolor-icon-theme python-qtpy python-dbus`
 
 ### Install
 
 ```bash
-git clone https://github.com/LotusInputMethod/fcitx5-lotus.git
+git clone --recurse-submodules https://github.com/LotusInputMethod/fcitx5-lotus.git
 cd fcitx5-lotus
 cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=/usr/lib . #LIBDIR will vary depending on the distro
 make
@@ -127,6 +128,11 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <tr>
       <td align="center" valign="top" width="25%"><a href="https://github.com/hieutran21198"><img src="https://avatars.githubusercontent.com/u/87953912?v=4?s=100" width="100px;" alt="Trần Minh Hiếu (Cirius)"/><br /><sub><b>Trần Minh Hiếu (Cirius)</b></sub></a><br /><a href="#platform-hieutran21198" title="Packaging/porting to new platform">📦</a></td>
       <td align="center" valign="top" width="25%"><a href="https://github.com/namtao"><img src="https://avatars.githubusercontent.com/u/48555338?v=4?s=100" width="100px;" alt="namtao"/><br /><sub><b>namtao</b></sub></a><br /><a href="https://github.com/LotusInputMethod/fcitx5-lotus/commits?author=namtao" title="Code">💻</a></td>
+      <td align="center" valign="top" width="25%"><a href="https://github.com/minhdaolesoez"><img src="https://avatars.githubusercontent.com/u/70090530?v=4?s=100" width="100px;" alt="Dao Le Minh"/><br /><sub><b>Dao Le Minh</b></sub></a><br /><a href="https://github.com/LotusInputMethod/fcitx5-lotus/commits?author=minhdaolesoez" title="Code">💻</a></td>
+      <td align="center" valign="top" width="25%"><a href="https://github.com/xoaiPro235"><img src="https://avatars.githubusercontent.com/u/145014259?v=4?s=100" width="100px;" alt="Mai Văn Lực"/><br /><sub><b>Mai Văn Lực</b></sub></a><br /><a href="https://github.com/LotusInputMethod/fcitx5-lotus/commits?author=xoaiPro235" title="Code">💻</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="25%"><a href="https://github.com/0353618151hao-png"><img src="https://avatars.githubusercontent.com/u/259352926?v=4?s=100" width="100px;" alt="nothing"/><br /><sub><b>nothing</b></sub></a><br /><a href="https://github.com/LotusInputMethod/fcitx5-lotus/commits?author=0353618151hao-png" title="Code">💻</a></td>
     </tr>
   </tbody>
   <tfoot>
@@ -151,10 +157,9 @@ This project follows the [all-contributors](https://github.com/all-contributors/
 
 ## ✨ Star History
 
-<a href="https://star-history.com/#LotusInputMethod/fcitx5-lotus&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=LotusInputMethod/fcitx5-lotus&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=LotusInputMethod/fcitx5-lotus&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=LotusInputMethod/fcitx5-lotus&type=date&legend=top-left" />
- </picture>
+<a href="https://github.com/LotusInputMethod/fcitx5-lotus">
+  <img
+    src="https://lotusinputmethod.github.io/starcharts.svg"
+    alt="Star History Chart"
+  />
 </a>

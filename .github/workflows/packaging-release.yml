@@ -24,8 +24,6 @@ jobs:
             codename: jammy
           - distro: ubuntu:24.04
             codename: noble
-          - distro: ubuntu:25.04
-            codename: plucky
           - distro: ubuntu:25.10
             codename: questing
           - distro: ubuntu:26.04
@@ -112,8 +110,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - distro: fedora:42
-            releasever: 42
           - distro: fedora:43
             releasever: 43
           - distro: fedora:44

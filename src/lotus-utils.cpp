@@ -91,7 +91,7 @@ bool isStartsWith(const std::string& str, const std::string& prefix) {
 #if __cplusplus >= 202002L
     return str.starts_with(prefix);
 #else
-    return str.substr(0, prefix.size()) == prefix;
+    return str.size() >= prefix.size() && str.compare(0, prefix.size(), prefix) == 0;
 #endif
 }
 

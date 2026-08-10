@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 svc="$(basename "$(pwd)")"
+svc=$(tr '\0' ' ' < /proc/$PPID/cmdline | awk '{print $NF}')
+svc=$(basename "$svc")
+
 user="${svc#*.}"
 if [ "$user" = "$svc" ]; then
     echo "fcitx5-lotus cannot be started directly." >&2

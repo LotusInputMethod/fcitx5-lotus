@@ -1,5 +1,5 @@
-fcitx5-lotus (3.4.0-1) unstable; urgency=medium
+fcitx5-lotus (3.5.0-1) unstable; urgency=medium
 
-  * Allow macro in off mode
+  * Add skip macro modifier key option
 
- -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Wed, 08 Jul 2026 23:47:00 +0700
+ -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Sat, 08 Aug 2026 17:28:00 +0700

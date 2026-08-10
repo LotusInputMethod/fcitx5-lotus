@@ -7,8 +7,10 @@ file(GLOB BAMBOO_GO_SRCS *.go)
 add_custom_command(OUTPUT bamboo-core.a bamboo-core.h
     DEPENDS ${BAMBOO_GO_SRCS} ${BAMBOO_CORE_GO_SRCS} go.mod
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND env go build -buildmode=c-archive
-                -o "${CMAKE_CURRENT_BINARY_DIR}/bamboo-core.a"
+    COMMAND env CGO_CFLAGS="-fPIC" CGO_LDFLAGS="-fPIC" go build 
+                -buildmode=c-archive
+                "-ldflags=-s -w"
+                -v -o "${CMAKE_CURRENT_BINARY_DIR}/bamboo-core.a"
             ${BAMBOO_GO_SRCS})
 add_custom_target(bamboo-core DEPENDS bamboo-core.a)
 # Add a custom target for the library.

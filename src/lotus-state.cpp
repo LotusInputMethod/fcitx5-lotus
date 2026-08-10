@@ -58,6 +58,7 @@ namespace fcitx {
             lotusEngine_.reset(NewEngine(engine_->config().inputMethod->data(), engine_->dictionary(), engine_->macroTable()));
         }
         setOption();
+        resetMacroSkip();
     }
 
     void LotusState::setOption() {
@@ -469,8 +470,7 @@ namespace fcitx {
 
             event.filterAndAccept(); // Filter out the final trigger backspace.
             is_deleting_.store(false);
-            if (getFrontendName(ic_) == "dbus" && !ic_->surroundingText().isValid())
-                replayBufferedKeys(); // Does we need drop this?
+            replayBufferedKeys();
             return true;
         }
         return false;
@@ -1063,7 +1063,14 @@ namespace fcitx {
     }
 
     void LotusState::keyEvent(KeyEvent& keyEvent) {
-        if (!lotusEngine_ || keyEvent.isRelease() || keyEvent.rawKey().isModifier())
+        if (!lotusEngine_)
+            return;
+        if (keyEvent.rawKey().isModifier()) {
+            handleModifierTap(keyEvent);
+            return;
+        }
+        cancelModifierTap();
+        if (keyEvent.isRelease())
             return;
         if (uinput_client_fd_ < 0) {
             LOTUS_WARN("Cannot connect to uinput server, reconnecting....");
@@ -1073,6 +1080,9 @@ namespace fcitx {
             is_deleting_.store(false);
             current_backspace_count_ = 0;
             expected_backspaces_     = 0;
+            if (!buffered_keys_.empty()) {
+                replayBufferedKeys();
+            }
         }
         if (needEngineReset.load() && realMode != LotusMode::Off) {
             LOTUS_INFO("Need engine reset");
@@ -1207,6 +1217,7 @@ namespace fcitx {
                 break;
             }
         }
+        reEnableMacroAfterWordEnd();
     }
 
     void LotusState::reset(bool isFocusOut) {
@@ -1225,6 +1236,7 @@ namespace fcitx {
             pending_commit_string_.clear();
             buffered_keys_.clear();
         }
+        resetMacroSkip();
 
         if (lotusEngine_) {
             isPrevSpace_       = false;
@@ -1314,6 +1326,7 @@ namespace fcitx {
         if (is_deleting_.load(std::memory_order_acquire)) {
             return;
         }
+        resetMacroSkip();
         oldPreBuffer_.clear();
         hasHistory_ = false;
         if (!is_deleting_.load(std::memory_order_acquire)) {
@@ -1426,5 +1439,61 @@ namespace fcitx {
             }
         }
         LOTUS_INFO("Replay buffered keys done");
+    }
+
+    bool LotusState::isMacroSkipModifier(KeySym sym) const {
+        const auto trigger = engine_->config().macroSkipTriggerModifier.value();
+        switch (trigger) {
+            case MacroSkipTriggerModifier::Shift: return sym == FcitxKey_Shift_L || sym == FcitxKey_Shift_R;
+            case MacroSkipTriggerModifier::Ctrl: return sym == FcitxKey_Control_L || sym == FcitxKey_Control_R;
+            case MacroSkipTriggerModifier::Alt: return sym == FcitxKey_Alt_L || sym == FcitxKey_Alt_R;
+            case MacroSkipTriggerModifier::Disabled:
+            default: return false;
+        }
+    }
+
+    void LotusState::handleModifierTap(const KeyEvent& keyEvent) {
+        const auto trigger = engine_->config().macroSkipTriggerModifier.value();
+        if (trigger == MacroSkipTriggerModifier::Disabled || !*engine_->config().enableMacro) {
+            return;
+        }
+        if (!isMacroSkipModifier(keyEvent.rawKey().sym())) {
+            tracking_modifier_tap_ = false;
+            return;
+        }
+        if (keyEvent.isRelease()) {
+            if (tracking_modifier_tap_) {
+                tracking_modifier_tap_ = false;
+                macro_skip_            = true;
+                EngineSetMacroEnabled(lotusEngine_.handle(), 0);
+                LOTUS_INFO("Macro skip enabled for next word");
+            }
+        } else {
+            tracking_modifier_tap_ = true;
+        }
+    }
+
+    void LotusState::cancelModifierTap() {
+        tracking_modifier_tap_ = false;
+    }
+
+    void LotusState::reEnableMacroAfterWordEnd() {
+        if (!macro_skip_) {
+            return;
+        }
+        UniqueCPtr<char> preedit(EnginePullPreedit(lotusEngine_.handle()));
+        if (preedit && *preedit.get() != 0) {
+            return;
+        }
+        macro_skip_ = false;
+        EngineSetMacroEnabled(lotusEngine_.handle(), *engine_->config().enableMacro ? 1 : 0);
+    }
+
+    void LotusState::resetMacroSkip() {
+        tracking_modifier_tap_ = false;
+        macro_skip_            = false;
+        if (lotusEngine_) {
+            EngineSetMacroEnabled(lotusEngine_.handle(), *engine_->config().enableMacro ? 1 : 0);
+        }
     }
 } // namespace fcitx

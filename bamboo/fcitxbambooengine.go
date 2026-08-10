@@ -51,6 +51,7 @@ const (
 	FcitxHyperMask = 1 << 27
 	FcitxMetaMask  = 1 << 28
 )
+
 const (
 	FcitxBackSpace = 0xff08
 	FcitxSpace     = 0x020
@@ -64,14 +65,17 @@ const (
 )
 
 func determineMacroCase(str string) uint8 {
-	var chars = []rune(str)
-	if unicode.IsLower(chars[0]) {
+	if len(str) == 0 {
+		return VnCaseNoChange
+	}
+
+	r, width := utf8.DecodeRuneInString(str)
+	if unicode.IsLower(r) {
 		return VnCaseAllSmall
-	} else {
-		for _, c := range chars[1:] {
-			if unicode.IsLower(c) {
-				return VnCaseNoChange
-			}
+	}
+	for _, c := range str[width:] {
+		if unicode.IsLower(c) {
+			return VnCaseNoChange
 		}
 	}
 	return VnCaseAllCapital
@@ -120,10 +124,10 @@ func (e *FcitxBambooEngine) expandMacro(str string) string {
 	var macroText = e.macroTable.GetText(str)
 
 	// Replace dynamic placeholders
-	if e.timeFormat != "" {
+	if e.timeFormat != "" && strings.Contains(macroText, "$TIME") {
 		macroText = strings.ReplaceAll(macroText, "$TIME", e.formatTime(e.timeFormat))
 	}
-	if e.dateFormat != "" {
+	if e.dateFormat != "" && strings.Contains(macroText, "$DATE") {
 		macroText = strings.ReplaceAll(macroText, "$DATE", e.formatTime(e.dateFormat))
 	}
 
@@ -154,8 +158,8 @@ func (e *FcitxBambooEngine) shouldFallbackToEnglish(checkVnRune bool) bool {
 		return false
 	}
 	var vnSeq = e.preeditor.GetProcessedString(bamboo.VietnameseMode | bamboo.LowerCase)
-	var vnRunes = []rune(vnSeq)
-	if len(vnRunes) == 0 {
+
+	if len(vnSeq) == 0 {
 		return false
 	}
 	if ok, _ := e.getMacroText(); ok {
@@ -163,7 +167,7 @@ func (e *FcitxBambooEngine) shouldFallbackToEnglish(checkVnRune bool) bool {
 	}
 	// we want to allow dd even in non-vn sequence, because dd is used a lot in abbreviation
 	if e.ddFreeStyle && !bamboo.HasAnyVietnameseVower(vnSeq) &&
-		(vnRunes[len(vnRunes)-1] == 'd' || strings.ContainsRune(vnSeq, 'đ')) {
+		(strings.HasSuffix(vnSeq, "d") || strings.ContainsRune(vnSeq, 'đ')) {
 		return false
 	}
 	if checkVnRune && !bamboo.HasAnyVietnameseRune(vnSeq) {
@@ -200,6 +204,7 @@ func (e *FcitxBambooEngine) updateLastKeyWithShift(keyVal, state uint32) {
 		e.lastKeyWithShift = false
 	}
 }
+
 func (e *FcitxBambooEngine) runeCount() int {
 	return utf8.RuneCountInString(e.getPreeditString())
 }
@@ -239,8 +244,7 @@ func (e *FcitxBambooEngine) mustFallbackToEnglish() bool {
 		return false
 	}
 	var vnSeq = e.getProcessedString(bamboo.VietnameseMode | bamboo.LowerCase)
-	var vnRunes = []rune(vnSeq)
-	if len(vnRunes) == 0 {
+	if len(vnSeq) == 0 {
 		return false
 	}
 	// we want to allow dd even in non-vn sequence, because dd is used a lot in abbreviation
@@ -293,7 +297,7 @@ func (e *FcitxBambooEngine) getCommitText(keyVal, state uint32) (string, bool) {
 					e.preeditor.ProcessKey(' ', bamboo.EnglishMode)
 				}
 				return ret, isWordBreakRune
-			} else if l := []rune(newText); len(l) > 0 && keyRune == l[len(l)-1] {
+			} else if getLastRune(newText) == keyRune {
 				// f] => f]
 				var isWordBreakRune = bamboo.IsWordBreakSymbol(keyRune)
 				if isWordBreakRune {
@@ -346,8 +350,7 @@ func (e *FcitxBambooEngine) commitPreeditAndReset(s string) {
 
 func (e *FcitxBambooEngine) updatePreedit(processedStr string) {
 	var encodedStr = e.encodeText(processedStr)
-	var preeditLen = uint32(len([]rune(encodedStr)))
-	if preeditLen == 0 {
+	if len(encodedStr) == 0 {
 		e.preeditText = ""
 		e.commitText = ""
 		return

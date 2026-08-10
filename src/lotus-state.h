@@ -113,6 +113,8 @@ namespace fcitx {
         int                      ackAppCached_                = -1;    ///< -1 unknown, 0 not a chromium-family app, 1 chromium-family app
         bool                     skipSurrTextRebuild_         = false; ///< Skip surrounding-text rebuild on the next key after a forwarded BackSpace/special key
         bool                     forwardNextKeyRaw_           = false; ///< Chromium drops the first commitString while re-binding IME after a tab switch; deliver that key raw
+        bool                     tracking_modifier_tap_       = false; ///< Selected modifier held, waiting for consecutive keyup
+        bool                     macro_skip_                  = false; ///< Macro disabled for the current word
 
         /**
          * @brief Connects to the uinput server.
@@ -250,6 +252,34 @@ namespace fcitx {
          * replacement completes.
          */
         void replayBufferedKeys();
+
+        /**
+         * @brief Checks if the key symbol matches the configured macro-skip modifier.
+         * @param sym Key symbol to check.
+         * @return True if the key is the configured trigger modifier (left/right same).
+         */
+        bool isMacroSkipModifier(KeySym sym) const;
+
+        /**
+         * @brief Tracks a modifier tap (keydown then consecutive keyup) to skip macro.
+         * @param keyEvent The modifier key event.
+         */
+        void handleModifierTap(const KeyEvent& keyEvent);
+
+        /**
+         * @brief Cancels an in-progress modifier tap when another key arrives.
+         */
+        void cancelModifierTap();
+
+        /**
+         * @brief Re-enables macro when the current word ends (engine preedit empty).
+         */
+        void reEnableMacroAfterWordEnd();
+
+        /**
+         * @brief Clears the macro-skip state and re-syncs the engine.
+         */
+        void resetMacroSkip();
     };
 
 } // namespace fcitx

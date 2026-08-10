@@ -32,6 +32,10 @@ HELPERS = {
         "Allow macros to work when the input mode is OFF.\n"
         "When disabled, macros are only available in active typing modes."
     ),
+    "MacroSkipTriggerModifier": N_(
+        "Press and release the selected modifier key before typing to skip macro expansion for the next word.\n"
+        "If another key is pressed between the modifier's press and release, the skip is cancelled."
+    ),
 }
 
 
