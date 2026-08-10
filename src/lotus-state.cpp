@@ -1114,6 +1114,13 @@ namespace fcitx {
         if (g_mouse_clicked.load(std::memory_order_acquire) && !is_deleting_.load(std::memory_order_acquire)) {
             g_mouse_clicked.store(false, std::memory_order_release);
             clearAllBuffers();
+            // forwardNextKeyRaw_ is meant to bridge Chrome's IME re-bind gap after a
+            // keyboard-driven tab switch (Ctrl+Tab). A mouse click already gives Chrome
+            // a real focus/cursor signal, so the raw-key nudge isn't needed here — and
+            // forwarding the first key raw while the rest commit via commitString mixes
+            // two input channels that React-controlled contenteditable (e.g. Facebook)
+            // doesn't reconcile reliably, corrupting the word being typed.
+            forwardNextKeyRaw_ = false;
         }
         KeySym currentSym = keyEvent.rawKey().sym();
         if (*engine_->config().autoCapitalizeAfterPunctuation && realMode != LotusMode::Off) {
