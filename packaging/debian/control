@@ -3,20 +3,20 @@ Section: utils
 Priority: optional
 Maintainer: Nguyen Hoang Ky <nhktmdzhg@gmail.com>
 Build-Depends: debhelper (>= 13),
-               cmake,
-               g++,
-               golang,
-               extra-cmake-modules,
+               cmake:native,
+               g++:native,
+               golang:native,
+               extra-cmake-modules:native,
                fcitx5-modules-dev,
                libfcitx5core-dev,
                libfcitx5config-dev,
                libfcitx5utils-dev,
                libinput-dev,
                libudev-dev,
-               pkg-config,
+               pkg-config:native,
                libx11-dev,
-               python3,
-               librsvg2-bin
+               python3:native,
+               librsvg2-bin:native
 Standards-Version: 4.6.0
 
 Package: fcitx5-lotus
