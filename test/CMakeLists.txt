@@ -43,3 +43,19 @@ add_lotus_headless_test(modifier_key_bypasses_surrounding_text
     modifier-key-bypasses-surrounding-text.cpp "integration;surrounding")
 add_lotus_headless_test(emoji_history_page_navigation
     emoji-history-page-navigation.cpp "integration;emoji")
+
+add_executable(emoji_backspace_utf8
+    test-emoji-backspace.cpp
+    ${PROJECT_SOURCE_DIR}/src/lotus-utils.cpp
+)
+target_include_directories(emoji_backspace_utf8 PRIVATE
+    ${PROJECT_SOURCE_DIR}/src
+)
+target_link_libraries(emoji_backspace_utf8 PRIVATE
+    Fcitx5::Core
+)
+add_test(NAME emoji_backspace_utf8 COMMAND emoji_backspace_utf8)
+set_tests_properties(emoji_backspace_utf8 PROPERTIES
+    LABELS "unit;emoji"
+    TIMEOUT 20
+)
