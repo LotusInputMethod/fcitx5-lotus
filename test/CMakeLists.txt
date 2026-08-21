@@ -43,6 +43,8 @@ add_lotus_headless_test(modifier_key_bypasses_surrounding_text
     modifier-key-bypasses-surrounding-text.cpp "integration;surrounding")
 add_lotus_headless_test(emoji_history_page_navigation
     emoji-history-page-navigation.cpp "integration;emoji")
+add_bamboo_test(numeric_macro_case_preservation
+    numeric-macro-case-preservation.cpp "unit;macro")
 
 add_executable(emoji_backspace_utf8
     test-emoji-backspace.cpp
