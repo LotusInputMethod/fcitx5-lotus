@@ -37,3 +37,5 @@ endfunction()
 add_lotus_headless_test(preedit_lifecycle preedit-lifecycle.cpp "integration;preedit")
 add_lotus_headless_test(preedit_smoke_client preedit-smoke-client.cpp "integration;preedit")
 add_lotus_headless_test(preedit_smoke_server preedit-smoke-server.cpp "integration;preedit")
+add_lotus_headless_test(smooth_buffered_key_replay
+    smooth-buffered-key-replay.cpp "integration;smooth")
