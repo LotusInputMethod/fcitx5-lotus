@@ -78,7 +78,7 @@ jobs:
           options: -v ${{ github.workspace }}:/work
           run: |
             set -euo pipefail
-            dnf config-manager --save --setopt=fedora-cisco-openh264.enabled=
+            sed -i 's/^enabled=1/enabled=0/' /etc/yum.repos.d/fedora-cisco-openh264.repo
             dnf install -y rpm-build rpmdevtools dnf-plugins-core
             rpmdev-setuptree
             cp /work/packaging/rpm/fedora/fcitx5-lotus.spec ~/rpmbuild/SPECS/
