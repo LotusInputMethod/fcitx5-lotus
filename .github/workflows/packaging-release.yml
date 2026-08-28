@@ -131,11 +131,12 @@ jobs:
           options: -v ${{ github.workspace }}:/work
           run: |
             set -euo pipefail
-            printf '[main]\ninstall_weak_deps=False\n' > /etc/dnf/dnf.conf
+            find / -name '*openh264*' -type f -delete 2>/dev/null || true
+            dnf clean all
             dnf install -y rpm-build rpmdevtools dnf-plugins-core
             rpmdev-setuptree
             cp /work/packaging/rpm/fedora/fcitx5-lotus.spec ~/rpmbuild/SPECS/
-            dnf builddep -y ~/rpmbuild/SPECS/fcitx5-lotus.spec
+            dnf builddep --setopt=install_weak_deps=False -y ~/rpmbuild/SPECS/fcitx5-lotus.spec
             mkdir -p ~/rpmbuild/SOURCES
             cd /work
             VERSION=$(grep '^Version:' packaging/rpm/fedora/fcitx5-lotus.spec | awk '{print $2}')
