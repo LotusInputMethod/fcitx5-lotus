@@ -7,7 +7,7 @@ URL:            https://github.com/LotusInputMethod/fcitx5-lotus
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
 BuildRequires:  cmake
-BuildRequires:  extra-cmake-modules
+BuildRequires:  kf6-extra-cmake-modules
 BuildRequires:  gcc-c++
 BuildRequires:  glibc-devel
 BuildRequires:  fcitx5-devel
