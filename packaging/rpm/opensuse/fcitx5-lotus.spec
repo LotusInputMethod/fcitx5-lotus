@@ -39,8 +39,8 @@ Vietnamese input method for fcitx5
 %build
 %cmake
 %cmake_build
-%sysusers_generate_pre misc/user-lotus.conf lotus lotus.conf
-
+cd %{_builddir}/%{name}-%{version}
+%sysusers_generate_pre build/misc/user-lotus.conf lotus lotus.conf
 
 %install
 %cmake_install
@@ -100,7 +100,6 @@ elif [ $1 -eq 2 ]; then
     echo "2. Cấu hình Fcitx5:"
     echo "   - Mở 'Fcitx5 Configuration', nhấn restart để khởi động lại."
 fi
-
 
 %preun
 %systemd_preun fcitx5-lotus-server@.service
