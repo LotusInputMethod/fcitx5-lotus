@@ -70,6 +70,8 @@ Vietnamese input method for fcitx5
 %{_datadir}/icons/breeze/status/*/fcitx-lotus*.svg
 %{_datadir}/icons/breeze-dark/status/*/fcitx-lotus*.svg
 
+%{_datadir}/metainfo/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
+
 %post
 %systemd_post fcitx5-lotus-server@.service
 
