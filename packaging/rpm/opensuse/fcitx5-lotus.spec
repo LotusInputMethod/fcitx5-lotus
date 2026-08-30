@@ -39,7 +39,7 @@ Vietnamese input method for fcitx5
 %build
 %cmake
 %cmake_build
-%sysusers_generate_pre lotus.conf lotus lotus.conf
+%sysusers_generate_pre ../lotus.conf lotus lotus.conf
 
 
 %install
