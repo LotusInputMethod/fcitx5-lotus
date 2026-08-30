@@ -19,7 +19,7 @@ BuildRequires:  libX11-devel
 BuildRequires:  go
 BuildRequires:  python-rpm-macros
 BuildRequires:  sysuser-tools
-%sysusers_requires
+Requires(pre):  sysuser-shadow >= 3.1
 BuildRequires:  rsvg-convert
 
 %{?systemd_requires}
