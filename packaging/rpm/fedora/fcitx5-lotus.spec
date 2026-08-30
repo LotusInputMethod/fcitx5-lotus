@@ -125,11 +125,6 @@ Vietnamese input method for fcitx5
 
 %post
 %systemd_post fcitx5-lotus-server@.service
-if [ -x /usr/bin/udevadm ]; then
-    modprobe uinput >/dev/null 2>&1 || :
-    udevadm control --reload-rules >/dev/null 2>&1 || :
-    udevadm trigger >/dev/null 2>&1 || :
-fi
 
 if [ $1 -eq 1 ]; then
     echo "--- Cấu hình Lotus ---"
