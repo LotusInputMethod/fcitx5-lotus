@@ -18,8 +18,8 @@ BuildRequires:  libX11-devel
 
 BuildRequires:  go
 BuildRequires:  python-rpm-macros
-Requires(post): udev
 BuildRequires:  sysuser-tools
+%sysusers_requires
 BuildRequires:  rsvg-convert
 
 %{?systemd_requires}
@@ -39,7 +39,8 @@ Vietnamese input method for fcitx5
 %build
 %cmake
 %cmake_build
-%sysusers_generate_pre %{_prefix}/lib/sysusers.d/lotus.conf lotus
+%sysusers_generate_pre lotus.conf lotus lotus.conf
+
 
 %install
 %cmake_install
@@ -73,8 +74,7 @@ Vietnamese input method for fcitx5
 %{_datadir}/icons/breeze-dark/status/*/fcitx-lotus*.svg
 %{_datadir}/metainfo/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
 
-%pre
-%sysusers_create_package lotus %{_prefix}/lib/sysusers.d/lotus.conf
+%pre -f lotus.pre
 
 %post
 %systemd_post fcitx5-lotus-server@.service
