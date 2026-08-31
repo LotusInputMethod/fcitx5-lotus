@@ -3,13 +3,13 @@
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 %:
-    dh $@ --buildsystem=cmake
+	dh $@ --buildsystem=cmake
 
 execute_after_dh_auto_install:
-    @echo "Rewriting Python shebangs..."
-    find debian/fcitx5-lotus/usr -type f \
-        -exec grep -Il '^#!.*python' {} \; 2>/dev/null | \
-        xargs -r sed -i '1s|^#!.*python.*|#!/usr/bin/python3|'
+	@echo "Rewriting Python shebangs..."
+	find debian/fcitx5-lotus/usr -type f \
+		-exec grep -Il '^#!.*python' {} \; 2>/dev/null | \
+		xargs -r sed -i '1s|^#!.*python.*|#!/usr/bin/python3|'
 
 override_dh_dwz:
-    @echo "Skipping dh_dwz (incompatible with Go/mixed debug sections)"
+	@echo "Skipping dh_dwz (incompatible with Go/mixed debug sections)"
