@@ -3,6 +3,8 @@ Section: utils
 Priority: optional
 Maintainer: Nguyen Hoang Ky <nhktmdzhg@gmail.com>
 Build-Depends: debhelper-compat (= 13),
+               dh-golang
+               dh-python
                cmake,
                g++,
                golang,
