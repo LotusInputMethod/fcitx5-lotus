@@ -47,7 +47,8 @@ cd %{_builddir}/%{name}-%{version}
 %find_lang %{name}
 
 %files -f %{name}.lang
-%license GPL-3.0-or-later.txt LGPL-2.1-or-later.txt
+%{_datadir}/licenses/%{name}/GPL-3.0-or-later.txt
+%{_datadir}/licenses/%{name}/LGPL-2.1-or-later.txt
 
 %{_bindir}/fcitx5-lotus-server
 %{_bindir}/fcitx5-lotus-settings
