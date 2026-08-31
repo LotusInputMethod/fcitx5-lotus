@@ -1,6 +1,7 @@
 [Unit]
 Description=Fcitx5 Lotus Server for %i
-After=multi-user.target udev.target
+After=multi-user.target dev-uinput.device
+Requires=dev-uinput.device
 
 [Service]
 User=@LOTUS_UINPUT_PROXY_USER@
@@ -15,7 +16,7 @@ ExecStartPre=+/usr/bin/setfacl -m u:@LOTUS_UINPUT_PROXY_USER@:rw /dev/uinput
 ExecStart=/usr/bin/fcitx5-lotus-server -u %i
 
 Restart=on-failure
-RestartSec=0
+RestartSec=1
 
 [Install]
 WantedBy=multi-user.target
