@@ -3,7 +3,6 @@
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 %:
-	dh $@ --buildsystem=cmake --with python3,golang
-
+	dh $@ --buildsystem=cmake --with python3
 override_dh_dwz:
 	@echo "Skipping dh_dwz (incompatible with Go/mixed debug sections)"
