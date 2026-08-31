@@ -3,7 +3,7 @@
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 %:
-        dh $@ --buildsystem=cmake
+    dh $@ --buildsystem=cmake
 
 execute_after_dh_auto_install:
     @echo "Rewriting Python shebangs..."
