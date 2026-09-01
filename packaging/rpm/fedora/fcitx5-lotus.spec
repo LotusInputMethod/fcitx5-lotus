@@ -66,6 +66,7 @@ Vietnamese input method for fcitx5
 %{_datadir}/fcitx5/lotus/
 %{_datadir}/fcitx5-lotus/
 %{_datadir}/applications/org.fcitx.Fcitx5.Addon.Lotus.Settings.desktop
+%{_datadir}/metainfo/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
 
 %{_datadir}/icons/hicolor/scalable/apps/*fcitx-lotus*.svg
 %{_datadir}/icons/hicolor/scalable/status/fcitx-lotus*.svg
@@ -80,8 +81,6 @@ Vietnamese input method for fcitx5
 %dir %{_datadir}/icons/breeze-dark/status
 %dir %{_datadir}/icons/breeze-dark/status/24
 %{_datadir}/icons/breeze-dark/status/*/fcitx-lotus*.svg
-
-%{_datadir}/metainfo/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
 
 %post
 %systemd_post fcitx5-lotus-server@.service
