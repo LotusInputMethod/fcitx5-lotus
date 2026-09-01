@@ -74,11 +74,13 @@ Vietnamese input method for fcitx5
 
 %dir %{_datadir}/icons/breeze
 %dir %{_datadir}/icons/breeze/status
+%dir %{_datadir}/icons/breeze/status/22
 %dir %{_datadir}/icons/breeze/status/24
 %{_datadir}/icons/breeze/status/*/fcitx-lotus*.svg
 
 %dir %{_datadir}/icons/breeze-dark
 %dir %{_datadir}/icons/breeze-dark/status
+%dir %{_datadir}/icons/breeze-dark/status/22
 %dir %{_datadir}/icons/breeze-dark/status/24
 %{_datadir}/icons/breeze-dark/status/*/fcitx-lotus*.svg
 
