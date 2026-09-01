@@ -35,7 +35,7 @@ Vietnamese input method for fcitx5
 
 %prep
 %setup -q
-%py3_shebang_fix %{buildroot}%{_datadir}/fcitx5-lotus/settings-gui/*.py
+find . -type f -name '*.py' -exec sed -i '1s|^#!.*env python3|#!/usr/bin/python3|' {} +
 
 %build
 %cmake
