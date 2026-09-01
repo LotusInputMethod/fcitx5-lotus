@@ -21,6 +21,8 @@ BuildRequires:  python-rpm-macros
 BuildRequires:  sysuser-tools
 Requires(pre):  sysuser-shadow >= 3.1
 BuildRequires:  rsvg-convert
+BuildRequires:  hicolor-icon-theme
+BuildRequires:  breeze-icon-theme
 
 %{?systemd_requires}
 Requires:       fcitx5
@@ -50,6 +52,8 @@ cd %{_builddir}/%{name}-%{version}
 %{_datadir}/licenses/%{name}/GPL-3.0-or-later.txt
 %{_datadir}/licenses/%{name}/LGPL-2.1-or-later.txt
 
+%dir %{_datadir}/licenses/%{name}
+%dir %{_modulesloaddir}
 %{_bindir}/fcitx5-lotus-server
 %{_bindir}/fcitx5-lotus-settings
 
