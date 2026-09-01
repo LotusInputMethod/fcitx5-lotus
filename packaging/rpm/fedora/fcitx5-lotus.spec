@@ -16,7 +16,7 @@ BuildRequires:  pkgconfig(libudev)
 BuildRequires:  libX11-devel
 
 BuildRequires:  golang
-BuildRequires:  python3
+BuildRequires:  python3-devel
 BuildRequires:  librsvg2-tools
 
 %{?systemd_ordering}
