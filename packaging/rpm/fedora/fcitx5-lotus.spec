@@ -20,6 +20,8 @@ BuildRequires:  libX11-devel
 BuildRequires:  golang
 BuildRequires:  python3
 BuildRequires:  librsvg2-tools
+BuildRequires:  hicolor-icon-theme
+BuildRequires:  breeze-icon-theme
 
 %{?systemd_requires}
 Requires:       fcitx5-data
@@ -48,6 +50,8 @@ Vietnamese input method for fcitx5
 %{_datadir}/licenses/%{name}/GPL-3.0-or-later.txt
 %{_datadir}/licenses/%{name}/LGPL-2.1-or-later.txt
 
+%dir %{_datadir}/licenses/%{name}
+%dir %{_modulesloaddir}
 %{_bindir}/fcitx5-lotus-server
 %{_bindir}/fcitx5-lotus-settings
 
