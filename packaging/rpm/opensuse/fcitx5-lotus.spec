@@ -37,14 +37,12 @@ Vietnamese input method for fcitx5
 find . -type f -name '*.py' -exec sed -i '1s|^#!.*env python3|#!/usr/bin/python3|' {} +
 
 %build
-export PYTHONDONTWRITEBYTECODE=1
-%cmake
+%cmake -DLOTUS_BYTECOMPILE_PYTHON=OFF
 %cmake_build
 cd %{_builddir}/%{name}-%{version}
 %sysusers_generate_pre build/misc/user-lotus.conf lotus lotus.conf
 
 %install
-export PYTHONDONTWRITEBYTECODE=1
 %cmake_install
 %find_lang %{name}
 
