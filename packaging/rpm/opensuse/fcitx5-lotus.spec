@@ -22,7 +22,7 @@ BuildRequires:  sysuser-tools
 Requires(pre):  sysuser-shadow >= 3.1
 BuildRequires:  rsvg-convert
 BuildRequires:  hicolor-icon-theme
-BuildRequires:  breeze-icon-theme
+BuildRequires:  kf6-breeze-icons
 
 %{?systemd_requires}
 Requires:       fcitx5
