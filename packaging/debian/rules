@@ -14,3 +14,6 @@ execute_after_dh_auto_install:
 
 override_dh_dwz:
 	@echo "Skipping dh_dwz (incompatible with Go/mixed debug sections)"
+
+override_dh_auto_configure:
+	dh_auto_configure -- -DLOTUS_BYTECOMPILE_PYTHON=OFF
