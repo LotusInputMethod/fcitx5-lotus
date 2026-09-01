@@ -27,7 +27,6 @@ Requires:       fcitx5
 Requires:       python3-QtPy
 Requires:       (python3-PyQt6 or python3-pyside6)
 Requires:       python3-dbus-python
-Requires:       hicolor-icon-theme >= 0.17
 Requires:       acl
 
 %description
