@@ -28,6 +28,7 @@ Requires:       python3-QtPy
 Requires:       (python3-pyqt6 or python3-pyside6)
 Requires:       python3-dbus
 Requires:       acl
+%set_build_env export PYTHONDONTWRITEBYTECODE=1
 
 %description
 Vietnamese input method for fcitx5
@@ -43,7 +44,6 @@ find . -type f -name '*.py' -exec sed -i '1s|^#!.*env python3|#!/usr/bin/python3
 %install
 %cmake_install
 %find_lang %{name}
-find %{buildroot} -type d -name __pycache__ -exec rm -rf {} +
 
 %files -f %{name}.lang
 %{_datadir}/licenses/%{name}/GPL-3.0-or-later.txt
