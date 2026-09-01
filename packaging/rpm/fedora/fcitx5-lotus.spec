@@ -35,6 +35,7 @@ Vietnamese input method for fcitx5
 
 %prep
 %setup -q
+%py3_shebang_fix %{buildroot}%{_datadir}/fcitx5-lotus/settings-gui/*.py
 
 %build
 %cmake
@@ -43,6 +44,7 @@ Vietnamese input method for fcitx5
 %install
 %cmake_install
 %find_lang %{name}
+find %{buildroot} -type d -name __pycache__ -exec rm -rf {} +
 
 %files -f %{name}.lang
 %{_datadir}/licenses/%{name}/GPL-3.0-or-later.txt
