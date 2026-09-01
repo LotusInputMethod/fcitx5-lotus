@@ -20,8 +20,6 @@ BuildRequires:  libX11-devel
 BuildRequires:  golang
 BuildRequires:  python3
 BuildRequires:  librsvg2-tools
-BuildRequires:  hicolor-icon-theme
-BuildRequires:  breeze-icon-theme
 
 %{?systemd_requires}
 Requires:       fcitx5-data
@@ -72,7 +70,15 @@ Vietnamese input method for fcitx5
 %{_datadir}/icons/hicolor/scalable/apps/*fcitx-lotus*.svg
 %{_datadir}/icons/hicolor/scalable/status/fcitx-lotus*.svg
 %{_datadir}/icons/hicolor/*/status/fcitx-lotus*.png
+
+%dir %{_datadir}/icons/breeze
+%dir %{_datadir}/icons/breeze/status
+%dir %{_datadir}/icons/breeze/status/24
 %{_datadir}/icons/breeze/status/*/fcitx-lotus*.svg
+
+%dir %{_datadir}/icons/breeze-dark
+%dir %{_datadir}/icons/breeze-dark/status
+%dir %{_datadir}/icons/breeze-dark/status/24
 %{_datadir}/icons/breeze-dark/status/*/fcitx-lotus*.svg
 
 %{_datadir}/metainfo/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
