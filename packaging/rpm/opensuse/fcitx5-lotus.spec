@@ -27,7 +27,7 @@ Requires:       fcitx5
 Requires:       python3-QtPy
 Requires:       (python3-PyQt6 or python3-pyside6)
 Requires:       python3-dbus-python
-Requires:       hicolor-icon-theme
+Requires:       hicolor-icon-theme >= 0.17
 Requires:       acl
 
 %description
@@ -35,6 +35,7 @@ Vietnamese input method for fcitx5
 
 %prep
 %setup -q
+find . -type f -name '*.py' -exec sed -i '1s|^#!.*env python3|#!/usr/bin/python3|' {} +
 
 %build
 %cmake
@@ -45,6 +46,7 @@ cd %{_builddir}/%{name}-%{version}
 %install
 %cmake_install
 %find_lang %{name}
+find %{buildroot} -type d -name __pycache__ -exec rm -rf {} +
 
 %files -f %{name}.lang
 %{_datadir}/licenses/%{name}/GPL-3.0-or-later.txt
