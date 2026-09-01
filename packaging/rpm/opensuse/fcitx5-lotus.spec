@@ -21,8 +21,6 @@ BuildRequires:  python-rpm-macros
 BuildRequires:  sysuser-tools
 Requires(pre):  sysuser-shadow >= 3.1
 BuildRequires:  rsvg-convert
-BuildRequires:  hicolor-icon-theme
-BuildRequires:  kf6-breeze-icons
 
 %{?systemd_requires}
 Requires:       fcitx5
@@ -75,9 +73,15 @@ cd %{_builddir}/%{name}-%{version}
 %{_datadir}/icons/hicolor/scalable/apps/*fcitx-lotus*.svg
 %{_datadir}/icons/hicolor/scalable/status/fcitx-lotus*.svg
 %{_datadir}/icons/hicolor/*/status/fcitx-lotus*.png
+%dir %{_datadir}/icons/breeze
+%dir %{_datadir}/icons/breeze/status
+%dir %{_datadir}/icons/breeze/status/24
 %{_datadir}/icons/breeze/status/*/fcitx-lotus*.svg
+
+%dir %{_datadir}/icons/breeze-dark
+%dir %{_datadir}/icons/breeze-dark/status
+%dir %{_datadir}/icons/breeze-dark/status/24
 %{_datadir}/icons/breeze-dark/status/*/fcitx-lotus*.svg
-%{_datadir}/metainfo/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
 
 %pre -f lotus.pre
 
