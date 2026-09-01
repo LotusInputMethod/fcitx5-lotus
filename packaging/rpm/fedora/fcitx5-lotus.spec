@@ -10,10 +10,8 @@ BuildRequires:  cmake
 BuildRequires:  extra-cmake-modules
 BuildRequires:  gcc-c++
 BuildRequires:  gettext-devel
-BuildRequires:  glibc-devel
 BuildRequires:  cmake(Fcitx5Core)
 BuildRequires:  libinput-devel
-BuildRequires:  systemd-rpm-macros
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  libX11-devel
 
@@ -21,8 +19,7 @@ BuildRequires:  golang
 BuildRequires:  python3
 BuildRequires:  librsvg2-tools
 
-%{?systemd_requires}
-Requires:       fcitx5-data
+%{?systemd_ordering}
 Requires:       fcitx5
 Requires:       python3-QtPy
 Requires:       (python3-pyqt6 or python3-pyside6)
@@ -34,7 +31,6 @@ Vietnamese input method for fcitx5
 
 %prep
 %setup -q
-find . -type f -name '*.py' -exec sed -i '1s|^#!.*env python3|#!/usr/bin/python3|' {} +
 
 %build
 %cmake -DLOTUS_BYTECOMPILE_PYTHON=OFF
@@ -43,6 +39,8 @@ find . -type f -name '*.py' -exec sed -i '1s|^#!.*env python3|#!/usr/bin/python3
 %install
 %cmake_install
 %find_lang %{name}
+%py_byte_compile %{__python3} %{buildroot}%{_datadir}/fcitx5-lotus
+
 
 %files -f %{name}.lang
 %{_datadir}/licenses/%{name}/GPL-3.0-or-later.txt

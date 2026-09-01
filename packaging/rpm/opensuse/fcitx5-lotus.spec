@@ -12,17 +12,15 @@ BuildRequires:  gcc-c++
 BuildRequires:  glibc-devel
 BuildRequires:  fcitx5-devel
 BuildRequires:  libinput-devel
-BuildRequires:  systemd-rpm-macros
 BuildRequires:  systemd-devel
 BuildRequires:  libX11-devel
 
 BuildRequires:  go
-BuildRequires:  python-rpm-macros
 BuildRequires:  sysuser-tools
 Requires(pre):  sysuser-shadow >= 3.1
 BuildRequires:  rsvg-convert
 
-%{?systemd_requires}
+%{?systemd_ordering}
 Requires:       fcitx5
 Requires:       python3-QtPy
 Requires:       (python3-PyQt6 or python3-pyside6)
