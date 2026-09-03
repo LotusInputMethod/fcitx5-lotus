@@ -1,7 +1,7 @@
 [Unit]
 Description=Fcitx5 Lotus Server for %i
-After=multi-user.target dev-uinput.device
-Requires=dev-uinput.device
+After=systemd-modules-load.service systemd-udevd.service
+Wants=systemd-modules-load.service
 
 [Service]
 User=@LOTUS_UINPUT_PROXY_USER@
