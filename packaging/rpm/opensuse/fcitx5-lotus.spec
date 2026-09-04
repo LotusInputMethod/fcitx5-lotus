@@ -1,5 +1,5 @@
 Name:           fcitx5-lotus
-Version:        3.5.7
+Version:        3.5.8
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later

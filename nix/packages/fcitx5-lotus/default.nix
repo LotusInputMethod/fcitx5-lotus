@@ -11,31 +11,41 @@
   hicolor-icon-theme,
   kdePackages,
   libinput,
-  libx11,
   librsvg,
+  libx11,
   pkg-config,
   python3,
   qt6,
   udev,
 }:
-stdenv.mkDerivation rec {
+
+let
+  pythonEnv = python3.withPackages (
+    ps: with ps; [
+      dbus-python
+      pyqt6
+      qtpy
+    ]
+  );
+in
+stdenv.mkDerivation (finalAttrs: {
   pname = "fcitx5-lotus";
   version = "3.5.7";
 
   src = fetchFromGitHub {
     owner = "LotusInputMethod";
     repo = "fcitx5-lotus";
-    tag = "v${version}";
-    fetchSubmodules = true;
+    tag = "v${finalAttrs.version}";
     hash = "sha256-IQFklfLrccVm/SW8dpcplbWfoYJNoS4nMMdkuOzOgdo=";
+    fetchSubmodules = true;
   };
 
   nativeBuildInputs = [
     cmake
-    kdePackages.extra-cmake-modules
     gettext
     go
     hicolor-icon-theme
+    kdePackages.extra-cmake-modules
     librsvg
     pkg-config
     qt6.wrapQtAppsHook
@@ -44,23 +54,19 @@ stdenv.mkDerivation rec {
   buildInputs = [
     acl
     fcitx5
+    kdePackages.extra-cmake-modules
     libinput
     libx11
-    (python3.withPackages (
-      ps: with ps; [
-        pyqt6
-        dbus-python
-        qtpy
-      ]
-    ))
+    pythonEnv
     qt6.qtbase
+    qt6.qtsvg
     udev
   ];
 
   vendorDir =
     (buildGoModule {
       pname = "fcitx5-lotus-go-modules";
-      inherit version src;
+      inherit (finalAttrs) version src;
       modRoot = "bamboo";
       vendorHash = "sha256-Y8sh1PqmBjXko2X9YOxwCrtrGLQ565aewrq4sRvLdpw=";
     }).goModules;
@@ -73,50 +79,38 @@ stdenv.mkDerivation rec {
     cp -r $vendorDir bamboo/vendor
   '';
 
-  cmakeFlags = [
-    "-DGO_FLAGS=-mod=vendor"
-  ];
-
-  # change checking exe_path logic to make it work on NixOS since executable files on NixOS are not located in /usr/bin
   postPatch = ''
     substituteInPlace src/lotus-monitor.cpp \
       --replace-fail 'strcmp(exe_path, "/usr/bin/fcitx5-lotus-server") == 0' \
-                '(strncmp(exe_path, "/nix/store/", 11) == 0 && strlen(exe_path) >= 24 && strcmp(exe_path + strlen(exe_path) - 24, "/bin/fcitx5-lotus-server") == 0)'
+                     '(strncmp(exe_path, "/nix/store/", 11) == 0 && strlen(exe_path) >= 24 && strcmp(exe_path + strlen(exe_path) - 24, "/bin/fcitx5-lotus-server") == 0)'
 
     substituteInPlace server/lotus-server.cpp \
       --replace-fail 'strcmp(exe_path, "/usr/bin/fcitx5") == 0' \
-                '(strncmp(exe_path, "/nix/store/", 11) == 0 && strlen(exe_path) >= 11 && strcmp(exe_path + strlen(exe_path) - 11, "/bin/fcitx5") == 0)'
-
-    substituteInPlace settings-gui/i18n.py \
-      --replace-fail 'localedir = "/usr/share/locale"' \
-                      'localedir = "'"$out"'/share/locale"'
-
-    substituteInPlace settings-gui/ui/pages/dict_editor.py \
-      --replace-fail \
-'paths = [
-            "/usr/share/fcitx5/lotus/vietnamese.cm.dict",
-            "/usr/local/share/fcitx5/lotus/vietnamese.cm.dict",
-        ]' \
-'paths = [
-            "'"$out"'/share/fcitx5/lotus/vietnamese.cm.dict",
-        ]'
+                     '(strncmp(exe_path, "/nix/store/", 11) == 0 && strlen(exe_path) >= 11 && strcmp(exe_path + strlen(exe_path) - 11, "/bin/fcitx5") == 0)'
 
     substituteInPlace src/lotus-engine.cpp \
       --replace-fail '/usr/share/icons/hicolor' '/run/current-system/sw/share/icons/hicolor'
+
+    substituteInPlace settings-gui/i18n.py \
+      --replace-fail 'localedir = "/usr/share/locale"' 'localedir = "'"$out"'/share/locale"'
+
+    substituteInPlace settings-gui/ui/pages/dict_editor.py \
+      --replace-fail '"/usr/share/fcitx5/lotus/vietnamese.cm.dict"' '"'"$out"'/share/fcitx5/lotus/vietnamese.cm.dict"'
   '';
 
   postInstall = ''
     substituteInPlace $out/lib/udev/rules.d/99-lotus.rules \
       --replace-fail "/usr/bin/setfacl" "${acl}/bin/setfacl"
+
     substituteInPlace $out/lib/systemd/system/fcitx5-lotus-server@.service \
-      --replace-fail "/usr/bin/setfacl" "${acl}/bin/setfacl"
-    substituteInPlace $out/lib/systemd/system/fcitx5-lotus-server@.service \
+      --replace-fail "/usr/bin/setfacl" "${acl}/bin/setfacl" \
       --replace-fail "/usr/bin/fcitx5-lotus-server" "$out/bin/fcitx5-lotus-server"
   '';
 
   postFixup = ''
     patchShebangs $out/share/fcitx5-lotus/settings-gui
-    wrapQtApp $out/bin/fcitx5-lotus-settings
+    wrapQtApp $out/bin/fcitx5-lotus-settings \
+      --prefix XDG_DATA_DIRS : "${hicolor-icon-theme}/share"
   '';
 
   meta = with lib; {
@@ -125,4 +119,4 @@ stdenv.mkDerivation rec {
     license = licenses.gpl3;
     platforms = platforms.linux;
   };
-}
+})
