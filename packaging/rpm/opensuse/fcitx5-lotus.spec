@@ -19,6 +19,7 @@ BuildRequires:  go
 BuildRequires:  sysuser-tools
 Requires(pre):  sysuser-shadow >= 3.1
 BuildRequires:  rsvg-convert
+BuildRequires: fdupes   
 
 %{?systemd_ordering}
 Requires:       fcitx5
@@ -42,8 +43,9 @@ cd %{_builddir}/%{name}-%{version}
 
 %install
 %cmake_install
-%find_lang %{name}
 %py3_compile %{buildroot}%{_datadir}/fcitx5-lotus
+%find_lang %{name}
+%fdupes %{buildroot}%{_datadir}/icons
 
 %files -f %{name}.lang
 %{_datadir}/licenses/%{name}/GPL-3.0-or-later.txt
@@ -119,6 +121,6 @@ fi
 %postun
 %service_del_postun fcitx5-lotus-server@.service
 
-%changelog
-* Thu Sep 03 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 3.5.7-1
-- Fix some small bug
+%check
+# Upstream does not provide a test suite
+true
