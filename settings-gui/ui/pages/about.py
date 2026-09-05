@@ -1,15 +1,25 @@
 # SPDX-FileCopyrightText: 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
+import getpass
 import os
 import subprocess
-import getpass
 import tempfile
-from qtpy.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, QFrame, 
-                             QPushButton, QFileDialog, QMessageBox, QGridLayout, QScrollArea)
-from qtpy.QtCore import Qt, QUrl
-from qtpy.QtGui import QIcon, QDesktopServices
+
 from i18n import _
+from qtpy.QtCore import Qt, QUrl
+from qtpy.QtGui import QDesktopServices, QIcon
+from qtpy.QtWidgets import (
+    QFileDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 try:
     from version import __version__
@@ -25,23 +35,23 @@ class AboutPage(QWidget):
         # Root layout for this widget
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Scroll Area to handle overcrowding
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setAttribute(Qt.WA_TranslucentBackground)
-        
+
         content_widget = QWidget()
         content_widget.setObjectName("AboutContent")
-        
+
         layout = QVBoxLayout(content_widget)
         layout.setContentsMargins(40, 30, 40, 40)
         layout.setSpacing(20)
         layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
-        # Logo/Icon 
+        # Logo/Icon
         try:
             pixmap = QIcon.fromTheme("fcitx-lotus").pixmap(80, 80)
             if pixmap.isNull():
@@ -54,7 +64,7 @@ class AboutPage(QWidget):
         except Exception:
             logo = QLabel("🪷")
             logo.setStyleSheet("font-size: 64px; margin-bottom: 5px;")
-            
+
         layout.addWidget(logo, alignment=Qt.AlignCenter)
 
         title = QLabel("Fcitx5 Lotus")
@@ -92,12 +102,12 @@ class AboutPage(QWidget):
         support_layout = QHBoxLayout()
         support_layout.setSpacing(15)
         support_layout.setAlignment(Qt.AlignCenter)
-        
+
         btn_bug = QPushButton(_("Report Bug"))
         btn_bug.setObjectName("BugReport")
         btn_bug.setFixedWidth(200)
         btn_bug.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/LotusInputMethod/fcitx5-lotus/issues/new?template=bug_report.yml")))
-        
+
         btn_feature = QPushButton(_("Request Feature"))
         btn_feature.setObjectName("FeatureRequest")
         btn_feature.setFixedWidth(200)
@@ -127,7 +137,7 @@ class AboutPage(QWidget):
         # Authors List - Single Column with wrap-round support
         authors_layout = QVBoxLayout()
         authors_layout.setSpacing(12)
-        
+
         authors_data = [
             ("Nguyễn Hoàng Kỳ", "https://github.com/nhktmdzhg"),
             ("Nguyễn Hồng Hiệp", "https://github.com/justanoobcoder"),
@@ -135,7 +145,7 @@ class AboutPage(QWidget):
             ("Zebra2711", "https://github.com/Zebra2711"),
             ("Huỳnh Thiện Lộc", "https://github.com/hthienloc"),
         ]
-        
+
         for name, profile_url in authors_data:
             author_link = QLabel(f'<a href="{profile_url}" style="text-decoration: none;">{name}</a>')
             author_link.setOpenExternalLinks(True)
@@ -164,14 +174,14 @@ class AboutPage(QWidget):
     def _on_export_logs(self):
         # Using names that don't conflict with _
         save_dialog_result = QFileDialog.getSaveFileName(
-            self, _("Save Debug Log"), 
+            self, _("Save Debug Log"),
             os.path.expanduser("~/fcitx5-lotus-debug.log"),
             "Log Files (*.log);;All Files (*)"
         )
-        
+
         if not save_dialog_result or not save_dialog_result[0]:
             return
-            
+
         export_filename = save_dialog_result[0]
 
         try:
@@ -194,13 +204,13 @@ class AboutPage(QWidget):
                 try:
                     current_sys_user = getpass.getuser()
                     process_capture = subprocess.run(
-                        ['journalctl', f'-u', f'fcitx5-lotus-server@{current_sys_user}.service', '--no-pager', '-n', '200'],
+                        ['journalctl', '-u', f'fcitx5-lotus-server@{current_sys_user}.service', '--no-pager', '-n', '200'],
                         capture_output=True, text=True, timeout=10
                     )
                     log_output_file.write(process_capture.stdout if process_capture.stdout else "No journal entries found.\n")
                 except Exception as journal_ex:
                     log_output_file.write(f"Error collecting journal: {str(journal_ex)}\n")
-                
+
                 log_output_file.write("\n\n--- End of Log ---\n")
 
             QMessageBox.information(self, _("Success"), _("Debug logs exported to:\n") + export_filename)

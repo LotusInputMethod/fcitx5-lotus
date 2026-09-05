@@ -6,12 +6,13 @@
 Application entry point.
 """
 
-import sys
 import signal
-from qtpy.QtWidgets import QApplication
+import sys
+
+from i18n import setup_i18n
 from qtpy.QtCore import QTimer
 from qtpy.QtGui import QIcon
-from i18n import setup_i18n
+from qtpy.QtWidgets import QApplication
 from ui.main_window import LotusSettingsWindow
 
 

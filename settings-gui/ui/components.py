@@ -9,10 +9,11 @@ convert keysyms to Unicode, and mathematically handle Shift modifiers.
 
 import ctypes
 import ctypes.util
-from qtpy.QtWidgets import QPushButton, QLabel, QHBoxLayout, QWidget
-from qtpy.QtGui import QKeySequence, QIcon
-from qtpy.QtCore import Qt, Signal, QEvent
+
 from i18n import _
+from qtpy.QtCore import QEvent, Qt, Signal
+from qtpy.QtGui import QIcon, QKeySequence
+from qtpy.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 libxkb = None
 libxkb_path = ctypes.util.find_library("xkbcommon")
@@ -88,7 +89,7 @@ def pretty_format_hotkey_parts(hotkey_str):
 
     raw_mods = []
     base_key_part = None
-    
+
     # Analyze parts to identify modifiers and the base key
     for part in parts:
         if not part: continue
@@ -134,7 +135,7 @@ def pretty_format_hotkey_parts(hotkey_str):
     if "Alt" in raw_mods: pretty_parts.append("Alt")
     if "Super" in raw_mods: pretty_parts.append("Super")
     if explicit_shift_needed: pretty_parts.append("Shift")
-    
+
     if base_key_label:
         pretty_parts.append(base_key_label)
 
@@ -158,7 +159,7 @@ class HelpIcon(QLabel):
         icon = QIcon.fromTheme("help-about-symbolic")
         if icon.isNull():
             icon = QIcon.fromTheme("help-about")
-        
+
         self.setPixmap(icon.pixmap(32, 32))
         self.setScaledContents(True)
         if text:
@@ -212,16 +213,16 @@ class HotkeyCaptureWidget(QPushButton):
         self.current_key = current_key
         self.setCheckable(True)
         self.setObjectName("HotkeyButton")
-        
+
         # Local state to track held modifiers during recording
         self.record_mods = set()
-        
+
         # Use a layout for visual keycaps
         self.main_layout = QHBoxLayout(self)
         self.main_layout.setContentsMargins(8, 2, 8, 2)
         self.main_layout.setSpacing(4)
         self.main_layout.setAlignment(Qt.AlignCenter)
-        
+
         self.toggled.connect(self._on_toggled)
         self._update_display()
 
@@ -255,7 +256,7 @@ class HotkeyCaptureWidget(QPushButton):
 
     def _update_display(self):
         self._clear_layout()
-        
+
         if self.isChecked():
             if not self.record_mods:
                 lbl = QLabel(_("[ Recording... ]"))
@@ -360,7 +361,7 @@ class HotkeyCaptureWidget(QPushButton):
         """Processes key release to update live feedback."""
         if not self.isChecked():
             return
-            
+
         key_code = event.key()
         mod_map = {
             Qt.Key_Control: "Control",
@@ -380,7 +381,7 @@ class SingleKeyCaptureWidget(HotkeyCaptureWidget):
 
     def _update_display(self):
         self._clear_layout()
-        
+
         if self.isChecked():
             lbl = QLabel(_("[ Press Key... ]"))
             lbl.setStyleSheet("color: palette(highlight); font-weight: bold;")

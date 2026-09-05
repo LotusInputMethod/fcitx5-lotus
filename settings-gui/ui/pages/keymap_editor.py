@@ -6,28 +6,24 @@ Keymap Editor Page. Edits lotus-custom-keymap.conf.
 Implements custom keymap presets and TSV import/export.
 """
 
-import os
+from core.dbus_handler import LotusDBusHandler
+from i18n import _
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
     QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
-    QLineEdit,
-    QMessageBox,
-    QComboBox,
-    QLabel,
-    QFrame,
-    QFileDialog,
-    QAbstractItemView,
-    QCheckBox,
+    QVBoxLayout,
 )
-from qtpy.QtCore import Qt
-from qtpy.QtGui import QIcon
-from i18n import _
-from core.dbus_handler import LotusDBusHandler
+
 from ui.pages.base_editor import BaseEditorPage
 from ui.pages.dynamic_settings import CardWidget
 
@@ -225,14 +221,14 @@ class KeymapEditorPage(BaseEditorPage):
         # Configuration card
         config_card = CardWidget("")
         config_layout = QVBoxLayout()
-        
+
         # Row 1: Enable checkbox and Search
         top_row = QHBoxLayout()
         self.cb_enable = QCheckBox(_("Custom Keymap"))
         self.cb_enable.toggled.connect(self._on_item_changed)
         top_row.addWidget(self.cb_enable)
         top_row.addStretch()
-        
+
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText(_("Search keys..."))
         self.search_input.setClearButtonEnabled(True)
@@ -241,14 +237,14 @@ class KeymapEditorPage(BaseEditorPage):
         top_row.addWidget(QLabel(_("Search:")))
         top_row.addWidget(self.search_input)
         config_layout.addLayout(top_row)
-        
+
         # Row 2: Original Input Method (Preset)
         bottom_row = QHBoxLayout()
         bottom_row.addWidget(QLabel(_("Original Input Method:")))
         self.combo_preset = QComboBox()
         self.combo_preset.addItems(PRESETS.keys())
         bottom_row.addWidget(self.combo_preset)
-        
+
         btn_load_preset = QPushButton(
             QIcon.fromTheme("document-import"), _("Apply Preset")
         )
@@ -256,7 +252,7 @@ class KeymapEditorPage(BaseEditorPage):
         bottom_row.addWidget(btn_load_preset)
         bottom_row.addStretch()
         config_layout.addLayout(bottom_row)
-        
+
         config_card.content_layout.addLayout(config_layout)
         main_layout.addWidget(config_card)
 
@@ -393,14 +389,14 @@ class KeymapEditorPage(BaseEditorPage):
         for row in range(self.table.rowCount()):
             key_item = self.table.item(row, 0)
             action_item = self.table.cellWidget(row, 1) if isinstance(self.table.cellWidget(row, 1), QComboBox) else self.table.item(row, 1)
-            
+
             key = key_item.text().lower() if key_item else ""
             action = ""
             if isinstance(action_item, QComboBox):
                 action = action_item.currentText().lower()
             elif action_item:
                 action = action_item.text().lower()
-                
+
             self.table.setRowHidden(row, search_text not in key and search_text not in action)
 
     def on_add(self):

@@ -5,9 +5,9 @@
 Helper utilities and shared mappings for the Lotus settings GUI.
 """
 
-from i18n import _, N_
-from ui.components import HelpIcon
+from i18n import N_, _
 
+from ui.components import HelpIcon
 
 # Tooltip text for specific settings keys
 HELPERS = {

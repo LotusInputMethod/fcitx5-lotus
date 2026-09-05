@@ -5,29 +5,29 @@
 Dynamic Settings Page with Card-based Layout matching modern guidelines.
 """
 
+from enum import Enum
+
+from core.dbus_handler import LotusDBusHandler
+from i18n import _
+from qtpy.QtCore import QSize, Qt, QTimer
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
     QCheckBox,
+    QComboBox,
+    QFrame,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QScrollArea,
-    QFrame,
-    QComboBox,
+    QVBoxLayout,
+    QWidget,
 )
-from qtpy.QtCore import Qt, QSize, QTimer
-from qtpy.QtGui import QIcon
+
 from ui.components import (
     HotkeyEditorWidget,
-    HelpIcon,
-    pretty_format_hotkey_parts,
     SingleKeyCaptureWidget,
 )
-from ui.helpers import HELPERS, add_help_icon
-from core.dbus_handler import LotusDBusHandler
-from enum import Enum
-from i18n import _
+from ui.helpers import add_help_icon
 
 
 class SettingsCategory(Enum):
@@ -451,7 +451,7 @@ class DynamicSettingsPage(QWidget):
         layout.addLayout(wrapper)
 
     def _render_mode_list(self, card_layout):
-        from qtpy.QtWidgets import QListWidget, QListWidgetItem, QAbstractItemView
+        from qtpy.QtWidgets import QAbstractItemView, QListWidget, QListWidgetItem
 
         card = CardWidget("")
         card.content_layout.setContentsMargins(4, 4, 4, 4)

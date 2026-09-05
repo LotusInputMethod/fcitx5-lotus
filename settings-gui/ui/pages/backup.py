@@ -6,26 +6,27 @@ Backup and Restore page for Lotus settings.
 Supports JSON-based backups and selective export/import.
 """
 
-import os
 import json
+import os
 from datetime import datetime
+
+from core.dbus_handler import LotusDBusHandler
+from i18n import _
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QCheckBox,
+    QFileDialog,
+    QFrame,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
-    QPushButton,
-    QFileDialog,
     QMessageBox,
-    QFrame,
+    QPushButton,
     QScrollArea,
-    QCheckBox,
-    QGroupBox,
+    QVBoxLayout,
+    QWidget,
 )
-from qtpy.QtCore import Qt
-from qtpy.QtGui import QIcon
-from i18n import _
-from core.dbus_handler import LotusDBusHandler
+
 from ui.pages.dynamic_settings import CardWidget
 
 

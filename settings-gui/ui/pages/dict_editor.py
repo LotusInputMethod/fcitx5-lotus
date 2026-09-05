@@ -8,24 +8,25 @@ Implements UI with row reordering and TSV import/export.
 
 import os
 import tempfile
+
+from core.dbus_handler import LotusDBusHandler
+from i18n import _
+from qtpy.QtCore import Qt
+from qtpy.QtGui import QColor, QIcon
 from qtpy.QtWidgets import (
-    QVBoxLayout,
+    QAbstractItemView,
+    QCheckBox,
     QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
-    QLineEdit,
-    QMessageBox,
-    QLabel,
-    QAbstractItemView,
-    QFileDialog,
-    QCheckBox,
+    QVBoxLayout,
 )
-from qtpy.QtGui import QIcon, QColor
-from qtpy.QtCore import Qt
-from i18n import _
-from core.dbus_handler import LotusDBusHandler
+
 from ui.pages.base_editor import BaseEditorPage
 from ui.pages.dynamic_settings import CardWidget
 
@@ -266,12 +267,12 @@ class DictEditorPage(BaseEditorPage):
         try:
             target_dir = os.path.dirname(local_path)
             os.makedirs(target_dir, exist_ok=True)
-            
+
             with tempfile.NamedTemporaryFile("w", dir=target_dir, encoding="utf-8", delete=False) as tf:
                 for word in self.words:
                     tf.write(f"{word}\n")
                 temp_name = tf.name
-            
+
             os.replace(temp_name, local_path)
 
             # Trigger engine reload by setting global config (unchanged)

@@ -5,23 +5,22 @@
 Main window assembling all configuration tabs with a modern layout.
 """
 
+from core.dbus_handler import LotusDBusHandler
+from i18n import _
+from qtpy.QtCore import QSize, Qt
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QHBoxLayout,
-    QVBoxLayout,
-    QListWidget,
-    QStackedWidget,
-    QListWidgetItem,
     QApplication,
     QFrame,
+    QHBoxLayout,
+    QListWidget,
+    QListWidgetItem,
+    QMainWindow,
     QPushButton,
-    QSpacerItem,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from qtpy.QtGui import QIcon, QPalette
-from qtpy.QtCore import Qt, QSize
-from i18n import _
-from core.dbus_handler import LotusDBusHandler
 
 # Lazy loading pages on demand
 

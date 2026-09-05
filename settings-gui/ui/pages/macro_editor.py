@@ -6,29 +6,28 @@ Macro Editor Page. Edits lotus-macro-table.conf.
 Implements UI with row reordering and TSV import/export.
 """
 
+from core.dbus_handler import LotusDBusHandler
+from i18n import _
+from qtpy.QtCore import Qt
+from qtpy.QtGui import QColor, QIcon
 from qtpy.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
     QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
-    QLineEdit,
-    QMessageBox,
-    QLabel,
-    QAbstractItemView,
-    QFileDialog,
-    QCheckBox,
-    QComboBox,
+    QVBoxLayout,
+    QWidget,
 )
-from qtpy.QtGui import QIcon, QColor
-from qtpy.QtCore import Qt
-from i18n import _
-from core.dbus_handler import LotusDBusHandler
+
+from ui.helpers import add_help_icon
 from ui.pages.base_editor import BaseEditorPage
 from ui.pages.dynamic_settings import CardWidget
-from ui.helpers import HELPERS, add_help_icon
 
 
 class MacroEditorPage(BaseEditorPage):
