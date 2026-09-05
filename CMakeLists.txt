@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.10)
 project(fcitx5-lotus VERSION 3.5.8)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_TESTING "Build Lotus tests" OFF)
-include(CTest)
 
 # The addon entry point is intentionally excluded: each headless test links
 # the production implementation directly, without a reusable archive/object
@@ -52,6 +51,7 @@ add_subdirectory(misc)
 add_subdirectory(settings-gui)
 
 if (BUILD_TESTING)
+    include(CTest)
     add_subdirectory(test)
 endif()
 
