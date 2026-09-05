@@ -16,6 +16,18 @@ func (e *MacroTable) Empty() bool {
 	return e == nil || len(e.mTable) == 0
 }
 
+// Set stores a macro entry, normalizing the key to lower case so that it can
+// be found again by Get(), which looks the key up case-insensitively.
+func (e *MacroTable) Set(key, value string) {
+	if e == nil || len(key) == 0 {
+		return
+	}
+	if e.mTable == nil {
+		e.mTable = map[string]string{}
+	}
+	e.mTable[strings.ToLower(key)] = value
+}
+
 func (e *MacroTable) Get(key string) (string,bool) {
 	if len(key) == 0 || e.Empty() {
 		return "", false

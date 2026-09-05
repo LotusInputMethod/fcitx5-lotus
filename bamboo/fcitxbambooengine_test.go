@@ -393,3 +393,31 @@ func TestIsValidState(t *testing.T) {
 		}
 	}
 }
+
+func TestMacroDefinedWithUpperCaseKey(t *testing.T) {
+	// Macro keys are looked up case-insensitively, so a key entered in capitals
+	// in the settings UI must trigger just like a lower-case one.
+	e := newTestEngine(nil, false)
+	e.macroEnabled = true
+	e.autoCapitalizeMacro = true
+	e.macroTable = &MacroTable{}
+	e.macroTable.Set("VN", "Việt Nam")
+
+	typeKeys(e, "VN")
+	e.preeditProcessKeyEvent(FcitxSpace, 0)
+	if e.commitText != "VIỆT NAM " {
+		t.Errorf("upper-case macro key commit got [%s] expected [VIỆT NAM ]", e.commitText)
+	}
+
+	// The same definition must also fire when typed in lower case.
+	e = newTestEngine(nil, false)
+	e.macroEnabled = true
+	e.macroTable = &MacroTable{}
+	e.macroTable.Set("VN", "Việt Nam")
+
+	typeKeys(e, "vn")
+	e.preeditProcessKeyEvent(FcitxSpace, 0)
+	if e.commitText != "Việt Nam " {
+		t.Errorf("lower-case typing of upper-case macro key commit got [%s] expected [Việt Nam ]", e.commitText)
+	}
+}

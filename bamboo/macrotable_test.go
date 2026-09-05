@@ -55,3 +55,28 @@ func TestMacroTableDeprecatedHelpers(t *testing.T) {
 		t.Errorf("GetText(VN) got [%s] expected [Việt Nam]", got)
 	}
 }
+
+func TestMacroTableSetIsCaseInsensitive(t *testing.T) {
+	table := &MacroTable{}
+	table.Set("VN", "Việt Nam")
+
+	// A macro defined with an upper-case key must still be reachable, both by
+	// the exact spelling and by the lower-case one. Get() lower-cases the
+	// lookup, so Set() has to normalize the key the same way.
+	for _, key := range []string{"VN", "vn", "Vn"} {
+		if val, ok := table.Get(key); !ok || val != "Việt Nam" {
+			t.Errorf("Set(VN) then Get(%s) got [%s,%v] expected [Việt Nam,true]", key, val, ok)
+		}
+	}
+}
+
+func TestMacroTableSetGuards(t *testing.T) {
+	var nilTable *MacroTable
+	nilTable.Set("vn", "Việt Nam") // must not panic
+
+	table := &MacroTable{}
+	table.Set("", "Việt Nam")
+	if !table.Empty() {
+		t.Errorf("Set(empty key) got [stored] expected [ignored]")
+	}
+}
