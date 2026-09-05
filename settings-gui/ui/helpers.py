@@ -19,7 +19,7 @@ HELPERS = {
     ),
     "CapitalizeMacro": N_(
         "Automatically match expansion case to trigger key case.\n\n"
-        "Example if 'kg' is 'khô gà':\n"
+        "Example if 'kg' is 'Khô gà':\n"
         "- kg -> khô gà\n"
         "- Kg -> Khô gà\n"
         "- KG -> KHÔ GÀ"
