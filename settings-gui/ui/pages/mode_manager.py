@@ -467,8 +467,12 @@ class ModeManagerPage(QWidget):
         try:
             data = self.dbus.get_sub_config_list("app_rules", "Rules")
             for item in data:
-                app = item.get("App", "")
-                mode = int(item.get("Mode", 0))
+                try:
+                    app = item.get("App", "")
+                    mode = int(item.get("Mode", 0))
+                except (ValueError, TypeError, AttributeError):
+                    print(f"Skipping malformed app rule: {item!r}")
+                    continue
                 if app:
                     self.app_rules[app] = mode
         except Exception as e:
