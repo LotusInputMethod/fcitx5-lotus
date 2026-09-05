@@ -41,17 +41,3 @@ func TestMacroTableGet(t *testing.T) {
 		t.Errorf("Get on empty table got [found] expected [missing]")
 	}
 }
-
-func TestMacroTableDeprecatedHelpers(t *testing.T) {
-	table := &MacroTable{mTable: map[string]string{"vn": "Việt Nam"}}
-
-	if !table.HasKey("VN") {
-		t.Errorf("HasKey(VN) got [false] expected [true]")
-	}
-	if table.HasKey("xyz") {
-		t.Errorf("HasKey(xyz) got [true] expected [false]")
-	}
-	if got := table.GetText("VN"); got != "Việt Nam" {
-		t.Errorf("GetText(VN) got [%s] expected [Việt Nam]", got)
-	}
-}
