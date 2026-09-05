@@ -23,6 +23,7 @@ jobs:
           git config --global --add safe.directory $GITHUB_WORKSPACE
       - uses: actions/checkout@v7
       - uses: fcitx/github-actions@clang-format
+
   check:
     name: Build and test
     needs: clang-format
@@ -86,6 +87,7 @@ jobs:
         uses: github/codeql-action/analyze@v4.37.9
         with:
           checkout_path: fcitx5-lotus
+
   go-test:
     name: Go test
     runs-on: ubuntu-latest
@@ -107,3 +109,18 @@ jobs:
         working-directory: bamboo
         run: |
           test -z "$(gofmt -l *_test.go)"
+
+  python-lint:
+    name: Python lint
+    runs-on: ubuntu-latest
+    needs: clang-format
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run Ruff Lint and Format check
+        uses: astral-sh/ruff-action@v4.1.0
+        with:
+          args: 'check settings-gui'
+      - name: Run Ruff Format check
+        uses: astral-sh/ruff-action@v4.1.0
+        with:
+          args: 'format --check settings-gui'

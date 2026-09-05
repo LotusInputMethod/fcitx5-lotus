@@ -88,16 +88,27 @@ All members contributing to this project must adhere to the [Contributor Code of
 
 ## Code Style Rules
 
-- Follow the [`.clang-format`](.clang-format) file in the repository
-- Encouraged to create a hook for pre-commit to automatically format code before commit by creating a file .git/hooks/pre-commit with the following content:
+- **C/C++**: Follow the [`.clang-format`](.clang-format) file in the repository.
+- **Python (`settings-gui`)**: Follow `ruff` linting and formatting standards (`ruff check` and `ruff format`).
+- Encouraged to create a `pre-commit` hook to automatically format code before commit by creating `.git/hooks/pre-commit` with the following content:
 
 ```bash
 #!/bin/bash
-FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(cpp|h)$')
-
-if [ -n "$FILES" ]; then
-    for file in $FILES; do
+# Format C/C++
+CPP_FILES=$(git diff --cached --name-only --diff-filter=ACMR \vert{} grep -E '\.(cpp\vert{}h)$')
+if [ -n "$CPP_FILES" ]; then
+    for file in $CPP_FILES; do
         clang-format -i "$file"
+        git add "$file"
+    done
+fi
+
+# Lint & Format Python
+PY_FILES=$(git diff --cached --name-only --diff-filter=ACMR \vert{} grep -E '^settings-gui/.*\.py$')
+if [ -n "$PY_FILES" ]; then
+    ruff check --fix settings-gui
+    ruff format settings-gui
+    for file in $PY_FILES; do
         git add "$file"
     done
 fi
@@ -107,7 +118,16 @@ Then run the command: `chmod +x .git/hooks/pre-commit`
 
 ## Pull Request Process
 
-### 1. Ensure clean code with `clang-format`
+### 1. Ensure clean code with `clang-format` and `ruff`
+
+```bash
+# C/C++
+clang-format -i src/*.cpp src/*.h
+
+# Python
+ruff check --fix settings-gui
+ruff format settings-gui
+```
 
 ### 2. Run tests
 

@@ -22,6 +22,7 @@
 
 - [ ] Nhánh đích là `dev` (KHÔNG phải `main`)
 - [ ] Đã chạy `clang-format` (tuân thủ `.clang-format`)
+- [ ] Đã kiểm tra `ruff check` và `ruff format` (cho phần Python `settings-gui`)
 - [ ] Build C++ thành công (`cmake .. && make`)
 - [ ] Test pass (`cd bamboo/ && go test -race ./...`)
 - [ ] Đã rebase với nhánh `dev` mới nhất
