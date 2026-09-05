@@ -12,12 +12,6 @@
 //   - the buffer is truncated to the expected substring, and
 //   - the result is well-formed UTF-8 (using fcitx::utf8::validate).
 //
-// Build & run (no CMake integration, same pattern as scripts/test/):
-//   g++ -std=c++17 test-emoji-backspace.cpp ../src/lotus-utils.cpp \
-//       -I../src $(pkg-config --cflags --libs fcitx5-core fcitx5-utils) \
-//       -o test_emoji_backspace
-//   ./test_emoji_backspace
-
 #include "lotus-utils.h"
 
 #include <cstdio>

@@ -2,6 +2,20 @@ cmake_minimum_required(VERSION 3.10)
 
 project(fcitx5-lotus VERSION 3.5.8)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+option(BUILD_TESTING "Build Lotus tests" OFF)
+
+# The addon entry point is intentionally excluded: each headless test links
+# the production implementation directly, without a reusable archive/object
+# target that could differ from the module build.
+set(fcitx_lotus_core_sources
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lotus-engine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lotus-state.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lotus-candidates.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lotus-utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lotus-monitor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lotus-icon-resolver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/emoji.cpp
+)
 
 set(REQUIRED_FCITX_VERSION 5.0.14)
 find_package(ECM 1.0.0 REQUIRED)
@@ -35,6 +49,11 @@ add_subdirectory(data)
 add_subdirectory(server)
 add_subdirectory(misc)
 add_subdirectory(settings-gui)
+
+if (BUILD_TESTING)
+    include(CTest)
+    add_subdirectory(test)
+endif()
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in"
