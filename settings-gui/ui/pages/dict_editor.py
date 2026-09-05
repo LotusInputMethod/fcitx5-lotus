@@ -48,9 +48,7 @@ class DictEditorPage(BaseEditorPage):
         self._setup_ui()
 
     def _get_local_dict_path(self) -> str:
-        xdg_data_home = os.environ.get(
-            "XDG_DATA_HOME", os.path.expanduser("~/.local/share")
-        )
+        xdg_data_home = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
         return os.path.join(xdg_data_home, "fcitx5/lotus/vietnamese.cm.dict")
 
     def _get_global_dict_path(self) -> str:
@@ -185,7 +183,9 @@ class DictEditorPage(BaseEditorPage):
                     QMessageBox.warning(
                         self,
                         _("Warning"),
-                        _("Failed to load dictionary completely: {}\nSaving is disabled to prevent data loss.").format(e),
+                        _(
+                            "Failed to load dictionary completely: {}\nSaving is disabled to prevent data loss."
+                        ).format(e),
                     )
 
             self._rebuild_table()
@@ -247,7 +247,9 @@ class DictEditorPage(BaseEditorPage):
             QMessageBox.warning(
                 self,
                 _("Error"),
-                _("Cannot save dictionary because loading failed earlier. Please fix the file format first."),
+                _(
+                    "Cannot save dictionary because loading failed earlier. Please fix the file format first."
+                ),
             )
             return False
 
@@ -255,9 +257,7 @@ class DictEditorPage(BaseEditorPage):
         config_data = self.dbus.get_config()
         if config_data:
             values = config_data.get("values", {})
-            values["EnableDictionary"] = (
-                "True" if self.cb_enable.isChecked() else "False"
-            )
+            values["EnableDictionary"] = "True" if self.cb_enable.isChecked() else "False"
             if not self.dbus.set_config(values):
                 return False
         elif not self.dbus.iface:
@@ -268,7 +268,9 @@ class DictEditorPage(BaseEditorPage):
             target_dir = os.path.dirname(local_path)
             os.makedirs(target_dir, exist_ok=True)
 
-            with tempfile.NamedTemporaryFile("w", dir=target_dir, encoding="utf-8", delete=False) as tf:
+            with tempfile.NamedTemporaryFile(
+                "w", dir=target_dir, encoding="utf-8", delete=False
+            ) as tf:
                 for word in self.words:
                     tf.write(f"{word}\n")
                 temp_name = tf.name
@@ -284,14 +286,12 @@ class DictEditorPage(BaseEditorPage):
             self.initial_state = self._get_current_state()
             return True
         except Exception as e:
-            if 'temp_name' in locals() and os.path.exists(temp_name):
+            if "temp_name" in locals() and os.path.exists(temp_name):
                 try:
                     os.remove(temp_name)
                 except OSError:
                     pass
-            QMessageBox.warning(
-                self, _("Error"), _("Failed to save dictionary: {}").format(e)
-            )
+            QMessageBox.warning(self, _("Error"), _("Failed to save dictionary: {}").format(e))
             return False
 
     def upsert_row(self, word: str, sort: bool = True):
@@ -351,9 +351,7 @@ class DictEditorPage(BaseEditorPage):
 
         if is_invalid:
             self.input_word.setStyleSheet("color: red;")
-            self.input_word.setToolTip(
-                _("Warning: Dictionary words should not contain spaces.")
-            )
+            self.input_word.setToolTip(_("Warning: Dictionary words should not contain spaces."))
         else:
             self.input_word.setStyleSheet("")
             self.input_word.setToolTip("")

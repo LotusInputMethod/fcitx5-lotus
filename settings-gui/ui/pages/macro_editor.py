@@ -200,9 +200,7 @@ class MacroEditorPage(BaseEditorPage):
         # 2. Table Area
         self.table = QTableWidget(0, 2)
         self.table.setHorizontalHeaderLabels([_("Abbreviation"), _("Expanded Text")])
-        self.table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeToContents
-        )
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -242,9 +240,7 @@ class MacroEditorPage(BaseEditorPage):
             config_data = self.dbus.get_config()
             if config_data:
                 values = config_data.get("values", {})
-                self.cb_enable.setChecked(
-                    str(values.get("EnableMacro", "True")).lower() == "true"
-                )
+                self.cb_enable.setChecked(str(values.get("EnableMacro", "True")).lower() == "true")
                 self.cb_capitalize.setChecked(
                     str(values.get("CapitalizeMacro", "True")).lower() == "true"
                 )
@@ -274,9 +270,7 @@ class MacroEditorPage(BaseEditorPage):
                     self.input_time_format.setCurrentIndex(index)
                 else:
                     # Fallback to default if not in list (since it's not editable anymore)
-                    self.input_time_format.setCurrentIndex(
-                        self.input_time_format.findData("%H:%M")
-                    )
+                    self.input_time_format.setCurrentIndex(self.input_time_format.findData("%H:%M"))
 
                 # Set date format
                 date_fmt = values.get("DateFormat", "%d/%m/%Y")
@@ -356,9 +350,7 @@ class MacroEditorPage(BaseEditorPage):
         if config_data:
             values = config_data.get("values", {})
             values["EnableMacro"] = "True" if self.cb_enable.isChecked() else "False"
-            values["CapitalizeMacro"] = (
-                "True" if self.cb_capitalize.isChecked() else "False"
-            )
+            values["CapitalizeMacro"] = "True" if self.cb_capitalize.isChecked() else "False"
             values["EnableMacroInOffMode"] = (
                 "True" if self.cb_enable_off_mode.isChecked() else "False"
             )
@@ -376,9 +368,7 @@ class MacroEditorPage(BaseEditorPage):
             val_item = self.table.item(row, 1)
             if not key_item or not key_item.text():
                 continue
-            data.append(
-                {"Key": key_item.text(), "Value": val_item.text() if val_item else ""}
-            )
+            data.append({"Key": key_item.text(), "Value": val_item.text() if val_item else ""})
 
         if not self.dbus.set_sub_config_list("lotus-macro", "Macro", data):
             return False
@@ -459,9 +449,7 @@ class MacroEditorPage(BaseEditorPage):
             val = val_item.text().lower() if val_item else ""
 
             # Show row if either key or value matches search text
-            self.table.setRowHidden(
-                row, search_text not in key and search_text not in val
-            )
+            self.table.setRowHidden(row, search_text not in key and search_text not in val)
 
     def on_add(self):
         key = self.input_key.text().strip()
@@ -483,9 +471,7 @@ class MacroEditorPage(BaseEditorPage):
         # Validation feedback for input field
         if is_invalid:
             self.input_key.setStyleSheet("color: red;")
-            self.input_key.setToolTip(
-                _("Macro keys cannot contain spaces or special characters.")
-            )
+            self.input_key.setToolTip(_("Macro keys cannot contain spaces or special characters."))
         else:
             self.input_key.setStyleSheet("")
             self.input_key.setToolTip("")

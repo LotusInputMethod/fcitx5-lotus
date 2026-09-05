@@ -56,7 +56,6 @@ MODE_INFO = {
 }
 
 
-
 class ModeCard(QFrame):
     """A card for selecting an input mode."""
 
@@ -227,14 +226,14 @@ class AddAppDialog(QDialog):
                     try:
                         exe = os.readlink(f"/proc/{pid}/exe")
                     except (PermissionError, FileNotFoundError):
-                        continue # Probably a kernel thread
+                        continue  # Probably a kernel thread
 
                     # Clean process names for NixOS
-                    if name.startswith('.'):
+                    if name.startswith("."):
                         exe_base = os.path.basename(exe)
-                        if exe_base.startswith('.') and exe_base.endswith('-wrapped'):
+                        if exe_base.startswith(".") and exe_base.endswith("-wrapped"):
                             name = exe_base[1:-8]
-                        elif name.startswith('.' + exe_base) or name == ('.' + exe_base)[:15]:
+                        elif name.startswith("." + exe_base) or name == ("." + exe_base)[:15]:
                             name = exe_base
                         else:
                             clean = name[1:]
@@ -256,16 +255,52 @@ class AddAppDialog(QDialog):
                     # Heuristic: Exclude common background process patterns
                     # These processes run as user but are typically not "apps" for rules
                     bg_patterns = [
-                        "_agent", "_helper", "_daemon", "_resource", "_server",
-                        "-agent", "-helper", "-daemon", "-sandbox", "-proxy",
-                        "akonadi", "kactivitymanagerd", "kaccess", "krunner",
-                        "ksmserver", "kwin_", "kglobalaccel", "org.kde.",
-                        "gnome-shell", "dbus-", "at-spi", "pipewire", "pulseaudio",
-                        "xdg-", "gvfs", "tracker-", "evolution-", "mission-control",
-                        "telepathy", "dconf", "applet", "notify-osd", "indicator-",
-                        "plasmashell", "xwayland", "wireplumber", "xsettingsd",
-                        "xembedsniproxy", "gmenudbusmenuproxy", "kalendarac",
-                        "ksystemstats", "ksecretd", "kwalletd", "kded", "startplasma", "bwrap"
+                        "_agent",
+                        "_helper",
+                        "_daemon",
+                        "_resource",
+                        "_server",
+                        "-agent",
+                        "-helper",
+                        "-daemon",
+                        "-sandbox",
+                        "-proxy",
+                        "akonadi",
+                        "kactivitymanagerd",
+                        "kaccess",
+                        "krunner",
+                        "ksmserver",
+                        "kwin_",
+                        "kglobalaccel",
+                        "org.kde.",
+                        "gnome-shell",
+                        "dbus-",
+                        "at-spi",
+                        "pipewire",
+                        "pulseaudio",
+                        "xdg-",
+                        "gvfs",
+                        "tracker-",
+                        "evolution-",
+                        "mission-control",
+                        "telepathy",
+                        "dconf",
+                        "applet",
+                        "notify-osd",
+                        "indicator-",
+                        "plasmashell",
+                        "xwayland",
+                        "wireplumber",
+                        "xsettingsd",
+                        "xembedsniproxy",
+                        "gmenudbusmenuproxy",
+                        "kalendarac",
+                        "ksystemstats",
+                        "ksecretd",
+                        "kwalletd",
+                        "kded",
+                        "startplasma",
+                        "bwrap",
                     ]
                     basename = os.path.basename(exe).lower()
                     if any(p in name.lower() or p in basename for p in bg_patterns):
@@ -310,13 +345,19 @@ class AddAppDialog(QDialog):
 
             icon_name = self._icon_cache.get(app["name"].lower())
             if not icon_name:
-                icon_name = self._icon_cache.get(os.path.basename(app["exe"]).lower(), app["name"].lower())
+                icon_name = self._icon_cache.get(
+                    os.path.basename(app["exe"]).lower(), app["name"].lower()
+                )
 
             item.setIcon(QIcon.fromTheme(icon_name, QIcon.fromTheme("application-x-executable")))
             self.running_list.addItem(item)
 
     def _filter_running_apps(self, text):
-        filtered = [a for a in self.full_app_list if text.lower() in a["name"].lower() or text.lower() in a["exe"].lower()]
+        filtered = [
+            a
+            for a in self.full_app_list
+            if text.lower() in a["name"].lower() or text.lower() in a["exe"].lower()
+        ]
         self._populate_list(filtered)
 
     def _on_app_selected(self, item):
@@ -330,7 +371,7 @@ class AddAppDialog(QDialog):
         self._on_add_clicked()
 
     def _on_add_clicked(self):
-        if self.tabs.currentIndex() == 1: # Manual
+        if self.tabs.currentIndex() == 1:  # Manual
             self.selected_app = self.manual_input.text().strip()
             if not self.selected_app:
                 return
@@ -406,9 +447,14 @@ class ModeManagerPage(QWidget):
         global_layout.addWidget(QLabel(_("Global Default Mode:")))
         self.combo_global_mode = QComboBox()
         global_modes = [
-            MODE_SMOOTH, MODE_SLOW, MODE_SUPER_SMOOTH, MODE_MINECRAFT,
-            MODE_SURROUNDING, MODE_PREEDIT, MODE_EMOJI,
-            MODE_OFF
+            MODE_SMOOTH,
+            MODE_SLOW,
+            MODE_SUPER_SMOOTH,
+            MODE_MINECRAFT,
+            MODE_SURROUNDING,
+            MODE_PREEDIT,
+            MODE_EMOJI,
+            MODE_OFF,
         ]
         for m in global_modes:
             self.combo_global_mode.addItem(_(MODE_INFO[m]["title"]), MODE_INFO[m]["title"])
@@ -440,10 +486,15 @@ class ModeManagerPage(QWidget):
         self.mode_cards = {}
 
         grid_modes = [
-            MODE_SMOOTH, MODE_SLOW, MODE_SUPER_SMOOTH,
-            MODE_MINECRAFT, MODE_SURROUNDING,
-            MODE_PREEDIT, MODE_EMOJI,
-            MODE_OFF, MODE_DEFAULT
+            MODE_SMOOTH,
+            MODE_SLOW,
+            MODE_SUPER_SMOOTH,
+            MODE_MINECRAFT,
+            MODE_SURROUNDING,
+            MODE_PREEDIT,
+            MODE_EMOJI,
+            MODE_OFF,
+            MODE_DEFAULT,
         ]
         for i, m in enumerate(grid_modes):
             card = ModeCard(m)
@@ -540,17 +591,18 @@ class ModeManagerPage(QWidget):
                 if not f.endswith(".desktop"):
                     continue
                 try:
-                    desktop_id = f[:-8] # remove .desktop
+                    desktop_id = f[:-8]  # remove .desktop
                     with open(os.path.join(p, f), "r", encoding="utf-8") as df:
                         content = df.read()
 
                         icon_match = re.search(r"^Icon=([^\n]+)", content, re.MULTILINE)
-                        if not icon_match: continue
+                        if not icon_match:
+                            continue
                         icon = icon_match.group(1).strip()
 
                         # Map by desktop ID (e.g. discord)
                         self._icon_cache[desktop_id.lower()] = icon
-                        if "." in desktop_id: # handle com.discordapp.Discord
+                        if "." in desktop_id:  # handle com.discordapp.Discord
                             self._icon_cache[desktop_id.split(".")[-1].lower()] = icon
 
                         name_match = re.search(r"^Name=([^\n]+)", content, re.MULTILINE)
@@ -618,7 +670,7 @@ class ModeManagerPage(QWidget):
         self.app_name_label.setText(app_name)
         self.app_icon_label.setPixmap(self._resolve_icon(app_name).pixmap(48, 48))
         self.app_settings_card.setVisible(True)
-        self.btn_remove_app.setEnabled(True) # Enable Remove
+        self.btn_remove_app.setEnabled(True)  # Enable Remove
         self._update_mode_cards()
 
     def _on_global_mode_changed(self, index):
@@ -626,7 +678,6 @@ class ModeManagerPage(QWidget):
             return
 
         self._notify_changed()
-
 
     def _on_app_mode_changed(self, mode):
         self.current_app_mode = mode
@@ -642,7 +693,7 @@ class ModeManagerPage(QWidget):
 
     def _update_mode_cards(self):
         for m, card in self.mode_cards.items():
-            card.selected = (m == self.current_app_mode)
+            card.selected = m == self.current_app_mode
             card.update_style()
 
     def _on_add_app(self):
@@ -660,9 +711,10 @@ class ModeManagerPage(QWidget):
             return
 
         reply = QMessageBox.question(
-            self, _("Confirm Remove"),
+            self,
+            _("Confirm Remove"),
             _("Remove rules for this application?"),
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.No:
             return
@@ -690,10 +742,7 @@ class ModeManagerPage(QWidget):
 
     def is_modified_from_default(self):
         """Returns True if the current state differs from the default state."""
-        return (
-            len(self.app_rules) > 0
-            or self.combo_global_mode.currentData() != "Uinput (Smooth)"
-        )
+        return len(self.app_rules) > 0 or self.combo_global_mode.currentData() != "Uinput (Smooth)"
 
     def save_data(self) -> bool:
         try:

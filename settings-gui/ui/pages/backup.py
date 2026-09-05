@@ -58,9 +58,7 @@ class BackupPage(QWidget):
         self.main_card = CardWidget(_("Export/Import Settings"))
 
         self.import_desc = QLabel(
-            _(
-                "Save or restore configuration via JSON files. Select components to include:"
-            )
+            _("Save or restore configuration via JSON files. Select components to include:")
         )
         self.import_desc.setWordWrap(True)
         self.import_desc.setStyleSheet("color: gray; font-size: 13px;")
@@ -82,15 +80,11 @@ class BackupPage(QWidget):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
 
-        self.btn_export = QPushButton(
-            QIcon.fromTheme("document-save-as"), _("Export Backup...")
-        )
+        self.btn_export = QPushButton(QIcon.fromTheme("document-save-as"), _("Export Backup..."))
         self.btn_export.clicked.connect(self.do_export)
         self.btn_export.setMinimumHeight(40)
 
-        self.btn_import = QPushButton(
-            QIcon.fromTheme("document-open"), _("Import Backup...")
-        )
+        self.btn_import = QPushButton(QIcon.fromTheme("document-open"), _("Import Backup..."))
         self.btn_import.clicked.connect(self.on_select_import_file)
         self.btn_import.setMinimumHeight(40)
 
@@ -104,9 +98,7 @@ class BackupPage(QWidget):
         self.restore_group.setVisible(False)
         self.main_card.content_layout.addWidget(self.restore_group)
 
-        self.btn_restore = QPushButton(
-            QIcon.fromTheme("system-reboot"), _("Restore Selected Now")
-        )
+        self.btn_restore = QPushButton(QIcon.fromTheme("system-reboot"), _("Restore Selected Now"))
         self.btn_restore.clicked.connect(self.on_restore_selected)
         self.btn_restore.setMinimumHeight(40)
         self.btn_restore.setVisible(False)
@@ -120,23 +112,17 @@ class BackupPage(QWidget):
         root_layout.addWidget(scroll)
 
     def _get_local_dict_path(self) -> str:
-        xdg_data_home = os.environ.get(
-            "XDG_DATA_HOME", os.path.expanduser("~/.local/share")
-        )
+        xdg_data_home = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
         return os.path.join(xdg_data_home, "fcitx5/lotus/vietnamese.cm.dict")
 
     def do_export(self):
         """Creates a JSON backup of selected components."""
         selected = {k: cb.isChecked() for k, cb in self.checkboxes.items()}
         if not any(selected.values()):
-            QMessageBox.warning(
-                self, _("Warning"), _("Select at least one item to export.")
-            )
+            QMessageBox.warning(self, _("Warning"), _("Select at least one item to export."))
             return
 
-        default_filename = (
-            f"lotus-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
-        )
+        default_filename = f"lotus-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
         path, _filter = QFileDialog.getSaveFileName(
             self,
             _("Export Backup"),
@@ -180,14 +166,10 @@ class BackupPage(QWidget):
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(backup, f, indent=2, ensure_ascii=False)
 
-            QMessageBox.information(
-                self, _("Success"), _("Backup exported to:\n") + path
-            )
+            QMessageBox.information(self, _("Success"), _("Backup exported to:\n") + path)
 
         except Exception as e:
-            QMessageBox.critical(
-                self, _("Error"), _("Failed to export backup:\n") + str(e)
-            )
+            QMessageBox.critical(self, _("Error"), _("Failed to export backup:\n") + str(e))
 
     def on_select_import_file(self):
         """Opens a JSON backup and shows available components for restore."""
@@ -231,30 +213,22 @@ class BackupPage(QWidget):
                     found_any = True
 
             if not found_any:
-                raise ValueError(
-                    _("Invalid backup file: No recognizable components found.")
-                )
+                raise ValueError(_("Invalid backup file: No recognizable components found."))
 
             self.restore_group.setVisible(True)
             self.btn_restore.setVisible(True)
 
         except Exception as e:
-            QMessageBox.critical(
-                self, _("Error"), _("Failed to open backup file:\n") + str(e)
-            )
+            QMessageBox.critical(self, _("Error"), _("Failed to open backup file:\n") + str(e))
 
     def on_restore_selected(self):
         """Applies selected components from the JSON backup."""
         if not self.restore_data or "json_path" not in self.restore_data:
             return
 
-        selected_keys = [
-            k for k, cb in self.restore_checkboxes.items() if cb.isChecked()
-        ]
+        selected_keys = [k for k, cb in self.restore_checkboxes.items() if cb.isChecked()]
         if not selected_keys:
-            QMessageBox.warning(
-                self, _("Warning"), _("Select at least one item to restore.")
-            )
+            QMessageBox.warning(self, _("Warning"), _("Select at least one item to restore."))
             return
 
         reply = QMessageBox.warning(
@@ -314,9 +288,7 @@ class BackupPage(QWidget):
             QMessageBox.information(
                 self,
                 _("Success"),
-                _(
-                    "Selected components restored. Fcitx5 restart may be required for some changes."
-                ),
+                _("Selected components restored. Fcitx5 restart may be required for some changes."),
             )
 
             # Trigger UI reload
@@ -330,6 +302,4 @@ class BackupPage(QWidget):
             self.restore_data = None
 
         except Exception as e:
-            QMessageBox.critical(
-                self, _("Error"), _("Failed to restore backup:\n") + str(e)
-            )
+            QMessageBox.critical(self, _("Error"), _("Failed to restore backup:\n") + str(e))

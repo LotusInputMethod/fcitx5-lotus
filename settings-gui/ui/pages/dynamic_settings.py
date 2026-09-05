@@ -56,7 +56,7 @@ SETTINGS_MAP = {
             "DoubleSpaceToPeriod",
             "DoubleHyphenToEmDash",
             "AutoCapitalizeAfterPunctuation",
-            "useSurroundingTextIfPossible"
+            "useSurroundingTextIfPossible",
         ],
     },
     SettingsCategory.SHORTCUTS: {
@@ -80,12 +80,8 @@ CATEGORY_DESCRIPTIONS = {
     SettingsCategory.APPEARANCE: _(
         "Customize the look and feel of the Lotus status icons and theme."
     ),
-    SettingsCategory.TYPING: _(
-        "Fine-tune spelling corrections and advanced typing options."
-    ),
-    SettingsCategory.SHORTCUTS: _(
-        "Manage input mode shortcuts, display order, and fast cycling."
-    ),
+    SettingsCategory.TYPING: _("Fine-tune spelling corrections and advanced typing options."),
+    SettingsCategory.SHORTCUTS: _("Manage input mode shortcuts, display order, and fast cycling."),
 }
 
 GROUP_DESCRIPTIONS = {
@@ -215,9 +211,7 @@ class DynamicSettingsPage(QWidget):
 
             config_data = self.dbus.get_config()
             if not config_data:
-                self.container_layout.addWidget(
-                    QLabel(_("Failed to load configuration."))
-                )
+                self.container_layout.addWidget(QLabel(_("Failed to load configuration.")))
                 return
 
             self.current_values = config_data.get("values", {})
@@ -262,9 +256,7 @@ class DynamicSettingsPage(QWidget):
                         )
                     )
                     mode_info.setWordWrap(True)
-                    mode_info.setStyleSheet(
-                        "color: gray; font-size: 13px; margin-bottom: 5px;"
-                    )
+                    mode_info.setStyleSheet("color: gray; font-size: 13px; margin-bottom: 5px;")
                     self.container_layout.addWidget(mode_info)
 
                     self._render_mode_list(card_layout=self.container_layout)
@@ -292,9 +284,7 @@ class DynamicSettingsPage(QWidget):
                     self.container_layout.addWidget(card)
 
             if self.category == SettingsCategory.INTERFACE and not category_groups:
-                self.container_layout.addWidget(
-                    QLabel(_("No interface settings available yet."))
-                )
+                self.container_layout.addWidget(QLabel(_("No interface settings available yet.")))
 
             self.initial_values = self.current_values.copy()
             self.container_layout.addStretch()
@@ -332,9 +322,7 @@ class DynamicSettingsPage(QWidget):
 
         hk_btn = HotkeyEditorWidget(hotkey_str)
         hk_btn.setFixedWidth(235)
-        hk_btn.textChanged.connect(
-            lambda text, k=key: self.update_config(k, {"0": text})
-        )
+        hk_btn.textChanged.connect(lambda text, k=key: self.update_config(k, {"0": text}))
 
         row_layout.addWidget(hk_btn)
         layout.addLayout(row_layout)
@@ -355,9 +343,7 @@ class DynamicSettingsPage(QWidget):
         combo = QComboBox()
         combo.setFixedWidth(200)
         enum_dict = annotations.get("Enum", {})
-        sorted_keys = sorted(
-            enum_dict.keys(), key=lambda x: int(x) if str(x).isdigit() else x
-        )
+        sorted_keys = sorted(enum_dict.keys(), key=lambda x: int(x) if str(x).isdigit() else x)
 
         for k in sorted_keys:
             rb_text = str(enum_dict[k])
@@ -425,9 +411,7 @@ class DynamicSettingsPage(QWidget):
             # Use single key capture for shortcuts
             capture_btn = SingleKeyCaptureWidget(val)
             capture_btn.setFixedWidth(100)
-            capture_btn.textChanged.connect(
-                lambda text, k=key: self.update_config(k, text)
-            )
+            capture_btn.textChanged.connect(lambda text, k=key: self.update_config(k, text))
             row_layout.addWidget(capture_btn)
         else:
             edit = QLineEdit(val)
@@ -511,9 +495,7 @@ class DynamicSettingsPage(QWidget):
                 handle.setPixmap(icon.pixmap(16, 16))
             else:
                 handle.setText("☰")
-                handle.setStyleSheet(
-                    "font-size: 14px; color: palette(mid); font-weight: bold;"
-                )
+                handle.setStyleSheet("font-size: 14px; color: palette(mid); font-weight: bold;")
 
             handle.setFixedSize(24, 24)
             handle.setAlignment(Qt.AlignCenter)
@@ -535,9 +517,7 @@ class DynamicSettingsPage(QWidget):
             list_item.setData(Qt.UserRole, name)
 
         self.list_widgets.append(list_widget)
-        list_widget.model().rowsMoved.connect(
-            lambda *args: self._update_mode_order(list_widget)
-        )
+        list_widget.model().rowsMoved.connect(lambda *args: self._update_mode_order(list_widget))
 
         card.content_layout.addWidget(list_widget)
         card_layout.addWidget(card)
@@ -565,7 +545,9 @@ class DynamicSettingsPage(QWidget):
         enabled_shortcuts = {}
         for shortcut_key, visibility_key in MODE_SHORTCUT_TO_VISIBILITY.items():
             default_visibility = "True"
-            vis_meta = self.all_metadata.get(visibility_key) if hasattr(self, "all_metadata") else None
+            vis_meta = (
+                self.all_metadata.get(visibility_key) if hasattr(self, "all_metadata") else None
+            )
             if vis_meta:
                 default_visibility = vis_meta[3]
 
@@ -574,7 +556,9 @@ class DynamicSettingsPage(QWidget):
             )
             if is_enabled:
                 default_shortcut = ""
-                shortcut_meta = self.all_metadata.get(shortcut_key) if hasattr(self, "all_metadata") else None
+                shortcut_meta = (
+                    self.all_metadata.get(shortcut_key) if hasattr(self, "all_metadata") else None
+                )
                 if shortcut_meta:
                     default_shortcut = shortcut_meta[3]
                 val = self.current_values.get(shortcut_key, default_shortcut)
@@ -587,9 +571,9 @@ class DynamicSettingsPage(QWidget):
         # Flag duplicates
         for shortcut, keys in enabled_shortcuts.items():
             if len(keys) > 1:
-                error_msg = _(
-                    "Duplicate shortcut '{}' used for multiple enabled modes."
-                ).format(shortcut)
+                error_msg = _("Duplicate shortcut '{}' used for multiple enabled modes.").format(
+                    shortcut
+                )
                 self.validation_errors.append(error_msg)
                 for key in keys:
                     if key in self.shortcut_warning_labels:

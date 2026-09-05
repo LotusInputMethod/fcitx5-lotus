@@ -245,9 +245,7 @@ class KeymapEditorPage(BaseEditorPage):
         self.combo_preset.addItems(PRESETS.keys())
         bottom_row.addWidget(self.combo_preset)
 
-        btn_load_preset = QPushButton(
-            QIcon.fromTheme("document-import"), _("Apply Preset")
-        )
+        btn_load_preset = QPushButton(QIcon.fromTheme("document-import"), _("Apply Preset"))
         btn_load_preset.clicked.connect(self.on_load_preset)
         bottom_row.addWidget(btn_load_preset)
         bottom_row.addStretch()
@@ -286,9 +284,7 @@ class KeymapEditorPage(BaseEditorPage):
         # Table
         self.table = QTableWidget(0, 2)
         self.table.setHorizontalHeaderLabels([_("Key"), _("Action")])
-        self.table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeToContents
-        )
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -388,7 +384,11 @@ class KeymapEditorPage(BaseEditorPage):
         search_text = self.search_input.text().lower()
         for row in range(self.table.rowCount()):
             key_item = self.table.item(row, 0)
-            action_item = self.table.cellWidget(row, 1) if isinstance(self.table.cellWidget(row, 1), QComboBox) else self.table.item(row, 1)
+            action_item = (
+                self.table.cellWidget(row, 1)
+                if isinstance(self.table.cellWidget(row, 1), QComboBox)
+                else self.table.item(row, 1)
+            )
 
             key = key_item.text().lower() if key_item else ""
             action = ""

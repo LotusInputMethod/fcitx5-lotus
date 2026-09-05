@@ -166,16 +166,12 @@ class LotusSettingsWindow(QMainWindow):
         def create_general():
             from ui.pages.dynamic_settings import DynamicSettingsPage, SettingsCategory
 
-            return DynamicSettingsPage(
-                self.dbus_handler, category=SettingsCategory.GENERAL
-            )
+            return DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.GENERAL)
 
         def create_typing():
             from ui.pages.dynamic_settings import DynamicSettingsPage, SettingsCategory
 
-            return DynamicSettingsPage(
-                self.dbus_handler, category=SettingsCategory.TYPING
-            )
+            return DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.TYPING)
 
         def create_applications():
             from ui.pages.mode_manager import ModeManagerPage
@@ -200,16 +196,12 @@ class LotusSettingsWindow(QMainWindow):
         def create_shortcuts():
             from ui.pages.dynamic_settings import DynamicSettingsPage, SettingsCategory
 
-            return DynamicSettingsPage(
-                self.dbus_handler, category=SettingsCategory.SHORTCUTS
-            )
+            return DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.SHORTCUTS)
 
         def create_appearance():
             from ui.pages.dynamic_settings import DynamicSettingsPage, SettingsCategory
 
-            return DynamicSettingsPage(
-                self.dbus_handler, category=SettingsCategory.APPEARANCE
-            )
+            return DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.APPEARANCE)
 
         def create_backup():
             from ui.pages.backup import BackupPage
@@ -227,9 +219,7 @@ class LotusSettingsWindow(QMainWindow):
         self._add_page(_("Macros"), "accessories-text-editor", create_macros)
         self._add_page(_("Dictionary"), "edit-copy", create_dict)
         self._add_page(_("Keymap"), "preferences-desktop-keyboard", create_keymap)
-        self._add_page(
-            _("Shortcuts"), "preferences-desktop-keyboard-shortcuts", create_shortcuts
-        )
+        self._add_page(_("Shortcuts"), "preferences-desktop-keyboard-shortcuts", create_shortcuts)
         self._add_page(_("Appearance"), "preferences-desktop-theme", create_appearance)
         self._add_page(_("Backup"), "document-save-as", create_backup)
 
