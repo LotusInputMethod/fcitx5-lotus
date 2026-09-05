@@ -153,7 +153,7 @@ class LotusSettingsWindow(QMainWindow):
 
         self.btn_apply = QPushButton(QIcon.fromTheme("document-save"), _("&Apply"))
         self.btn_apply.setEnabled(False)
-        self.btn_apply.clicked.connect(lambda: self.on_save_all(quiet=True))
+        self.btn_apply.clicked.connect(lambda: self.on_save_all(quiet=False))
         bar_layout.addWidget(self.btn_apply)
 
         self.btn_ok = QPushButton(QIcon.fromTheme("dialog-ok"), _("&OK"))
@@ -290,9 +290,9 @@ class LotusSettingsWindow(QMainWindow):
 
     def on_save_all(self, quiet=False):
         """Triggers save on all pages that support it."""
-        if self.has_validation_errors():
-            from qtpy.QtWidgets import QMessageBox
+        from qtpy.QtWidgets import QMessageBox
 
+        if self.has_validation_errors():
             QMessageBox.warning(
                 self,
                 _("Cannot Save"),
@@ -304,14 +304,17 @@ class LotusSettingsWindow(QMainWindow):
             page = self.content_stack.widget(i)
             if hasattr(page, "save_data"):
                 if page.save_data() is False:
+                    QMessageBox.critical(
+                        self,
+                        _("Error"),
+                        _("Failed to save settings. Please check if Fcitx5 is running."),
+                    )
                     return False
 
         self.btn_apply.setEnabled(False)
         self.btn_cancel.setEnabled(False)
         self.update_reset_button_state()
         if not quiet:
-            from qtpy.QtWidgets import QMessageBox
-
             QMessageBox.information(self, _("Success"), _("Settings saved."))
         return True
 

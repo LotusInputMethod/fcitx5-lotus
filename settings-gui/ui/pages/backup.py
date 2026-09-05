@@ -271,25 +271,44 @@ class BackupPage(QWidget):
             with open(self.restore_data["json_path"], "r", encoding="utf-8") as f:
                 backup = json.load(f)
 
+            failed_components = []
+
             if "config" in selected_keys and "config" in backup:
-                self.dbus.set_config(backup["config"])
+                if not self.dbus.set_config(backup["config"]):
+                    failed_components.append(_("Main Settings"))
 
             if "macros" in selected_keys and "macros" in backup:
-                self.dbus.set_sub_config_list("lotus-macro", "Macro", backup["macros"])
+                if not self.dbus.set_sub_config_list("lotus-macro", "Macro", backup["macros"]):
+                    failed_components.append(_("Macros"))
 
             if "keymaps" in selected_keys and "keymaps" in backup:
-                self.dbus.set_sub_config_list(
+                if not self.dbus.set_sub_config_list(
                     "custom_keymap", "CustomKeymap", backup["keymaps"]
-                )
+                ):
+                    failed_components.append(_("Custom Keymaps"))
 
             if "rules" in selected_keys and "rules" in backup:
-                self.dbus.set_sub_config_list("app_rules", "Rules", backup["rules"])
+                if not self.dbus.set_sub_config_list("app_rules", "Rules", backup["rules"]):
+                    failed_components.append(_("Application Rules"))
 
             if "dictionary" in selected_keys and "dictionary" in backup:
-                dict_path = self._get_local_dict_path()
-                os.makedirs(os.path.dirname(dict_path), exist_ok=True)
-                with open(dict_path, "w", encoding="utf-8") as f:
-                    f.write(backup["dictionary"])
+                try:
+                    dict_path = self._get_local_dict_path()
+                    os.makedirs(os.path.dirname(dict_path), exist_ok=True)
+                    with open(dict_path, "w", encoding="utf-8") as f:
+                        f.write(backup["dictionary"])
+                except Exception as e:
+                    print(f"Failed to restore dictionary file: {e}")
+                    failed_components.append(_("Custom Dictionary"))
+
+            if failed_components:
+                QMessageBox.critical(
+                    self,
+                    _("Error"),
+                    _("Failed to restore the following components:\n- ")
+                    + "\n- ".join(failed_components),
+                )
+                return
 
             QMessageBox.information(
                 self,

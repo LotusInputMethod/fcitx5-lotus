@@ -694,25 +694,32 @@ class ModeManagerPage(QWidget):
             or self.combo_global_mode.currentData() != "Uinput (Smooth)"
         )
 
-    def save_data(self):
+    def save_data(self) -> bool:
         try:
             if self.combo_global_mode.currentData() != self.original_global_mode:
                 config_data = self.dbus.get_config()
                 if config_data:
                     latest_values = config_data.get("values", {})
                     latest_values["Mode"] = self.combo_global_mode.currentData()
-                    self.dbus.set_config(latest_values)
+                    if not self.dbus.set_config(latest_values):
+                        return False
+                elif not self.dbus.iface:
+                    return False
 
             data = []
             for app, mode in sorted(self.app_rules.items()):
                 data.append({"App": app, "Mode": str(mode)})
             
-            self.dbus.set_sub_config_list("app_rules", "Rules", data)
+            if not self.dbus.set_sub_config_list("app_rules", "Rules", data):
+                return False
+
             self.original_app_rules = self.app_rules.copy()
             self.original_global_mode = self.combo_global_mode.currentData()
+            return True
 
         except Exception as e:
             print(f"Error saving app rules via DBus: {e}")
+            return False
 
     def restore_defaults(self):
         self.load_data()

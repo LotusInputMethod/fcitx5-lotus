@@ -232,7 +232,7 @@ class DictEditorPage(BaseEditorPage):
             "EnableDictionary": self.cb_enable.isChecked(),
         }
 
-    def save_data(self):
+    def save_data(self) -> bool:
         # Save global dictionary settings via DBus
         config_data = self.dbus.get_config()
         if config_data:
@@ -240,7 +240,10 @@ class DictEditorPage(BaseEditorPage):
             values["EnableDictionary"] = (
                 "True" if self.cb_enable.isChecked() else "False"
             )
-            self.dbus.set_config(values)
+            if not self.dbus.set_config(values):
+                return False
+        elif not self.dbus.iface:
+            return False
 
         local_path = self._get_local_dict_path()
         try:
@@ -256,10 +259,12 @@ class DictEditorPage(BaseEditorPage):
                     self.dbus.set_config(current_config.get("values", {}))
 
             self.initial_state = self._get_current_state()
+            return True
         except Exception as e:
             QMessageBox.warning(
                 self, _("Error"), _("Failed to save dictionary: {}").format(e)
             )
+            return False
 
     def upsert_row(self, word: str, sort: bool = True):
         if word in self.words:

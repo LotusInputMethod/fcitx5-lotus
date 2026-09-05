@@ -309,8 +309,6 @@ class KeymapEditorPage(BaseEditorPage):
         self.btn_remove.setToolTip(_("Remove selected row"))
         self.btn_remove.clicked.connect(self.on_remove)
 
-
-
         toolbar_layout.addWidget(self.btn_remove)
         toolbar_layout.addStretch()
 
@@ -363,14 +361,17 @@ class KeymapEditorPage(BaseEditorPage):
             "EnableCustomKeymap": self.cb_enable.isChecked(),
         }
 
-    def save_data(self):
+    def save_data(self) -> bool:
         """Saves current table via DBus to C++ Engine."""
         # Save toggle
         config_data = self.dbus.get_config()
         if config_data:
             values = config_data.get("values", {})
             values["EnableCustomKeymap"] = "True" if self.cb_enable.isChecked() else "False"
-            self.dbus.set_config(values)
+            if not self.dbus.set_config(values):
+                return False
+        elif not self.dbus.iface:
+            return False
 
         data = []
         for row in range(self.table.rowCount()):
@@ -380,8 +381,11 @@ class KeymapEditorPage(BaseEditorPage):
                 continue
             data.append({"Key": key_item.text(), "Value": combo_widget.currentData()})
 
-        self.dbus.set_sub_config_list("custom_keymap", "CustomKeymap", data)
+        if not self.dbus.set_sub_config_list("custom_keymap", "CustomKeymap", data):
+            return False
+
         self.initial_state = self._get_current_state()
+        return True
 
     def on_search_changed(self):
         """Filters the table rows based on the search input."""

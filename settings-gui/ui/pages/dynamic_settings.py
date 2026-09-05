@@ -631,7 +631,7 @@ class DynamicSettingsPage(QWidget):
     def validation_message(self):
         return "\n".join(self.validation_errors)
 
-    def save_data(self):
+    def save_data(self) -> bool:
         """Commits all staged changes to DBus."""
         if self.has_validation_errors():
             return False
@@ -643,9 +643,13 @@ class DynamicSettingsPage(QWidget):
         if config_data:
             latest_values = config_data.get("values", {})
             latest_values.update(self.modified_values)
-            self.dbus.set_config(latest_values)
+            if not self.dbus.set_config(latest_values):
+                return False
             self.modified_values.clear()
             self.initial_values = self.current_values.copy()
+            return True
+        elif not self.dbus.iface:
+            return False
         return True
 
     def update_config(self, key: str, new_value):
