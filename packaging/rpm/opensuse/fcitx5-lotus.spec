@@ -42,8 +42,8 @@ cd %{_builddir}/%{name}-%{version}
 
 %install
 %cmake_install
-%find_lang %{name}
 %py3_compile %{buildroot}%{_datadir}/fcitx5-lotus
+%find_lang %{name}
 
 %files -f %{name}.lang
 %{_datadir}/licenses/%{name}/GPL-3.0-or-later.txt
@@ -119,6 +119,6 @@ fi
 %postun
 %service_del_postun fcitx5-lotus-server@.service
 
-%changelog
-* Fri Sep 04 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 3.5.8-1
-- Nothing
+%check
+# Upstream does not provide a test suite
+true
