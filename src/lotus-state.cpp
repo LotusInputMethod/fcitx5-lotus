@@ -41,7 +41,12 @@ namespace fcitx {
 
     void LotusState::setEngine() {
         lotusEngine_.reset();
-        realMode = engine_->config().mode.value();
+        // KHÔNG đặt realMode ở đây. setEngine() chạy trong hàm dựng của MỌI LotusState và
+        // trong refreshEngine() cho MỌI input context — cả hai đều không biết cửa sổ nào
+        // đang gõ. Ghi giá trị mặc định chung vào đây là thổi bay luật theo app của cửa sổ
+        // đang hoạt động, cho tới lần đổi focus kế tiếp.
+        // Chế độ do activate() đặt qua setMode(getAppRule(appName), ic), và refreshEngine()
+        // đặt lại cho đúng input context đang có focus.
 
         if (engine_->config().inputMethod.value() == "Custom") {
             const auto&        keymaps = *engine_->customKeymap().customKeymap;
