@@ -609,17 +609,12 @@ namespace fcitx {
                 LOTUS_INFO("Selected mode: " + LotusModeI18NAnnotation::toString(selectedMode.value()));
                 if (selectedMode != LotusMode::Emoji) {
                     if (keySym == Key(*config_.shortcutDefault).sym()) { // Default Typing key
-                        std::lock_guard<std::mutex> lock(appRulesMutex_);
-                        appRules_.erase(currentConfigureApp_);
-                        // Remove from the configuration object too
-                        auto rules = *appRulesTables_.rules;
-                        rules.erase(std::remove_if(rules.begin(), rules.end(), [this](const auto& rule) { return *rule.app == currentConfigureApp_; }), rules.end());
-                        appRulesTables_.rules.setValue(std::move(rules));
+                        clearAppRule(currentConfigureApp_);
                     } else {
                         setAppRule(currentConfigureApp_, selectedMode.value());
-                    }
-                    if (!isStartsWith(currentConfigureApp_, "ctx_")) {
-                        saveAppRules();
+                        if (!isStartsWith(currentConfigureApp_, "ctx_")) {
+                            saveAppRules();
+                        }
                     }
                 }
                 selectionMade = true;
@@ -953,12 +948,16 @@ namespace fcitx {
             state->reset();
         };
 
-        auto applyMode = [this, cleanup](LotusMode mode) {
-            return [this, mode, cleanup](InputContext* ic) {
+        auto applyMode = [this, cleanup](LotusMode mode, bool isDefault = false) {
+            return [this, mode, cleanup, isDefault](InputContext* ic) {
                 if (mode != LotusMode::Emoji) {
-                    setAppRule(currentConfigureApp_, mode);
-                    if (!isStartsWith(currentConfigureApp_, "ctx_")) {
-                        saveAppRules();
+                    if (isDefault) {
+                        clearAppRule(currentConfigureApp_);
+                    } else {
+                        setAppRule(currentConfigureApp_, mode);
+                        if (!isStartsWith(currentConfigureApp_, "ctx_")) {
+                            saveAppRules();
+                        }
                     }
                 }
 
@@ -1028,15 +1027,14 @@ namespace fcitx {
                     modeMenuMapping_[info.key] = info.mode;
                 }
 
-                const std::string keyUtf8  = Key::keySymToUTF8(info.key);
-                std::string       keyLabel = keyUtf8.empty() ? "" : "[" + keyUtf8 + "] ";
-                candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(info.mode, keyLabel + info.label), applyMode(info.mode)));
+                const bool        isDefaultItem = (info.label == _("Default Typing"));
+                const std::string keyUtf8       = Key::keySymToUTF8(info.key);
+                std::string       keyLabel      = keyUtf8.empty() ? "" : "[" + keyUtf8 + "] ";
+                candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(info.mode, keyLabel + info.label), applyMode(info.mode, isDefaultItem)));
 
-                if (info.mode == realMode) {
+                if (info.mode == realMode && !isDefaultItem) {
                     activeSelectionIdx = currentCandidateIdx;
-                } else if (info.mode == defaultMode && info.label == _("Default Typing") && getAppRule(currentConfigureApp_) == defaultMode) {
-                    // This is technically tricky because getAppRule returns the global default if no rule exists.
-                    // If we are at global default, highlight "Default Typing".
+                } else if (isDefaultItem && getAppRule(currentConfigureApp_) == defaultMode) {
 #if __cplusplus >= 202002L
                     if (!appRules_.contains(currentConfigureApp_)) {
 #else
@@ -1222,5 +1220,18 @@ namespace fcitx {
             programName = oss.str();
         }
         return programName;
+    }
+
+    void LotusEngine::clearAppRule(const std::string& appName) {
+        {
+            std::lock_guard<std::mutex> lock(appRulesMutex_);
+            appRules_.erase(appName);
+        }
+        auto rules = *appRulesTables_.rules;
+        rules.erase(std::remove_if(rules.begin(), rules.end(), [&appName](const auto& rule) { return *rule.app == appName; }), rules.end());
+        appRulesTables_.rules.setValue(std::move(rules));
+        if (!isStartsWith(appName, "ctx_")) {
+            saveAppRules();
+        }
     }
 } // namespace fcitx
