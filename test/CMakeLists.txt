@@ -1,3 +1,24 @@
+# Reusable object library compiling the 7 core Lotus sources once per compiler build,
+# shared across all headless integration test executables.
+add_library(lotus_test_core OBJECT ${fcitx_lotus_core_sources})
+set_target_properties(lotus_test_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(lotus_test_core PRIVATE
+    ${PROJECT_BINARY_DIR}
+    ${PROJECT_SOURCE_DIR}/src
+)
+target_compile_definitions(lotus_test_core PRIVATE
+    FCITX5_LOTUS_SETTINGS_PATH="${CMAKE_INSTALL_FULL_BINDIR}/fcitx5-lotus-settings"
+    FCITX_LOTUS_ICON_DIR="${CMAKE_INSTALL_FULL_DATADIR}/icons/hicolor/scalable/apps"
+)
+target_link_libraries(lotus_test_core PRIVATE
+    Fcitx5::Core
+    Fcitx5::Config
+    Fcitx5::Module::Emoji
+    Bamboo::Core
+    Pthread::Pthread
+    X11::X11
+)
+
 # Helper macro to compile standalone headless integration test linked with Lotus engine.
 #
 # Usage:
@@ -5,7 +26,7 @@
 # Example:
 #   add_lotus_headless_test(my_test my-test.cpp "integration;myfeature")
 function(add_lotus_headless_test target source labels)
-    add_executable(${target} ${source} ${fcitx_lotus_core_sources})
+    add_executable(${target} ${source} $<TARGET_OBJECTS:lotus_test_core>)
     target_include_directories(${target} PRIVATE
         ${PROJECT_BINARY_DIR}
         ${PROJECT_SOURCE_DIR}/src
