@@ -26,7 +26,6 @@ jobs:
 
   check:
     name: Build and test
-    needs: clang-format
     runs-on: ubuntu-latest
     container: archlinux:latest
 
