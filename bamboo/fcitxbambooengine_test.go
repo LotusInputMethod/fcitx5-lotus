@@ -393,3 +393,25 @@ func TestIsValidState(t *testing.T) {
 		}
 	}
 }
+
+func TestEnglishNumberW2UInMacroMode(t *testing.T) {
+	cases := []struct {
+		keys string
+		want string
+	}{
+		{"qwen2", "qwen2"},
+		{"new1", "new1"},
+	}
+
+	for _, c := range cases {
+		e := newTestEngine(nil, false)
+		e.macroEnabled = true
+		e.autoNonVnRestore = true
+		e.w2u = true
+
+		typeKeys(e, c.keys)
+		if got := e.preeditText; got != c.want {
+			t.Errorf("type [%s] preedit got [%s] expected [%s]", c.keys, got, c.want)
+		}
+	}
+}
