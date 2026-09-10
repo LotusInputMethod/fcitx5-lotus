@@ -5,21 +5,10 @@
 Base class for Table-based editors (Macros, Keymap).
 """
 
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QMessageBox,
-    QLabel,
-    QAbstractItemView,
 )
-from qtpy.QtCore import Qt
-from qtpy.QtGui import QIcon
-from i18n import _
 
 
 class BaseEditorPage(QWidget):

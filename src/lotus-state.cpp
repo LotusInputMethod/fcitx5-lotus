@@ -446,7 +446,7 @@ namespace fcitx {
             if (current_backspace_count_ < expected_backspaces_) {
                 return false; // Allow intermediate backspaces to reach the app to clear autofill/old text.
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime * (expected_backspaces_ - 1)));
             // Validate surr cursor pos should match realtextLen after all BS applied
             const auto& surr = ic_->surroundingText();
             if (surr.isValid() && surr.cursor() == realtextLen.load(std::memory_order_acquire)) {
@@ -500,11 +500,11 @@ namespace fcitx {
         if (isSurrText) {
             ic_->deleteSurroundingText(-expected_backspaces_, expected_backspaces_);
             LOTUS_INFO("Delete using surrounding text");
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            std::this_thread::sleep_for(std::chrono::milliseconds(4 * expected_backspaces_));
             if (!pending_commit_string_.empty()) {
                 ic_->commitString(pending_commit_string_);
                 LOTUS_INFO("Commit: " + pending_commit_string_);
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                std::this_thread::sleep_for(std::chrono::milliseconds(3 * utf8::length(addedPart)));
             }
             expected_backspaces_     = 0;
             current_backspace_count_ = 0;
@@ -808,7 +808,7 @@ namespace fcitx {
 
                 if (charsToDelete > 0) {
                     ic->deleteSurroundingText(-static_cast<int>(charsToDelete), static_cast<int>(charsToDelete));
-                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(4 * charsToDelete));
                 }
 
                 if (!addedPart.empty()) {
@@ -1075,7 +1075,7 @@ namespace fcitx {
             if (isBackspace(currentSym)) {
                 if (realtextLen.load(std::memory_order_acquire) > 0)
                     realtextLen.fetch_sub(1, std::memory_order_acq_rel);
-                if (handleUInputKeyPress(keyEvent, currentSym, (realMode == LotusMode::Smooth || realMode == LotusMode::SuperSmooth) ? 5 : 20)) {
+                if (handleUInputKeyPress(keyEvent, currentSym, (realMode == LotusMode::Smooth || realMode == LotusMode::SuperSmooth) ? 2 : 8)) {
                     return;
                 }
             } else {

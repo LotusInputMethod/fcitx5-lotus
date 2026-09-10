@@ -48,7 +48,7 @@ func Init() {
 
 //export EngineProcessKeyEvent
 func EngineProcessKeyEvent(engine uintptr, keyVal, state uint32) bool {
-	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	bambooEngine, ok := engineFromHandle(engine)
 	if !ok {
 		return false
 	}
@@ -57,7 +57,7 @@ func EngineProcessKeyEvent(engine uintptr, keyVal, state uint32) bool {
 
 //export EngineSetRestoreKeyStroke
 func EngineSetRestoreKeyStroke(engine uintptr) {
-	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	bambooEngine, ok := engineFromHandle(engine)
 	if !ok {
 		return
 	}
@@ -66,7 +66,7 @@ func EngineSetRestoreKeyStroke(engine uintptr) {
 
 //export EnginePullPreedit
 func EnginePullPreedit(engine uintptr) *C.char {
-	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	bambooEngine, ok := engineFromHandle(engine)
 	if !ok {
 		return nil
 	}
@@ -75,7 +75,7 @@ func EnginePullPreedit(engine uintptr) *C.char {
 
 //export EngineCommitPreedit
 func EngineCommitPreedit(engine uintptr) {
-	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	bambooEngine, ok := engineFromHandle(engine)
 	if !ok {
 		return
 	}
@@ -84,7 +84,7 @@ func EngineCommitPreedit(engine uintptr) {
 
 //export EnginePullCommit
 func EnginePullCommit(engine uintptr) *C.char {
-	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	bambooEngine, ok := engineFromHandle(engine)
 	if !ok {
 		return nil
 	}
@@ -96,7 +96,7 @@ func EnginePullCommit(engine uintptr) *C.char {
 
 //export EngineSetMacroEnabled
 func EngineSetMacroEnabled(engine uintptr, enabled bool) {
-	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	bambooEngine, ok := engineFromHandle(engine)
 	if !ok {
 		return
 	}
@@ -105,7 +105,7 @@ func EngineSetMacroEnabled(engine uintptr, enabled bool) {
 
 //export EngineSetOption
 func EngineSetOption(engine uintptr, option *C.FcitxBambooEngineOption) {
-	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	bambooEngine, ok := engineFromHandle(engine)
 	if !ok {
 		return
 	}
@@ -148,12 +148,12 @@ func EngineSetOption(engine uintptr, option *C.FcitxBambooEngineOption) {
 
 //export NewEngine
 func NewEngine(name *C.cchar, dictHandle uintptr, tableHandle uintptr) uintptr {
-	dict, ok := cgo.Handle(dictHandle).Value().(*map[string]bool)
+	dict, ok := dictionaryFromHandle(dictHandle)
 	if !ok {
 		return 0
 	}
 
-	table, ok := cgo.Handle(tableHandle).Value().(*MacroTable)
+	table, ok := macroTableFromHandle(tableHandle)
 	if !ok {
 		return 0
 	}
@@ -182,12 +182,12 @@ func NewEngine(name *C.cchar, dictHandle uintptr, tableHandle uintptr) uintptr {
 
 //export NewCustomEngine
 func NewCustomEngine(definition **C.char, dictHandle uintptr, tableHandle uintptr) uintptr {
-	dict, ok := cgo.Handle(dictHandle).Value().(*map[string]bool)
+	dict, ok := dictionaryFromHandle(dictHandle)
 	if !ok {
 		return 0
 	}
 
-	table, ok := cgo.Handle(tableHandle).Value().(*MacroTable)
+	table, ok := macroTableFromHandle(tableHandle)
 	if !ok {
 		return 0
 	}
@@ -242,12 +242,12 @@ func NewMacroTable(definition **C.char) uintptr {
 
 //export DeleteObject
 func DeleteObject(handle uintptr) {
-	cgo.Handle(handle).Delete()
+	deleteHandle(handle)
 }
 
 //export ResetEngine
 func ResetEngine(engine uintptr) {
-	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	bambooEngine, ok := engineFromHandle(engine)
 	if !ok {
 		return
 	}
@@ -256,7 +256,7 @@ func ResetEngine(engine uintptr) {
 
 //export EngineRebuildFromText
 func EngineRebuildFromText(engine uintptr, text *C.cchar) {
-	bambooEngine, ok := cgo.Handle(engine).Value().(*FcitxBambooEngine)
+	bambooEngine, ok := engineFromHandle(engine)
 	if !ok {
 		return
 	}

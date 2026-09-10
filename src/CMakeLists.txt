@@ -1,15 +1,4 @@
-set(fcitx_lotus_sources
-  lotus.cpp
-  lotus-engine.cpp
-  lotus-state.cpp
-  lotus-candidates.cpp
-  lotus-utils.cpp
-  lotus-monitor.cpp
-  lotus-icon-resolver.cpp
-  emoji.cpp
-)
-
-add_library(lotus MODULE ${fcitx_lotus_sources})
+add_library(lotus MODULE lotus.cpp ${fcitx_lotus_core_sources})
 set_target_properties(lotus PROPERTIES OUTPUT_NAME "lotus")
 set_target_properties(lotus PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_options(lotus PRIVATE "-Wl,-exclude-libs,ALL")

@@ -16,20 +16,10 @@ func (e *MacroTable) Empty() bool {
 	return e == nil || len(e.mTable) == 0
 }
 
-func (e *MacroTable) Get(key string) (string,bool) {
+func (e *MacroTable) Get(key string) (string, bool) {
 	if len(key) == 0 || e.Empty() {
 		return "", false
 	}
 	val, ok := e.mTable[strings.ToLower(key)]
 	return val, ok
-}
-
-//Deprecated: Use Get() instead or wrap with Get() function
-func (e *MacroTable) HasKey(key string) bool {
-	return e.mTable[strings.ToLower(key)] != ""
-}
-
-//Deprecated: Use Get() instead or wrap with Get() function
-func (e *MacroTable) GetText(key string) string {
-	return e.mTable[strings.ToLower(key)]
 }

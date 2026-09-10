@@ -7,24 +7,26 @@ Implements UI with row reordering and TSV import/export.
 """
 
 import os
+import tempfile
+
+from core.dbus_handler import LotusDBusHandler
+from i18n import _
+from qtpy.QtCore import Qt
+from qtpy.QtGui import QColor, QIcon
 from qtpy.QtWidgets import (
-    QVBoxLayout,
+    QAbstractItemView,
+    QCheckBox,
     QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
-    QLineEdit,
-    QMessageBox,
-    QLabel,
-    QAbstractItemView,
-    QFileDialog,
-    QCheckBox,
+    QVBoxLayout,
 )
-from qtpy.QtGui import QIcon, QColor
-from qtpy.QtCore import Qt
-from i18n import _
-from core.dbus_handler import LotusDBusHandler
+
 from ui.pages.base_editor import BaseEditorPage
 from ui.pages.dynamic_settings import CardWidget
 
@@ -42,12 +44,11 @@ class DictEditorPage(BaseEditorPage):
         self.words = []  # List of all words
         self.initial_state = {}
         self._is_loaded = False
+        self._load_failed = False
         self._setup_ui()
 
     def _get_local_dict_path(self) -> str:
-        xdg_data_home = os.environ.get(
-            "XDG_DATA_HOME", os.path.expanduser("~/.local/share")
-        )
+        xdg_data_home = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
         return os.path.join(xdg_data_home, "fcitx5/lotus/vietnamese.cm.dict")
 
     def _get_global_dict_path(self) -> str:
@@ -154,6 +155,7 @@ class DictEditorPage(BaseEditorPage):
 
     def load_data(self):
         self.blockSignals(True)
+        self._load_failed = False
         try:
             # Load global dictionary settings via DBus
             config_data = self.dbus.get_config()
@@ -176,7 +178,15 @@ class DictEditorPage(BaseEditorPage):
                             if word and not word.startswith("#"):
                                 self.words.append(word)
                 except Exception as e:
+                    self._load_failed = True
                     print(f"Failed to read dictionary {path_to_read}: {e}")
+                    QMessageBox.warning(
+                        self,
+                        _("Warning"),
+                        _(
+                            "Failed to load dictionary completely: {}\nSaving is disabled to prevent data loss."
+                        ).format(e),
+                    )
 
             self._rebuild_table()
             self.initial_state = self._get_current_state()
@@ -232,22 +242,40 @@ class DictEditorPage(BaseEditorPage):
             "EnableDictionary": self.cb_enable.isChecked(),
         }
 
-    def save_data(self):
+    def save_data(self) -> bool:
+        if self._load_failed:
+            QMessageBox.warning(
+                self,
+                _("Error"),
+                _(
+                    "Cannot save dictionary because loading failed earlier. Please fix the file format first."
+                ),
+            )
+            return False
+
         # Save global dictionary settings via DBus
         config_data = self.dbus.get_config()
         if config_data:
             values = config_data.get("values", {})
-            values["EnableDictionary"] = (
-                "True" if self.cb_enable.isChecked() else "False"
-            )
-            self.dbus.set_config(values)
+            values["EnableDictionary"] = "True" if self.cb_enable.isChecked() else "False"
+            if not self.dbus.set_config(values):
+                return False
+        elif not self.dbus.iface:
+            return False
 
         local_path = self._get_local_dict_path()
         try:
-            os.makedirs(os.path.dirname(local_path), exist_ok=True)
-            with open(local_path, "w", encoding="utf-8") as f:
+            target_dir = os.path.dirname(local_path)
+            os.makedirs(target_dir, exist_ok=True)
+
+            with tempfile.NamedTemporaryFile(
+                "w", dir=target_dir, encoding="utf-8", delete=False
+            ) as tf:
                 for word in self.words:
-                    f.write(f"{word}\n")
+                    tf.write(f"{word}\n")
+                temp_name = tf.name
+
+            os.replace(temp_name, local_path)
 
             # Trigger engine reload by setting global config (unchanged)
             if self.dbus.iface:
@@ -256,10 +284,15 @@ class DictEditorPage(BaseEditorPage):
                     self.dbus.set_config(current_config.get("values", {}))
 
             self.initial_state = self._get_current_state()
+            return True
         except Exception as e:
-            QMessageBox.warning(
-                self, _("Error"), _("Failed to save dictionary: {}").format(e)
-            )
+            if "temp_name" in locals() and os.path.exists(temp_name):
+                try:
+                    os.remove(temp_name)
+                except OSError:
+                    pass
+            QMessageBox.warning(self, _("Error"), _("Failed to save dictionary: {}").format(e))
+            return False
 
     def upsert_row(self, word: str, sort: bool = True):
         if word in self.words:
@@ -318,9 +351,7 @@ class DictEditorPage(BaseEditorPage):
 
         if is_invalid:
             self.input_word.setStyleSheet("color: red;")
-            self.input_word.setToolTip(
-                _("Warning: Dictionary words should not contain spaces.")
-            )
+            self.input_word.setToolTip(_("Warning: Dictionary words should not contain spaces."))
         else:
             self.input_word.setStyleSheet("")
             self.input_word.setToolTip("")

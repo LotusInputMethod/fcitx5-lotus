@@ -7,29 +7,30 @@ Mode Manager Page for per-application input mode configuration.
 
 import os
 import re
+
+from core.dbus_handler import LotusDBusHandler
+from i18n import _
+from qtpy.QtCore import QSize, Qt, Signal
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QComboBox,
+    QDialog,
+    QFrame,
+    QGridLayout,
     QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QLabel,
-    QFrame,
-    QPushButton,
-    QLineEdit,
-    QScrollArea,
-    QDialog,
-    QTabWidget,
-    QFileDialog,
-    QComboBox,
-    QGridLayout,
     QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from qtpy.QtCore import Qt, QSize, Signal
-from qtpy.QtGui import QIcon
-from i18n import _
+
 from ui.pages.dynamic_settings import CardWidget
-from core.dbus_handler import LotusDBusHandler
 
 # Mode constants as defined in C++ LotusEngine
 MODE_OFF = 0
@@ -53,7 +54,6 @@ MODE_INFO = {
     MODE_EMOJI: {"title": "Emoji Picker", "icon": "face-smile"},
     MODE_MINECRAFT: {"title": "Minecraft", "icon": "onboard"},
 }
-
 
 
 class ModeCard(QFrame):
@@ -144,17 +144,17 @@ class AddAppDialog(QDialog):
         # Tab 1: Running Apps
         self.running_tab = QWidget()
         running_layout = QVBoxLayout(self.running_tab)
-        
+
         search_layout = QHBoxLayout()
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText(_("Search process name..."))
         self.search_input.textChanged.connect(self._filter_running_apps)
-        
+
         self.btn_refresh = QPushButton(QIcon.fromTheme("view-refresh"), "")
         self.btn_refresh.setToolTip(_("Refresh Process List"))
         self.btn_refresh.setFlat(True)
         self.btn_refresh.clicked.connect(self._load_running_apps)
-        
+
         search_layout.addWidget(self.search_input, 1)
         search_layout.addWidget(self.btn_refresh)
         running_layout.addLayout(search_layout)
@@ -164,7 +164,7 @@ class AddAppDialog(QDialog):
         self.running_list.itemClicked.connect(self._on_app_selected)
         self.running_list.itemDoubleClicked.connect(self._on_item_double_clicked)
         running_layout.addWidget(self.running_list)
-        
+
         self.tabs.addTab(self.running_tab, _("Running"))
 
         # Tab 2: Manual Input
@@ -181,10 +181,10 @@ class AddAppDialog(QDialog):
         bottom_layout = QHBoxLayout()
         self.selection_label = QLabel(_("No application selected"))
         self.selection_label.setStyleSheet("opacity: 0.7;")
-        
+
         self.btn_cancel = QPushButton(QIcon.fromTheme("dialog-cancel"), _("&Cancel"))
         self.btn_cancel.clicked.connect(self.reject)
-        
+
         self.btn_add = QPushButton(QIcon.fromTheme("dialog-ok"), _("&Add"))
         self.btn_add.setObjectName("Primary")
         self.btn_add.setEnabled(False)
@@ -218,22 +218,22 @@ class AddAppDialog(QDialog):
                         name = f.read().strip()
                     with open(f"/proc/{pid}/cmdline", "r") as f:
                         cmdline = f.read().replace("\x00", " ").strip()
-                    
+
                     if not cmdline:
                         continue
-                        
+
                     exe = ""
                     try:
                         exe = os.readlink(f"/proc/{pid}/exe")
                     except (PermissionError, FileNotFoundError):
-                        continue # Probably a kernel thread
-                    
+                        continue  # Probably a kernel thread
+
                     # Clean process names for NixOS
-                    if name.startswith('.'):
+                    if name.startswith("."):
                         exe_base = os.path.basename(exe)
-                        if exe_base.startswith('.') and exe_base.endswith('-wrapped'):
+                        if exe_base.startswith(".") and exe_base.endswith("-wrapped"):
                             name = exe_base[1:-8]
-                        elif name.startswith('.' + exe_base) or name == ('.' + exe_base)[:15]:
+                        elif name.startswith("." + exe_base) or name == ("." + exe_base)[:15]:
                             name = exe_base
                         else:
                             clean = name[1:]
@@ -251,32 +251,68 @@ class AddAppDialog(QDialog):
                     exclude_paths = ["/usr/lib", "/usr/libexec", "/lib", "/systemd", "/usr/sbin"]
                     if any(exe.startswith(p) for p in exclude_paths):
                         continue
-                    
+
                     # Heuristic: Exclude common background process patterns
                     # These processes run as user but are typically not "apps" for rules
                     bg_patterns = [
-                        "_agent", "_helper", "_daemon", "_resource", "_server",
-                        "-agent", "-helper", "-daemon", "-sandbox", "-proxy",
-                        "akonadi", "kactivitymanagerd", "kaccess", "krunner",
-                        "ksmserver", "kwin_", "kglobalaccel", "org.kde.",
-                        "gnome-shell", "dbus-", "at-spi", "pipewire", "pulseaudio",
-                        "xdg-", "gvfs", "tracker-", "evolution-", "mission-control",
-                        "telepathy", "dconf", "applet", "notify-osd", "indicator-",
-                        "plasmashell", "xwayland", "wireplumber", "xsettingsd",
-                        "xembedsniproxy", "gmenudbusmenuproxy", "kalendarac",
-                        "ksystemstats", "ksecretd", "kwalletd", "kded", "startplasma", "bwrap"
+                        "_agent",
+                        "_helper",
+                        "_daemon",
+                        "_resource",
+                        "_server",
+                        "-agent",
+                        "-helper",
+                        "-daemon",
+                        "-sandbox",
+                        "-proxy",
+                        "akonadi",
+                        "kactivitymanagerd",
+                        "kaccess",
+                        "krunner",
+                        "ksmserver",
+                        "kwin_",
+                        "kglobalaccel",
+                        "org.kde.",
+                        "gnome-shell",
+                        "dbus-",
+                        "at-spi",
+                        "pipewire",
+                        "pulseaudio",
+                        "xdg-",
+                        "gvfs",
+                        "tracker-",
+                        "evolution-",
+                        "mission-control",
+                        "telepathy",
+                        "dconf",
+                        "applet",
+                        "notify-osd",
+                        "indicator-",
+                        "plasmashell",
+                        "xwayland",
+                        "wireplumber",
+                        "xsettingsd",
+                        "xembedsniproxy",
+                        "gmenudbusmenuproxy",
+                        "kalendarac",
+                        "ksystemstats",
+                        "ksecretd",
+                        "kwalletd",
+                        "kded",
+                        "startplasma",
+                        "bwrap",
                     ]
                     basename = os.path.basename(exe).lower()
                     if any(p in name.lower() or p in basename for p in bg_patterns):
                         continue
-                    
+
                     # Exclude the settings-gui itself and python interpreters with no script
                     if ("main.py" in cmdline or "settings-gui" in cmdline) and "python" in exe:
                         continue
-                    
+
                     if name in self.existing_apps:
                         continue
-                    
+
                     # If it's a python command but unknown script, ignore it
                     if basename.startswith("python") and len(cmdline.split()) < 2:
                         continue
@@ -295,7 +331,7 @@ class AddAppDialog(QDialog):
             key = app["exe"]
             if key not in unique_apps:
                 unique_apps[key] = app
-        
+
         sorted_apps = sorted(unique_apps.values(), key=lambda x: x["name"].lower())
         self.full_app_list = sorted_apps
         self._populate_list(sorted_apps)
@@ -306,16 +342,22 @@ class AddAppDialog(QDialog):
             item = QListWidgetItem()
             item.setText(f"{app['name']}\n{app['exe']}")
             item.setData(Qt.UserRole, app)
-            
+
             icon_name = self._icon_cache.get(app["name"].lower())
             if not icon_name:
-                icon_name = self._icon_cache.get(os.path.basename(app["exe"]).lower(), app["name"].lower())
-            
+                icon_name = self._icon_cache.get(
+                    os.path.basename(app["exe"]).lower(), app["name"].lower()
+                )
+
             item.setIcon(QIcon.fromTheme(icon_name, QIcon.fromTheme("application-x-executable")))
             self.running_list.addItem(item)
 
     def _filter_running_apps(self, text):
-        filtered = [a for a in self.full_app_list if text.lower() in a["name"].lower() or text.lower() in a["exe"].lower()]
+        filtered = [
+            a
+            for a in self.full_app_list
+            if text.lower() in a["name"].lower() or text.lower() in a["exe"].lower()
+        ]
         self._populate_list(filtered)
 
     def _on_app_selected(self, item):
@@ -329,7 +371,7 @@ class AddAppDialog(QDialog):
         self._on_add_clicked()
 
     def _on_add_clicked(self):
-        if self.tabs.currentIndex() == 1: # Manual
+        if self.tabs.currentIndex() == 1:  # Manual
             self.selected_app = self.manual_input.text().strip()
             if not self.selected_app:
                 return
@@ -376,10 +418,10 @@ class ModeManagerPage(QWidget):
         self.btn_add_app = QPushButton(QIcon.fromTheme("list-add"), _("Add Application"))
         self.btn_remove_app = QPushButton(QIcon.fromTheme("list-remove"), _("Remove"))
         self.btn_remove_app.setEnabled(False)
-        
+
         self.btn_add_app.clicked.connect(self._on_add_app)
         self.btn_remove_app.clicked.connect(self._on_remove_app)
-        
+
         self.sidebar_layout.addWidget(self.btn_add_app)
         self.sidebar_layout.addWidget(self.btn_remove_app)
 
@@ -389,7 +431,7 @@ class ModeManagerPage(QWidget):
         self.content_widget = QScrollArea()
         self.content_widget.setWidgetResizable(True)
         self.content_widget.setFrameShape(QFrame.NoFrame)
-        
+
         self.main_container = QWidget()
         self.main_layout = QVBoxLayout(self.main_container)
         self.main_layout.setContentsMargins(30, 20, 30, 30)
@@ -405,13 +447,18 @@ class ModeManagerPage(QWidget):
         global_layout.addWidget(QLabel(_("Global Default Mode:")))
         self.combo_global_mode = QComboBox()
         global_modes = [
-            MODE_SMOOTH, MODE_SLOW, MODE_SUPER_SMOOTH, MODE_MINECRAFT,
-            MODE_SURROUNDING, MODE_PREEDIT, MODE_EMOJI,
-            MODE_OFF
+            MODE_SMOOTH,
+            MODE_SLOW,
+            MODE_SUPER_SMOOTH,
+            MODE_MINECRAFT,
+            MODE_SURROUNDING,
+            MODE_PREEDIT,
+            MODE_EMOJI,
+            MODE_OFF,
         ]
         for m in global_modes:
             self.combo_global_mode.addItem(_(MODE_INFO[m]["title"]), MODE_INFO[m]["title"])
-            
+
         self.combo_global_mode.currentIndexChanged.connect(self._on_global_mode_changed)
         global_layout.addWidget(self.combo_global_mode)
         self.global_card.content_layout.addLayout(global_layout)
@@ -420,7 +467,7 @@ class ModeManagerPage(QWidget):
         # 2. Selected App Card (Empty Title)
         self.app_settings_card = CardWidget("")
         self.app_settings_layout = QVBoxLayout()
-        
+
         # App Info Header
         self.app_header_layout = QHBoxLayout()
         self.app_icon_label = QLabel()
@@ -437,19 +484,24 @@ class ModeManagerPage(QWidget):
         self.mode_grid = QGridLayout()
         self.mode_grid.setSpacing(10)
         self.mode_cards = {}
-        
+
         grid_modes = [
-            MODE_SMOOTH, MODE_SLOW, MODE_SUPER_SMOOTH,
-            MODE_MINECRAFT, MODE_SURROUNDING,
-            MODE_PREEDIT, MODE_EMOJI,
-            MODE_OFF, MODE_DEFAULT
+            MODE_SMOOTH,
+            MODE_SLOW,
+            MODE_SUPER_SMOOTH,
+            MODE_MINECRAFT,
+            MODE_SURROUNDING,
+            MODE_PREEDIT,
+            MODE_EMOJI,
+            MODE_OFF,
+            MODE_DEFAULT,
         ]
         for i, m in enumerate(grid_modes):
             card = ModeCard(m)
             card.clicked.connect(self._on_app_mode_changed)
             self.mode_cards[m] = card
             self.mode_grid.addWidget(card, i // 2, i % 2)
-            
+
         self.app_settings_layout.addLayout(self.mode_grid)
         self.app_settings_card.content_layout.addLayout(self.app_settings_layout)
         self.main_layout.addWidget(self.app_settings_card)
@@ -467,8 +519,12 @@ class ModeManagerPage(QWidget):
         try:
             data = self.dbus.get_sub_config_list("app_rules", "Rules")
             for item in data:
-                app = item.get("App", "")
-                mode = int(item.get("Mode", 0))
+                try:
+                    app = item.get("App", "")
+                    mode = int(item.get("Mode", 0))
+                except (ValueError, TypeError, AttributeError):
+                    print(f"Skipping malformed app rule: {item!r}")
+                    continue
                 if app:
                     self.app_rules[app] = mode
         except Exception as e:
@@ -483,7 +539,7 @@ class ModeManagerPage(QWidget):
             self.combo_global_mode.setCurrentIndex(idx)
         self.combo_global_mode.blockSignals(False)
         self.original_global_mode = mode_str
-        
+
         self._populate_app_list()
         self.original_app_rules = self.app_rules.copy()
 
@@ -497,13 +553,13 @@ class ModeManagerPage(QWidget):
         for app in sorted(apps_to_show):
             mode = self.app_rules.get(app, MODE_DEFAULT)
             mode_text = _(MODE_INFO.get(mode, MODE_INFO[MODE_SMOOTH])["title"])
-            
+
             item = QListWidgetItem()
             item.setText(f"{app}\n{mode_text}")
             item.setData(Qt.UserRole, (app, mode))
             item.setIcon(self._resolve_icon(app))
             self.app_list.addItem(item)
-            
+
             if app == self.selected_app:
                 self.app_list.setCurrentItem(item)
 
@@ -523,11 +579,11 @@ class ModeManagerPage(QWidget):
                 xdg_applications_path = os.path.join(directory, "applications")
                 if xdg_applications_path not in search_paths:
                     search_paths.append(xdg_applications_path)
-        
+
         # Priority 1: Direct binary names from Exec line
         # Priority 2: Desktop filenames (e.g. com.discordapp.Discord -> Discord)
         # Priority 3: Application Names
-        
+
         for p in search_paths:
             if not os.path.isdir(p):
                 continue
@@ -535,19 +591,20 @@ class ModeManagerPage(QWidget):
                 if not f.endswith(".desktop"):
                     continue
                 try:
-                    desktop_id = f[:-8] # remove .desktop
+                    desktop_id = f[:-8]  # remove .desktop
                     with open(os.path.join(p, f), "r", encoding="utf-8") as df:
                         content = df.read()
-                        
+
                         icon_match = re.search(r"^Icon=([^\n]+)", content, re.MULTILINE)
-                        if not icon_match: continue
+                        if not icon_match:
+                            continue
                         icon = icon_match.group(1).strip()
-                        
+
                         # Map by desktop ID (e.g. discord)
                         self._icon_cache[desktop_id.lower()] = icon
-                        if "." in desktop_id: # handle com.discordapp.Discord
+                        if "." in desktop_id:  # handle com.discordapp.Discord
                             self._icon_cache[desktop_id.split(".")[-1].lower()] = icon
-                        
+
                         name_match = re.search(r"^Name=([^\n]+)", content, re.MULTILINE)
                         if name_match:
                             self._icon_cache[name_match.group(1).strip().lower()] = icon
@@ -560,10 +617,10 @@ class ModeManagerPage(QWidget):
                                 binary_path = exec_line[1:].split('"')[0]
                             else:
                                 binary_path = exec_line.split(" ")[0]
-                            
+
                             binary_name = os.path.basename(binary_path).lower()
                             self._icon_cache[binary_name] = icon
-                            
+
                             if binary_name == "flatpak" and " --command=" in exec_line:
                                 cmd_match = re.search(r"--command=([^ ]+)", exec_line)
                                 if cmd_match:
@@ -575,7 +632,7 @@ class ModeManagerPage(QWidget):
                     if not isinstance(e, (UnicodeDecodeError, re.error)):
                         print(f"Error parsing desktop file {f}: {e}")
                     continue
-        
+
         # Manual Overrides for stubborn apps
         manual_icons = {
             "discord": "discord",
@@ -590,14 +647,14 @@ class ModeManagerPage(QWidget):
         """Resolves icon name for a given app handle."""
         app_lower = app_name.lower()
         icon_name = self._icon_cache.get(app_lower)
-        
+
         if not icon_name:
             # Try removing extension or path if it's a full path
             basename = os.path.basename(app_name).lower()
             if "." in basename:
                 basename = basename.split(".")[0]
             icon_name = self._icon_cache.get(basename, basename)
-            
+
         return QIcon.fromTheme(icon_name, QIcon.fromTheme("application-x-executable"))
 
     def _filter_apps(self, text):
@@ -609,19 +666,18 @@ class ModeManagerPage(QWidget):
         app_name, mode = item.data(Qt.UserRole)
         self.selected_app = app_name
         self.current_app_mode = mode
-        
+
         self.app_name_label.setText(app_name)
         self.app_icon_label.setPixmap(self._resolve_icon(app_name).pixmap(48, 48))
         self.app_settings_card.setVisible(True)
-        self.btn_remove_app.setEnabled(True) # Enable Remove
+        self.btn_remove_app.setEnabled(True)  # Enable Remove
         self._update_mode_cards()
 
     def _on_global_mode_changed(self, index):
         if not self.isVisible():
             return
-        
-        self._notify_changed()
 
+        self._notify_changed()
 
     def _on_app_mode_changed(self, mode):
         self.current_app_mode = mode
@@ -630,14 +686,14 @@ class ModeManagerPage(QWidget):
                 del self.app_rules[self.selected_app]
         else:
             self.app_rules[self.selected_app] = mode
-        
+
         self._update_mode_cards()
         self._populate_app_list()
         self._notify_changed()
 
     def _update_mode_cards(self):
         for m, card in self.mode_cards.items():
-            card.selected = (m == self.current_app_mode)
+            card.selected = m == self.current_app_mode
             card.update_style()
 
     def _on_add_app(self):
@@ -653,18 +709,19 @@ class ModeManagerPage(QWidget):
     def _on_remove_app(self):
         if not self.selected_app:
             return
-            
+
         reply = QMessageBox.question(
-            self, _("Confirm Remove"),
+            self,
+            _("Confirm Remove"),
             _("Remove rules for this application?"),
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.No:
             return
-            
+
         if self.selected_app in self.app_rules:
             del self.app_rules[self.selected_app]
-        
+
         self.selected_app = None
         self.app_settings_card.setVisible(False)
         self.btn_remove_app.setEnabled(False)
@@ -685,30 +742,34 @@ class ModeManagerPage(QWidget):
 
     def is_modified_from_default(self):
         """Returns True if the current state differs from the default state."""
-        return (
-            len(self.app_rules) > 0
-            or self.combo_global_mode.currentData() != "Uinput (Smooth)"
-        )
+        return len(self.app_rules) > 0 or self.combo_global_mode.currentData() != "Uinput (Smooth)"
 
-    def save_data(self):
+    def save_data(self) -> bool:
         try:
             if self.combo_global_mode.currentData() != self.original_global_mode:
                 config_data = self.dbus.get_config()
                 if config_data:
                     latest_values = config_data.get("values", {})
                     latest_values["Mode"] = self.combo_global_mode.currentData()
-                    self.dbus.set_config(latest_values)
+                    if not self.dbus.set_config(latest_values):
+                        return False
+                elif not self.dbus.iface:
+                    return False
 
             data = []
             for app, mode in sorted(self.app_rules.items()):
                 data.append({"App": app, "Mode": str(mode)})
-            
-            self.dbus.set_sub_config_list("app_rules", "Rules", data)
+
+            if not self.dbus.set_sub_config_list("app_rules", "Rules", data):
+                return False
+
             self.original_app_rules = self.app_rules.copy()
             self.original_global_mode = self.combo_global_mode.currentData()
+            return True
 
         except Exception as e:
             print(f"Error saving app rules via DBus: {e}")
+            return False
 
     def restore_defaults(self):
         self.load_data()

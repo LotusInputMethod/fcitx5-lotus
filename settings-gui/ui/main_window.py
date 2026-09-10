@@ -5,23 +5,22 @@
 Main window assembling all configuration tabs with a modern layout.
 """
 
+from core.dbus_handler import LotusDBusHandler
+from i18n import _
+from qtpy.QtCore import QSize, Qt
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QHBoxLayout,
-    QVBoxLayout,
-    QListWidget,
-    QStackedWidget,
-    QListWidgetItem,
     QApplication,
     QFrame,
+    QHBoxLayout,
+    QListWidget,
+    QListWidgetItem,
+    QMainWindow,
     QPushButton,
-    QSpacerItem,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from qtpy.QtGui import QIcon, QPalette
-from qtpy.QtCore import Qt, QSize
-from i18n import _
-from core.dbus_handler import LotusDBusHandler
 
 # Lazy loading pages on demand
 
@@ -153,7 +152,7 @@ class LotusSettingsWindow(QMainWindow):
 
         self.btn_apply = QPushButton(QIcon.fromTheme("document-save"), _("&Apply"))
         self.btn_apply.setEnabled(False)
-        self.btn_apply.clicked.connect(lambda: self.on_save_all(quiet=True))
+        self.btn_apply.clicked.connect(lambda: self.on_save_all(quiet=False))
         bar_layout.addWidget(self.btn_apply)
 
         self.btn_ok = QPushButton(QIcon.fromTheme("dialog-ok"), _("&OK"))
@@ -167,16 +166,12 @@ class LotusSettingsWindow(QMainWindow):
         def create_general():
             from ui.pages.dynamic_settings import DynamicSettingsPage, SettingsCategory
 
-            return DynamicSettingsPage(
-                self.dbus_handler, category=SettingsCategory.GENERAL
-            )
+            return DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.GENERAL)
 
         def create_typing():
             from ui.pages.dynamic_settings import DynamicSettingsPage, SettingsCategory
 
-            return DynamicSettingsPage(
-                self.dbus_handler, category=SettingsCategory.TYPING
-            )
+            return DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.TYPING)
 
         def create_applications():
             from ui.pages.mode_manager import ModeManagerPage
@@ -201,16 +196,12 @@ class LotusSettingsWindow(QMainWindow):
         def create_shortcuts():
             from ui.pages.dynamic_settings import DynamicSettingsPage, SettingsCategory
 
-            return DynamicSettingsPage(
-                self.dbus_handler, category=SettingsCategory.SHORTCUTS
-            )
+            return DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.SHORTCUTS)
 
         def create_appearance():
             from ui.pages.dynamic_settings import DynamicSettingsPage, SettingsCategory
 
-            return DynamicSettingsPage(
-                self.dbus_handler, category=SettingsCategory.APPEARANCE
-            )
+            return DynamicSettingsPage(self.dbus_handler, category=SettingsCategory.APPEARANCE)
 
         def create_backup():
             from ui.pages.backup import BackupPage
@@ -228,9 +219,7 @@ class LotusSettingsWindow(QMainWindow):
         self._add_page(_("Macros"), "accessories-text-editor", create_macros)
         self._add_page(_("Dictionary"), "edit-copy", create_dict)
         self._add_page(_("Keymap"), "preferences-desktop-keyboard", create_keymap)
-        self._add_page(
-            _("Shortcuts"), "preferences-desktop-keyboard-shortcuts", create_shortcuts
-        )
+        self._add_page(_("Shortcuts"), "preferences-desktop-keyboard-shortcuts", create_shortcuts)
         self._add_page(_("Appearance"), "preferences-desktop-theme", create_appearance)
         self._add_page(_("Backup"), "document-save-as", create_backup)
 
@@ -290,9 +279,9 @@ class LotusSettingsWindow(QMainWindow):
 
     def on_save_all(self, quiet=False):
         """Triggers save on all pages that support it."""
-        if self.has_validation_errors():
-            from qtpy.QtWidgets import QMessageBox
+        from qtpy.QtWidgets import QMessageBox
 
+        if self.has_validation_errors():
             QMessageBox.warning(
                 self,
                 _("Cannot Save"),
@@ -304,14 +293,17 @@ class LotusSettingsWindow(QMainWindow):
             page = self.content_stack.widget(i)
             if hasattr(page, "save_data"):
                 if page.save_data() is False:
+                    QMessageBox.critical(
+                        self,
+                        _("Error"),
+                        _("Failed to save settings. Please check if Fcitx5 is running."),
+                    )
                     return False
 
         self.btn_apply.setEnabled(False)
         self.btn_cancel.setEnabled(False)
         self.update_reset_button_state()
         if not quiet:
-            from qtpy.QtWidgets import QMessageBox
-
             QMessageBox.information(self, _("Success"), _("Settings saved."))
         return True
 

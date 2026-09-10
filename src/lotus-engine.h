@@ -342,6 +342,13 @@ namespace fcitx {
          * @return true if dark mode, false if light mode or detection failed.
          */
         static bool isDarkMode();
+
+        /**
+         * @brief Removes any per-app rule for appName so the app follows the
+         *        global Mode again.
+         * @param appName Name of application.
+         */
+        void clearAppRule(const std::string& appName);
     };
 
     /**

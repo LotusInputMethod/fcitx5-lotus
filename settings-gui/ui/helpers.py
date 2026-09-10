@@ -5,21 +5,19 @@
 Helper utilities and shared mappings for the Lotus settings GUI.
 """
 
-from i18n import _, N_
-from ui.components import HelpIcon
+from i18n import N_, _
 
+from ui.components import HelpIcon
 
 # Tooltip text for specific settings keys
 HELPERS = {
-    "FreeMarking": N_(
-        "You can type tone marks at the end of the word or anywhere inside."
-    ),
+    "FreeMarking": N_("You can type tone marks at the end of the word or anywhere inside."),
     "FixUinputWithAck": N_(
         "Fix typing issues in Uinput mode for Chromium-based browsers like Chrome or Edge."
     ),
     "CapitalizeMacro": N_(
         "Automatically match expansion case to trigger key case.\n\n"
-        "Example if 'kg' is 'khô gà':\n"
+        "Example if 'kg' is 'Khô gà':\n"
         "- kg -> khô gà\n"
         "- Kg -> Khô gà\n"
         "- KG -> KHÔ GÀ"
