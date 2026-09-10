@@ -1,5 +1,11 @@
-fcitx5-lotus (3.5.8-1) unstable; urgency=medium
+fcitx5-lotus (3.5.9-1) unstable; urgency=medium
 
-  * Fix systemd-sysusers don't run automatically
+  * Fixed an edge case when typing English words containing numbers while macro mode is enabled.
+  * Fixed an issue where switching back to the default typing mode did not properly clear per-app rules.
+  * Fixed potential process crashes caused by invalid CGO handles.
+  * Added protection against data loss during load failures and implemented atomic file saves.
+  * Fixed an issue where save failures reported a false success status.
+  * Fixed loading errors by safely skipping malformed application rule entries.
+  * Dynamically scaled sleep delays based on text length to improve responsiveness and smooth text rendering.
 
- -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Fri, 04 Sep 2026 10:00:00 +0700
+ -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Thu, 10 Sep 2026 09:27:00 +0700

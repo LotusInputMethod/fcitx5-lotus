@@ -1,5 +1,5 @@
 Name:           fcitx5-lotus
-Version:        3.5.8
+Version:        3.5.9
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -120,5 +120,11 @@ fi
 %service_del_postun fcitx5-lotus-server@.service
 
 %changelog
-* Fri Sep 04 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 3.5.8-1
-- Nothing
+* Thu Sep 10 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 3.5.9-1
+- Fixed an edge case when typing English words containing numbers while macro mode is enabled.
+- Fixed an issue where switching back to the default typing mode did not properly clear per-app rules.
+- Fixed potential process crashes caused by invalid CGO handles.
+- Added protection against data loss during load failures and implemented atomic file saves.
+- Fixed an issue where save failures reported a false success status.
+- Fixed loading errors by safely skipping malformed application rule entries.
+- Dynamically scaled sleep delays based on text length to improve responsiveness and smooth text rendering.
