@@ -393,3 +393,21 @@ func TestIsValidState(t *testing.T) {
 		}
 	}
 }
+
+func TestEnglishNumberW2UInMacroMode(t *testing.T) {
+	e := newTestEngine(nil, false)
+	e.macroEnabled = true
+	e.w2u = true
+
+	typeKeys(e, "qwen2")
+	if got := e.preeditText; got != "qwen2" {
+		t.Errorf("type [qwen2] preedit got [%s] expected [qwen2]", got)
+	}
+
+	e.commitPreeditAndReset("")
+
+	typeKeys(e, "new1")
+	if got := e.preeditText; got != "new1" {
+		t.Errorf("type [new1] preedit got [%s] expected [new1]", got)
+	}
+}

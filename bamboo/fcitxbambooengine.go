@@ -285,7 +285,11 @@ func (e *FcitxBambooEngine) getCommitText(keyVal, state uint32, oldText string) 
 		e.preeditor.RestoreLastWord(!bamboo.HasAnyVietnameseRune(oldText))
 		return e.getPreeditString(), false
 	}
-	if e.preeditor.CanProcessKey(keyRune) || (e.macroEnabled && keyRune >= '0' && keyRune <= '9') {
+	canProcess := e.preeditor.CanProcessKey(keyRune)
+	if canProcess || (e.macroEnabled && keyRune >= '0' && keyRune <= '9') {
+		if !canProcess && e.shouldFallbackToEnglish(true) {
+			e.preeditor.RestoreLastWord(false)
+		}
 		if state&FcitxLockMask != 0 {
 			keyRune = e.toUpper(keyRune)
 		}
