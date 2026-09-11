@@ -4,7 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # TEST_HOME is required by every script in this harness. The local entrypoint
-# owns its creation so it can be cleaned up deterministically via run-xvfb.sh --stop.
+# owns its creation; run-xvfb.sh --stop tears down the managed processes
+# while keeping the directory for post-mortem logs.
 if [ -z "${TEST_HOME:-}" ]; then
     TEST_HOME="$(mktemp -d -t fcitx5-browser-e2e-XXXXXX)"
     export TEST_HOME

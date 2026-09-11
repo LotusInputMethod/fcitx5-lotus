@@ -161,7 +161,6 @@ for attempt in 1 2 3; do
         fcitx5 -r --disable=wayland,waylandim > "${FCITX_LOG}" 2>&1 &
     fi
     FCITX_PID=$!
-    echo "$FCITX_PID" >> "${PID_FILE}"
 
     # Wait for Fcitx5 daemon to initialize
     fcitx_ready=0
@@ -179,6 +178,9 @@ for attempt in 1 2 3; do
     done
 
     if [ "$fcitx_ready" -eq 1 ]; then
+        # Record ownership only for a daemon that is actually alive and
+        # responsive, so the PID file never contains killed retry attempts.
+        echo "$FCITX_PID" >> "${PID_FILE}"
         fcitx5_started=1
         break
     fi
