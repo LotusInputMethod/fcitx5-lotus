@@ -2,11 +2,13 @@
 set -euo pipefail
 
 if [ -z "${TEST_HOME:-}" ]; then
-    echo "error: TEST_HOME environment variable is not set. Run setup-fcitx.sh first or export TEST_HOME." >&2
+    echo "error: TEST_HOME environment variable is not set. Use scripts/run-browser-e2e.sh, or export TEST_HOME before calling this script." >&2
     exit 1
 fi
 
-DISPLAY="${DISPLAY:-:99}"
+# The harness must own its X server: never inherit the host DISPLAY.
+: "${BROWSER_E2E_DISPLAY:=:99}"
+DISPLAY="${BROWSER_E2E_DISPLAY}"
 export DISPLAY
 
 PID_FILE="${TEST_HOME}/run-xvfb.pids"
@@ -21,11 +23,15 @@ if [ "${1:-}" = "--stop" ]; then
         done < "${PID_FILE}"
         rm -f "${PID_FILE}"
     fi
-    # Also gracefully terminate dbus session if we started it
-    if [ -f "${TEST_HOME}/dbus.pid" ]; then
-        kill "$(cat "${TEST_HOME}/dbus.pid")" 2>/dev/null || true
-    fi
+    rm -f "${TEST_HOME}/dbus.pid" "${TEST_HOME}/dbus.addr"
     exit 0
+fi
+
+# Fail closed if the display is already in use (live server or stale socket):
+# the harness owns its X server and never reuses an existing one.
+if [ -S "/tmp/.X11-unix/X${DISPLAY#:}" ] || { command -v xdpyinfo >/dev/null 2>&1 && xdpyinfo -display "${DISPLAY}" >/dev/null 2>&1; }; then
+    echo "error: display ${DISPLAY} is already in use; set BROWSER_E2E_DISPLAY to a free display (e.g. :98) and retry" >&2
+    exit 1
 fi
 
 touch "${PID_FILE}"
@@ -77,29 +83,31 @@ if [ -n "${GITHUB_ENV:-}" ]; then
     echo "DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}" >> "$GITHUB_ENV"
     echo "DISPLAY=${DISPLAY}" >> "$GITHUB_ENV"
 fi
-# Start Xvfb virtual framebuffer if not already running
-if ! (command -v xdpyinfo >/dev/null 2>&1 && xdpyinfo -display "${DISPLAY}" >/dev/null 2>&1); then
-    if ! command -v Xvfb >/dev/null 2>&1; then
-        echo "error: Xvfb binary not found in PATH" >&2
-        exit 1
-    fi
-    Xvfb "${DISPLAY}" -screen 0 1920x1080x24 -ac +extension GLX +render -noreset > "${XVFB_LOG}" 2>&1 &
-    echo $! >> "${PID_FILE}"
-    
-    xvfb_ready=0
-    for _ in $(seq 1 50); do
-        if [ -S "/tmp/.X11-unix/X${DISPLAY#:}" ] || (command -v xdpyinfo >/dev/null 2>&1 && xdpyinfo -display "${DISPLAY}" >/dev/null 2>&1); then
-            xvfb_ready=1
-            break
-        fi
-        sleep 0.1
-    done
+# Start Xvfb: the harness always owns a fresh X server on DISPLAY.
+if ! command -v Xvfb >/dev/null 2>&1; then
+    echo "error: Xvfb binary not found in PATH" >&2
+    exit 1
+fi
+Xvfb "${DISPLAY}" -screen 0 1920x1080x24 -ac +extension GLX +render -noreset > "${XVFB_LOG}" 2>&1 &
+XVFB_PID=$!
+echo "${XVFB_PID}" >> "${PID_FILE}"
 
-    if [ "$xvfb_ready" -ne 1 ]; then
-        echo "error: Xvfb failed to start on ${DISPLAY} within 5s" >&2
-        [ -f "${XVFB_LOG}" ] && tail -n 50 "${XVFB_LOG}" >&2
-        exit 1
+xvfb_ready=0
+for _ in $(seq 1 50); do
+    if ! kill -0 "${XVFB_PID}" 2>/dev/null; then
+        break
     fi
+    if command -v xdpyinfo >/dev/null 2>&1 && xdpyinfo -display "${DISPLAY}" >/dev/null 2>&1; then
+        xvfb_ready=1
+        break
+    fi
+    sleep 0.1
+done
+
+if [ "$xvfb_ready" -ne 1 ]; then
+    echo "error: Xvfb failed to start on ${DISPLAY} within 5s" >&2
+    [ -f "${XVFB_LOG}" ] && tail -n 50 "${XVFB_LOG}" >&2
+    exit 1
 fi
 
 # Start Openbox window manager
@@ -204,7 +212,7 @@ if [ "$lotus_ready" -ne 1 ]; then
     exit 1
 fi
 
-cat <<EOF > /tmp/x11-env.sh
+cat <<EOF > "${TEST_HOME}/x11-env.sh"
 export DISPLAY="${DISPLAY}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS}"
 export HOME="${TEST_HOME}"

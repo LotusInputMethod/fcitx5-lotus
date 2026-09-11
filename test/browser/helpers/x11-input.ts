@@ -2,6 +2,7 @@ import { expect } from '@playwright/test';
 import type { Page, Locator } from '@playwright/test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { getEventLog } from './events';
 
 const execFileAsync = promisify(execFile);
 
@@ -43,7 +44,8 @@ export async function getActiveX11Window(): Promise<{ id: string; name: string }
 }
 
 /**
- * Ensures the target locator is clicked, focused, and waits for X11 window focus to settle.
+ * Ensures the target locator is clicked, focused, and waits until the X11
+ * window is active and the browser has processed the focus (IM context ready).
  */
 export async function ensureActive(
   page: Page,
@@ -64,8 +66,18 @@ export async function ensureActive(
     )
     .toContain('Fcitx5 Lotus Browser E2E Fixture');
 
-  // Settle delay for browser focus and input context
-  await page.waitForTimeout(100);
+  // Poll the fixture event log until the browser processed the X11 focus and
+  // created the input context: a focus event must be recorded for this element.
+  const targetId = await locator.evaluate((el: HTMLElement) => el.id);
+  await expect
+    .poll(
+      async () =>
+        (await getEventLog(page)).some(
+          (e) => e.type === 'focus' && e.targetId === targetId
+        ),
+      { timeout: 2000 }
+    )
+    .toBe(true);
 }
 
 /**
