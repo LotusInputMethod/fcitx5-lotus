@@ -632,6 +632,8 @@ namespace fcitx {
                     setMode(selectedMode.value(), ic);
                     if (selectedMode == LotusMode::Emoji) {
                         state->updateEmojiPreedit();
+                    } else {
+                        showCycleModeNotification(selectedMode.value(), ic);
                     }
                 }
             }
@@ -966,6 +968,8 @@ namespace fcitx {
                 if (mode == LotusMode::Emoji) {
                     auto* state = ic->propertyFor(&factory_);
                     state->updateEmojiPreedit();
+                } else {
+                    showCycleModeNotification(mode, ic);
                 }
             };
         };
