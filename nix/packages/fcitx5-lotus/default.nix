@@ -13,6 +13,7 @@
   libinput,
   librsvg,
   libx11,
+  nix-update-script,
   pkg-config,
   python3,
   qt6,
@@ -40,6 +41,20 @@ stdenv.mkDerivation (finalAttrs: {
     fetchSubmodules = true;
   };
 
+  vendorDir = finalAttrs.passthru."go-modules";
+
+  passthru = {
+    "go-modules" =
+      (buildGoModule {
+        pname = "fcitx5-lotus-go-modules";
+        inherit (finalAttrs) version src;
+        modRoot = "bamboo";
+        vendorHash = "sha256-CNDYjxDfqh9nGs5vlpb/7qXZeNtkvegC5nPvBOZcDrc=";
+      }).goModules;
+
+    updateScript = nix-update-script { };
+  };
+
   nativeBuildInputs = [
     cmake
     gettext
@@ -63,13 +78,11 @@ stdenv.mkDerivation (finalAttrs: {
     udev
   ];
 
-  vendorDir =
-    (buildGoModule {
-      pname = "fcitx5-lotus-go-modules";
-      inherit (finalAttrs) version src;
-      modRoot = "bamboo";
-      vendorHash = "sha256-CNDYjxDfqh9nGs5vlpb/7qXZeNtkvegC5nPvBOZcDrc=";
-    }).goModules;
+  strictDeps = true;
+
+  __structuredAttrs = true;
+
+  dontWrapQtApps = true;
 
   preConfigure = ''
     export GOCACHE=$TMPDIR/go-cache
@@ -113,10 +126,16 @@ stdenv.mkDerivation (finalAttrs: {
       --prefix XDG_DATA_DIRS : "${hicolor-icon-theme}/share"
   '';
 
-  meta = with lib; {
-    description = "Fcitx5 Lotus input method for Vietnamese typing";
+  meta = {
+    description = "Vietnamese input method engine for Fcitx5";
     homepage = "https://github.com/LotusInputMethod/fcitx5-lotus";
-    license = licenses.gpl3;
-    platforms = platforms.linux;
+    license = with lib.licenses; [
+      gpl3Plus
+      lgpl21Plus
+    ];
+    maintainers = with lib.maintainers; [
+      justanoobcoder
+    ];
+    platforms = lib.platforms.linux;
   };
 })
