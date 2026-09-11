@@ -447,7 +447,7 @@ namespace fcitx {
         if (!s.isValid()) {
             return false;
         }
-        const std::string& t   = s.text();
+        const std::string& t = s.text();
         // v4: ảnh y hệt ảnh lúc bắn phím xoá thì chưa thể là "xoá xong" — ở nhịp 20 ms ảnh cũ tụt
         // lại hai phím trông giống hệt trạng thái sau khi xoá (đo được: 'đươợ').
         if (!cho_anh_luc_gui_.empty() && t + "\x1f" + std::to_string(s.cursor()) == cho_anh_luc_gui_) {
@@ -455,23 +455,20 @@ namespace fcitx {
             // gửi trạng thái trung gian — đo được 37/52 lần quá hạn là tin đúng bị gạt, mỗi lần 200 ms.
             // Nội dung không phân biệt được; dùng thời gian: đã chờ đủ ngưỡng Slow (8 ms × phím xoá,
             // đo 60/60) thì giao không kém an toàn hơn Slow. Kiểm "ngay" (0 ms) vẫn bị chặn như v4.
-            const auto da_cho = (::fcitx::now(CLOCK_MONOTONIC) - cho_surr_bat_dau_) / 1000;
-            const auto toi_thieu = static_cast<uint64_t>(engine_->config().waitSurroundingMinPerKeyMs.value())
-                                   * static_cast<uint64_t>(std::max(expected_backspaces_, 1));
+            const auto da_cho    = (::fcitx::now(CLOCK_MONOTONIC) - cho_surr_bat_dau_) / 1000;
+            const auto toi_thieu = static_cast<uint64_t>(engine_->config().waitSurroundingMinPerKeyMs.value()) * static_cast<uint64_t>(std::max(expected_backspaces_, 1));
             if (da_cho < toi_thieu) {
                 return false;
             }
         }
-        auto               it  = t.begin();
+        auto it = t.begin();
         for (unsigned int i = 0; i < s.cursor() && it != t.end(); ++i) {
             it = utf8::nextChar(it);
         }
         const std::string before(t.begin(), it);
-        auto endsWith = [](const std::string& a, const std::string& b) {
-            return a.size() >= b.size() && a.compare(a.size() - b.size(), b.size(), b) == 0;
-        };
+        auto              endsWith = [](const std::string& a, const std::string& b) { return a.size() >= b.size() && a.compare(a.size() - b.size(), b.size(), b) == 0; };
         if (!cho_deleted_.empty() && endsWith(before, cho_prefix_ + cho_deleted_)) {
-            return false;   // ảnh cũ: phần cần xoá vẫn còn
+            return false; // ảnh cũ: phần cần xoá vẫn còn
         }
         return endsWith(before, cho_prefix_);
     }
@@ -505,8 +502,8 @@ namespace fcitx {
                 cho_dong_bang_lien_tiep_ = 0;
             }
         } else if (std::string(ly_do) == "su kien" || std::string(ly_do) == "nguong") {
-            cho_anh_tin_cay_       = true;
-            cho_qua_han_lien_tiep_ = 0;
+            cho_anh_tin_cay_         = true;
+            cho_qua_han_lien_tiep_   = 0;
             cho_dong_bang_lien_tiep_ = 0;
             if (cho_dong_bang_) {
                 cho_dong_bang_ = false;
@@ -515,7 +512,7 @@ namespace fcitx {
         }
         cho_dang_cho_ = false;
         if (!tu_timer && cho_surr_timer_) {
-            cho_surr_timer_.reset();   // không reset từ trong chính callback của nó
+            cho_surr_timer_.reset(); // không reset từ trong chính callback của nó
         }
         if (!pending_commit_string_.empty()) {
             ic_->commitString(pending_commit_string_);
@@ -570,7 +567,7 @@ namespace fcitx {
                 cho_dang_cho_  = true;
                 cho_so_tin_    = 0;
                 cho_tin_khac_  = false;
-                cho_surr_watcher_.reset();   // ngoài dispatch của nó, an toàn
+                cho_surr_watcher_.reset(); // ngoài dispatch của nó, an toàn
                 cho_surr_watcher_ = instance->watchEvent(EventType::InputContextSurroundingTextUpdated, EventWatcherPhase::Default, [this](Event& e) {
                     auto& ice = static_cast<InputContextEvent&>(e);
                     if (!cho_dang_cho_ || ice.inputContext() != ic_ || !is_deleting_.load()) {
@@ -580,8 +577,8 @@ namespace fcitx {
                     // 0 ms hiện 'trư' là ảnh cũ vừa bắt kịp, không phải xoá xong). Lúc đó KHÔNG tin tin nào
                     // tới trước ngưỡng Slow (8 ms × phím xoá).
                     const auto da_cho_us = ::fcitx::now(CLOCK_MONOTONIC) - cho_surr_bat_dau_;
-                    const auto toi_thieu_us = static_cast<uint64_t>(engine_->config().waitSurroundingMinPerKeyMs.value())
-                                              * static_cast<uint64_t>(std::max(expected_backspaces_, 1)) * 1000ULL;
+                    const auto toi_thieu_us =
+                        static_cast<uint64_t>(engine_->config().waitSurroundingMinPerKeyMs.value()) * static_cast<uint64_t>(std::max(expected_backspaces_, 1)) * 1000ULL;
                     {
                         const auto& sd0 = ic_->surroundingText();
                         ++cho_so_tin_;
@@ -600,18 +597,17 @@ namespace fcitx {
                 // v7: hai lần quá hạn liên tiếp mà chưa có tin khớp = app này không cập nhật ảnh trong lúc
                 // xoá (Edge thanh địa chỉ: ảnh chỉ đổi khi gõ chữ thường) → rút hạn xuống mức ngắn, đủ
                 // trên cửa sổ vượt mặt (Slow 8 ms/phím đo 60/60); có tin khớp thì trả hạn dài lại.
-                const int  han_ms = cho_qua_han_lien_tiep_ >= 2 ? engine_->config().waitSurroundingShortMs.value()
-                                                                : engine_->config().waitSurroundingTimeoutMs.value();
+                const int  han_ms = cho_qua_han_lien_tiep_ >= 2 ? engine_->config().waitSurroundingShortMs.value() : engine_->config().waitSurroundingTimeoutMs.value();
                 const auto han    = static_cast<uint64_t>(han_ms) * 1000ULL;
                 // v7.1: accuracy 0 với sd-event = MẶC ĐỊNH 250 ms (đồng hồ được phép nổ muộn tới 250 ms):
                 // đo được: hạn 40 nổ ở 64, hạn 200 nổ ở 243, tệ nhất 430. Đặt 1 ms.
                 // v10: 16/27 lần quá hạn còn lại của v9 là tin "xong" tới TRƯỚC ngưỡng Slow rồi app im
                 // luôn → bị gạt và chờ trọn 200 ms. Đặt thêm một mốc đúng tại ngưỡng: kiểm lại ảnh mới nhất
                 // đã nhận, khớp thì giao ngay ("nguong"); chưa thì dời đồng hồ tới hạn.
-                const auto nguong = static_cast<uint64_t>(engine_->config().waitSurroundingMinPerKeyMs.value())
-                                    * static_cast<uint64_t>(std::max(expected_backspaces_, 1)) * 1000ULL;
+                const auto nguong =
+                    static_cast<uint64_t>(engine_->config().waitSurroundingMinPerKeyMs.value()) * static_cast<uint64_t>(std::max(expected_backspaces_, 1)) * 1000ULL;
                 const auto moc_dau = nguong < han ? cho_surr_bat_dau_ + nguong : cho_surr_bat_dau_ + han;
-                cho_surr_timer_ = instance->eventLoop().addTimeEvent(CLOCK_MONOTONIC, moc_dau, 1000, [this, han](EventSourceTime* t, uint64_t) {
+                cho_surr_timer_    = instance->eventLoop().addTimeEvent(CLOCK_MONOTONIC, moc_dau, 1000, [this, han](EventSourceTime* t, uint64_t) {
                     if (!cho_dang_cho_ || !is_deleting_.load()) {
                         return false;
                     }
@@ -637,7 +633,7 @@ namespace fcitx {
             // Validate surr cursor pos should match realtextLen after all BS applied
             const auto& surr = ic_->surroundingText();
             if (bo_cho_dong_bang) {
-                LOTUS_INFO("Skip retry (frozen)");   // v12: thử lại 3 × 2 ms là vô ích khi ảnh đóng băng
+                LOTUS_INFO("Skip retry (frozen)"); // v12: thử lại 3 × 2 ms là vô ích khi ảnh đóng băng
             } else if (surr.isValid() && surr.cursor() == realtextLen.load(std::memory_order_acquire)) {
                 LOTUS_INFO("Skip retry");
             } else {
@@ -666,18 +662,21 @@ namespace fcitx {
 
     void LotusState::performReplacement(const std::string& deletedPart, const std::string& addedPart) {
         LOTUS_INFO("Perform replacement: " + deletedPart + " -> " + addedPart); //NOLINT
-        current_backspace_count_      = 0;
-        pending_commit_string_        = addedPart;
-        expected_backspaces_          = static_cast<int>(utf8::length(deletedPart));
-        cho_deleted_ = deletedPart;
-        { const auto& sg = ic_->surroundingText(); cho_anh_luc_gui_ = sg.isValid() ? sg.text() + "\x1f" + std::to_string(sg.cursor()) : std::string(); }
-        cho_prefix_  = (oldPreBuffer_.size() >= deletedPart.size()) ? oldPreBuffer_.substr(0, oldPreBuffer_.size() - deletedPart.size()) : std::string();
+        current_backspace_count_ = 0;
+        pending_commit_string_   = addedPart;
+        expected_backspaces_     = static_cast<int>(utf8::length(deletedPart));
+        cho_deleted_             = deletedPart;
+        {
+            const auto& sg   = ic_->surroundingText();
+            cho_anh_luc_gui_ = sg.isValid() ? sg.text() + "\x1f" + std::to_string(sg.cursor()) : std::string();
+        }
+        cho_prefix_ = (oldPreBuffer_.size() >= deletedPart.size()) ? oldPreBuffer_.substr(0, oldPreBuffer_.size() - deletedPart.size()) : std::string();
         {
             // v12: ảnh lúc bắn "cập nhật" = phần trước con trỏ kết thúc bằng prefix+deleted. Firefox tụt
             // thì ảnh lúc bắn đã chậm (không thấy phần sắp xoá) → không được tính là đóng băng
             // (nhịp ngẫu nhiên kích hoạt nhầm 3 lần trên Firefox).
             cho_anh_gui_cap_nhat_ = false;
-            const auto& sg2 = ic_->surroundingText();
+            const auto& sg2       = ic_->surroundingText();
             if (sg2.isValid()) {
                 const std::string& t  = sg2.text();
                 auto               it = t.begin();
