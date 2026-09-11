@@ -441,9 +441,24 @@ namespace fcitx {
 
         updateCharsetAction(event.inputContext());
 
-        setMode(targetMode, event.inputContext());
+        auto*      state = ic->propertyFor(&factory_);
 
-        auto* state = ic->propertyFor(&factory_);
+        const bool uinputMode         = isUinputMode(targetMode);
+        const bool focusBounce        = uinputMode && state->lastDeactivateTime_ > 0 && now_ms() - state->lastDeactivateTime_ < 100;
+        const bool resumeReplacement  = focusBounce && state->deletionInterruptedAt_ > 0 && is_deleting_.load();
+        state->deletionInterruptedAt_ = 0;
+
+        if (!resumeReplacement) {
+            is_deleting_.store(false);
+        }
+
+        if (focusBounce) {
+            realMode = targetMode;
+            ic->updateUserInterface(UserInterfaceComponent::StatusArea);
+            LOTUS_INFO("Focus bounce: keep word buffers");
+        } else {
+            setMode(targetMode, event.inputContext());
+        }
 
         // Workaround for chromium wayland issue where suggestions cause a doubled
         // first character. Forwarding may prevent BS from being sent
@@ -457,7 +472,7 @@ namespace fcitx {
 
         state->waitAck_ = false;
         if (*config_.fixUinputWithAck) {
-            if (targetMode == LotusMode::Uinput || targetMode == LotusMode::Smooth || targetMode == LotusMode::Minecraft || targetMode == LotusMode::SuperSmooth) {
+            if (isUinputMode(targetMode)) {
 #if __cplusplus >= 202002L
                 std::ranges::transform(appName, appName.begin(), ::tolower);
 #else
@@ -480,7 +495,9 @@ namespace fcitx {
         } else if (surrvalid && !state->oldPreBuffer_.empty() && (now_ms() - state->lastDeactivateTime_) >= 100) {
             state->clearAllBuffers();
         }
-        is_deleting_.store(false);
+        if (!resumeReplacement) {
+            is_deleting_.store(false);
+        }
         needEngineReset.store(false);
         if (targetMode == LotusMode::Emoji) {
             state->updateEmojiPreedit();
@@ -771,7 +788,13 @@ namespace fcitx {
                 if (surrvalid && !state->oldPreBuffer_.empty())
                     state->clearAllBuffers();
             }
-            is_deleting_.store(false);
+            const bool uinputMode = isUinputMode(realMode);
+            if (uinputMode && is_deleting_.load() && state->expected_backspaces_ > 0) {
+                state->deletionInterruptedAt_ = now_ms();
+                LOTUS_INFO("Replacement interrupted by focus out");
+            } else {
+                is_deleting_.store(false);
+            }
             needEngineReset.store(false);
             ic->inputPanel().reset();
             ic->updateUserInterface(UserInterfaceComponent::InputPanel);
