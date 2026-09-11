@@ -66,8 +66,12 @@ export async function ensureActive(
     )
     .toContain('Fcitx5 Lotus Browser E2E Fixture');
 
-  // Poll the fixture event log until the browser processed the X11 focus and
-  // created the input context: a focus event must be recorded for this element.
+  // Force a genuine focus transition: clicking an already-focused element
+  // fires no focus event (and prior clearInput calls may have reset the
+  // event log), so blur first to guarantee a fresh, real focus event that
+  // proves the browser processed the X11 focus and created the IM context.
+  await locator.evaluate((el: HTMLElement) => el.blur());
+  await locator.click();
   const targetId = await locator.evaluate((el: HTMLElement) => el.id);
   await expect
     .poll(
