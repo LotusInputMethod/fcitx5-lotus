@@ -29,7 +29,6 @@ jobs:
     name: Browser E2E (X11 / Xvfb)
     runs-on: ubuntu-24.04
     env:
-      DISPLAY: ':99'
       GTK_IM_MODULE: fcitx
       QT_IM_MODULE: fcitx
       XMODIFIERS: '@im=fcitx'

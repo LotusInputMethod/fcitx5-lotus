@@ -2,8 +2,8 @@
 set -euo pipefail
 
 if [ -z "${TEST_HOME:-}" ]; then
-    TEST_HOME="$(mktemp -d -t fcitx5-browser-e2e-XXXXXX)"
-    echo "WARNING: TEST_HOME not set. Created temporary directory: $TEST_HOME" >&2
+    echo 'error: TEST_HOME is not set. Use scripts/run-browser-e2e.sh, or export TEST_HOME=$(mktemp -d) before calling this script.' >&2
+    exit 1
 fi
 
 export HOME="${TEST_HOME}"
