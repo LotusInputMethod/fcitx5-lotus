@@ -41,7 +41,6 @@ namespace fcitx {
 
     void LotusState::setEngine() {
         lotusEngine_.reset();
-        realMode = engine_->config().mode.value();
 
         if (engine_->config().inputMethod.value() == "Custom") {
             const auto&        keymaps = *engine_->customKeymap().customKeymap;

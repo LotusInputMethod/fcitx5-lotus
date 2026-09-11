@@ -264,6 +264,7 @@ namespace fcitx {
             std::filesystem::create_directories(configDir);
         }
         reloadConfig();
+        realMode = config_.mode.value();
         instance_->inputContextManager().registerProperty("LotusState", &factory_);
         appRulesPath_ = configDir + "/lotus-app-rules.conf";
         loadAppRules();
@@ -785,8 +786,12 @@ namespace fcitx {
         instance_->inputContextManager().foreach ([this](InputContext* ic) {
             auto* state = ic->propertyFor(&factory_);
             state->setEngine();
-            if (ic->hasFocus())
+            if (ic->hasFocus()) {
+                // Re-resolve the focused window's rule; setEngine() must not
+                // reset it to the global mode.
+                setMode(getAppRule(getProgramName(ic)), ic);
                 state->reset();
+            }
             return true;
         });
     }
