@@ -8,6 +8,7 @@
 #include "lotus-monitor.h"
 #include "lotus-utils.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -110,7 +111,10 @@ void mousePressResetThread() {
                     needEngineReset.store(true, std::memory_order_release);
                     g_mouse_clicked.store(true, std::memory_order_release);
                 } else {
-                    LOTUS_WARN("Unexpected message received from mouse socket: " + std::string(buf, n));
+                    // Clamp for the compiler's benefit: n is already known to be in [1, sizeof(buf)]
+                    // here, but GCC cannot prove it and warns that the length may be a huge size_t.
+                    const size_t len = std::min(static_cast<size_t>(n), sizeof(buf));
+                    LOTUS_WARN("Unexpected message received from mouse socket: " + std::string(buf, len));
                 }
 
             } else if (ret < 0 && errno != EINTR) {
