@@ -148,9 +148,9 @@ func EngineSetOption(engine uintptr, option *C.FcitxBambooEngineOption) {
 
 //export NewEngine
 func NewEngine(name *C.cchar, dictHandle uintptr, tableHandle uintptr) uintptr {
-	dict, ok := dictionaryFromHandle(dictHandle)
-	if !ok {
-		return 0
+	dictionary := map[string]bool{}
+	if dict, ok := dictionaryFromHandle(dictHandle); ok {
+		dictionary = *dict
 	}
 
 	table, ok := macroTableFromHandle(tableHandle)
@@ -163,7 +163,7 @@ func NewEngine(name *C.cchar, dictHandle uintptr, tableHandle uintptr) uintptr {
 	var engine = &FcitxBambooEngine{
 		preeditor:               bamboo.NewEngine(bamboo.ParseInputMethod(bamboo.InputMethodDefinitions, imName), bamboo.EstdFlags),
 		macroTable:              table,
-		dictionary:              *dict,
+		dictionary:              dictionary,
 		autoNonVnRestore:        true,
 		ddFreeStyle:             true,
 		macroEnabled:            false,
@@ -182,9 +182,9 @@ func NewEngine(name *C.cchar, dictHandle uintptr, tableHandle uintptr) uintptr {
 
 //export NewCustomEngine
 func NewCustomEngine(definition **C.char, dictHandle uintptr, tableHandle uintptr) uintptr {
-	dict, ok := dictionaryFromHandle(dictHandle)
-	if !ok {
-		return 0
+	dictionary := map[string]bool{}
+	if dict, ok := dictionaryFromHandle(dictHandle); ok {
+		dictionary = *dict
 	}
 
 	table, ok := macroTableFromHandle(tableHandle)
@@ -206,7 +206,7 @@ func NewCustomEngine(definition **C.char, dictHandle uintptr, tableHandle uintpt
 	var engine = &FcitxBambooEngine{
 		preeditor:               bamboo.NewEngine(bamboo.ParseInputMethod(definitions, "Custom"), bamboo.EstdFlags),
 		macroTable:              table,
-		dictionary:              *dict,
+		dictionary:              dictionary,
 		autoNonVnRestore:        true,
 		ddFreeStyle:             true,
 		macroEnabled:            false,
