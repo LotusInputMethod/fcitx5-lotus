@@ -20,7 +20,9 @@ if [ "${1:-}" = "--stop" ]; then
     pids=()
     if [ -f "${PID_FILE}" ]; then
         while read -r pid; do
-            [ -n "${pid}" ] && pids+=("${pid}")
+            if [ -n "${pid}" ]; then
+                pids+=("${pid}")
+            fi
         done < "${PID_FILE}"
         # Tear down newest-first: consumers (fcitx5, openbox) die before the
         # bus and display they depend on, and every PID is verified alive
