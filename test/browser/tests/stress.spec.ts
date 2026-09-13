@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { clearInput, typeWithLotus, typeXdotool } from '../helpers/x11-input';
-import { getActiveIM, switchIM, activateIM } from '../helpers/fcitx5';
+import { switchIM, activateIM } from '../helpers/fcitx5';
 import { attachEventLog } from '../helpers/events';
 
 test.describe('Fcitx5 Lotus Stress Tests', () => {

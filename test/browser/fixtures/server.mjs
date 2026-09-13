@@ -19,44 +19,49 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-  let pathname = parsedUrl.pathname;
+  try {
+    const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    let pathname = parsedUrl.pathname;
 
-  if (pathname === '/' || pathname === '') {
-    pathname = '/index.html';
-  }
+    if (pathname === '/' || pathname === '') {
+      pathname = '/index.html';
+    }
 
-  // Prevent directory traversal
-  const safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
-  const filePath = path.join(__dirname, safePath);
+    // Prevent directory traversal
+    const safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
+    const filePath = path.join(__dirname, safePath);
 
-  if (!filePath.startsWith(__dirname)) {
-    res.writeHead(403, { 'Content-Type': 'text/plain' });
-    res.end('Forbidden');
-    return;
-  }
-
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Not Found');
-      } else {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Internal Server Error');
-      }
+    if (!filePath.startsWith(__dirname)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Forbidden');
       return;
     }
 
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        if (err.code === 'ENOENT') {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('Not Found');
+        } else {
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+          res.end('Internal Server Error');
+        }
+        return;
+      }
 
-    res.writeHead(200, {
-      'Content-Type': contentType,
-      'Cache-Control': 'no-store',
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'no-store',
+      });
+      res.end(data);
     });
-    res.end(data);
-  });
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    res.end('Bad Request');
+  }
 });
 
 server.listen(PORT, HOST, () => {
@@ -67,6 +72,8 @@ function handleShutdown() {
   server.close(() => {
     process.exit(0);
   });
+  server.closeAllConnections();
+  setTimeout(() => process.exit(0), 2000).unref();
 }
 
 process.on('SIGINT', handleShutdown);
