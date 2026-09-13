@@ -20,9 +20,12 @@ on:
       - 'data/**'
       - 'server/**'
       - '**/CMakeLists.txt'
+permissions:
+  contents: read
+
 concurrency:
   group: browser-e2e-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' && !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   browser-e2e:
@@ -32,6 +35,7 @@ jobs:
       GTK_IM_MODULE: fcitx
       QT_IM_MODULE: fcitx
       XMODIFIERS: '@im=fcitx'
+      CI: "true"
       PLAYWRIGHT_BROWSERS_PATH: /home/runner/.cache/ms-playwright
     steps:
       - name: Setup test environment
