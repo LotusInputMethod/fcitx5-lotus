@@ -45,8 +45,12 @@ async function fcitx5State(): Promise<number> {
  * Returns the currently active input method name (e.g. 'lotus', 'keyboard-us').
  */
 export async function getActiveIM(): Promise<string> {
-  const { stdout } = await execFileAsync('fcitx5-remote', ['-n']);
-  return stdout.trim();
+  try {
+    const { stdout } = await execFileAsync('fcitx5-remote', ['-n']);
+    return stdout.trim();
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -79,22 +83,3 @@ export async function activateIM(): Promise<void> {
   );
 }
 
-/**
- * Inactivates the input method engine (equivalent to fcitx5-remote -c).
- */
-export async function inactivateIM(): Promise<void> {
-  await execFileAsync('fcitx5-remote', ['-c']);
-  await waitForState(
-    async () => (await fcitx5State()) === 1,
-    'fcitx5 to report inactive state'
-  );
-}
-
-/**
- * Checks if Fcitx5 is currently running and responsive.
- * `fcitx5-remote` returns 1 (inactive) or 2 (active) when running, or 0 / error when not.
- */
-export async function isFcitxRunning(): Promise<boolean> {
-  const state = await fcitx5State();
-  return state === 1 || state === 2;
-}

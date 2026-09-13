@@ -40,17 +40,25 @@ export async function resetEventLog(page: Page): Promise<void> {
   });
 }
 /**
- * Attaches recorded events as a JSON diagnostic artifact to Playwright's TestInfo.
+ * Attaches recorded events as a JSON diagnostic artifact to Playwright's
+ * TestInfo. Always attaches — empty logs and dead pages (where the log
+ * cannot be read) are exactly the failures that need artifacts.
  */
 export async function attachEventLog(
   page: Page,
   testInfo: TestInfo
 ): Promise<void> {
-  const events = await getEventLog(page).catch(() => []);
-  if (events.length > 0) {
-    await testInfo.attach('input-events.json', {
-      body: JSON.stringify(events, null, 2),
-      contentType: 'application/json',
-    });
-  }
+  const events = await getEventLog(page).catch(() => null);
+  const body =
+    events === null
+      ? JSON.stringify(
+          { error: 'event log unavailable', url: page.url() },
+          null,
+          2
+        )
+      : JSON.stringify(events, null, 2);
+  await testInfo.attach('input-events.json', {
+    body,
+    contentType: 'application/json',
+  });
 }
