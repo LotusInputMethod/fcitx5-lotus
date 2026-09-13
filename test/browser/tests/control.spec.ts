@@ -28,8 +28,17 @@ test.describe('Fcitx5 Lotus Control Tests', () => {
     await resetEventLog(page);
     await typeWithLotus(page, input, ['d', 'd']);
     await expect(input).toHaveValue('đ');
+    // A real commit must surface as an input/compositionend event carrying the
+    // composed character — something a tautological length check never proved.
     const positiveEvents = await getEventLog(page);
-    expect(positiveEvents.length).toBeGreaterThan(0);
+    expect(
+      positiveEvents.some(
+        (e) =>
+          (e.type === 'input' || e.type === 'compositionend') &&
+          e.data === 'đ' &&
+          e.targetId === 'test-input'
+      )
+    ).toBe(true);
 
     // Switch to English layout: raw keys bypass input method
     await switchIM('keyboard-us');
@@ -40,6 +49,14 @@ test.describe('Fcitx5 Lotus Control Tests', () => {
     await resetEventLog(page);
     await typeWithLotus(page, input, ['d', 'd']);
     await expect(input).toHaveValue('dd');
+    const negativeEvents = await getEventLog(page);
+    expect(
+      negativeEvents.some(
+        (e) =>
+          (e.type === 'input' || e.type === 'compositionend') &&
+          e.data === 'đ'
+      )
+    ).toBe(false);
 
     // Restore Lotus: composition resumes
     await switchIM('lotus');

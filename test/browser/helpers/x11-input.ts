@@ -67,18 +67,18 @@ export async function ensureActive(
     .toContain('Fcitx5 Lotus Browser E2E Fixture');
 
   // Force a genuine focus transition: clicking an already-focused element
-  // fires no focus event (and prior clearInput calls may have reset the
-  // event log), so blur first to guarantee a fresh, real focus event that
-  // proves the browser processed the X11 focus and created the IM context.
+  // fires no focus event, so blur first and only accept focus events recorded
+  // AFTER a watermark — a stale event from a previous call must not pass.
+  const watermark = (await getEventLog(page)).length;
   await locator.evaluate((el: HTMLElement) => el.blur());
   await locator.click();
   const targetId = await locator.evaluate((el: HTMLElement) => el.id);
   await expect
     .poll(
       async () =>
-        (await getEventLog(page)).some(
-          (e) => e.type === 'focus' && e.targetId === targetId
-        ),
+        (await getEventLog(page))
+          .slice(watermark)
+          .some((e) => e.type === 'focus' && e.targetId === targetId),
       { timeout: 2000 }
     )
     .toBe(true);
@@ -104,21 +104,6 @@ export async function clearInput(
       });
     }, { timeout: 2000 })
     .toBe('');
-}
-
-/**
- * Direct DOM reset for fixture initialization outside of input method testing.
- * MUST NOT be used as a fallback for user-level keyboard interactions.
- */
-export async function resetFixtureDirectly(locator: Locator): Promise<void> {
-  await locator.evaluate((el: HTMLElement) => {
-    if ('value' in el && typeof (el as HTMLInputElement).value === 'string') {
-      (el as HTMLInputElement).value = '';
-    } else {
-      el.textContent = '';
-    }
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  });
 }
 
 /**
