@@ -17,10 +17,25 @@ OPENBOX_LOG="${TEST_HOME}/openbox.log"
 FCITX_LOG="${TEST_HOME}/fcitx5.log"
 
 if [ "${1:-}" = "--stop" ]; then
+    pids=()
     if [ -f "${PID_FILE}" ]; then
         while read -r pid; do
-            kill "$pid" 2>/dev/null || true
+            [ -n "${pid}" ] && pids+=("${pid}")
         done < "${PID_FILE}"
+        # Tear down newest-first: consumers (fcitx5, openbox) die before the
+        # bus and display they depend on, and every PID is verified alive
+        # before killing, then waited on, so recycled PIDs are never hit.
+        for ((i=${#pids[@]}-1; i>=0; i--)); do
+            pid="${pids[i]}"
+            if kill -0 "${pid}" 2>/dev/null; then
+                kill "${pid}" 2>/dev/null || true
+                for _ in $(seq 1 30); do
+                    kill -0 "${pid}" 2>/dev/null || break
+                    sleep 0.1
+                done
+                kill -9 "${pid}" 2>/dev/null || true
+            fi
+        done
         rm -f "${PID_FILE}"
     fi
     rm -f "${TEST_HOME}/dbus.pid" "${TEST_HOME}/dbus.addr"
@@ -34,7 +49,7 @@ if [ -S "/tmp/.X11-unix/X${DISPLAY#:}" ] || { command -v xdpyinfo >/dev/null 2>&
     exit 1
 fi
 
-touch "${PID_FILE}"
+: > "${PID_FILE}"
 
 # Create an isolated, hermetic D-Bus session for our test environment.
 # By omitting <standard_session_servicedirs/>, this private bus never scans
@@ -110,17 +125,29 @@ if [ "$xvfb_ready" -ne 1 ]; then
     exit 1
 fi
 
+# Isolated environment for Fcitx5
+export HOME="${TEST_HOME}"
+export XDG_CONFIG_HOME="${TEST_HOME}/.config"
+export XDG_DATA_HOME="${TEST_HOME}/.local/share"
+
+# Input method environment
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+export SDL_IM_MODULE=fcitx
+
 # Start Openbox window manager
 if ! command -v openbox >/dev/null 2>&1; then
     echo "error: openbox binary not found in PATH" >&2
     exit 1
 fi
 openbox --sm-disable > "${OPENBOX_LOG}" 2>&1 &
-echo $! >> "${PID_FILE}"
+OPENBOX_PID=$!
+echo "${OPENBOX_PID}" >> "${PID_FILE}"
 
 openbox_ready=0
 for _ in $(seq 1 30); do
-    if kill -0 "$(tail -1 "${PID_FILE}")" 2>/dev/null; then
+    if kill -0 "${OPENBOX_PID}" 2>/dev/null; then
         openbox_ready=1
         break
     fi
@@ -132,17 +159,6 @@ if [ "$openbox_ready" -ne 1 ]; then
     [ -f "${OPENBOX_LOG}" ] && tail -n 50 "${OPENBOX_LOG}" >&2
     exit 1
 fi
-
-# Isolated environment for Fcitx5
-export HOME="${TEST_HOME}"
-export XDG_CONFIG_HOME="${TEST_HOME}/.config"
-export XDG_DATA_HOME="${TEST_HOME}/.local/share"
-
-# Input method environment
-export GTK_IM_MODULE=fcitx
-export QT_IM_MODULE=fcitx
-export XMODIFIERS=@im=fcitx
-export SDL_IM_MODULE=fcitx
 
 # Start Fcitx5 daemon (with retry for transient D-Bus issues)
 if ! command -v fcitx5 >/dev/null 2>&1; then
@@ -213,17 +229,6 @@ if [ "$lotus_ready" -ne 1 ]; then
     [ -f "${FCITX_LOG}" ] && tail -n 50 "${FCITX_LOG}" >&2
     exit 1
 fi
-
-cat <<EOF > "${TEST_HOME}/x11-env.sh"
-export DISPLAY="${DISPLAY}"
-export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS}"
-export HOME="${TEST_HOME}"
-export XDG_CONFIG_HOME="${TEST_HOME}/.config"
-export XDG_DATA_HOME="${TEST_HOME}/.local/share"
-export GTK_IM_MODULE=fcitx
-export QT_IM_MODULE=fcitx
-export XMODIFIERS=@im=fcitx
-EOF
 
 if [ -n "${GITHUB_ENV:-}" ]; then
     echo "HOME=${TEST_HOME}" >> "$GITHUB_ENV"
