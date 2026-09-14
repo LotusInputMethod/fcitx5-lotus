@@ -13,7 +13,7 @@ export default defineConfig({
   reporter: process.env.CI
     ? [
         ['dot'],
-        ['json', { outputFile: process.env.E2E_JSON_OUTPUT || 'test-results/results.json' }],
+        ['json', { outputFile: process.env.E2E_JSON_OUTPUT || 'reports/results.json' }],
         ['html', { outputFolder: 'playwright-report', open: 'never' }],
       ]
     : [

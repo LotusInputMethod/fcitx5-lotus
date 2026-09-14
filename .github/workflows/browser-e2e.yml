@@ -122,13 +122,13 @@ jobs:
       - name: Run Chromium E2E tests
         working-directory: test/browser
         env:
-          E2E_JSON_OUTPUT: test-results/results-chromium.json
+          E2E_JSON_OUTPUT: reports/results-chromium.json
         run: npm run test:chromium
 
       - name: Run Firefox E2E tests
         working-directory: test/browser
         env:
-          E2E_JSON_OUTPUT: test-results/results-firefox.json
+          E2E_JSON_OUTPUT: reports/results-firefox.json
         run: npm run test:firefox
 
       # Timing data is the flake-rate experiment's raw material; the dot
@@ -138,8 +138,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: browser-e2e-timing
-          path: test/browser/test-results/*.json
-          if-no-files-found: ignore
+          path: test/browser/reports/*.json
+          if-no-files-found: error
 
       - name: Collect diagnostics on failure
         if: failure()
