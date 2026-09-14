@@ -1,9 +1,12 @@
 # Browser-level E2E for the X11/Preedit key-to-DOM plumbing (canary), not a
 # general regression net: engine logic is guarded by the headless ctest suite.
 # Gate rule: PRs run only when the harness itself changes; engine PRs see
-# this lane via nightly + dev pushes. Promotion to a blocking gate on
-# src/** requires >=20 clean consecutive nightly runs; 3 consecutive reds
-# without a linked triage issue demote it to workflow_dispatch-only.
+# this lane via nightly + dev pushes. Promotion to a blocking gate on src/**
+# requires >=20 consecutive clean nightlies with >=5 of them unbroken by any
+# src/**/bamboo/** change (so the streak can't accrue against 20 different
+# engines); demotion back to workflow_dispatch-only at 3 consecutive reds
+# without a linked triage issue OR >1 failure per rolling 10 — 20-clean
+# alone would still promote a 10%-flake suite ~12% of the time.
 name: Browser E2E
 
 on:

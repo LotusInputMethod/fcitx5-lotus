@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { clearInput, ensureActive, typeWithLotus, typeXdotool } from '../helpers/x11-input';
 import { switchIM, activateIM } from '../helpers/fcitx5';
-import { attachEventLog } from '../helpers/events';
+import { attachEventLog, getEventLog } from '../helpers/events';
 
 test.describe('Fcitx5 Lotus Smoke Tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -70,9 +70,27 @@ test.describe('Fcitx5 Lotus Smoke Tests', () => {
     await typeWithLotus(page, input1, ['t', 'i', 'e', 'e', 'n', 'g', 's']);
     await expect(input1).toHaveValue('tiếng');
 
-    // Blur by focusing second input
+    // Blur by focusing second input. Lotus must commit the pending preedit
+    // as focus leaves input1; the value check alone cannot tell 'committed
+    // on blur' from 'preedit silently discarded/recomposed', so watermark
+    // the event log and require the commit event AFTER the blur.
+    const watermark = (await getEventLog(page)).length;
     await ensureActive(page, input2);
     await expect(input2).toBeFocused();
+    await expect
+      .poll(
+        async () =>
+          (await getEventLog(page))
+            .slice(watermark)
+            .some(
+              (e) =>
+                (e.type === 'input' || e.type === 'compositionend') &&
+                e.data === 'tiếng' &&
+                e.targetId === 'test-input'
+            ),
+        { timeout: 2000 }
+      )
+      .toBe(true);
 
     // Refocus first input
     await ensureActive(page, input1);
