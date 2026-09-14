@@ -26,6 +26,12 @@ deliberately NOT here, and the workflow header records the same scope.
   only attests to the (addon SHA × fcitx5 version × runner image) triple it
   actually executed.
 
+Known fidelity caveats: `ShareInputState=All` + `resetStateWhenFocusIn=No`
+are set so `fcitx5-remote` switching works without focus games — real users
+mostly run per-window state, so cross-field isolation bugs are NOT covered
+here by design; and the corpus pins one Telex configuration (hats/DD/tones),
+not VNI or spellcheck edges. Widen both in the phase-2 issue, not ad hoc.
+
 ## CI gate contract
 
 Lives in `.github/workflows/browser-e2e.yml` header; summary: PRs are gated on
