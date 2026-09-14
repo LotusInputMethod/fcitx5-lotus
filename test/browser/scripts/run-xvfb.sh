@@ -186,10 +186,12 @@ echo "XDG_CONFIG_HOME=${XDG_CONFIG_HOME}"
 
 fcitx5_started=0
 for attempt in 1 2 3; do
+    # '*=4' keeps inter-event timing visible in the uploaded log at
+    # negligible cost (~2s/test); '*=5' stays opt-in for local debugging.
     if [ "${BROWSER_E2E_DEBUG:-0}" = "1" ]; then
         fcitx5 -r --disable=wayland,waylandim --verbose '*=5' > "${FCITX_LOG}" 2>&1 &
     else
-        fcitx5 -r --disable=wayland,waylandim > "${FCITX_LOG}" 2>&1 &
+        fcitx5 -r --disable=wayland,waylandim --verbose '*=4' > "${FCITX_LOG}" 2>&1 &
     fi
     FCITX_PID=$!
 

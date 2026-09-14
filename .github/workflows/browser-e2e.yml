@@ -104,20 +104,41 @@ jobs:
 
       - name: Start X11 Desktop environment and Fcitx5
         run: |
+          # Record which distro fcitx5 this run validated — green suites
+          # must be attributable when noble SRUs move the 5.1.x series.
+          fcitx5 --version
           ./test/browser/scripts/run-xvfb.sh
 
       - name: Run Chromium E2E tests
         working-directory: test/browser
+        env:
+          E2E_JSON_OUTPUT: test-results/results-chromium.json
         run: npm run test:chromium
 
       - name: Run Firefox E2E tests
         working-directory: test/browser
+        env:
+          E2E_JSON_OUTPUT: test-results/results-firefox.json
         run: npm run test:firefox
+
+      # Timing data is the flake-rate experiment's raw material; the dot
+      # reporter alone can't tell a 50ms poll from a 1.9s one.
+      - name: Upload timing results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-e2e-timing
+          path: test/browser/test-results/*.json
+          if-no-files-found: ignore
 
       - name: Collect diagnostics on failure
         if: failure()
         run: |
           fcitx5-diagnose > /tmp/fcitx5-diagnose.log 2>&1 || true
+          # Runner stall vs engine bug, decided from the artifact: a red run
+          # next to high cpu pressure is a runner-statistics event, not a
+          # Lotus regression.
+          cat /proc/pressure/* > /tmp/pressure.txt 2>/dev/null || true
           # Copy logs from isolated TEST_HOME to /tmp for artifact upload
           cp "${TEST_HOME}/fcitx5.log" /tmp/fcitx5.log 2>/dev/null || true
           cp "${TEST_HOME}/xvfb.log" /tmp/xvfb.log 2>/dev/null || true
@@ -135,6 +156,7 @@ jobs:
             /tmp/fcitx5-diagnose.log
             /tmp/xvfb.log
             /tmp/openbox.log
+            /tmp/pressure.txt
           if-no-files-found: ignore
 
       - name: Stop X11 and Fcitx5
