@@ -41,6 +41,21 @@ test.describe('Fcitx5 Lotus Smoke Tests', () => {
     await expect(input).toHaveValue('tiếng việt');
   });
 
+  test('telex vowel-hat and capitalization rules compose', async ({ page }) => {
+    const input = page.locator('#test-input');
+    const cases: Array<[string[], string]> = [
+      [['a', 'a'], 'â'],
+      [['o', 'o'], 'ô'],
+      [['e', 'e'], 'ê'],
+      [['D', 'D'], 'Đ'],
+    ];
+    for (const [keys, expected] of cases) {
+      await clearInput(page, input);
+      await typeWithLotus(page, input, keys);
+      await expect(input, `keys=${keys.join('+')}`).toHaveValue(expected);
+    }
+  });
+
   test('types telex phrase in textarea', async ({ page }) => {
     const textarea = page.locator('#test-textarea');
     await clearInput(page, textarea);
