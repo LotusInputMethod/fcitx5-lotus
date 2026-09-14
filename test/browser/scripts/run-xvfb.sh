@@ -44,6 +44,14 @@ if [ "${1:-}" = "--stop" ]; then
     exit 0
 fi
 
+# Readiness polling depends on it; fail with a truthful error instead of
+# letting the loop below report "Xvfb failed to start" when the real problem
+# is the missing probe.
+if ! command -v xdpyinfo >/dev/null 2>&1; then
+    echo "error: xdpyinfo not found (apt install x11-utils)" >&2
+    exit 1
+fi
+
 # Fail closed if the display is already in use (live server or stale socket):
 # the harness owns its X server and never reuses an existing one.
 if [ -S "/tmp/.X11-unix/X${DISPLAY#:}" ] || { command -v xdpyinfo >/dev/null 2>&1 && xdpyinfo -display "${DISPLAY}" >/dev/null 2>&1; }; then
@@ -149,7 +157,12 @@ echo "${OPENBOX_PID}" >> "${PID_FILE}"
 
 openbox_ready=0
 for _ in $(seq 1 30); do
-    if kill -0 "${OPENBOX_PID}" 2>/dev/null; then
+    if ! kill -0 "${OPENBOX_PID}" 2>/dev/null; then
+        break
+    fi
+    # Liveness proves nothing: poll until openbox actually claims the
+    # display (_NET_SUPPORTING_WM_CHECK resolves to a window id).
+    if xprop -root -notype _NET_SUPPORTING_WM_CHECK 2>/dev/null | grep -q '0x'; then
         openbox_ready=1
         break
     fi
@@ -157,7 +170,7 @@ for _ in $(seq 1 30); do
 done
 
 if [ "$openbox_ready" -ne 1 ]; then
-    echo "error: openbox failed to start within 3s" >&2
+    echo "error: openbox did not claim the display within 3s" >&2
     [ -f "${OPENBOX_LOG}" ] && tail -n 50 "${OPENBOX_LOG}" >&2
     exit 1
 fi
