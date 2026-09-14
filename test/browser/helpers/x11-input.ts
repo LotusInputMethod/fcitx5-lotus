@@ -75,10 +75,15 @@ export async function ensureActive(
   const targetId = await locator.evaluate((el: HTMLElement) => el.id);
   await expect
     .poll(
-      async () =>
-        (await getEventLog(page))
-          .slice(watermark)
-          .some((e) => e.type === 'focus' && e.targetId === targetId),
+      async () => {
+        const log = await getEventLog(page);
+        // Math.min clamps the watermark if the log was ever replaced
+        // (reset/reload) mid-poll; without it slice(watermark) of a fresh
+        // short array is [] forever and the poll can only time out.
+        return log
+          .slice(Math.min(watermark, log.length))
+          .some((e) => e.type === 'focus' && e.targetId === targetId);
+      },
       { timeout: 2000 }
     )
     .toBe(true);
