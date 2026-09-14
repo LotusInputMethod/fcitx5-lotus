@@ -1,7 +1,15 @@
+# Browser-level E2E for the X11/Preedit key-to-DOM plumbing (canary), not a
+# general regression net: engine logic is guarded by the headless ctest suite.
+# Gate rule: PRs run only when the harness itself changes; engine PRs see
+# this lane via nightly + dev pushes. Promotion to a blocking gate on
+# src/** requires >=20 clean consecutive nightly runs; 3 consecutive reds
+# without a linked triage issue demote it to workflow_dispatch-only.
 name: Browser E2E
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '23 3 * * *'
   push:
     paths:
       - 'test/browser/**'
@@ -15,11 +23,11 @@ on:
     paths:
       - 'test/browser/**'
       - '.github/workflows/browser-e2e.yml'
-      - 'src/**'
-      - 'bamboo/**'
-      - 'data/**'
-      - 'server/**'
-      - '**/CMakeLists.txt'
+
+# INVARIANT: this job executes PR-authored code (scripts, lockfile, and this
+# file itself) and must stay secret-free — no repository/environment secrets,
+# ever; that plus `contents: read` and ephemeral hosted runners (the X11 -ac /
+# XTEST / --no-sandbox trust model) is what makes fork-PR execution safe.
 permissions:
   contents: read
 
@@ -77,7 +85,6 @@ jobs:
             cmake \
             ninja-build \
             gettext \
-            libx11-dev \
             libfmt-dev \
             librsvg2-bin \
             libinput-dev \
