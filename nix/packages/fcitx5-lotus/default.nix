@@ -30,13 +30,13 @@ let
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "fcitx5-lotus";
-  version = "3.5.10";
+  version = "3.6.0";
 
   src = fetchFromGitHub {
     owner = "LotusInputMethod";
     repo = "fcitx5-lotus";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-Ti4O0wyUYVyGzFmlG8SN3wusoM8TlsbmI60BPyaS0RU=";
+    hash = "sha256-q0NT54HFH3grCppiWR00taATOSUv7t3PEaTlbcIehlg=";
     fetchSubmodules = true;
   };
 
@@ -48,7 +48,7 @@ stdenv.mkDerivation (finalAttrs: {
         pname = "fcitx5-lotus-go-modules";
         inherit (finalAttrs) version src;
         modRoot = "bamboo";
-        vendorHash = "sha256-0Q8axcw5UKrODpe5oU0yWiBykPWNPuun1161MUgnrlM=";
+        vendorHash = "sha256-p9YpDSRtOkYa6cZHzWOfcYKaFb5LXXfXXnQo9xTEnWI=";
       }).goModules;
 
     updateScript = nix-update-script { };
