@@ -1,3 +1,2 @@
-KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", MODE="0660", GROUP="input"
+KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput"
 ACTION=="add|change", KERNEL=="uinput", SUBSYSTEM=="misc", RUN+="/usr/bin/setfacl -m u:@LOTUS_UINPUT_PROXY_USER@:rw /dev/uinput"
-SUBSYSTEM=="input", MODE="0660", GROUP="input"
