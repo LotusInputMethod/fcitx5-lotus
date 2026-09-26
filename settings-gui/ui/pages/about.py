@@ -1,20 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-import getpass
-import os
-import subprocess
-import tempfile
 
 from i18n import _
 from qtpy.QtCore import Qt, QUrl
 from qtpy.QtGui import QDesktopServices, QIcon
 from qtpy.QtWidgets import (
-    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -132,13 +126,6 @@ class AboutPage(QWidget):
         support_layout.addWidget(btn_feature)
         layout.addLayout(support_layout)
 
-        # Export Log Button
-        self.btn_export_log = QPushButton(_("Export Debug Logs"))
-        self.btn_export_log.setObjectName("ExportLogs")
-        self.btn_export_log.setFixedWidth(415)  # 200 + 200 + 15 spacing
-        self.btn_export_log.clicked.connect(self._on_export_logs)
-        layout.addWidget(self.btn_export_log, alignment=Qt.AlignCenter)
-
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setObjectName("AboutLine")
@@ -187,65 +174,3 @@ class AboutPage(QWidget):
 
         scroll.setWidget(content_widget)
         root_layout.addWidget(scroll)
-
-    def _on_export_logs(self):
-        # Using names that don't conflict with _
-        save_dialog_result = QFileDialog.getSaveFileName(
-            self,
-            _("Save Debug Log"),
-            os.path.expanduser("~/fcitx5-lotus-debug.log"),
-            "Log Files (*.log);;All Files (*)",
-        )
-
-        if not save_dialog_result or not save_dialog_result[0]:
-            return
-
-        export_filename = save_dialog_result[0]
-
-        try:
-            with open(export_filename, "w") as log_output_file:
-                log_output_file.write("=== Fcitx5 Lotus Debug Log Export ===\n")
-                log_output_file.write(f"Version: {__version__}\n")
-                log_output_file.write(f"User: {getpass.getuser()}\n")
-                log_output_file.write("--------------------------------------\n\n")
-
-                system_log_path = os.path.join(tempfile.gettempdir(), "fcitx5-lotus-server.log")
-                log_output_file.write(f"--- Server Log ({system_log_path}) ---\n")
-                if os.path.exists(system_log_path):
-                    with open(system_log_path, "r") as src_log:
-                        log_output_file.write(src_log.read())
-                else:
-                    log_output_file.write("Log file not found.\n")
-                log_output_file.write("\n\n")
-
-                log_output_file.write("--- Systemd Journal (fcitx5-lotus-server) ---\n")
-                try:
-                    current_sys_user = getpass.getuser()
-                    process_capture = subprocess.run(
-                        [
-                            "journalctl",
-                            "-u",
-                            f"fcitx5-lotus-server@{current_sys_user}.service",
-                            "--no-pager",
-                            "-n",
-                            "200",
-                        ],
-                        capture_output=True,
-                        text=True,
-                        timeout=10,
-                    )
-                    log_output_file.write(
-                        process_capture.stdout
-                        if process_capture.stdout
-                        else "No journal entries found.\n"
-                    )
-                except Exception as journal_ex:
-                    log_output_file.write(f"Error collecting journal: {str(journal_ex)}\n")
-
-                log_output_file.write("\n\n--- End of Log ---\n")
-
-            QMessageBox.information(
-                self, _("Success"), _("Debug logs exported to:\n") + export_filename
-            )
-        except Exception as export_ex:
-            QMessageBox.critical(self, _("Error"), _("Failed to export logs:\n") + str(export_ex))

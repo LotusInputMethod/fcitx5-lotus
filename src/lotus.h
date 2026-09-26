@@ -15,8 +15,12 @@
 #ifndef _FCITX5_LOTUS_H_
 #define _FCITX5_LOTUS_H_
 
-#include "bamboo-core.h"
+#include <cstdint>
 #include <optional>
+
+// Declaration only — including the generated bamboo-core.h here would put the
+// whole C++ build behind the Go c-archive step (see bamboo/CMakeLists.txt).
+extern "C" void DeleteObject(std::uintptr_t handle);
 
 namespace fcitx {
 

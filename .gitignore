@@ -39,3 +39,4 @@ lotus-version.h
 # Logs
 *.log
 __pycache__/
+CMakeUserPresets.json

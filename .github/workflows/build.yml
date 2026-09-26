@@ -72,7 +72,7 @@ jobs:
           submodules: true
       - name: Init CodeQL
         if: matrix.compiler == 'gcc'
-        uses: github/codeql-action/init@v4.38.0
+        uses: github/codeql-action/init@v4.38.1
         with:
           languages: cpp,go
           source-root: fcitx5-lotus
@@ -89,7 +89,7 @@ jobs:
           ctest --test-dir fcitx5-lotus/build --output-on-failure --no-tests=error
       - name: CodeQL Analysis
         if: matrix.compiler == 'gcc'
-        uses: github/codeql-action/analyze@v4.38.0
+        uses: github/codeql-action/analyze@v4.38.1
         with:
           checkout_path: fcitx5-lotus
 

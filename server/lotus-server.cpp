@@ -11,9 +11,12 @@
 
 #include <cstring>
 #include <vector>
+#include <csignal>
+#include <cstddef>
 
-#include <signal.h>
-#include <limits.h>
+#include <climits> // IWYU pragma: keep
+#include <sched.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 std::atomic<bool> g_running{true};
@@ -224,8 +227,8 @@ int main(int argc, char* argv[]) {
     memcpy(&addr_kb.sun_path[1], backspace_socket.c_str(), backspace_socket.length());
     memcpy(&addr_mouse.sun_path[1], mouse_flag_socket.c_str(), mouse_flag_socket.length());
 
-    socklen_t kb_len    = offsetof(struct sockaddr_un, sun_path) + backspace_socket.length() + 1;
-    socklen_t mouse_len = offsetof(struct sockaddr_un, sun_path) + mouse_flag_socket.length() + 1;
+    socklen_t kb_len    = offsetof(sockaddr_un, sun_path) + backspace_socket.length() + 1;
+    socklen_t mouse_len = offsetof(sockaddr_un, sun_path) + mouse_flag_socket.length() + 1;
 
     if (bind(server_fd.get(), (struct sockaddr*)&addr_kb, kb_len) != 0) {
         LotusLogger::instance().error("Failed to bind socket");

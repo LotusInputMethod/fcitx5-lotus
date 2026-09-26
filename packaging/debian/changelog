@@ -1,12 +1,6 @@
-fcitx5-lotus (3.5.10-1) unstable; urgency=medium
+fcitx5-lotus (3.6.0-1) unstable; urgency=medium
 
-  * Added desktop notifications when switching typing modes via the mode menu.
-  * Fixed typing and key event handling for GTK4 applications on Wayland.
-  * Fixed focus loss issues in Chromium on X11 when using uinput modes.
-  * Fixed tray icon coloring to match KDE Plasma panel themes dynamically.
-  * Improved icon rendering by prioritizing scalable vector assets over raster images.
-  * Preserved per-app typing mode rules across configuration reloads and input context switches.
-  * Fixed input engine crashes when initialized without an external dictionary loaded.
-  * Fixed input lag caused by unhandled mouse/touchpad input events.
+  * Add Uinput (Surrounding Text) mode
+  * Fix mode menu key don't reset state
 
- -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Sat, 19 Sep 2026 09:19:00 +0700
+ -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Sat, 26 Sep 2026 22:32:00 +0700

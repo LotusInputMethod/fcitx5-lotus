@@ -63,7 +63,7 @@ To have the best experience and get the most out of insallation, configuration, 
 
 ## Compilation from source (for developers)
 
-If you want to compile the input method from source to contribute or customize:
+If you want to compile the input method from source to contribute or customize (musl is not supported due to [CGo](https://github.com/golang/go/issues/13492)):
 
 ### Dependencies
 

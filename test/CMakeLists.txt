@@ -1,16 +1,22 @@
-# Reusable object library compiling the 7 core Lotus sources once per compiler build,
-# shared across all headless integration test executables.
-add_library(lotus_test_core OBJECT ${fcitx_lotus_core_sources})
-set_target_properties(lotus_test_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_include_directories(lotus_test_core PRIVATE
+# Shared library compiling the 7 core Lotus sources once, so the heavy
+# bamboo-core.a (Go runtime) is linked once here instead of once per test.
+add_library(lotus_test_core SHARED ${fcitx_lotus_core_sources})
+# Test-only .so must export its symbols: fcitx5's Fcitx5CompilerSettings
+# hides visibility project-wide.
+set_target_properties(lotus_test_core PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    CXX_VISIBILITY_PRESET default
+    VISIBILITY_INLINES_HIDDEN OFF
+)
+target_include_directories(lotus_test_core PUBLIC
     ${PROJECT_BINARY_DIR}
     ${PROJECT_SOURCE_DIR}/src
 )
-target_compile_definitions(lotus_test_core PRIVATE
+target_compile_definitions(lotus_test_core PUBLIC
     FCITX5_LOTUS_SETTINGS_PATH="${CMAKE_INSTALL_FULL_BINDIR}/fcitx5-lotus-settings"
     FCITX_LOTUS_ICON_DIR="${CMAKE_INSTALL_FULL_DATADIR}/icons/hicolor/scalable/apps"
 )
-target_link_libraries(lotus_test_core PRIVATE
+target_link_libraries(lotus_test_core PUBLIC
     Fcitx5::Core
     Fcitx5::Config
     Fcitx5::Module::Emoji
@@ -18,34 +24,27 @@ target_link_libraries(lotus_test_core PRIVATE
     Pthread::Pthread
 )
 
-# Helper macro to compile standalone headless integration test linked with Lotus engine.
+# Helper to compile a standalone headless integration test linked with the
+# Lotus engine core.
 #
 # Usage:
 #   add_lotus_headless_test(<target_name> <source_file> "<labels>")
 # Example:
 #   add_lotus_headless_test(my_test my-test.cpp "integration;myfeature")
 function(add_lotus_headless_test target source labels)
-    add_executable(${target} ${source} $<TARGET_OBJECTS:lotus_test_core>)
-    target_include_directories(${target} PRIVATE
-        ${PROJECT_BINARY_DIR}
-        ${PROJECT_SOURCE_DIR}/src
-    )
-    target_compile_definitions(${target} PRIVATE
-        FCITX5_LOTUS_SETTINGS_PATH="${CMAKE_INSTALL_FULL_BINDIR}/fcitx5-lotus-settings"
-        FCITX_LOTUS_ICON_DIR="${CMAKE_INSTALL_FULL_DATADIR}/icons/hicolor/scalable/apps"
-    )
+    add_executable(${target} ${source})
     target_link_libraries(${target} PRIVATE
+        lotus_test_core
         Fcitx5::Core
         Fcitx5::Config
         Fcitx5::Module::Emoji
-        Bamboo::Core
         Pthread::Pthread
     )
     add_test(NAME ${target} COMMAND ${target})
     set_tests_properties(${target} PROPERTIES LABELS "${labels}" TIMEOUT 20)
 endfunction()
 
-# Helper macro to compile lightweight unit test linked with Bamboo engine core.
+# Helper to compile lightweight unit test linked with Bamboo engine core.
 function(add_bamboo_test target source labels)
     add_executable(${target} ${source})
     target_link_libraries(${target} PRIVATE Bamboo::Core)

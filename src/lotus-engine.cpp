@@ -13,9 +13,11 @@
 #include "lotus-candidates.h"
 #include "lotus-monitor.h"
 #include "lotus-utils.h"
-#include "lotus-icon-resolver.h"
 #include "ack-apps.h"
 #include "lotus-plasma-theme.h"
+
+#include "bamboo-core.h" // generated cgo header; only included where the bridge is called
+
 #include <optional>
 #include <sys/socket.h>
 #include <utility>
@@ -52,6 +54,7 @@ namespace fcitx {
             case LotusMode::Preedit: return 5;
             case LotusMode::Emoji: return 6;
             case LotusMode::Minecraft: return 8;
+            case LotusMode::UinputSurrText: return 7;
             default: return 0;
         }
     }
@@ -66,6 +69,7 @@ namespace fcitx {
             case 5: return LotusMode::Preedit;
             case 6: return LotusMode::Emoji;
             case 8: return LotusMode::Minecraft;
+            case 7: return LotusMode::UinputSurrText;
             default: return LotusMode::Off;
         }
     }
@@ -76,7 +80,8 @@ namespace fcitx {
     static bool isAppModeMenuReservedKey(KeySym sym, const lotusConfig& config) {
         if (sym == Key(*config.shortcutSmooth).sym() || sym == Key(*config.shortcutUinput).sym() || sym == Key(*config.shortcutMinecraft).sym() ||
             sym == Key(*config.shortcutSurroundingText).sym() || sym == Key(*config.shortcutPreedit).sym() || sym == Key(*config.shortcutEmoji).sym() ||
-            sym == Key(*config.shortcutOff).sym() || sym == Key(*config.shortcutSuperSmooth).sym() || sym == Key(*config.shortcutDefault).sym()) {
+            sym == Key(*config.shortcutOff).sym() || sym == Key(*config.shortcutSuperSmooth).sym() || sym == Key(*config.shortcutUinputSurrText).sym() ||
+            sym == Key(*config.shortcutDefault).sym()) {
             return true;
         }
 
@@ -682,6 +687,7 @@ namespace fcitx {
                                                                     {"Emoji", *config_.showModeEmoji},
                                                                     {"Off", *config_.showModeOff},
                                                                     {"SuperSmooth", *config_.showModeSuperSmooth},
+                                                                    {"UinputSurrText", *config_.showModeUinputSurrText},
                                                                     {"Default", *config_.showModeDefault}};
 
             std::vector<LotusMode>                    enabledModes;
@@ -711,6 +717,8 @@ namespace fcitx {
                         mode = LotusMode::Off;
                     else if (name == "SuperSmooth")
                         mode = LotusMode::SuperSmooth;
+                    else if (name == "UinputSurrText")
+                        mode = LotusMode::UinputSurrText;
                     else if (name == "Default")
                         mode = config().mode.value();
                     else
@@ -752,6 +760,11 @@ namespace fcitx {
 
         if (!keyEvent.isRelease() && !config_.modeMenuKey->empty() && keyEvent.key().checkKeyList(*config_.modeMenuKey)) {
             LOTUS_INFO("Mode menu key pressed");
+            auto* state = ic->propertyFor(&factory_);
+            if (state != nullptr) {
+                state->commitBuffer();
+                state->reset();
+            }
             currentConfigureApp_ = getProgramName(ic);
             g_mouse_clicked.store(false, std::memory_order_release);
             std::string appName = getProgramName(ic);
@@ -913,7 +926,8 @@ namespace fcitx {
             return;
 
         file << "# Lotus Per-App Configuration\n";
-        file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Slow), 3 = Uinput (Super Smooth), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker, 8 = Minecraft\n";
+        file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Slow), 3 = Uinput (Super Smooth), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker, 8 = Minecraft, 7 = Uinput "
+                "(Surrounding Text)\n";
         std::lock_guard<std::mutex> lock(appRulesMutex_);
         for (const auto& pair : appRules_) {
             bool currentIsCtx = isStartsWith(pair.first, "ctx_");
@@ -1030,6 +1044,7 @@ namespace fcitx {
             {"Emoji", {LotusMode::Emoji, _("Emoji Picker"), getShortcut(*config_.shortcutEmoji), *config_.showModeEmoji}},
             {"Off", {LotusMode::Off, _("OFF"), getShortcut(*config_.shortcutOff), *config_.showModeOff}},
             {"SuperSmooth", {LotusMode::SuperSmooth, _("Uinput (Super Smooth)"), getShortcut(*config_.shortcutSuperSmooth), *config_.showModeSuperSmooth}},
+            {"UinputSurrText", {LotusMode::UinputSurrText, _("Uinput (Surrounding Text)"), getShortcut(*config_.shortcutUinputSurrText), *config_.showModeUinputSurrText}},
             {"Default", {config_.mode.value(), _("Default Typing"), getShortcut(*config_.shortcutDefault), *config_.showModeDefault}}};
 
         std::vector<ModeInfo> allModes;
@@ -1138,6 +1153,7 @@ namespace fcitx {
             case LotusMode::Emoji: modeLabel = _("Emoji Picker"); break;
             case LotusMode::Off: modeLabel = _("OFF"); break;
             case LotusMode::SuperSmooth: modeLabel = _("Uinput (Super Smooth)"); break;
+            case LotusMode::UinputSurrText: modeLabel = _("Uinput (Surrounding Text)"); break;
             default: modeLabel = _("Unknown Mode"); break;
         }
 
@@ -1199,44 +1215,7 @@ namespace fcitx {
                 iconName = baseIconName + (isDarkMode() ? "-default" : "-default-black");
             }
         }
-
-        // ── Cinnamon: return icon NAME (not absolute path) ──────────────────
-        // Cinnamon's tray uses XApp Status Applet (SNI).  The IconName property
-        // is sent over D-Bus and resolved via Gtk.IconTheme — which only
-        // understands theme icon names, not filesystem paths.
-        //
-        // On KDE and GNOME, absolute paths work correctly — their compositors
-        // or SNI hosts handle filesystem paths in IconName.
-        static const bool kIsCinnamon = [] {
-            std::string de = getEnv("XDG_CURRENT_DESKTOP");
-            if (de.empty())
-                de = getEnv("DESKTOP_SESSION");
-            return !de.empty() && (de == "cinnamon" || de == "X-Cinnamon");
-        }();
-
-        if (kIsCinnamon) {
-            return iconName;
-        }
-
-        // Cache keyed on the resolved icon name — mode/theme changes
-        // re-resolve automatically, no manual invalidation needed.
-        if (iconCacheName_ == iconName && !iconCachePath_.empty()) {
-            return iconCachePath_;
-        }
-        iconCacheName_ = iconName;
-
-        // ── Default: resolve to absolute path (KDE, GNOME, etc.) ───────────
-        // Return absolute path to bypass XDG icon theme lookup, which fails on
-        // many non-Breeze icon themes despite the icon being installed in
-        // hicolor and breeze fallback directories.
-        LotusIconSearchPaths paths;
-        // hicolor status/apps dirs; SVG preferred, PNG only as raster fallback.
-        paths.systemDirs  = {"/usr/share/icons/hicolor/scalable/apps", "/usr/share/icons/hicolor/scalable/status", "/usr/share/icons/hicolor/22x22/status",
-                             "/usr/share/icons/hicolor/24x24/status"};
-        paths.fallbackDir = FCITX_LOTUS_ICON_DIR; // compile-time install dir
-
-        iconCachePath_ = resolveLotusIconPath({iconName, baseIconName}, paths);
-        return iconCachePath_;
+        return iconName;
     }
 
     std::string LotusEngine::subModeLabelImpl(const InputMethodEntry& /*entry*/, InputContext& /*inputContext*/) {

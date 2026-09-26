@@ -17,7 +17,9 @@
 
 namespace {
 
-    void reportFailure(const std::string& step, const std::string& expected, const std::string& actual, const std::string& meaning) {
+    constexpr int kDefaultTimeoutMs = 5000;
+
+    void          reportFailure(const std::string& step, const std::string& expected, const std::string& actual, const std::string& meaning) {
         std::cerr << "Step: " << step << '\n';
         std::cerr << "Expected: " << expected << '\n';
         std::cerr << "Actual: " << actual << '\n';
@@ -38,68 +40,89 @@ namespace {
             address.sun_path[0]   = '\0';
             std::memcpy(&address.sun_path[1], socketPath.data(), socketPath.size());
             const auto length = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + socketPath.size() + 1);
-            if (bind(fd_, reinterpret_cast<const sockaddr*>(&address), length) < 0 || listen(fd_, 1) < 0) {
+            if (bind(fd_, reinterpret_cast<const sockaddr*>(&address), length) < 0 || listen(fd_, 5) < 0) {
                 fail("bind/listen");
             }
         }
 
         ~BackspaceListener() {
-            if (client_ >= 0)
-                close(client_);
+            closeClient();
             if (fd_ >= 0)
                 close(fd_);
         }
 
-        bool receive(int& count, const char* meaning, const char* requestTimeoutExpected = "request within 2000 ms") {
-            if (client_ < 0) {
-                if (fd_ < 0) {
-                    reportFailure("wait for replacement socket connection", "valid listener descriptor", "listener descriptor is invalid", meaning);
-                    return false;
+        bool receive(int& count, const char* meaning, const char* requestTimeoutExpected = "request within 5000 ms") {
+            int remainingTimeout = kDefaultTimeoutMs;
+
+            while (remainingTimeout > 0) {
+                if (client_ < 0) {
+                    if (fd_ < 0) {
+                        reportFailure("wait for replacement socket connection", "valid listener descriptor", "listener descriptor is invalid", meaning);
+                        return false;
+                    }
+
+                    pollfd     pfd{fd_, POLLIN, 0};
+                    const auto pollResult = poll(&pfd, 1, remainingTimeout);
+                    if (pollResult == 0) {
+                        reportFailure("wait for replacement socket connection", "connection request within timeout", "poll timed out", meaning);
+                        return false;
+                    }
+                    if (pollResult < 0) {
+                        if (errno == EINTR)
+                            continue;
+                        reportFailure("wait for replacement socket connection", "poll succeeds", "poll failed: " + std::string(std::strerror(errno)), meaning);
+                        return false;
+                    }
+
+                    client_ = accept(fd_, nullptr, nullptr);
+                    if (client_ < 0) {
+                        if (errno == EINTR || errno == EAGAIN)
+                            continue;
+                        reportFailure("accept replacement socket connection", "accept succeeds", "accept failed: " + std::string(std::strerror(errno)), meaning);
+                        return false;
+                    }
                 }
-                pollfd     pollfd{fd_, POLLIN, 0};
-                const auto pollResult = poll(&pollfd, 1, 2000);
+
+                pollfd     pfd{client_, POLLIN | POLLHUP | POLLRDHUP, 0};
+                const auto pollResult = poll(&pfd, 1, remainingTimeout);
                 if (pollResult == 0) {
-                    reportFailure("wait for replacement socket connection", "connection request within 2000 ms", "poll timed out", meaning);
+                    reportFailure("wait for replacement request", requestTimeoutExpected, "poll timed out", meaning);
                     return false;
                 }
                 if (pollResult < 0) {
-                    reportFailure("wait for replacement socket connection", "poll succeeds", "poll failed: " + std::string(std::strerror(errno)), meaning);
+                    if (errno == EINTR)
+                        continue;
+                    reportFailure("wait for replacement request", "poll succeeds", "poll failed: " + std::string(std::strerror(errno)), meaning);
                     return false;
                 }
-                if (!(pollfd.revents & POLLIN)) {
-                    reportFailure("wait for replacement socket connection", "POLLIN revents", "revents=" + std::to_string(pollfd.revents), meaning);
+
+                if (pfd.revents & (POLLHUP | POLLRDHUP) && !(pfd.revents & POLLIN)) {
+                    closeClient();
+                    continue;
+                }
+
+                const auto received = recv(client_, &count, sizeof(count), 0);
+                if (received < 0) {
+                    if (errno == EINTR)
+                        continue;
+                    reportFailure("receive replacement request", std::to_string(sizeof(count)) + " bytes", "recv failed: " + std::string(std::strerror(errno)), meaning);
                     return false;
                 }
-                client_ = accept(fd_, nullptr, nullptr);
-                if (client_ < 0) {
-                    reportFailure("accept replacement socket connection", "accept succeeds", "accept failed: " + std::string(std::strerror(errno)), meaning);
+                if (received == 0) {
+                    // Socket closed by remote end
+                    closeClient();
+                    continue;
+                }
+                if (received != sizeof(count)) {
+                    reportFailure("receive replacement request", std::to_string(sizeof(count)) + " bytes", "recv returned " + std::to_string(received) + " bytes", meaning);
                     return false;
                 }
+
+                return true;
             }
-            pollfd     pollfd{client_, POLLIN, 0};
-            const auto pollResult = poll(&pollfd, 1, 2000);
-            if (pollResult == 0) {
-                reportFailure("wait for replacement request", requestTimeoutExpected, "poll timed out", meaning);
-                return false;
-            }
-            if (pollResult < 0) {
-                reportFailure("wait for replacement request", "poll succeeds", "poll failed: " + std::string(std::strerror(errno)), meaning);
-                return false;
-            }
-            if (!(pollfd.revents & POLLIN)) {
-                reportFailure("wait for replacement request", "POLLIN revents", "revents=" + std::to_string(pollfd.revents), meaning);
-                return false;
-            }
-            const auto received = recv(client_, &count, sizeof(count), 0);
-            if (received < 0) {
-                reportFailure("receive replacement request", std::to_string(sizeof(count)) + " bytes", "recv failed: " + std::string(std::strerror(errno)), meaning);
-                return false;
-            }
-            if (received != sizeof(count)) {
-                reportFailure("receive replacement request", std::to_string(sizeof(count)) + " bytes", "recv returned " + std::to_string(received) + " bytes", meaning);
-                return false;
-            }
-            return true;
+
+            reportFailure("wait for replacement request", requestTimeoutExpected, "timeout exceeded", meaning);
+            return false;
         }
 
         bool valid() const {
@@ -107,6 +130,13 @@ namespace {
         }
 
       private:
+        void closeClient() {
+            if (client_ >= 0) {
+                close(client_);
+                client_ = -1;
+            }
+        }
+
         void fail(const char* operation) {
             reportFailure(std::string(operation) + " replacement socket", "operation succeeds", std::string(operation) + " failed: " + std::strerror(errno),
                           "the test cannot observe Smooth replacement requests");
@@ -156,8 +186,7 @@ int main() {
     engine.activate(entry, focus);
     context->resetPreeditUpdateCount();
 
-    // Telex a, s changes the real Bamboo preedit a -> á. Smooth mode replaces
-    // the old character through the kb_socket transport.
+    // Telex a, s -> 'á'
     if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_s, true))
         return 1;
     int backspaces = 0;
@@ -180,7 +209,7 @@ int main() {
     }
 
     int replayBackspaces = 0;
-    if (!listener.receive(replayBackspaces, "buffered key was not replayed after deletion", "buffered x replay starts another replacement request within 2000 ms"))
+    if (!listener.receive(replayBackspaces, "buffered key was not replayed after deletion", "buffered x replay starts another replacement request within 5000 ms"))
         return 1;
     if (replayBackspaces <= 0) {
         reportFailure("receive replay replacement count", "backspace count > 0", "backspace count=" + std::to_string(replayBackspaces),

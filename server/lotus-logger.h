@@ -7,13 +7,11 @@
 
 /**
  * @file lotus-logger.h
- * @brief Simple file logger with rotation for fcitx5-lotus-server
+ * @brief Thin syslog() wrapper for fcitx5-lotus-server.
  *
- * Features:
- * - Thread-safe logging
- * - Automatic file rotation (max 10MB, keep 5 files)
- * - Timestamp and level formatting
- * - Configurable log levels
+ * Messages go to the local syslog daemon (journald/rsyslog), which adds
+ * timestamps and rotates the log.  Facility: LOG_DAEMON, ident:
+ * "fcitx5-lotus-server".
  */
 
 #ifndef _LOTUS_LOGGER_H_
@@ -21,9 +19,7 @@
 
 #include <atomic>
 #include <cstdint>
-#include <fstream>
 #include <string>
-#include <mutex>
 
 enum class LogLevel : std::uint8_t {
     DEBUG,
@@ -38,15 +34,7 @@ class LotusLogger {
     /**
      * @brief Instance constructor
      */
-    static LotusLogger& instance() {
-        static LotusLogger instance_;
-        return instance_;
-    }
-
-    /**
-     * @brief Destructor
-     */
-    ~LotusLogger();
+    static LotusLogger& instance();
 
     // Rule of five
     LotusLogger(const LotusLogger&)            = delete;
@@ -64,25 +52,20 @@ class LotusLogger {
      */
     bool isEnabled(LogLevel level) const;
 
-    /**
-     * @brief Log a message
-     */
-    void log(LogLevel level, const std::string& message);
-
     // Convenience methods
-    void debug(const std::string& msg) {
+    void debug(const std::string& msg) const {
         if (isEnabled(LogLevel::DEBUG))
             log(LogLevel::DEBUG, msg);
     }
-    void info(const std::string& msg) {
+    void info(const std::string& msg) const {
         if (isEnabled(LogLevel::INFO))
             log(LogLevel::INFO, msg);
     }
-    void warn(const std::string& msg) {
+    void warn(const std::string& msg) const {
         if (isEnabled(LogLevel::WARN))
             log(LogLevel::WARN, msg);
     }
-    void error(const std::string& msg) {
+    void error(const std::string& msg) const {
         if (isEnabled(LogLevel::ERROR))
             log(LogLevel::ERROR, msg);
     }
@@ -90,26 +73,21 @@ class LotusLogger {
   private:
     /**
      * @brief Constructor
-     * @param log_file Path to log file
-     * @param max_size Maximum file size before rotation (bytes)
-     * @param max_files Maximum number of backup files to keep
      * @param level Minimum log level to output
      */
-    LotusLogger(std::string log_file = "/tmp/fcitx5-lotus-server.log", LogLevel level = LogLevel::INFO);
+    LotusLogger(LogLevel level = LogLevel::INFO);
 
     /**
-     * @brief Get current timestamp string
+     * @brief Destructor
      */
-    static std::string getTimestamp();
+    ~LotusLogger();
 
     /**
-     * @brief Get log level string
+     * @brief Log a message through syslog()
      */
-    static std::string    levelToString(LogLevel level);
+    static void           log(LogLevel level, const std::string& message);
 
-    std::string           log_file_;
     std::atomic<LogLevel> level_;
-    std::ofstream         file_;
-    std::mutex            mutex_;
 };
+
 #endif // _LOTUS_LOGGER_H_

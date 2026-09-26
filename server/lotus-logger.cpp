@@ -7,34 +7,20 @@
 
 #include "lotus-logger.h"
 
-#include <iomanip>
-#include <sstream>
-#include <chrono>
-#include <iostream>
-#include <filesystem>
-#include <utility>
+#include <syslog.h>
 
-#include <sys/stat.h>
+LotusLogger& LotusLogger::instance() {
+    static LotusLogger instance_;
+    return instance_;
+}
 
-LotusLogger::LotusLogger(std::string log_file, LogLevel level) : log_file_(std::move(log_file)) {
+LotusLogger::LotusLogger(LogLevel level) {
     level_.store(level);
-
-    std::filesystem::path path(log_file_);
-    if (path.has_parent_path()) {
-        std::filesystem::create_directories(path.parent_path());
-    }
-
-    file_.open(log_file_, std::ios_base::app | std::ios_base::out);
-
-    if (!file_.is_open()) {
-        std::cerr << "[ERROR] Failed to open log file: " << log_file_ << '\n';
-    }
+    openlog("fcitx5-lotus-server", LOG_PID, LOG_DAEMON);
 }
 
 LotusLogger::~LotusLogger() {
-    if (file_.is_open()) {
-        file_.close();
-    }
+    closelog();
 }
 
 void LotusLogger::setLevel(LogLevel level) {
@@ -46,41 +32,14 @@ bool LotusLogger::isEnabled(LogLevel level) const {
 }
 
 void LotusLogger::log(LogLevel level, const std::string& message) {
-    if (!isEnabled(level) || !file_.is_open()) {
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    std::string                 entry = getTimestamp() + " [" + levelToString(level) + "] " + message + "\n";
-
-    file_ << entry;
-    if (level >= LogLevel::WARN) {
-        file_.flush();
-    }
-}
-
-std::string LotusLogger::getTimestamp() {
-    auto now    = std::chrono::system_clock::now();
-    auto time_t = std::chrono::system_clock::to_time_t(now);
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers)
-    auto      ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-
-    struct tm buf{};
-    localtime_r(&time_t, &buf);
-
-    std::stringstream ss;
-    ss << std::put_time(&buf, "%Y-%m-%d %H:%M:%S");
-    ss << "." << std::setfill('0') << std::setw(3) << ms.count();
-    return ss.str();
-}
-
-std::string LotusLogger::levelToString(LogLevel level) {
+    int priority = LOG_INFO;
     switch (level) {
-        case LogLevel::DEBUG: return "DEBUG";
-        case LogLevel::INFO: return "INFO";
-        case LogLevel::WARN: return "WARN";
-        case LogLevel::ERROR: return "ERROR";
-        default: return "UNKNOWN";
+        case LogLevel::DEBUG: priority = LOG_DEBUG; break;
+        case LogLevel::INFO: priority = LOG_INFO; break;
+        case LogLevel::WARN: priority = LOG_WARNING; break;
+        case LogLevel::ERROR: priority = LOG_ERR; break;
+        default: break;
     }
+    // Message is data, never a format string.
+    syslog(priority, "%s", message.c_str());
 }
