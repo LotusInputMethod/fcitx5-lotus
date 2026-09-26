@@ -760,6 +760,11 @@ namespace fcitx {
 
         if (!keyEvent.isRelease() && !config_.modeMenuKey->empty() && keyEvent.key().checkKeyList(*config_.modeMenuKey)) {
             LOTUS_INFO("Mode menu key pressed");
+            auto* state = ic->propertyFor(&factory_);
+            if (state != nullptr) {
+                state->commitBuffer();
+                state->reset();
+            }
             currentConfigureApp_ = getProgramName(ic);
             g_mouse_clicked.store(false, std::memory_order_release);
             std::string appName = getProgramName(ic);
