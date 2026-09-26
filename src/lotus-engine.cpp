@@ -30,6 +30,8 @@
 #include <fcitx-utils/eventdispatcher.h>
 #include <fcitx-utils/misc.h>
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstdlib>
 #include <filesystem>
@@ -80,23 +82,24 @@ namespace fcitx {
     // menu.  If the hotkey itself conflicts with a reserved menu key, falls back
     // to FcitxKey_f.
     static bool isAppModeMenuReservedKey(KeySym sym, const lotusConfig& config) {
-        if (sym == Key(*config.shortcutSmooth).sym() || sym == Key(*config.shortcutUinput).sym() || sym == Key(*config.shortcutMinecraft).sym() ||
-            sym == Key(*config.shortcutSelect).sym() || sym == Key(*config.shortcutSurroundingText).sym() || sym == Key(*config.shortcutPreedit).sym() ||
-            sym == Key(*config.shortcutEmoji).sym() || sym == Key(*config.shortcutOff).sym() || sym == Key(*config.shortcutSuperSmooth).sym() ||
-            sym == Key(*config.shortcutUinputSurrText).sym() || sym == Key(*config.shortcutDefault).sym()) {
+        // Not a static local on purpose: these shortcuts can be reassigned at
+        // runtime, and a static table would keep the values from the first call.
+        const std::array<KeySym, 11> modeShortcuts = {
+            Key(*config.shortcutSmooth).sym(),        Key(*config.shortcutUinput).sym(),
+            Key(*config.shortcutSuperSmooth).sym(),   Key(*config.shortcutMinecraft).sym(),
+            Key(*config.shortcutUinputSurrText).sym(), Key(*config.shortcutSelect).sym(),
+            Key(*config.shortcutSurroundingText).sym(), Key(*config.shortcutPreedit).sym(),
+            Key(*config.shortcutEmoji).sym(),         Key(*config.shortcutOff).sym(),
+            Key(*config.shortcutDefault).sym(),
+        };
+        if (std::find(modeShortcuts.begin(), modeShortcuts.end(), sym) != modeShortcuts.end()) {
             return true;
         }
 
-        switch (sym) {
-            case FcitxKey_Escape:
-            case FcitxKey_Tab:
-            case FcitxKey_ISO_Left_Tab:
-            case FcitxKey_Return:
-            case FcitxKey_space:
-            case FcitxKey_Up:
-            case FcitxKey_Down: return true;
-            default: return false;
-        }
+        static const std::array<KeySym, 7> reservedMenuKeys = {
+            FcitxKey_Escape, FcitxKey_Tab, FcitxKey_ISO_Left_Tab, FcitxKey_Return, FcitxKey_space, FcitxKey_Up, FcitxKey_Down,
+        };
+        return std::find(reservedMenuKeys.begin(), reservedMenuKeys.end(), sym) != reservedMenuKeys.end();
     }
 
     static KeySym typeKeyForModeMenuHotkey(KeySym hotkeySym, const lotusConfig& config) {
