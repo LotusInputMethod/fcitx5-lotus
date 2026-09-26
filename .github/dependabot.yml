@@ -10,3 +10,8 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "dev"
+  - package-ecosystem: "npm" # Playwright pins its browser builds; keep that pin from aging silently
+    directory: "/test/browser"
+    schedule:
+      interval: "weekly"
+    target-branch: "dev"
