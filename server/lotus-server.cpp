@@ -9,6 +9,7 @@
 #include "lotus-server.h"
 #include "lotus-logger.h"
 
+#include <cstdint>
 #include <cstring>
 #include <vector>
 #include <csignal>
@@ -55,7 +56,8 @@ bool UinputDevice::initialize() {
         return false;
     guard_.reset(fd);
 
-    if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0 || ioctl(fd, UI_SET_KEYBIT, KEY_BACKSPACE) < 0) {
+    if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0 || ioctl(fd, UI_SET_KEYBIT, KEY_BACKSPACE) < 0 || ioctl(fd, UI_SET_KEYBIT, KEY_LEFT) < 0 ||
+        ioctl(fd, UI_SET_KEYBIT, KEY_LEFTSHIFT) < 0) {
         return false;
     }
 
@@ -72,19 +74,46 @@ bool UinputDevice::initialize() {
     return true;
 }
 
-void UinputDevice::send_backspace() {
+void UinputDevice::send_tap(uint16_t code) {
     if (!guard_.is_valid())
         return;
     struct input_event ev[4]{};
     ev[0].type  = EV_KEY;
-    ev[0].code  = KEY_BACKSPACE;
+    ev[0].code  = code;
     ev[0].value = 1; // Press
     // Zero-initialize ev[1] via {} set this event to SYN_REPORT
     ev[2].type  = EV_KEY;
-    ev[2].code  = KEY_BACKSPACE;
+    ev[2].code  = code;
     ev[2].value = 0; // Release
     // Zero-initialize ev[3] via {} set this event to SYN_REPORT
     write(guard_.get(), ev, sizeof(ev));
+}
+
+void UinputDevice::send_mod(uint16_t code, int value) {
+    if (!guard_.is_valid())
+        return;
+    struct input_event ev[2]{};
+    ev[0].type  = EV_KEY;
+    ev[0].code  = code;
+    ev[0].value = value;
+    // Zero-initialize ev[1] via {} set this event to SYN_REPORT
+    write(guard_.get(), ev, sizeof(ev));
+}
+
+void UinputDevice::send_backspace() {
+    send_tap(KEY_BACKSPACE);
+}
+
+void UinputDevice::send_shift_down() {
+    send_mod(KEY_LEFTSHIFT, 1);
+}
+
+void UinputDevice::send_shift_up() {
+    send_mod(KEY_LEFTSHIFT, 0);
+}
+
+void UinputDevice::send_shift_left() {
+    send_tap(KEY_LEFT);
 }
 
 LibinputContext::LibinputContext(const struct libinput_interface* interface) : udev_(udev_new()) {
@@ -259,6 +288,8 @@ int main(int argc, char* argv[]) {
     FdGuard          addon_fd;
     FdGuard          kb_client_fd;
     int              pending_backspaces = 0;
+    int              pending_selects    = 0;     ///< remaining Shift+Left events to pace out
+    bool             shift_held         = false; ///< Shift pressed for an in-flight selection
 
     struct sigaction sa{};
     sa.sa_handler = signal_handler;
@@ -268,7 +299,7 @@ int main(int argc, char* argv[]) {
     sigaction(SIGINT, &sa, nullptr);
 
     while (g_running.load(std::memory_order_acquire)) {
-        int poll_timeout = (pending_backspaces > 0) ? 5 : -1;
+        int poll_timeout = (pending_backspaces > 0 || pending_selects > 0) ? 5 : -1;
         int ret          = poll(fds.data(), fds.size(), poll_timeout);
 
         if (ret < 0) {
@@ -282,6 +313,13 @@ int main(int argc, char* argv[]) {
             if (pending_backspaces > 0) {
                 uinput.send_backspace();
                 --pending_backspaces;
+            } else if (pending_selects > 0) {
+                uinput.send_shift_left();
+                --pending_selects;
+                if (pending_selects == 0 && shift_held) {
+                    uinput.send_shift_up();
+                    shift_held = false;
+                }
             }
         }
 
@@ -330,15 +368,48 @@ int main(int argc, char* argv[]) {
 
         // handle connect from addon
         if (fds[KB_CLIENT_INDEX].fd >= 0 && (fds[KB_CLIENT_INDEX].revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
-            int     count = 0;
-            ssize_t n     = recv(fds[KB_CLIENT_INDEX].fd, &count, sizeof(count), 0);
+            KbMsg   msg{};
+            ssize_t n = recv(fds[KB_CLIENT_INDEX].fd, &msg, sizeof(msg), 0);
             if (n <= 0) {
                 LotusLogger::instance().warn("Keyboard client disconnected or connection error");
+                if (shift_held) {
+                    uinput.send_shift_up(); // never leave Shift stuck down
+                    shift_held = false;
+                }
+                pending_selects = 0;
                 kb_client_fd.reset(-1);
                 fds[KB_CLIENT_INDEX].fd = -1;
+            } else if (n != (ssize_t)sizeof(KbMsg) && n != (ssize_t)sizeof(int32_t)) {
+                LotusLogger::instance().warn("Malformed keyboard message (" + std::to_string(n) + " bytes)");
             } else {
-                pending_backspaces += count - 1;
-                uinput.send_backspace();
+                if (n == (ssize_t)sizeof(int32_t)) {
+                    // Legacy datagram: bare backspace count.
+                    msg.count = msg.op;
+                    msg.op    = KB_OP_BACKSPACE;
+                }
+                if (msg.count > 0 && msg.op == KB_OP_SELECT) {
+                    if (!shift_held) {
+                        uinput.send_shift_down();
+                        shift_held = true;
+                    }
+                    uinput.send_shift_left();
+                    pending_selects += msg.count - 1;
+                    if (pending_selects == 0 && shift_held) {
+                        uinput.send_shift_up();
+                        shift_held = false;
+                    }
+                } else if (msg.count > 0 && msg.op == KB_OP_BACKSPACE) {
+                    if (shift_held) {
+                        // A stale in-flight selection must not mix with backspaces.
+                        uinput.send_shift_up();
+                        shift_held      = false;
+                        pending_selects = 0;
+                    }
+                    pending_backspaces += msg.count - 1;
+                    uinput.send_backspace();
+                } else if (msg.count > 0) {
+                    LotusLogger::instance().warn("Unknown keyboard message op: " + std::to_string(msg.op));
+                }
             }
         }
 

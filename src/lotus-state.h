@@ -124,10 +124,23 @@ namespace fcitx {
         static int setup_uinput();
 
         /**
+         * @brief Sends a keyboard request to the uinput server (reconnect on failure).
+         * @param op Operation to request.
+         * @param count Number of backspaces or characters to select.
+         */
+        void send_kb_msg(KbOp op, int count) const;
+
+        /**
          * @brief Sends backspace key events via uinput.
          * @param count Number of backspaces to send.
          */
         void send_backspace_uinput(int count) const;
+
+        /**
+         * @brief Asks the uinput server to select count characters with Shift+Left.
+         * @param count Number of characters to select.
+         */
+        void send_select_uinput(int count) const;
 
         /**
          * @brief Checks if autofill is certain for surrounding text.
@@ -168,6 +181,18 @@ namespace fcitx {
          * @return True if event was handled.
          */
         bool handleUInputKeyPress(KeyEvent& event, KeySym currentSym, int sleepTime);
+
+        /**
+         * @brief Completes an in-flight replacement after all echoed events arrived.
+         *
+         * Shared tail of the BackSpace and Shift+Left echo handlers: waits for the
+         * app to settle, commits the pending replacement string, resets the
+         * replacement state, swallows the final echo and replays buffered keys.
+         *
+         * @param event The key event of the final echoed key.
+         * @param sleepTime Pacing delay in milliseconds.
+         */
+        void finishReplacement(KeyEvent& event, int sleepTime);
 
         /**
          * @brief Performs text replacement via uinput.

@@ -76,11 +76,27 @@ class UinputDevice {
 
     bool          initialize();
     void          send_backspace();
+    void          send_shift_down();
+    void          send_shift_up();
+    void          send_shift_left();
     int           get_fd() const {
         return guard_.get();
     }
 
   private:
+    /**
+     * @brief Emits a press+release batch for one key (press, SYN, release, SYN),
+     *        same style as the original backspace write.
+     * @param code Linux KEY_* code.
+     */
+    void send_tap(uint16_t code);
+    /**
+     * @brief Emits a single modifier-style event with its SYN.
+     * @param code Linux KEY_* code.
+     * @param value 1 = press, 0 = release.
+     */
+    void    send_mod(uint16_t code, int value);
+
     FdGuard guard_;
 };
 
@@ -130,6 +146,22 @@ class LibinputContext {
  * @brief Maximum length of Unix socket paths.
 */
 #define UNIX_PATH_MAX sizeof(((struct sockaddr_un*)0)->sun_path)
+
+/**
+ * @brief Message on the keyboard socket from the fcitx5 addon.
+ *
+ * Layout must stay in sync with the addon side (src/lotus-utils.h).
+ * A legacy 4-byte datagram (op implicitly KB_OP_BACKSPACE) is also accepted.
+ */
+struct KbMsg {
+    int32_t op;    ///< KB_OP_* operation
+    int32_t count; ///< number of backspaces / characters to select
+};
+
+enum KbOp : int32_t {
+    KB_OP_BACKSPACE = 0, ///< emit count BackSpace key events
+    KB_OP_SELECT    = 1, ///< select count characters via Shift+Left
+};
 
 /**
  * @brief Global flag to control server running state.

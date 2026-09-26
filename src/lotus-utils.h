@@ -15,6 +15,7 @@
 #define _FCITX5_LOTUS_UTILS_H_
 
 #include <atomic>
+#include <cstdint>
 #include <sys/un.h>
 #include <fcitx-utils/log.h>
 #include <fcitx/inputcontext.h>
@@ -60,6 +61,25 @@ std::string buildSocketPath(const char* base_path_suffix);
 int64_t now_ms();
 
 /**
+ * @brief Message sent over the keyboard socket to the uinput server.
+ *
+ * Layout must stay in sync with the server side (server/lotus-server.h).
+ * The server also accepts a legacy 4-byte datagram holding a bare backspace count.
+ */
+struct KbMsg {
+    int32_t op;    ///< KbOp operation
+    int32_t count; ///< number of backspaces / characters to select
+};
+
+/**
+ * @brief Operations understood by the uinput server.
+ */
+enum KbOp : int32_t {
+    KB_OP_BACKSPACE = 0, ///< emit count BackSpace key events
+    KB_OP_SELECT    = 1, ///< select count characters via held Shift + Left
+};
+
+/**
  * @brief Checks if key symbol is a backspace.
  * @param sym Key symbol to check.
  * @return True if backspace.
@@ -69,7 +89,7 @@ bool isBackspace(uint32_t sym);
 /**
  * @brief Whether a mode delivers text through the uinput (fake backspace) path.
  * @param mode Mode to check.
- * @return True for Uinput, Smooth, SuperSmooth and Minecraft.
+ * @return True for Uinput, Smooth, SuperSmooth, Minecraft and Select.
  */
 bool isUinputMode(fcitx::LotusMode mode);
 

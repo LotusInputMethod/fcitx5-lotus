@@ -55,6 +55,7 @@ namespace fcitx {
             case LotusMode::Emoji: return 6;
             case LotusMode::Minecraft: return 8;
             case LotusMode::UinputSurrText: return 7;
+            case LotusMode::Select: return 9;
             default: return 0;
         }
     }
@@ -70,6 +71,7 @@ namespace fcitx {
             case 6: return LotusMode::Emoji;
             case 8: return LotusMode::Minecraft;
             case 7: return LotusMode::UinputSurrText;
+            case 9: return LotusMode::Select;
             default: return LotusMode::Off;
         }
     }
@@ -79,9 +81,9 @@ namespace fcitx {
     // to FcitxKey_f.
     static bool isAppModeMenuReservedKey(KeySym sym, const lotusConfig& config) {
         if (sym == Key(*config.shortcutSmooth).sym() || sym == Key(*config.shortcutUinput).sym() || sym == Key(*config.shortcutMinecraft).sym() ||
-            sym == Key(*config.shortcutSurroundingText).sym() || sym == Key(*config.shortcutPreedit).sym() || sym == Key(*config.shortcutEmoji).sym() ||
-            sym == Key(*config.shortcutOff).sym() || sym == Key(*config.shortcutSuperSmooth).sym() || sym == Key(*config.shortcutUinputSurrText).sym() ||
-            sym == Key(*config.shortcutDefault).sym()) {
+            sym == Key(*config.shortcutSelect).sym() || sym == Key(*config.shortcutSurroundingText).sym() || sym == Key(*config.shortcutPreedit).sym() ||
+            sym == Key(*config.shortcutEmoji).sym() || sym == Key(*config.shortcutOff).sym() || sym == Key(*config.shortcutSuperSmooth).sym() ||
+            sym == Key(*config.shortcutUinputSurrText).sym() || sym == Key(*config.shortcutDefault).sym()) {
             return true;
         }
 
@@ -927,7 +929,7 @@ namespace fcitx {
 
         file << "# Lotus Per-App Configuration\n";
         file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Slow), 3 = Uinput (Super Smooth), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker, 8 = Minecraft, 7 = Uinput "
-                "(Surrounding Text)\n";
+                "(Surrounding Text), 9 = Select (Shift+Left)\n";
         std::lock_guard<std::mutex> lock(appRulesMutex_);
         for (const auto& pair : appRules_) {
             bool currentIsCtx = isStartsWith(pair.first, "ctx_");
@@ -1154,6 +1156,7 @@ namespace fcitx {
             case LotusMode::Off: modeLabel = _("OFF"); break;
             case LotusMode::SuperSmooth: modeLabel = _("Uinput (Super Smooth)"); break;
             case LotusMode::UinputSurrText: modeLabel = _("Uinput (Surrounding Text)"); break;
+            case LotusMode::Select: modeLabel = _("Select (Shift+Left)"); break;
             default: modeLabel = _("Unknown Mode"); break;
         }
 
