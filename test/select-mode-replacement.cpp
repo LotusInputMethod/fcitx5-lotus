@@ -54,7 +54,7 @@ int main() {
     TestInstance       testInstance;
     fcitx::LotusEngine engine(&testInstance.instance);
     fcitx::RawConfig   config;
-    config.setValueByPath("Mode", "Select (Shift+Left)");
+    config.setValueByPath("Mode", "Uinput (Select)");
     config.setValueByPath("InputMethod", "Telex");
     engine.setConfig(config);
     if (engine.config().mode.value() != fcitx::LotusMode::Select || engine.config().inputMethod.value() != "Telex") {

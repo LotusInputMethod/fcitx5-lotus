@@ -56,7 +56,7 @@ MODE_INFO = {
     MODE_PREEDIT: {"title": "Preedit", "icon": "text-field"},
     MODE_EMOJI: {"title": "Emoji Picker", "icon": "face-smile"},
     MODE_MINECRAFT: {"title": "Minecraft", "icon": "onboard"},
-    MODE_SELECT: {"title": "Select (Shift+Left)", "icon": "edit-select"},
+    MODE_SELECT: {"title": "Uinput (Select)", "icon": "edit-select"},
 }
 
 # Modes offered as the global default and as per-app modes, in display order.

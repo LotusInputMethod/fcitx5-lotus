@@ -935,7 +935,7 @@ namespace fcitx {
 
         file << "# Lotus Per-App Configuration\n";
         file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Slow), 3 = Uinput (Super Smooth), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker, 8 = Minecraft, 7 = Uinput "
-                "(Surrounding Text), 9 = Select (Shift+Left)\n";
+                "(Surrounding Text), 9 = Uinput (Select)\n";
         std::lock_guard<std::mutex> lock(appRulesMutex_);
         for (const auto& pair : appRules_) {
             bool currentIsCtx = isStartsWith(pair.first, "ctx_");
@@ -1047,7 +1047,7 @@ namespace fcitx {
             {"Smooth", {LotusMode::Smooth, _("Uinput (Smooth)"), getShortcut(*config_.shortcutSmooth), *config_.showModeSmooth}},
             {"Uinput", {LotusMode::Uinput, _("Uinput (Slow)"), getShortcut(*config_.shortcutUinput), *config_.showModeUinput}},
             {"Minecraft", {LotusMode::Minecraft, _("Minecraft"), getShortcut(*config_.shortcutMinecraft), *config_.showModeMinecraft}},
-            {"Select", {LotusMode::Select, _("Select (Shift+Left)"), getShortcut(*config_.shortcutSelect), *config_.showModeSelect}},
+            {"Select", {LotusMode::Select, _("Uinput (Select)"), getShortcut(*config_.shortcutSelect), *config_.showModeSelect}},
             {"SurroundingText", {LotusMode::SurroundingText, _("Surrounding Text"), getShortcut(*config_.shortcutSurroundingText), *config_.showModeSurroundingText}},
             {"Preedit", {LotusMode::Preedit, _("Preedit"), getShortcut(*config_.shortcutPreedit), *config_.showModePreedit}},
             {"Emoji", {LotusMode::Emoji, _("Emoji Picker"), getShortcut(*config_.shortcutEmoji), *config_.showModeEmoji}},
@@ -1163,7 +1163,7 @@ namespace fcitx {
             case LotusMode::Off: modeLabel = _("OFF"); break;
             case LotusMode::SuperSmooth: modeLabel = _("Uinput (Super Smooth)"); break;
             case LotusMode::UinputSurrText: modeLabel = _("Uinput (Surrounding Text)"); break;
-            case LotusMode::Select: modeLabel = _("Select (Shift+Left)"); break;
+            case LotusMode::Select: modeLabel = _("Uinput (Select)"); break;
             default: modeLabel = _("Unknown Mode"); break;
         }
 
