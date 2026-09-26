@@ -12,7 +12,6 @@ AmbientCapabilities=CAP_SYS_NICE CAP_SYS_PTRACE
 
 Type=simple
 
-ExecStartPre=+/usr/bin/setfacl -m u:@LOTUS_UINPUT_PROXY_USER@:rw /dev/uinput
 ExecStart=/usr/bin/fcitx5-lotus-server -u %i
 
 Restart=on-failure
