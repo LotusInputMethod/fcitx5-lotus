@@ -1,5 +1,5 @@
 Name:           fcitx5-lotus
-Version:        3.5.10
+Version:        3.6.0
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -116,12 +116,6 @@ fi
 %systemd_postun_with_restart fcitx5-lotus-server@.service
 
 %changelog
-* Sat Sep 19 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 3.5.10-1
-- Added desktop notifications when switching typing modes via the mode menu.
-- Fixed typing and key event handling for GTK4 applications on Wayland.
-- Fixed focus loss issues in Chromium on X11 when using uinput modes.
-- Fixed tray icon coloring to match KDE Plasma panel themes dynamically.
-- Improved icon rendering by prioritizing scalable vector assets over raster images.
-- Preserved per-app typing mode rules across configuration reloads and input context switches.
-- Fixed input engine crashes when initialized without an external dictionary loaded.
-- Fixed input lag caused by unhandled mouse/touchpad input events.
+* Sat Sep 26 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 3.6.0-1
+- Add Uinput (Surrounding Text) mode
+- Fix mode menu key don't reset state
