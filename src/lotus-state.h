@@ -23,6 +23,11 @@
 #include <fcitx-utils/event.h>
 #include <fcitx-utils/misc.h>
 #include <fcitx/inputcontext.h>
+#include <fcitx-utils/event.h>
+#include <fcitx-utils/handlertable.h>
+#include <fcitx/instance.h>
+#include <fcitx/event.h>
+#include <memory>
 
 struct EmojiEntry;
 
@@ -85,6 +90,12 @@ namespace fcitx {
         friend class EmojiCandidateWord;
         friend class LotusEngine;
 
+        /**
+         * @brief Commits text still waiting for the app before the input context loses focus.
+         * Without it, a timer firing later sees is_deleting_ cleared and silently drops the text.
+         */
+        void flushPendingReplacement();
+
       private:
         static constexpr size_t          MAX_BUFFERED_KEYS = 50;
 
@@ -128,6 +139,29 @@ namespace fcitx {
          * @param count Number of backspaces to send.
          */
         void send_backspace_uinput(int count) const;
+
+        // Wait for the app's surrounding-text event instead of sleeping (see handleUInputKeyPress).
+        std::unique_ptr<HandlerTableEntry<EventHandler>> surr_wait_watcher_;
+        std::unique_ptr<EventSourceTime>                 surr_wait_timer_;
+        uint64_t                                         surr_wait_started_at_ = 0;
+        bool                                             surr_wait_pending_    = false;
+        std::string                                      surr_wait_prefix_;        ///< part of the word kept after deletion
+        std::string                                      surr_wait_deleted_;       ///< part that must disappear
+        std::string                                      surr_wait_sent_snapshot_; ///< "text\x1fcursor" when the backspaces were sent
+        int                                              surr_wait_event_count_         = 0;
+        bool                                             surr_wait_saw_other_snapshot_  = false; ///< an event differed from the send-time snapshot
+        bool                                             surr_wait_sent_snapshot_fresh_ = false; ///< send-time snapshot still showed the text to delete
+
+        // A snapshot is "frozen" when a wait times out and every event matched the send-time snapshot
+        // (Edge's address bar). After two in a row, stop waiting and sleep like Slow mode; probe again
+        // every WaitSurroundingProbeEvery replacements.
+        int  surr_frozen_streak_      = 0;
+        bool surr_frozen_             = false;
+        int  surr_frozen_probe_count_ = 0;
+        int  surr_timeout_streak_     = 0;    ///< two or more switches to the short timeout
+        bool surr_snapshot_trusted_   = true; ///< false after a timeout, true again on a matching event
+        bool deletionLooksDone() const;
+        void finishReplacement(const char* reason, bool fromTimer);
 
         /**
          * @brief Checks if autofill is certain for surrounding text.

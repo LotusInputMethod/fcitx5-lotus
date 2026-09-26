@@ -438,6 +438,90 @@ namespace fcitx {
         ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
     }
 
+    bool LotusState::deletionLooksDone() const {
+        const auto& s = ic_->surroundingText();
+        if (!s.isValid()) {
+            return false;
+        }
+        const std::string& t = s.text();
+        // A snapshot identical to the one taken when the backspaces were sent cannot mean "done" by
+        // content alone: when the app lags by a couple of keys, the stale snapshot looks exactly like
+        // the finished state.
+        if (!surr_wait_sent_snapshot_.empty() && t + "\x1f" + std::to_string(s.cursor()) == surr_wait_sent_snapshot_) {
+            // At fast typing speeds the send-time snapshot is always one key behind and Firefox sends no
+            // intermediate state, so rejecting it outright turned 37 of 52 timeouts into 200 ms stalls.
+            // Accept it once we have waited as long as Slow mode would (8 ms per backspace), which is no
+            // less safe than Slow. The immediate (0 ms) check still rejects it.
+            const auto waited  = (::fcitx::now(CLOCK_MONOTONIC) - surr_wait_started_at_) / 1000;
+            const auto minimum = static_cast<uint64_t>(engine_->config().waitSurroundingMinPerKeyMs.value()) * static_cast<uint64_t>(std::max(expected_backspaces_, 1));
+            if (waited < minimum) {
+                return false;
+            }
+        }
+        auto it = t.begin();
+        for (unsigned int i = 0; i < s.cursor() && it != t.end(); ++i) {
+            it = utf8::nextChar(it);
+        }
+        const std::string before(t.begin(), it);
+        auto              endsWith = [](const std::string& a, const std::string& b) { return a.size() >= b.size() && a.compare(a.size() - b.size(), b.size(), b) == 0; };
+        if (!surr_wait_deleted_.empty() && endsWith(before, surr_wait_prefix_ + surr_wait_deleted_)) {
+            return false; // stale snapshot: the text to delete is still there
+        }
+        return endsWith(before, surr_wait_prefix_);
+    }
+
+    // The event-driven wait returns to the event loop immediately, so the user can switch windows
+    // while a commit is still pending. deactivate() clears is_deleting_, and a timer firing after
+    // that would silently drop the text (Edge's address bar kept 't' instead of 'tô'). The old
+    // sleeping path had no such gap because it slept inside the key handler. Commit before leaving.
+    void LotusState::flushPendingReplacement() {
+        if (!surr_wait_pending_) {
+            return;
+        }
+        finishReplacement("focus lost", false);
+    }
+
+    void LotusState::finishReplacement(const char* reason, bool fromTimer) {
+        const auto elapsedMs = (::fcitx::now(CLOCK_MONOTONIC) - surr_wait_started_at_) / 1000;
+        LOTUS_INFO("Surr wait " + std::string(reason) + " after " + std::to_string(elapsedMs) + " ms");
+        if (std::string(reason) == "timeout") {
+            surr_snapshot_trusted_ = false;
+            ++surr_timeout_streak_;
+            // Frozen means at least two events, all identical to the send-time snapshot. A Firefox that
+            // is merely lagging usually sends nothing or a snapshot that is still moving.
+            if (surr_wait_event_count_ >= 2 && !surr_wait_saw_other_snapshot_ && surr_wait_sent_snapshot_fresh_) {
+                if (++surr_frozen_streak_ >= 2 && !surr_frozen_) {
+                    surr_frozen_             = true;
+                    surr_frozen_probe_count_ = 0;
+                    LOTUS_INFO("Surr frozen: stop waiting");
+                }
+            } else {
+                surr_frozen_streak_ = 0;
+            }
+        } else if (std::string(reason) == "event" || std::string(reason) == "threshold") {
+            surr_snapshot_trusted_ = true;
+            surr_timeout_streak_   = 0;
+            surr_frozen_streak_    = 0;
+            if (surr_frozen_) {
+                surr_frozen_ = false;
+                LOTUS_INFO("Surr frozen: resume waiting");
+            }
+        }
+        surr_wait_pending_ = false;
+        if (!fromTimer && surr_wait_timer_) {
+            surr_wait_timer_.reset(); // never reset a timer from inside its own callback
+        }
+        if (!pending_commit_string_.empty()) {
+            ic_->commitString(pending_commit_string_);
+            LOTUS_INFO("Commit: " + pending_commit_string_);
+        }
+        expected_backspaces_     = 0;
+        current_backspace_count_ = 0;
+        pending_commit_string_.clear();
+        is_deleting_.store(false);
+        replayBufferedKeys();
+    }
+
     bool LotusState::handleUInputKeyPress(KeyEvent& event, KeySym currentSym, int sleepTime) {
         if (!is_deleting_.load()) {
             return false;
@@ -447,10 +531,109 @@ namespace fcitx {
             if (current_backspace_count_ < expected_backspaces_) {
                 return false; // Allow intermediate backspaces to reach the app to clear autofill/old text.
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime * (expected_backspaces_ - 1)));
+            // Some apps declare surrounding text but always send an empty snapshot (Konsole: valid,
+            // length 0). Nothing can ever match, so waiting would cost the full timeout per key; use the
+            // sleeping path below instead.
+            const bool emptySnapshot = ic_->surroundingText().text().empty();
+            if (engine_->config().waitSurroundingEvent.value() && emptySnapshot) {
+                LOTUS_INFO("Surr wait skip: empty snapshot");
+            }
+            bool skipFrozenWait = false;
+            if (engine_->config().waitSurroundingEvent.value() && !emptySnapshot && surr_frozen_) {
+                const int probeEvery = std::max(engine_->config().waitSurroundingProbeEvery.value(), 1);
+                ++surr_frozen_probe_count_;
+                if (surr_frozen_probe_count_ % probeEvery != 0) {
+                    skipFrozenWait = true;
+                }
+            }
+            if (engine_->config().waitSurroundingEvent.value() && !emptySnapshot && !skipFrozenWait) {
+                // fcitx5 has a single event loop, so sleeping and retrying below can never see a
+                // surrounding-text update that arrives during the sleep. Return to the loop instead and
+                // watch InputContextSurroundingTextUpdated from this moment on; a watcher that outlived
+                // the previous replacement caught that replacement's late events and committed too early.
+                // Decide by content (deletionLooksDone), not realtextLen. On timeout commit as before.
+                // Keys typed meanwhile still go to buffered_keys_.
+                event.filterAndAccept();
+                surr_wait_started_at_ = ::fcitx::now(CLOCK_MONOTONIC);
+                // After a timeout the app is lagging (Firefox) and its snapshot is stale: skip the
+                // immediate check.
+                if (surr_snapshot_trusted_ && deletionLooksDone()) {
+                    LOTUS_INFO("Skip retry");
+                    finishReplacement("immediate", false);
+                    return true;
+                }
+                auto* instance                = engine_->instance();
+                surr_wait_pending_            = true;
+                surr_wait_event_count_        = 0;
+                surr_wait_saw_other_snapshot_ = false;
+                surr_wait_watcher_.reset(); // safe: we are outside its dispatch
+                surr_wait_watcher_ = instance->watchEvent(EventType::InputContextSurroundingTextUpdated, EventWatcherPhase::Default, [this](Event& e) {
+                    auto& ice = static_cast<InputContextEvent&>(e);
+                    if (!surr_wait_pending_ || ice.inputContext() != ic_ || !is_deleting_.load()) {
+                        return;
+                    }
+                    // Right after a timeout the app is lagging, and an early event is its stale buffer
+                    // catching up, not the finished deletion ('trươnờ'). Ignore events that arrive before
+                    // the Slow-mode threshold (8 ms per backspace) in that state.
+                    const auto waitedUs = ::fcitx::now(CLOCK_MONOTONIC) - surr_wait_started_at_;
+                    const auto minimumUs =
+                        static_cast<uint64_t>(engine_->config().waitSurroundingMinPerKeyMs.value()) * static_cast<uint64_t>(std::max(expected_backspaces_, 1)) * 1000ULL;
+                    {
+                        const auto& current = ic_->surroundingText();
+                        ++surr_wait_event_count_;
+                        if (current.text() + "\x1f" + std::to_string(current.cursor()) != surr_wait_sent_snapshot_) {
+                            surr_wait_saw_other_snapshot_ = true;
+                        }
+                    }
+                    if (!surr_snapshot_trusted_ && waitedUs < minimumUs) {
+                        // Stale buffer catching up after a timeout: ignore.
+                    } else if (deletionLooksDone()) {
+                        finishReplacement("event", false);
+                    }
+                    // Not done yet: keep waiting silently. Anything worth printing here is text the user
+                    // just typed, which must not go into the log.
+                });
+                // Two timeouts in a row without a matching event mean this app does not update its
+                // snapshot while deleting (Edge's address bar only updates on printable keys). Use the
+                // short timeout, still above the race window (Slow mode's 8 ms per key); a matching
+                // event restores the long one.
+                const int  timeoutMs = surr_timeout_streak_ >= 2 ? engine_->config().waitSurroundingShortMs.value() : engine_->config().waitSurroundingTimeoutMs.value();
+                const auto timeout   = static_cast<uint64_t>(timeoutMs) * 1000ULL;
+                // Timer accuracy 0 in sd-event means the default 250 ms slack (a 40 ms timer fired at 64,
+                // a 200 ms one at 243), so pass 1 ms. The first deadline sits at the Slow-mode threshold:
+                // many apps send their "done" snapshot before it and then go quiet, so re-check the latest
+                // snapshot there and commit ("threshold"); otherwise move the timer to the full timeout.
+                const auto threshold =
+                    static_cast<uint64_t>(engine_->config().waitSurroundingMinPerKeyMs.value()) * static_cast<uint64_t>(std::max(expected_backspaces_, 1)) * 1000ULL;
+                const auto firstDeadline = threshold < timeout ? surr_wait_started_at_ + threshold : surr_wait_started_at_ + timeout;
+                surr_wait_timer_         = instance->eventLoop().addTimeEvent(CLOCK_MONOTONIC, firstDeadline, 1000, [this, timeout](EventSourceTime* t, uint64_t) {
+                    if (!surr_wait_pending_ || !is_deleting_.load()) {
+                        return false;
+                    }
+                    const auto waited = ::fcitx::now(CLOCK_MONOTONIC) - surr_wait_started_at_;
+                    if (waited + 1000 < timeout) {
+                        if (deletionLooksDone()) {
+                            finishReplacement("threshold", true);
+                            return false;
+                        }
+                        t->setTime(surr_wait_started_at_ + timeout);
+                        t->setOneShot();
+                        return true;
+                    }
+                    finishReplacement("timeout", true);
+                    return false;
+                });
+                return true;
+            }
+            // Frozen snapshot: fall back to sleeping with Slow mode's constant, 8 ms x (N - 1). Do not
+            // add it on top of the normal sleep (8 x N extra cost 24 ms for N=1 and 34 ms for N=2).
+            const int perKeyMs = skipFrozenWait ? std::max(sleepTime, engine_->config().waitSurroundingMinPerKeyMs.value()) : sleepTime;
+            std::this_thread::sleep_for(std::chrono::milliseconds(perKeyMs * (expected_backspaces_ - 1)));
             // Validate surr cursor pos should match realtextLen after all BS applied
             const auto& surr = ic_->surroundingText();
-            if (surr.isValid() && surr.cursor() == realtextLen.load(std::memory_order_acquire)) {
+            if (skipFrozenWait) {
+                LOTUS_INFO("Skip retry (frozen)"); // retrying 3 x 2 ms is pointless on a frozen snapshot
+            } else if (surr.isValid() && surr.cursor() == realtextLen.load(std::memory_order_acquire)) {
                 LOTUS_INFO("Skip retry");
             } else {
                 // Retry x3 (2 ms each), khi can (chromium,electron,...)
@@ -496,9 +679,32 @@ namespace fcitx {
 
     void LotusState::performReplacement(const std::string& deletedPart, const std::string& addedPart) {
         LOTUS_INFO("Perform replacement: " + deletedPart + " -> " + addedPart); //NOLINT
-        current_backspace_count_      = 0;
-        pending_commit_string_        = addedPart;
-        expected_backspaces_          = static_cast<int>(utf8::length(deletedPart));
+        current_backspace_count_ = 0;
+        pending_commit_string_   = addedPart;
+        expected_backspaces_     = static_cast<int>(utf8::length(deletedPart));
+        surr_wait_deleted_       = deletedPart;
+        {
+            const auto& snapshot     = ic_->surroundingText();
+            surr_wait_sent_snapshot_ = snapshot.isValid() ? snapshot.text() + "\x1f" + std::to_string(snapshot.cursor()) : std::string();
+        }
+        surr_wait_prefix_ = (oldPreBuffer_.size() >= deletedPart.size()) ? oldPreBuffer_.substr(0, oldPreBuffer_.size() - deletedPart.size()) : std::string();
+        {
+            // The send-time snapshot is fresh when the text before the cursor ends with prefix + deleted.
+            // A lagging Firefox sends a stale one (the text about to be deleted is missing), which must not
+            // count towards "frozen" (random timing triggered it 3 times on Firefox).
+            surr_wait_sent_snapshot_fresh_ = false;
+            const auto& snapshot           = ic_->surroundingText();
+            if (snapshot.isValid()) {
+                const std::string& t  = snapshot.text();
+                auto               it = t.begin();
+                for (unsigned int i = 0; i < snapshot.cursor() && it != t.end(); ++i) {
+                    it = utf8::nextChar(it);
+                }
+                const std::string before(t.begin(), it);
+                const std::string expected     = surr_wait_prefix_ + surr_wait_deleted_;
+                surr_wait_sent_snapshot_fresh_ = before.size() >= expected.size() && before.compare(before.size() - expected.size(), expected.size(), expected) == 0;
+            }
+        }
         const auto&       surrounding = ic_->surroundingText();
         const std::string surrText    = surrounding.text();
         bool isSurrText = realMode == LotusMode::UinputSurrText && ic_->capabilityFlags().test(CapabilityFlag::SurroundingText) && surrounding.isValid() && !surrText.empty() &&
@@ -519,11 +725,11 @@ namespace fcitx {
         if (isSurrText) {
             ic_->deleteSurroundingText(-expected_backspaces_, expected_backspaces_);
             LOTUS_INFO("Delete using surrounding text");
-            std::this_thread::sleep_for(std::chrono::milliseconds(4 * expected_backspaces_));
+            std::this_thread::sleep_for(std::chrono::milliseconds(engine_->config().surrDeleteSleepMs.value() * expected_backspaces_));
             if (!pending_commit_string_.empty()) {
                 ic_->commitString(pending_commit_string_);
                 LOTUS_INFO("Commit: " + pending_commit_string_);
-                std::this_thread::sleep_for(std::chrono::milliseconds(3 * utf8::length(addedPart)));
+                std::this_thread::sleep_for(std::chrono::milliseconds(engine_->config().surrCommitSleepMs.value() * utf8::length(addedPart)));
             }
             expected_backspaces_     = 0;
             current_backspace_count_ = 0;
@@ -827,7 +1033,7 @@ namespace fcitx {
 
                 if (charsToDelete > 0) {
                     ic->deleteSurroundingText(-static_cast<int>(charsToDelete), static_cast<int>(charsToDelete));
-                    std::this_thread::sleep_for(std::chrono::milliseconds(4 * charsToDelete));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(engine_->config().surrDeleteSleepMs.value() * charsToDelete));
                 }
 
                 if (!addedPart.empty()) {
@@ -1024,7 +1230,9 @@ namespace fcitx {
             LOTUS_WARN("Cannot connect to uinput server, reconnecting....");
             connect_uinput_server();
         }
-        if (current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
+        // This safety valve silently clears the flag on the next key. Skip it while a wait is pending,
+        // otherwise the pending commit is thrown away.
+        if (!surr_wait_pending_ && current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
             is_deleting_.store(false);
             current_backspace_count_ = 0;
             expected_backspaces_     = 0;
