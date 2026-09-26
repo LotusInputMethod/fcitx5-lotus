@@ -684,6 +684,7 @@ namespace fcitx {
             std::vector<std::pair<std::string, bool>> visibility = {{"Smooth", *config_.showModeSmooth},
                                                                     {"Uinput", *config_.showModeUinput},
                                                                     {"Minecraft", *config_.showModeMinecraft},
+                                                                    {"Select", *config_.showModeSelect},
                                                                     {"SurroundingText", *config_.showModeSurroundingText},
                                                                     {"Preedit", *config_.showModePreedit},
                                                                     {"Emoji", *config_.showModeEmoji},
@@ -709,6 +710,8 @@ namespace fcitx {
                         mode = LotusMode::Uinput;
                     else if (name == "Minecraft")
                         mode = LotusMode::Minecraft;
+                    else if (name == "Select")
+                        mode = LotusMode::Select;
                     else if (name == "SurroundingText")
                         mode = LotusMode::SurroundingText;
                     else if (name == "Preedit")
@@ -1041,6 +1044,7 @@ namespace fcitx {
             {"Smooth", {LotusMode::Smooth, _("Uinput (Smooth)"), getShortcut(*config_.shortcutSmooth), *config_.showModeSmooth}},
             {"Uinput", {LotusMode::Uinput, _("Uinput (Slow)"), getShortcut(*config_.shortcutUinput), *config_.showModeUinput}},
             {"Minecraft", {LotusMode::Minecraft, _("Minecraft"), getShortcut(*config_.shortcutMinecraft), *config_.showModeMinecraft}},
+            {"Select", {LotusMode::Select, _("Select (Shift+Left)"), getShortcut(*config_.shortcutSelect), *config_.showModeSelect}},
             {"SurroundingText", {LotusMode::SurroundingText, _("Surrounding Text"), getShortcut(*config_.shortcutSurroundingText), *config_.showModeSurroundingText}},
             {"Preedit", {LotusMode::Preedit, _("Preedit"), getShortcut(*config_.shortcutPreedit), *config_.showModePreedit}},
             {"Emoji", {LotusMode::Emoji, _("Emoji Picker"), getShortcut(*config_.shortcutEmoji), *config_.showModeEmoji}},

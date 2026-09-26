@@ -493,22 +493,7 @@ class ModeManagerPage(QWidget):
         self.mode_grid.setSpacing(10)
         self.mode_cards = {}
 
-<<<<<<< HEAD
-        grid_modes = [
-            MODE_SMOOTH,
-            MODE_SLOW,
-            MODE_UINPUT_SURROUNDING,
-            MODE_SUPER_SMOOTH,
-            MODE_MINECRAFT,
-            MODE_SURROUNDING,
-            MODE_PREEDIT,
-            MODE_EMOJI,
-            MODE_OFF,
-            MODE_DEFAULT,
-        ]
-=======
         grid_modes = [*SELECTABLE_MODES, MODE_DEFAULT]
->>>>>>> d5328ca (feat(settings-gui): offer Select mode as global default and per-app mode)
         for i, m in enumerate(grid_modes):
             card = ModeCard(m)
             card.clicked.connect(self._on_app_mode_changed)
