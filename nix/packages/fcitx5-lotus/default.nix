@@ -99,9 +99,6 @@ stdenv.mkDerivation (finalAttrs: {
       --replace-fail 'strcmp(exe_path, "/usr/bin/fcitx5") == 0' \
                      '(strncmp(exe_path, "/nix/store/", 11) == 0 && strlen(exe_path) >= 11 && strcmp(exe_path + strlen(exe_path) - 11, "/bin/fcitx5") == 0)'
 
-    substituteInPlace src/lotus-engine.cpp \
-      --replace-fail '/usr/share/icons/hicolor' '/run/current-system/sw/share/icons/hicolor'
-
     substituteInPlace settings-gui/i18n.py \
       --replace-fail 'localedir = "/usr/share/locale"' 'localedir = "'"$out"'/share/locale"'
 
