@@ -116,23 +116,24 @@ namespace fcitx {
         return connect_uinput_server() ? uinput_client_fd_.load(std::memory_order_acquire) : -1;
     }
 
-    void LotusState::send_backspace_uinput(int count) const {
+    void LotusState::send_kb_msg(KbOp op, int count) const {
         if (uinput_client_fd_ < 0 && !connect_uinput_server()) {
-            LOTUS_ERROR("Cannot send backspace since cannot connect to uinput server");
+            LOTUS_ERROR("Cannot send key request since cannot connect to uinput server");
             return;
         }
 
-        ssize_t n = send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
+        const KbMsg msg{static_cast<int32_t>(op), static_cast<int32_t>(count)};
+        ssize_t     n = send(uinput_client_fd_, &msg, sizeof(msg), MSG_NOSIGNAL);
 
         if (n < 0) {
-            LOTUS_WARN("Failed to send backspace: " + std::string(strerror(errno)));
+            LOTUS_WARN("Failed to send key request: " + std::string(strerror(errno)));
             int old_fd = uinput_client_fd_.exchange(-1);
             if (old_fd != -1) {
                 close(old_fd);
             }
             if (connect_uinput_server()) {
                 LOTUS_INFO("Reconnected to uinput server successfully");
-                send(uinput_client_fd_, &count, sizeof(count), MSG_NOSIGNAL);
+                send(uinput_client_fd_, &msg, sizeof(msg), MSG_NOSIGNAL);
             }
         }
 
@@ -140,6 +141,14 @@ namespace fcitx {
             LOTUS_INFO("Waiting for ack");
             std::this_thread::sleep_for(std::chrono::milliseconds(count * 5));
         }
+    }
+
+    void LotusState::send_backspace_uinput(int count) const {
+        send_kb_msg(KB_OP_BACKSPACE, count);
+    }
+
+    void LotusState::send_select_uinput(int count) const {
+        send_kb_msg(KB_OP_SELECT, count);
     }
 
     bool LotusState::isAutofillCertain(const SurroundingText& s) {
@@ -438,60 +447,68 @@ namespace fcitx {
         ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
     }
 
+    void LotusState::finishReplacement(KeyEvent& event, int sleepTime) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime * (expected_backspaces_ - 1)));
+        // Validate surr cursor pos should match realtextLen after all BS/Left applied
+        const auto& surr = ic_->surroundingText();
+        if (surr.isValid() && surr.cursor() == realtextLen.load(std::memory_order_acquire)) {
+            LOTUS_INFO("Skip retry");
+        } else {
+            // Retry x3 (2 ms each), khi can (chromium,electron,...)
+            for (int retry = 0; retry < 3; ++retry) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                const auto& surr2 = ic_->surroundingText();
+                if (surr2.isValid() && surr2.cursor() == realtextLen.load(std::memory_order_acquire)) {
+                    break;
+                }
+            }
+        }
+        const bool  dbusDefer  = getFrontendName(ic_) == "dbus";
+        std::string commitText = std::move(pending_commit_string_);
+        pending_commit_string_.clear();
+        if (dbusDefer) {
+            auto icRef           = ic_->watch();
+            deferredCommitTimer_ = engine_->instance()->eventLoop().addTimeEvent(CLOCK_MONOTONIC, now(CLOCK_MONOTONIC), 0,
+                                                                                 [this, icRef, commitText = std::move(commitText)](EventSourceTime*, uint64_t) {
+                                                                                     deferredCommitTimer_.reset();
+                                                                                     if (auto* ic = icRef.get()) {
+                                                                                         ic->commitString(commitText);
+                                                                                         LOTUS_INFO("Commit (deferred): " + commitText);
+                                                                                     }
+                                                                                     replayBufferedKeys();
+                                                                                     return true;
+                                                                                 });
+        } else {
+            ic_->commitString(commitText);
+            LOTUS_INFO("Commit: " + commitText);
+        }
+        expected_backspaces_     = 0;
+        current_backspace_count_ = 0;
+
+        event.filterAndAccept(); // Filter out the final trigger backspace / left arrow.
+        is_deleting_.store(false);
+        if (!dbusDefer) {
+            replayBufferedKeys();
+        }
+    }
+
     bool LotusState::handleUInputKeyPress(KeyEvent& event, KeySym currentSym, int sleepTime) {
         if (!is_deleting_.load()) {
             return false;
         }
-        if (isBackspace(currentSym)) {
-            current_backspace_count_ += 1;
-            if (current_backspace_count_ < expected_backspaces_) {
-                return false; // Allow intermediate backspaces to reach the app to clear autofill/old text.
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime * (expected_backspaces_ - 1)));
-            // Validate surr cursor pos should match realtextLen after all BS applied
-            const auto& surr = ic_->surroundingText();
-            if (surr.isValid() && surr.cursor() == realtextLen.load(std::memory_order_acquire)) {
-                LOTUS_INFO("Skip retry");
-            } else {
-                // Retry x3 (2 ms each), khi can (chromium,electron,...)
-                for (int retry = 0; retry < 3; ++retry) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-                    const auto& surr2 = ic_->surroundingText();
-                    if (surr2.isValid() && surr2.cursor() == realtextLen.load(std::memory_order_acquire)) {
-                        break;
-                    }
-                }
-            }
-            const bool  dbusDefer  = getFrontendName(ic_) == "dbus";
-            std::string commitText = std::move(pending_commit_string_);
-            pending_commit_string_.clear();
-            if (dbusDefer) {
-                auto icRef           = ic_->watch();
-                deferredCommitTimer_ = engine_->instance()->eventLoop().addTimeEvent(CLOCK_MONOTONIC, now(CLOCK_MONOTONIC), 0,
-                                                                                     [this, icRef, commitText = std::move(commitText)](EventSourceTime*, uint64_t) {
-                                                                                         deferredCommitTimer_.reset();
-                                                                                         if (auto* ic = icRef.get()) {
-                                                                                             ic->commitString(commitText);
-                                                                                             LOTUS_INFO("Commit (deferred): " + commitText);
-                                                                                         }
-                                                                                         replayBufferedKeys();
-                                                                                         return true;
-                                                                                     });
-            } else {
-                ic_->commitString(commitText);
-                LOTUS_INFO("Commit: " + commitText);
-            }
-            expected_backspaces_     = 0;
-            current_backspace_count_ = 0;
-
-            event.filterAndAccept(); // Filter out the final trigger backspace.
-            is_deleting_.store(false);
-            if (!dbusDefer) {
-                replayBufferedKeys();
-            }
-            return true;
+        // In Select mode the uinput server emits Shift+Left, so the echoed Left
+        // presses are the selection signal. The final one is swallowed in
+        // finishReplacement so the app only sees the count it should select.
+        const bool isSelectEcho = (realMode == LotusMode::Select) && (currentSym == FcitxKey_Left);
+        if (!isBackspace(currentSym) && !isSelectEcho) {
+            return false;
         }
-        return false;
+        current_backspace_count_ += 1;
+        if (current_backspace_count_ < expected_backspaces_) {
+            return false; // Allow intermediate backspaces/lefts to reach the app to clear autofill/old text / extend the selection.
+        }
+        finishReplacement(event, sleepTime);
+        return true;
     }
 
     void LotusState::performReplacement(const std::string& deletedPart, const std::string& addedPart) {
@@ -530,6 +547,14 @@ namespace fcitx {
             pending_commit_string_.clear();
             is_deleting_.store(false);
             replayBufferedKeys();
+            return;
+        }
+        // Select mode: the uinput server selects the same number of characters
+        // with Shift+Left; the compensation counts above apply unchanged because
+        // selection extends leftward from the cursor exactly like BackSpace deletes.
+        if (realMode == LotusMode::Select) {
+            send_select_uinput(expected_backspaces_);
+            LOTUS_INFO("Send select of " + std::to_string(expected_backspaces_) + " characters");
             return;
         }
         send_backspace_uinput(expected_backspaces_);
@@ -1091,12 +1116,20 @@ namespace fcitx {
         }
 
         if (is_deleting_.load(std::memory_order_acquire)) {
+            const int sleepTime = (realMode == LotusMode::Smooth || realMode == LotusMode::SuperSmooth) ? 2 : 8;
             if (isBackspace(currentSym)) {
                 if (realtextLen.load(std::memory_order_acquire) > 0)
                     realtextLen.fetch_sub(1, std::memory_order_acq_rel);
-                if (handleUInputKeyPress(keyEvent, currentSym, (realMode == LotusMode::Smooth || realMode == LotusMode::SuperSmooth) ? 2 : 8)) {
+                if (handleUInputKeyPress(keyEvent, currentSym, sleepTime)) {
                     return;
                 }
+            } else if (realMode == LotusMode::Select && currentSym == FcitxKey_Left) {
+                // Echoed left arrow extends the selection in the app: consume it as
+                // a selection signal, never buffer it for replay.
+                if (realtextLen.load(std::memory_order_acquire) > 0)
+                    realtextLen.fetch_sub(1, std::memory_order_acq_rel);
+                handleUInputKeyPress(keyEvent, currentSym, sleepTime);
+                return;
             } else {
                 std::string keyUtf8Check = Key::keySymToUTF8(currentSym);
                 if (!keyUtf8Check.empty() && buffered_keys_.size() < MAX_BUFFERED_KEYS) {
@@ -1143,7 +1176,8 @@ namespace fcitx {
             case LotusMode::Smooth:
             case LotusMode::Minecraft:
             case LotusMode::UinputSurrText:
-            case LotusMode::SuperSmooth: {
+            case LotusMode::SuperSmooth:
+            case LotusMode::Select: {
                 handleUinputMode(keyEvent, currentSym);
                 break;
             }
@@ -1211,7 +1245,8 @@ namespace fcitx {
             case LotusMode::Smooth:
             case LotusMode::Minecraft:
             case LotusMode::UinputSurrText:
-            case LotusMode::SuperSmooth: {
+            case LotusMode::SuperSmooth:
+            case LotusMode::Select: {
                 ic_->inputPanel().reset();
                 break;
             }
@@ -1247,7 +1282,8 @@ namespace fcitx {
             case LotusMode::SurroundingText:
             case LotusMode::Minecraft:
             case LotusMode::UinputSurrText:
-            case LotusMode::SuperSmooth: {
+            case LotusMode::SuperSmooth:
+            case LotusMode::Select: {
                 if (lotusEngine_) {
                     ResetEngine(lotusEngine_.handle());
                 }

@@ -42,6 +42,7 @@ MODE_PREEDIT = 5
 MODE_EMOJI = 6
 MODE_MINECRAFT = 8
 MODE_UINPUT_SURROUNDING = 7
+MODE_SELECT = 9
 MODE_DEFAULT = -1  # UI special value for "Use Global Default"
 
 MODE_INFO = {
@@ -55,7 +56,22 @@ MODE_INFO = {
     MODE_PREEDIT: {"title": "Preedit", "icon": "text-field"},
     MODE_EMOJI: {"title": "Emoji Picker", "icon": "face-smile"},
     MODE_MINECRAFT: {"title": "Minecraft", "icon": "onboard"},
+    MODE_SELECT: {"title": "Uinput (Select)", "icon": "edit-select"},
 }
+
+# Modes offered as the global default and as per-app modes, in display order.
+SELECTABLE_MODES = [
+    MODE_SMOOTH,
+    MODE_SLOW,
+    MODE_UINPUT_SURROUNDING,
+    MODE_SUPER_SMOOTH,
+    MODE_MINECRAFT,
+    MODE_SELECT,
+    MODE_SURROUNDING,
+    MODE_PREEDIT,
+    MODE_EMOJI,
+    MODE_OFF,
+]
 
 
 class ModeCard(QFrame):
@@ -448,18 +464,7 @@ class ModeManagerPage(QWidget):
         global_layout = QHBoxLayout()
         global_layout.addWidget(QLabel(_("Global Default Mode:")))
         self.combo_global_mode = QComboBox()
-        global_modes = [
-            MODE_SMOOTH,
-            MODE_SLOW,
-            MODE_UINPUT_SURROUNDING,
-            MODE_SUPER_SMOOTH,
-            MODE_MINECRAFT,
-            MODE_SURROUNDING,
-            MODE_PREEDIT,
-            MODE_EMOJI,
-            MODE_OFF,
-        ]
-        for m in global_modes:
+        for m in SELECTABLE_MODES:
             self.combo_global_mode.addItem(_(MODE_INFO[m]["title"]), MODE_INFO[m]["title"])
 
         self.combo_global_mode.currentIndexChanged.connect(self._on_global_mode_changed)
@@ -488,18 +493,7 @@ class ModeManagerPage(QWidget):
         self.mode_grid.setSpacing(10)
         self.mode_cards = {}
 
-        grid_modes = [
-            MODE_SMOOTH,
-            MODE_SLOW,
-            MODE_UINPUT_SURROUNDING,
-            MODE_SUPER_SMOOTH,
-            MODE_MINECRAFT,
-            MODE_SURROUNDING,
-            MODE_PREEDIT,
-            MODE_EMOJI,
-            MODE_OFF,
-            MODE_DEFAULT,
-        ]
+        grid_modes = [*SELECTABLE_MODES, MODE_DEFAULT]
         for i, m in enumerate(grid_modes):
             card = ModeCard(m)
             card.clicked.connect(self._on_app_mode_changed)

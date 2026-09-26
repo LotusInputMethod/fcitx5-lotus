@@ -36,10 +36,11 @@ namespace fcitx {
         Emoji,
         Minecraft,
         UinputSurrText,
+        Select,
     };
 
     FCITX_CONFIG_ENUM_NAME_WITH_I18N(LotusMode, N_("OFF"), N_("Uinput (Smooth)"), N_("Uinput (Super Smooth)"), N_("Uinput (Slow)"), N_("Surrounding Text"), N_("Preedit"),
-                                     N_("Emoji Picker"), N_("Minecraft"), N_("Uinput (Surrounding Text)"));
+                                     N_("Emoji Picker"), N_("Minecraft"), N_("Uinput (Surrounding Text)"), N_("Uinput (Select)"));
 
     /**
      * @brief Converts LotusMode to int and vice versa.
@@ -257,6 +258,8 @@ namespace fcitx {
         Option<std::string> shortcutMinecraft{this, "ShortcutMinecraft", _("Shortcut for Minecraft"), "3"};
         Option<bool>        showModeUinputSurrText{this, "ShowModeUinputSurrText", _("Show Uinput (Surrounding Text)"), true};
         Option<std::string> shortcutUinputSurrText{this, "ShortcutUinputSurrText", _("Shortcut for Uinput (Surrounding Text)"), "5"};
+        Option<bool>        showModeSelect{this, "ShowModeSelect", _("Show Uinput (Select)"), true};
+        Option<std::string> shortcutSelect{this, "ShortcutSelect", _("Shortcut for Uinput (Select)"), "6"};
         Option<bool>        showModeSurroundingText{this, "ShowModeSurroundingText", _("Show Surrounding Text"), true};
         Option<std::string> shortcutSurroundingText{this, "ShortcutSurroundingText", _("Shortcut for Surrounding Text"), "4"};
         Option<bool>        showModePreedit{this, "ShowModePreedit", _("Show Preedit"), true};
@@ -267,7 +270,10 @@ namespace fcitx {
         Option<std::string> shortcutDefault{this, "ShortcutDefault", _("Shortcut for Default Typing"), "r"};
         Option<bool>        enableMacroInOffMode{this, "EnableMacroInOffMode", _("Allow Macro in Off Mode"), false};
 
-        Option<std::string> modeOrder{this, "ModeOrder", _("Mode Order"), "Smooth,Uinput,UinputSurrText,Minecraft,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default"};
+        Option<bool>        useSurroundingTextIfPossible{this, "useSurroundingTextIfPossible", _("Use Surrounding Text if possible"), false};
+
+        Option<std::string> modeOrder{this, "ModeOrder", _("Mode Order"),
+                                       "Smooth,Uinput,UinputSurrText,Minecraft,Select,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default"};
 
         OptionWithAnnotation<std::string, TimeFormatAnnotation>  timeFormat{this, "TimeFormat", _("Time Format ($TIME in macro)"), "%H:%M", {}, {}, TimeFormatAnnotation()};
         OptionWithAnnotation<std::string, DateFormatAnnotation>  dateFormat{this, "DateFormat", _("Date Format ($DATE in macro)"), "%d/%m/%Y", {}, {}, DateFormatAnnotation()};
