@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 
 // Global variables
@@ -63,8 +64,12 @@ bool isBackspace(uint32_t sym) {
 }
 
 bool isUinputMode(fcitx::LotusMode mode) {
-    return mode == fcitx::LotusMode::Uinput || mode == fcitx::LotusMode::Smooth || mode == fcitx::LotusMode::SuperSmooth || mode == fcitx::LotusMode::Minecraft ||
-        mode == fcitx::LotusMode::UinputSurrText || mode == fcitx::LotusMode::Select;
+    // Constant set, so unlike the configurable shortcuts elsewhere a static
+    // table stays correct.
+    static const std::array<fcitx::LotusMode, 6> modes = {
+        fcitx::LotusMode::Uinput, fcitx::LotusMode::Smooth, fcitx::LotusMode::SuperSmooth, fcitx::LotusMode::Minecraft, fcitx::LotusMode::UinputSurrText, fcitx::LotusMode::Select,
+    };
+    return std::find(modes.begin(), modes.end(), mode) != modes.end();
 }
 
 int compareAndSplitStrings(const std::string& A, const std::string& B, std::string& deletedPart, std::string& addedPart) {
