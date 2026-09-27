@@ -397,7 +397,6 @@ func TestIsValidState(t *testing.T) {
 func TestEnglishNumberW2UInMacroMode(t *testing.T) {
 	e := newTestEngine(nil, false)
 	e.macroEnabled = true
-	e.w2u = true
 
 	typeKeys(e, "qwen2")
 	if got := e.preeditText; got != "qwen2" {

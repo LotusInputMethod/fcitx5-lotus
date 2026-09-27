@@ -221,8 +221,6 @@ namespace fcitx {
         bool                                       isSelectingAppMode_ = false;
         std::string                                currentConfigureApp_;
         std::unique_ptr<EventSourceTime>           cycleModeNotificationTimer_;
-        std::string                                iconCacheName_;
-        std::string                                iconCachePath_;
         static constexpr uint64_t                  CYCLE_MODE_NOTIFICATION_TIMEOUT_USEC = 800000; // 800ms in microseconds
         FCITX_ADDON_DEPENDENCY_LOADER(emoji, instance_->addonManager());
         std::unique_ptr<EmojiLoader>          emojiLoader_;
@@ -265,7 +263,7 @@ namespace fcitx {
          * @brief Update toggle action
          * @param ic The input context
          * @param action The action to update
-         * @param option The option to toggle
+         * @param option The option whose current value is reflected in the action label
          * @param textOnOff The text to display when on/off
          */
         static void updateAction(InputContext* ic, std::unique_ptr<SimpleAction>& action, Option<bool>& option, const std::string& textOnOff);
@@ -292,9 +290,10 @@ namespace fcitx {
         void saveAppRules() const;
 
         /**
-         * @brief Get application-specific mode rules
-         * @return Current application-specific mode rules
-        */
+         * @brief Get the application-specific mode for a given application.
+         * @param appName Name of the application to look up.
+         * @return The mode configured for appName, or the global Mode if no per-app rule exists.
+         */
 
         LotusMode getAppRule(const std::string& appName) const;
 

@@ -37,20 +37,13 @@ HELPERS = {
 }
 
 
-def add_help_icon(layout, key, clear_existing=False):
+def add_help_icon(layout, key):
     """
     Utility to add a HelpIcon to a layout based on a setting key.
-    Optionally clears existing HelpIcons from the layout first.
-    """
-    if clear_existing:
-        # Avoid duplicate icons by removing existing ones in the layout cleanly
-        for i in reversed(range(layout.count())):
-            item = layout.itemAt(i)
-            if item and item.widget() and isinstance(item.widget(), HelpIcon):
-                widget = layout.takeAt(i).widget()
-                if widget:
-                    widget.deleteLater()
 
+    The icon is only added when ``key`` has a matching entry in ``HELPERS``.
+    Returns the created HelpIcon, or ``None`` if no helper text is available.
+    """
     # Only add if we have a mapped helper text
     helper_text = HELPERS.get(key)
     if helper_text:

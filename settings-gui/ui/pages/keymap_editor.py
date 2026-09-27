@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """
 Keymap Editor Page. Edits lotus-custom-keymap.conf.
-Implements custom keymap presets and TSV import/export.
+Implements custom keymap presets.
 """
 
 from core.dbus_handler import LotusDBusHandler

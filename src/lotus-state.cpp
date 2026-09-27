@@ -983,7 +983,7 @@ namespace fcitx {
             return;
         }
 
-        // 8. No commit or engine rejected the key
+        // No commit or engine rejected the key
         if (processed || (commitPtr && (*commitPtr.get() != 0))) {
             // Engine processed the key (building shadow state)
             // OR engine rejected the key but committed old text (non-processable key)
@@ -1267,11 +1267,11 @@ namespace fcitx {
         resetMacroSkip();
         oldPreBuffer_.clear();
         hasHistory_ = false;
-        if (!is_deleting_.load(std::memory_order_acquire)) {
-            expected_backspaces_     = 0;
-            current_backspace_count_ = 0;
-            pending_commit_string_.clear();
-        }
+        // is_deleting_ was checked above; nothing in between modifies it, so the
+        // backspace/commit bookkeeping can be reset unconditionally here.
+        expected_backspaces_     = 0;
+        current_backspace_count_ = 0;
+        pending_commit_string_.clear();
         emojiBuffer_.clear();
         emojiCandidates_.clear();
         buffered_keys_.clear();

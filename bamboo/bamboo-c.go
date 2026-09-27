@@ -55,15 +55,6 @@ func EngineProcessKeyEvent(engine uintptr, keyVal, state uint32) bool {
 	return bambooEngine.preeditProcessKeyEvent(keyVal, state)
 }
 
-//export EngineSetRestoreKeyStroke
-func EngineSetRestoreKeyStroke(engine uintptr) {
-	bambooEngine, ok := engineFromHandle(engine)
-	if !ok {
-		return
-	}
-	bambooEngine.shouldRestoreKeyStrokes = true
-}
-
 //export EnginePullPreedit
 func EnginePullPreedit(engine uintptr) *C.char {
 	bambooEngine, ok := engineFromHandle(engine)

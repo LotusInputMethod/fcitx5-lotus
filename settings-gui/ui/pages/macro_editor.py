@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """
 Macro Editor Page. Edits lotus-macro-table.conf.
-Implements UI with row reordering and TSV import/export.
+Implements UI with row reordering.
 """
 
 from core.dbus_handler import LotusDBusHandler

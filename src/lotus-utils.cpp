@@ -59,7 +59,8 @@ int64_t now_ms() {
 }
 
 bool isBackspace(uint32_t sym) {
-    return sym == 65288 || sym == 8 || sym == FcitxKey_BackSpace;
+    // 8 = ASCII backspace; FcitxKey_BackSpace (= 0xFF08 = 65288) is the XKB keysym used by fcitx.
+    return sym == 8 || sym == FcitxKey_BackSpace;
 }
 
 bool isUinputMode(fcitx::LotusMode mode) {

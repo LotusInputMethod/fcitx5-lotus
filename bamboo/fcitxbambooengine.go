@@ -30,7 +30,6 @@ type FcitxBambooEngine struct {
 	commitText              string
 	shouldRestoreKeyStrokes bool
 	outputCharset           string
-	w2u                     bool
 	timeFormat              string
 	dateFormat              string
 }

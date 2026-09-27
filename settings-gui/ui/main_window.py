@@ -342,10 +342,6 @@ class LotusSettingsWindow(QMainWindow):
             if widget:
                 self.content_stack.setCurrentWidget(widget)
             self.update_reset_button_state()
-        elif role == "header":
-            # Don't allow selecting headers, move to next item
-            if index + 1 < self.sidebar.count():
-                self.sidebar.setCurrentRow(index + 1)
 
     def _setup_window_size(self):
         screen = QApplication.primaryScreen().availableGeometry()

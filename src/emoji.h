@@ -29,8 +29,11 @@ class EmojiLoader {
   public:
     /**
      * @brief Constructs loader and initializes emoji list from Fcitx5.
+     *
+     * The emoji list is loaded for the default language "en" (see
+     * loadFromFcitx5).
+     *
      * @param addonManager Fcitx5 addon manager instance.
-     * @param language Language code for emoji data.
      */
     EmojiLoader(fcitx::AddonManager* addonManager);
 

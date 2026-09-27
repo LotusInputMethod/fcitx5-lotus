@@ -2,8 +2,13 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 """
-Dictionary Editor Page. Edits lotus-dict-table.conf.
-Implements UI with row reordering and TSV import/export.
+Dictionary Editor Page.
+
+Reads and writes the raw Vietnamese dictionary file at
+``~/.local/share/fcitx5/lotus/vietnamese.cm.dict`` (or the system copy
+under ``/usr/share/fcitx5/lotus/``). Words are laid out in a 3-column
+grid and sorted alphabetically; the page also toggles the global
+``EnableDictionary`` option via D-Bus.
 """
 
 import os
@@ -217,11 +222,15 @@ class DictEditorPage(BaseEditorPage):
             self.table.setItem(row, col, QTableWidgetItem(""))
 
     def restore_defaults(self):
-        """Resets dictionary to default."""
+        """Reloads the dictionary and the EnableDictionary checkbox from disk and D-Bus.
+
+        Despite the method name, this does not clear the dictionary: it re-reads
+        whatever is currently stored on disk so the editor reflects the saved
+        state. ``load_data`` overwrites ``cb_enable`` and ``words``, so any values
+        set here would be discarded anyway.
+        """
         self.blockSignals(True)
         try:
-            self.cb_enable.setChecked(True)
-            self.words = []
             self.load_data()
             self._on_item_changed()
         finally:

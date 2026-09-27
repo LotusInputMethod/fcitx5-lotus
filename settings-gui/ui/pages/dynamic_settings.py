@@ -84,12 +84,6 @@ CATEGORY_DESCRIPTIONS = {
     SettingsCategory.SHORTCUTS: _("Manage input mode shortcuts, display order, and fast cycling."),
 }
 
-GROUP_DESCRIPTIONS = {
-    "MAIN SHORTCUTS": _(
-        "Assign hotkeys to open the mode menu or quickly cycle through enabled modes."
-    ),
-}
-
 
 MODE_SHORTCUT_TO_VISIBILITY = {
     "ShortcutSmooth": "ShowModeSmooth",

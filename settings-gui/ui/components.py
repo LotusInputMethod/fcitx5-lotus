@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """
 Reusable UI components.
-Uses system's libxkbcommon to natively resolve XKB keysym names,
-convert keysyms to Unicode, and mathematically handle Shift modifiers.
+Uses system's libxkbcommon to natively resolve XKB keysym names
+and mathematically handle Shift modifiers.
 """
 
 import ctypes
@@ -27,12 +27,6 @@ if libxkb_path:
             ctypes.c_size_t,
         ]
         libxkb.xkb_keysym_get_name.restype = ctypes.c_int
-
-        libxkb.xkb_keysym_to_lower.argtypes = [ctypes.c_uint32]
-        libxkb.xkb_keysym_to_lower.restype = ctypes.c_uint32
-
-        libxkb.xkb_keysym_to_utf32.argtypes = [ctypes.c_uint32]
-        libxkb.xkb_keysym_to_utf32.restype = ctypes.c_uint32
 
     except Exception as e:
         print(f"Failed to load libxkbcommon: {e}")
