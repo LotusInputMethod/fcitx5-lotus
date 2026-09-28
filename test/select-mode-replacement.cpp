@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Select mode: a replacement is delivered as a Shift+Left selection request on
-// the keyboard socket instead of a backspace stream. The engine commits the
-// replacement once all echoed left arrows have arrived, the intermediate arrows
-// pass through so the app can extend the selection, and no arrow is replayed
-// afterwards.
+// Select mode: a replacement is delivered as one Shift+Left plus a backspace
+// stream on the keyboard socket instead of a plain backspace stream. The engine
+// counts the Shift+Left as the first echoed event, the backspaces pass through
+// so the app deletes the old text, and the last backspace is swallowed before
+// the replacement is committed.
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "lotus-utils.h"
@@ -47,6 +47,19 @@ namespace {
         return actual;
     }
 
+    /// Replays the events the uinput server emits for a Select request: one
+    /// Shift+Left, then count backspaces. Only the last one is swallowed by the
+    /// engine, and it is the one that commits the replacement.
+    bool replaySelectEchoes(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, int count) {
+        if (!send(engine, entry, context, FcitxKey_Left, false))
+            return false;
+        for (int i = 0; i < count - 1; ++i) {
+            if (!send(engine, entry, context, FcitxKey_BackSpace, false))
+                return false;
+        }
+        return send(engine, entry, context, FcitxKey_BackSpace, true);
+    }
+
 } // namespace
 
 int main() {
@@ -74,30 +87,27 @@ int main() {
     context->resetPreeditUpdateCount();
 
     // Telex a, s changes the Bamboo preedit a -> á. Select mode must ask the
-    // uinput server to select the old character(s) instead of sending backspaces.
+    // uinput server for one Shift+Left plus a backspace stream instead of
+    // sending backspaces alone.
     if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_s, true))
         return 1;
     int selects = 0;
     if (!receiveSelectRequest(listener, selects, "the initial Telex replacement did not request a selection"))
         return 1;
 
-    // A key typed while the selection is in flight must not commit immediately.
+    // A key typed while the replacement is in flight must not commit immediately.
     if (!send(engine, entry, *context, FcitxKey_x, true) || !context->commits().empty()) {
         reportFailure("buffer key x before the selection completes", "no immediate commits", commitList(*context), "buffered key x was emitted before the selection completed");
         return 1;
     }
 
-    // Echoed left arrows: every press but the last passes through so the app can
-    // extend the selection; the last one is swallowed and commits the replacement.
-    for (int i = 0; i < selects - 1; ++i) {
-        if (!send(engine, entry, *context, FcitxKey_Left, false))
-            return 1;
-    }
-    if (!send(engine, entry, *context, FcitxKey_Delete, false))
+    // Echoed events: the Shift+Left and every backspace but the last reach the
+    // app; the last backspace is swallowed and commits the replacement.
+    if (!replaySelectEchoes(engine, entry, *context, selects))
         return 1;
     const std::vector<std::string> afterFirst{"á"};
     if (context->commits() != afterFirst) {
-        reportFailure("verify commit after the last left arrow", "commits=['á']", commitList(*context) + ", selects=" + std::to_string(selects),
+        reportFailure("verify commit after the last backspace", "commits=['á']", commitList(*context) + ", selects=" + std::to_string(selects),
                       "the replacement was not committed exactly once when the selection completed");
         return 1;
     }
@@ -109,11 +119,7 @@ int main() {
     if (!receiveSelectRequest(listener, replaySelects, "buffered key was not replayed after the selection completed",
                               "buffered x replay starts another selection request within 5000 ms"))
         return 1;
-    for (int i = 0; i < replaySelects - 1; ++i) {
-        if (!send(engine, entry, *context, FcitxKey_Left, false))
-            return 1;
-    }
-    if (!send(engine, entry, *context, FcitxKey_Delete, false))
+    if (!replaySelectEchoes(engine, entry, *context, replaySelects))
         return 1;
 
     const std::vector<std::string> expected{"á", "ã"};

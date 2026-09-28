@@ -76,7 +76,7 @@ struct KbMsg {
  */
 enum KbOp : int32_t {
     KB_OP_BACKSPACE = 0, ///< emit count BackSpace key events
-    KB_OP_SELECT    = 1, ///< select count characters via held Shift + Left
+    KB_OP_SELECT    = 1, ///< emit one Shift+Left, then count BackSpace key events
 };
 
 /**

@@ -10,7 +10,6 @@
 #include "lotus-logger.h"
 
 #include <chrono>
-#include <cstdint>
 #include <cstring>
 #include <thread>
 #include <vector>
@@ -58,9 +57,13 @@ bool UinputDevice::initialize() {
         return false;
     guard_.reset(fd);
 
-    if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0 || ioctl(fd, UI_SET_KEYBIT, KEY_BACKSPACE) < 0 || ioctl(fd, UI_SET_KEYBIT, KEY_LEFT) < 0 ||
-        ioctl(fd, UI_SET_KEYBIT, KEY_LEFTSHIFT) < 0 || ioctl(fd, UI_SET_KEYBIT, KEY_DELETE) < 0) {
+    if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0) {
         return false;
+    }
+    for (const int key : {KEY_BACKSPACE, KEY_LEFT, KEY_LEFTSHIFT}) {
+        if (ioctl(fd, UI_SET_KEYBIT, key) < 0) {
+            return false;
+        }
     }
 
     struct uinput_setup usetup{};
@@ -98,16 +101,11 @@ void UinputDevice::send_mod(uint16_t code, int value) {
     ev[0].type  = EV_KEY;
     ev[0].code  = code;
     ev[0].value = value;
-    // Zero-initialize ev[1] via {} set this event to SYN_REPORT
     write(guard_.get(), ev, sizeof(ev));
 }
 
 void UinputDevice::send_backspace() {
     send_tap(KEY_BACKSPACE);
-}
-
-void UinputDevice::send_delete() {
-    send_tap(KEY_DELETE);
 }
 
 void UinputDevice::send_shift_down() {
@@ -294,8 +292,6 @@ int main(int argc, char* argv[]) {
     FdGuard          addon_fd;
     FdGuard          kb_client_fd;
     int              pending_backspaces = 0;
-    int              pending_selects    = 0;     ///< remaining Shift+Left events to pace out
-    bool             shift_held         = false; ///< Shift pressed for an in-flight selection
 
     struct sigaction sa{};
     sa.sa_handler = signal_handler;
@@ -305,14 +301,8 @@ int main(int argc, char* argv[]) {
     sigaction(SIGINT, &sa, nullptr);
 
     while (g_running.load(std::memory_order_acquire)) {
-        int poll_timeout = -1;
-        if (pending_backspaces > 0) {
-            poll_timeout = 5;
-        }
-        if (pending_selects > 0) {
-            poll_timeout = 10;
-        }
-        int ret = poll(fds.data(), fds.size(), poll_timeout);
+        int poll_timeout = (pending_backspaces > 0) ? 5 : -1;
+        int ret          = poll(fds.data(), fds.size(), poll_timeout);
 
         if (ret < 0) {
             if (errno == EINTR) {
@@ -321,27 +311,9 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        if (ret == 0) {
-            if (pending_backspaces > 0) {
-                uinput.send_backspace();
-                --pending_backspaces;
-            } else if (pending_selects > 0) {
-                if (pending_selects > 1) {
-                    uinput.send_left();
-                    --pending_selects;
-                } else {
-                    if (shift_held) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                        uinput.send_shift_up();
-                        shift_held = false;
-                    } else {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                        uinput.send_delete();
-                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                        --pending_selects;
-                    }
-                }
-            }
+        if (ret == 0 && pending_backspaces > 0) {
+            uinput.send_backspace();
+            --pending_backspaces;
         }
 
         libinput_dispatch(li_ctx.get_li());
@@ -393,45 +365,21 @@ int main(int argc, char* argv[]) {
             ssize_t n = recv(fds[KB_CLIENT_INDEX].fd, &msg, sizeof(msg), 0);
             if (n <= 0) {
                 LotusLogger::instance().warn("Keyboard client disconnected or connection error");
-                if (shift_held) {
-                    uinput.send_shift_up(); // never leave Shift stuck down
-                    shift_held = false;
-                }
-                pending_selects = 0;
                 kb_client_fd.reset(-1);
                 fds[KB_CLIENT_INDEX].fd = -1;
-            } else if (n != (ssize_t)sizeof(KbMsg) && n != (ssize_t)sizeof(int32_t)) {
+            } else if (n != (ssize_t)sizeof(KbMsg)) {
                 LotusLogger::instance().warn("Malformed keyboard message (" + std::to_string(n) + " bytes)");
-            } else {
-                if (n == (ssize_t)sizeof(int32_t)) {
-                    // Legacy datagram: bare backspace count.
-                    msg.count = msg.op;
-                    msg.op    = KB_OP_BACKSPACE;
+            } else if (msg.count > 0) {
+                if (msg.op == KB_OP_SELECT) {
+                    // Select mode: the first character is picked with Shift+Left,
+                    // released right away, the backspace stream does the rest.
+                    uinput.send_shift_down();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                    uinput.send_left();
+                    uinput.send_shift_up();
                 }
-                if (msg.count > 0 && msg.op == KB_OP_SELECT) {
-                    if (msg.count == 1) {
-                        uinput.send_left();
-                    } else {
-                        if (!shift_held) {
-                            uinput.send_shift_down();
-                            shift_held = true;
-                        }
-                        std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                        uinput.send_left();
-                        pending_selects += msg.count - 1;
-                    }
-                } else if (msg.count > 0 && msg.op == KB_OP_BACKSPACE) {
-                    if (shift_held) {
-                        // A stale in-flight selection must not mix with backspaces.
-                        uinput.send_shift_up();
-                        shift_held      = false;
-                        pending_selects = 0;
-                    }
-                    pending_backspaces += msg.count - 1;
-                    uinput.send_backspace();
-                } else if (msg.count > 0) {
-                    LotusLogger::instance().warn("Unknown keyboard message op: " + std::to_string(msg.op));
-                }
+                pending_backspaces += msg.count - 1;
+                uinput.send_backspace();
             }
         }
 

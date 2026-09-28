@@ -76,7 +76,6 @@ class UinputDevice {
 
     bool          initialize();
     void          send_backspace();
-    void          send_delete();
     void          send_shift_down();
     void          send_shift_up();
     void          send_left();
@@ -152,16 +151,15 @@ class LibinputContext {
  * @brief Message on the keyboard socket from the fcitx5 addon.
  *
  * Layout must stay in sync with the addon side (src/lotus-utils.h).
- * A legacy 4-byte datagram (op implicitly KB_OP_BACKSPACE) is also accepted.
  */
 struct KbMsg {
     int32_t op;    ///< KB_OP_* operation
-    int32_t count; ///< number of backspaces / characters to select
+    int32_t count; ///< number of BackSpace key events to emit
 };
 
 enum KbOp : int32_t {    //NOLINT
     KB_OP_BACKSPACE = 0, ///< emit count BackSpace key events
-    KB_OP_SELECT    = 1, ///< select count characters via Shift+Left
+    KB_OP_SELECT    = 1, ///< emit one Shift+Left, then count BackSpace key events
 };
 
 /**

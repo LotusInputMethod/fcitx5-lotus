@@ -137,8 +137,8 @@ namespace fcitx {
         void send_backspace_uinput(int count) const;
 
         /**
-         * @brief Asks the uinput server to select count characters with Shift+Left.
-         * @param count Number of characters to select.
+         * @brief Asks the uinput server for one Shift+Left followed by count backspaces.
+         * @param count Number of backspaces to send after the Shift+Left.
          */
         void send_select_uinput(int count) const;
 

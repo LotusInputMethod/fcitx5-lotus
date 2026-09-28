@@ -488,9 +488,7 @@ namespace fcitx {
         }
         expected_backspaces_     = 0;
         current_backspace_count_ = 0;
-        if (realMode != LotusMode::Select || event.rawKey().sym() != FcitxKey_Delete) {
-            event.filterAndAccept(); // Filter out the final trigger backspace / left arrow.
-        }
+        event.filterAndAccept(); // Filter out the final trigger backspace / left arrow.
         is_deleting_.store(false);
         if (!dbusDefer) {
             replayBufferedKeys();
@@ -501,10 +499,11 @@ namespace fcitx {
         if (!is_deleting_.load()) {
             return false;
         }
-        // In Select mode the uinput server emits Shift+Left, so the echoed Left
-        // presses are the selection signal. The final one is swallowed in
-        // finishReplacement so the app only sees the count it should select.
-        const bool isSelectEcho = (realMode == LotusMode::Select) && (currentSym == FcitxKey_Left || currentSym == FcitxKey_Delete);
+        // In Select mode the uinput server emits one Shift+Left and then a plain
+        // backspace stream, so both the Left and the Backspace echoes are the
+        // replacement signal. The final one is swallowed in finishReplacement so
+        // the app only sees the count it should delete.
+        const bool isSelectEcho = (realMode == LotusMode::Select) && currentSym == FcitxKey_Left;
         if (!isBackspace(currentSym) && !isSelectEcho) {
             return false;
         }
@@ -538,12 +537,15 @@ namespace fcitx {
             }
         }
         is_deleting_.store(true, std::memory_order_release);
-        // Select mode: the uinput server selects with Shift+Left instead. The
-        // trigger-key compensation above still applies because the last echoed
-        // Left is swallowed; autofill compensation does not, see above.
+        // Select mode: the uinput server seeds the selection with a single
+        // Shift+Left, then sends the same backspace stream as plain uinput, so
+        // the leading Left echo counts as one of the expected events. The
+        // trigger-key compensation above still applies; autofill compensation
+        // does not, see above.
         if (realMode == LotusMode::Select && !isAutofillCertain_) {
             send_select_uinput(expected_backspaces_);
-            LOTUS_INFO("Send select of " + std::to_string(expected_backspaces_) + " characters");
+            ++expected_backspaces_;
+            LOTUS_INFO("Send select of 1 + " + std::to_string(expected_backspaces_ - 1) + " backspaces");
             return;
         }
         send_backspace_uinput(expected_backspaces_);
@@ -1116,7 +1118,7 @@ namespace fcitx {
                 }
             } else if (realMode == LotusMode::Select && (currentSym == FcitxKey_Left || currentSym == FcitxKey_Delete)) {
                 if (currentSym == FcitxKey_Left) {
-                    // Echoed left arrow extends the selection in the app: consume it as
+                    // The echoed Shift+Left seeds the selection in the app: consume it as
                     // a selection signal, never buffer it for replay.
                     if (realtextLen.load(std::memory_order_acquire) > 0)
                         realtextLen.fetch_sub(1, std::memory_order_acq_rel);
