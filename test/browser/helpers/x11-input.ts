@@ -1,0 +1,125 @@
+import { expect } from '@playwright/test';
+import type { Page, Locator } from '@playwright/test';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { getEventLog } from './events';
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * Executes `xdotool key --delay <delayMs> <keys...>` to inject X11 XTEST key events.
+ */
+export async function typeXdotool(
+  keys: string | string[],
+  delayMs = 60
+): Promise<void> {
+  const keyList = Array.isArray(keys) ? keys : [keys];
+  if (keyList.length === 0) {
+    return;
+  }
+
+  // Normalize common key names for xdotool
+  const normalizedKeys = keyList.map((k) => (k === ' ' ? 'space' : k));
+
+  await execFileAsync('xdotool', [
+    'key',
+    '--delay',
+    String(delayMs),
+    ...normalizedKeys,
+  ]);
+}
+
+/**
+ * Returns the active X11 window ID and title via xdotool.
+ */
+export async function getActiveX11Window(): Promise<{ id: string; name: string }> {
+  try {
+    const { stdout: idOut } = await execFileAsync('xdotool', ['getactivewindow']);
+    const id = idOut.trim();
+    const { stdout: nameOut } = await execFileAsync('xdotool', ['getwindowname', id]).catch(() => ({ stdout: '' }));
+    return { id, name: nameOut.trim() };
+  } catch {
+    return { id: '', name: '' };
+  }
+}
+
+/**
+ * Ensures the target locator is clicked, focused, and waits until the X11
+ * window is active and the browser has processed the focus (IM context ready).
+ */
+export async function ensureActive(
+  page: Page,
+  locator: Locator
+): Promise<void> {
+  await page.bringToFront();
+  await locator.click();
+  await expect(locator).toBeFocused();
+
+  // Verify that the active X11 window belongs to the browser fixture
+  await expect
+    .poll(
+      async () => {
+        const win = await getActiveX11Window();
+        return win.name;
+      },
+      { timeout: 2000 }
+    )
+    .toContain('Fcitx5 Lotus Browser E2E Fixture');
+
+  // Force a genuine focus transition: clicking an already-focused element
+  // fires no focus event, so blur first and only accept focus events recorded
+  // AFTER a watermark — a stale event from a previous call must not pass.
+  const watermark = (await getEventLog(page)).length;
+  await locator.evaluate((el: HTMLElement) => el.blur());
+  await locator.click();
+  const targetId = await locator.evaluate((el: HTMLElement) => el.id);
+  await expect
+    .poll(
+      async () => {
+        const log = await getEventLog(page);
+        // Math.min clamps the watermark if the log was ever replaced
+        // (reset/reload) mid-poll; without it slice(watermark) of a fresh
+        // short array is [] forever and the poll can only time out.
+        return log
+          .slice(Math.min(watermark, log.length))
+          .some((e) => e.type === 'focus' && e.targetId === targetId);
+      },
+      { timeout: 2000 }
+    )
+    .toBe(true);
+}
+
+/**
+ * Clears an input, textarea, or contenteditable element using X11 select-all and backspace.
+ */
+export async function clearInput(
+  page: Page,
+  locator: Locator
+): Promise<void> {
+  await ensureActive(page, locator);
+  await typeXdotool('ctrl+a', 50);
+  await typeXdotool('BackSpace', 50);
+  await expect
+    .poll(async () => {
+      return await locator.evaluate((el: HTMLElement) => {
+        if ('value' in el && typeof (el as HTMLInputElement).value === 'string') {
+          return (el as HTMLInputElement).value;
+        }
+        return (el.textContent || '').trim();
+      });
+    }, { timeout: 2000 })
+    .toBe('');
+}
+
+/**
+ * Focuses locator and types the given sequence of keys through xdotool.
+ */
+export async function typeWithLotus(
+  page: Page,
+  locator: Locator,
+  keys: string[],
+  delayMs = 60
+): Promise<void> {
+  await ensureActive(page, locator);
+  await typeXdotool(keys, delayMs);
+}
