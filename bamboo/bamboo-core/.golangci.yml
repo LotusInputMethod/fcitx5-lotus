@@ -11,6 +11,6 @@ linters:
   disable:
     - gocyclo
 issues:
-  exclude-rules:
+  exclusions:
     - path: _test\.go
-      text: "error message to ignore"
+      pattern: "error message to ignore"
