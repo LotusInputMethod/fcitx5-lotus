@@ -1,0 +1,175 @@
+# Browser-level E2E for the X11/Preedit key-to-DOM plumbing (canary), not a
+# general regression net: engine logic is guarded by the headless ctest suite.
+# Gate rule: PRs run only when the harness itself changes; engine PRs see
+# this lane via nightly + dev pushes. Promotion to a blocking gate on src/**
+# requires >=20 consecutive clean nightlies with >=5 of them unbroken by any
+# src/**/bamboo/** change (so the streak can't accrue against 20 different
+# engines); demotion back to workflow_dispatch-only at 3 consecutive reds
+# without a linked triage issue OR >1 failure per rolling 10 — 20-clean
+# alone would still promote a 10%-flake suite ~12% of the time.
+name: Browser E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 3 * * *'
+  push:
+    paths:
+      - 'test/browser/**'
+      - '.github/workflows/browser-e2e.yml'
+      - 'src/**'
+      - 'bamboo/**'
+      - 'data/**'
+      - 'server/**'
+      - '**/CMakeLists.txt'
+  pull_request:
+    paths:
+      - 'test/browser/**'
+      - '.github/workflows/browser-e2e.yml'
+
+# INVARIANT: this job executes PR-authored code (scripts, lockfile, and this
+# file itself) and must stay secret-free — no repository/environment secrets,
+# ever; that plus `contents: read` and ephemeral hosted runners (the X11 -ac /
+# XTEST / --no-sandbox trust model) is what makes fork-PR execution safe.
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-e2e-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' && !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  browser-e2e:
+    name: Browser E2E (X11 / Xvfb)
+    runs-on: ubuntu-24.04
+    env:
+      GTK_IM_MODULE: fcitx
+      QT_IM_MODULE: fcitx
+      XMODIFIERS: '@im=fcitx'
+      CI: "true"
+      PLAYWRIGHT_BROWSERS_PATH: /home/runner/.cache/ms-playwright
+    steps:
+      - name: Setup test environment
+        run: echo "TEST_HOME=$(mktemp -d -t fcitx5-browser-e2e-XXXXXX)" >> "$GITHUB_ENV"
+
+      - name: Checkout fcitx5-lotus
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.18'
+          cache: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y --no-install-recommends \
+            xvfb \
+            x11-utils \
+            openbox \
+            xdotool \
+            dbus-x11 \
+            fcitx5 \
+            fcitx5-frontend-all \
+            fcitx5-frontend-gtk3 \
+            fcitx5-frontend-gtk4 \
+            libfcitx5core-dev \
+            libfcitx5config-dev \
+            libfcitx5utils-dev \
+            fcitx5-modules-dev \
+            extra-cmake-modules \
+            cmake \
+            ninja-build \
+            gettext \
+            libfmt-dev \
+            librsvg2-bin \
+            libinput-dev \
+            libudev-dev
+
+      - name: Build and install fcitx5-lotus
+        run: |
+          cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          sudo ninja -C build install
+
+      - name: Install test dependencies and Playwright browsers
+        working-directory: test/browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium firefox
+
+      - name: Typecheck browser test suite
+        working-directory: test/browser
+        run: npm run typecheck
+      - name: Setup Fcitx configuration
+        run: |
+          chmod +x test/browser/scripts/setup-fcitx.sh test/browser/scripts/run-xvfb.sh
+          ./test/browser/scripts/setup-fcitx.sh
+
+      - name: Start X11 Desktop environment and Fcitx5
+        run: |
+          # Record which distro fcitx5 this run validated — green suites
+          # must be attributable when noble SRUs move the 5.1.x series.
+          fcitx5 --version
+          ./test/browser/scripts/run-xvfb.sh
+
+      - name: Run Chromium E2E tests
+        working-directory: test/browser
+        env:
+          E2E_JSON_OUTPUT: reports/results-chromium.json
+        run: npm run test:chromium
+
+      - name: Run Firefox E2E tests
+        working-directory: test/browser
+        env:
+          E2E_JSON_OUTPUT: reports/results-firefox.json
+        run: npm run test:firefox
+
+      # Timing data is the flake-rate experiment's raw material; the dot
+      # reporter alone can't tell a 50ms poll from a 1.9s one.
+      - name: Upload timing results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-e2e-timing
+          path: test/browser/reports/*.json
+          if-no-files-found: error
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          fcitx5-diagnose > /tmp/fcitx5-diagnose.log 2>&1 || true
+          # Runner stall vs engine bug, decided from the artifact: a red run
+          # next to high cpu pressure is a runner-statistics event, not a
+          # Lotus regression.
+          cat /proc/pressure/* > /tmp/pressure.txt 2>/dev/null || true
+          # Copy logs from isolated TEST_HOME to /tmp for artifact upload
+          cp "${TEST_HOME}/fcitx5.log" /tmp/fcitx5.log 2>/dev/null || true
+          cp "${TEST_HOME}/xvfb.log" /tmp/xvfb.log 2>/dev/null || true
+          cp "${TEST_HOME}/openbox.log" /tmp/openbox.log 2>/dev/null || true
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-e2e-failure-artifacts
+          path: |
+            test/browser/playwright-report/
+            test/browser/test-results/
+            /tmp/fcitx5.log
+            /tmp/fcitx5-diagnose.log
+            /tmp/xvfb.log
+            /tmp/openbox.log
+            /tmp/pressure.txt
+          if-no-files-found: ignore
+
+      - name: Stop X11 and Fcitx5
+        if: always()
+        run: |
+          ./test/browser/scripts/run-xvfb.sh --stop || true
