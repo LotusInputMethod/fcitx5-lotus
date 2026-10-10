@@ -84,15 +84,19 @@ namespace fcitx {
         friend class LotusEngine;
 
       private:
-        static constexpr size_t               MAX_BUFFERED_KEYS = 50;
+        static constexpr size_t MAX_BUFFERED_KEYS = 50;
 
-        LotusEngine*                          engine_;
-        InputContext*                         ic_;
-        CGoObject                             lotusEngine_;
-        std::string                           oldPreBuffer_;
-        bool                                  hasHistory_              = false;
-        size_t                                expected_backspaces_     = 0;
-        size_t                                current_backspace_count_ = 0;
+        LotusEngine*            engine_;
+        InputContext*           ic_;
+        CGoObject               lotusEngine_;
+        std::string             oldPreBuffer_;
+        bool                    hasHistory_              = false;
+        size_t                  expected_backspaces_     = 0;
+        size_t                  current_backspace_count_ = 0;
+        // Select only: the last selection echo was swallowed with the commit
+        // held for the Delete echo. While true, the 970-guard must not treat
+        // the in-flight state as stale, and the Delete echo completes it.
+        bool                                  awaitingDeleteEcho_ = false;
         std::string                           pending_commit_string_;
         LotusAppRuleSetting                   appRuleSetting_; ///< Per-app rule (mode + delay overrides) pushed by the engine
         std::string                           emojiBuffer_;
@@ -172,15 +176,37 @@ namespace fcitx {
         bool handleUInputKeyPress(KeyEvent& event, KeySym currentSym);
 
         /**
+         * @brief Validates the app state and commits the pending string.
+         *
+         * Shared head of both replacement completions below; changes no
+         * replacement state besides consuming the pending string.
+         */
+        void commitPendingReplacement();
+
+        /**
          * @brief Completes an in-flight replacement after all echoed events arrived.
          *
-         * Shared tail of the BackSpace and Shift+Left echo handlers: waits for the
-         * app to settle, commits the pending replacement string, resets the
-         * replacement state, swallows the final echo and replays buffered keys.
+         * Shared tail of the BackSpace echo handler (and the Select Delete
+         * completion below): commits the pending replacement string, resets
+         * the replacement state, swallows the final echo and replays buffered
+         * keys. In Select mode the last selection echo is swallowed earlier
+         * with the commit held, so this runs either here (BackSpace) or on
+         * the Delete echo.
          *
          * @param event The key event of the final echoed key.
          */
         void finishReplacement(KeyEvent& event);
+
+        /**
+         * @brief Completes a Select replacement on the Delete echo.
+         *
+         * Forwards Delete first so the app deletes the selection, then lands
+         * the commit on the deleted text. Same tail as finishReplacement but
+         * the event is forwarded instead of swallowed.
+         *
+         * @param event The Delete echo key event.
+         */
+        void finishReplacementOnDeleteEcho(KeyEvent& event);
 
         /**
          * @brief Performs text replacement via uinput.

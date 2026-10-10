@@ -17,6 +17,7 @@ target_link_libraries(lotus_test_core PUBLIC
     Bamboo::Core
     Pthread::Pthread
     PkgConfig::LIBEI
+    PkgConfig::LIBEIS
 )
 
 # Helper to compile a standalone headless integration test linked with the
@@ -62,6 +63,7 @@ add_lotus_headless_test(preedit_smoke_server preedit-smoke-server.cpp "integrati
 # add_lotus_headless_test(replacement_delays replacement-delays.cpp "integration;smooth")
 add_lotus_headless_test(app_rule_delays app-rule-delays.cpp "integration;apprule")
 add_lotus_headless_test(key_job_builder key-job-builder.cpp "unit;uinput")
+add_lotus_headless_test(select_delete_echo_commit select-delete-echo-commit.cpp "integration;select")
 # add_lotus_headless_test(key_pacer_resilience key-pacer-resilience.cpp "unit;uinput")
 # add_lotus_headless_test(app_rule_delay_wire app-rule-delay-wire.cpp "integration;apprule")
 # set_tests_properties(smooth_buffered_key_replay select_mode_replacement replacement_delays app_rule_delay_wire

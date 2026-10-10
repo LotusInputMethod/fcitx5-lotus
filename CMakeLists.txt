@@ -35,6 +35,7 @@ find_package(PkgConfig REQUIRED)
 
 # libei sender (addon VirtualKeyboard) and libeis server (lotus-server).
 pkg_check_modules(LIBEI REQUIRED IMPORTED_TARGET libei-1.0)
+pkg_check_modules(LIBEIS REQUIRED IMPORTED_TARGET libeis-1.0)
 
 include("${FCITX_INSTALL_CMAKECONFIG_DIR}/Fcitx5Utils/Fcitx5CompilerSettings.cmake")
 add_definitions(-DFCITX_GETTEXT_DOMAIN=\"fcitx5-lotus\") 

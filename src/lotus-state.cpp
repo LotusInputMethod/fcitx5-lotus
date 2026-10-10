@@ -402,7 +402,7 @@ namespace fcitx {
         ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
     }
 
-    void LotusState::finishReplacement(KeyEvent& event) {
+    void LotusState::commitPendingReplacement() {
         // Validate surr cursor pos should match realtextLen after all BS/Left applied
         const auto& surr = ic_->surroundingText();
         if (surr.isValid() && surr.cursor() == realtextLen.load(std::memory_order_acquire)) {
@@ -425,9 +425,26 @@ namespace fcitx {
             updateLastCommitTime();
             LOTUS_INFO("Commit: " + commitText);
         }
+    }
+
+    void LotusState::finishReplacement(KeyEvent& event) {
+        commitPendingReplacement();
         expected_backspaces_     = 0;
         current_backspace_count_ = 0;
+        awaitingDeleteEcho_      = false;
         event.filterAndAccept();
+        is_deleting_.store(false, std::memory_order_release);
+        replayBufferedKeys();
+    }
+
+    void LotusState::finishReplacementOnDeleteEcho(KeyEvent& event) {
+        // The Delete echo proves the app processed the whole selection, so it
+        // is forwarded first and the commit lands on the deleted text.
+        event.forward();
+        commitPendingReplacement();
+        expected_backspaces_     = 0;
+        current_backspace_count_ = 0;
+        awaitingDeleteEcho_      = false;
         is_deleting_.store(false, std::memory_order_release);
         replayBufferedKeys();
     }
@@ -437,8 +454,9 @@ namespace fcitx {
             return false;
         }
         // In Select mode the uinput server emits Shift+Left, so the echoed Left
-        // presses are the selection signal. The final one is swallowed in
-        // finishReplacement so the app only sees the count it should select.
+        // presses are the selection signal. The last selection echo is
+        // swallowed above with the commit held for the Delete echo, so the
+        // app only sees the count it should select.
         const bool isSelectEcho = realMode == LotusMode::Select && currentSym == FcitxKey_Left;
         if (!isBackspace(currentSym) && !isSelectEcho) {
             return false;
@@ -446,6 +464,15 @@ namespace fcitx {
         current_backspace_count_ += 1;
         if (current_backspace_count_ < expected_backspaces_) {
             return false; // Allow intermediate backspaces/lefts to reach the app to clear autofill/old text / extend the selection.
+        }
+        if (isSelectEcho) {
+            // Select: the count-th echo is the last selection Left. Swallow
+            // it, but hold the commit for the Delete echo (sent after all
+            // Lefts) so the replacement lands after the app deleted the
+            // selection. The Delete branch below completes the replacement.
+            awaitingDeleteEcho_ = true;
+            event.filterAndAccept();
+            return true;
         }
         finishReplacement(event);
         return true;
@@ -465,6 +492,7 @@ namespace fcitx {
         }
         LOTUS_INFO("Perform replacement: " + deletedPart + " -> " + addedPart); //NOLINT
         current_backspace_count_       = 0;
+        awaitingDeleteEcho_            = false;
         pending_commit_string_         = addedPart;
         expected_backspaces_           = utf8::length(deletedPart);
         const auto& surrounding        = ic_->surroundingText();
@@ -503,6 +531,7 @@ namespace fcitx {
             is_deleting_.store(false, std::memory_order_release);
             expected_backspaces_     = 0;
             current_backspace_count_ = 0;
+            awaitingDeleteEcho_      = false;
             pending_commit_string_.clear();
             hasHistory_ = false;
             ResetEngine(lotusEngine_.handle());
@@ -675,6 +704,7 @@ namespace fcitx {
 
                 if (is_deleting_.load()) {
                     is_deleting_.store(false, std::memory_order_release);
+                    awaitingDeleteEcho_ = false;
                 }
 
                 keyEvent.filterAndAccept();
@@ -967,10 +997,11 @@ namespace fcitx {
         if (!ensureUinputConnected()) {
             LOTUS_WARN("Cannot connect to uinput server, replacements will fall back");
         }
-        if (current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
+        if (!awaitingDeleteEcho_ && current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
             is_deleting_.store(false);
             current_backspace_count_ = 0;
             expected_backspaces_     = 0;
+            awaitingDeleteEcho_      = false;
             if (!buffered_keys_.empty()) {
                 replayBufferedKeys();
             }
@@ -1035,6 +1066,9 @@ namespace fcitx {
                     if (realtextLen.load(std::memory_order_acquire) > 0)
                         realtextLen.fetch_sub(1, std::memory_order_acq_rel);
                     handleUInputKeyPress(keyEvent, currentSym);
+                } else if (awaitingDeleteEcho_) {
+                    // The held Select commit: Delete arrived, complete it.
+                    finishReplacementOnDeleteEcho(keyEvent);
                 } else {
                     keyEvent.forward();
                 }
