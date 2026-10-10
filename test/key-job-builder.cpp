@@ -16,41 +16,41 @@
 
 namespace {
 
-int failures = 0;
+    int  failures = 0;
 
-void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual) {
-    if (ok)
-        return;
-    ++failures;
-    std::cerr << "Step: " << step << "\nExpected: " << expected << "\nActual: " << actual << "\n";
-}
-
-std::string itemStr(const fcitx::PacerItem& item) {
-    if (const auto* key = std::get_if<fcitx::KeyMsg>(&item))
-        return "Key(" + std::to_string(key->code) + "," + std::to_string(key->pressed) + ")";
-    const auto* sleep = std::get_if<fcitx::SleepFor>(&item);
-    return "Sleep(" + std::to_string(sleep->delay.count()) + "ms)";
-}
-
-std::string jobStr(const fcitx::KeyJob& job) {
-    std::string out = "[";
-    for (size_t i = 0; i < job.size(); ++i) {
-        if (i > 0)
-            out += ", ";
-        out += itemStr(job[i]);
+    void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual) {
+        if (ok)
+            return;
+        ++failures;
+        std::cerr << "Step: " << step << "\nExpected: " << expected << "\nActual: " << actual << "\n";
     }
-    return out + "]";
-}
 
-bool isKey(const fcitx::PacerItem& item, uint16_t code, uint8_t pressed) {
-    const auto* key = std::get_if<fcitx::KeyMsg>(&item);
-    return key != nullptr && key->code == code && key->pressed == pressed;
-}
+    std::string itemStr(const fcitx::PacerItem& item) {
+        if (const auto* key = std::get_if<fcitx::KeyMsg>(&item))
+            return "Key(" + std::to_string(key->code) + "," + std::to_string(key->pressed) + ")";
+        const auto* sleep = std::get_if<fcitx::SleepFor>(&item);
+        return "Sleep(" + std::to_string(sleep->delay.count()) + "ms)";
+    }
 
-bool isSleep(const fcitx::PacerItem& item, int64_t ms) {
-    const auto* sleep = std::get_if<fcitx::SleepFor>(&item);
-    return sleep != nullptr && sleep->delay.count() == ms;
-}
+    std::string jobStr(const fcitx::KeyJob& job) {
+        std::string out = "[";
+        for (size_t i = 0; i < job.size(); ++i) {
+            if (i > 0)
+                out += ", ";
+            out += itemStr(job[i]);
+        }
+        return out + "]";
+    }
+
+    bool isKey(const fcitx::PacerItem& item, uint16_t code, uint8_t pressed) {
+        const auto* key = std::get_if<fcitx::KeyMsg>(&item);
+        return key != nullptr && key->code == code && key->pressed == pressed;
+    }
+
+    bool isSleep(const fcitx::PacerItem& item, int64_t ms) {
+        const auto* sleep = std::get_if<fcitx::SleepFor>(&item);
+        return sleep != nullptr && sleep->delay.count() == ms;
+    }
 
 } // namespace
 

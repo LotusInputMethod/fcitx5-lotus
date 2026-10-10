@@ -31,7 +31,7 @@ class UinputDevice;
 
 class EisKeyboardServer {
   public:
-    EisKeyboardServer()  = default;
+    EisKeyboardServer() = default;
     ~EisKeyboardServer();
 
     EisKeyboardServer(const EisKeyboardServer&)            = delete;
@@ -68,13 +68,13 @@ class EisKeyboardServer {
         UinputDevice*      uinput = nullptr;
     };
 
-    void onEvent(struct eis_event* event);
-    void onClientConnect(struct eis_client* client);
-    void onClientDisconnect(struct eis_client* client);
-    void onSeatBind(struct eis_event* event);
-    void onDeviceClosed(struct eis_device* device);
-    void onKeyboardKey(struct eis_event* event);
-    void destroyKeyboard(BoundKeyboard& bound);
+    void        onEvent(struct eis_event* event);
+    void        onClientConnect(struct eis_client* client);
+    void        onClientDisconnect(struct eis_client* client);
+    void        onSeatBind(struct eis_event* event);
+    void        onDeviceClosed(struct eis_device* device);
+    void        onKeyboardKey(struct eis_event* event);
+    void        destroyKeyboard(BoundKeyboard& bound);
 
     struct eis* eis_ = nullptr;
     // Seats/devices carry a dangling owner ref, released on disconnect,

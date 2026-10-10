@@ -13,17 +13,17 @@
 
 namespace fcitx {
 
-/**
+    /**
  * @brief Single key event in a pacer job (client) / EIS keyboard event.
  *
  * Minimal dumb unit: code + pressed state only. No counts, no delays —
  * all pacing lives in KeyPacer via fcitx EventLoop timers; transport is
  * EIS (key + frame per message).
  */
-struct KeyMsg {
-    uint16_t code;   ///< linux KEY_*: BACKSPACE / LEFT / DELETE / LEFTSHIFT
-    uint8_t  pressed; ///< 1 = press, 0 = release
-};
+    struct KeyMsg {
+        uint16_t code;    ///< linux KEY_*: BACKSPACE / LEFT / DELETE / LEFTSHIFT
+        uint8_t  pressed; ///< 1 = press, 0 = release
+    };
 
 } // namespace fcitx
 

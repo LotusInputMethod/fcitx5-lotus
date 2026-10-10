@@ -55,23 +55,12 @@ void EisKeyboardServer::dispatch() {
 
 void EisKeyboardServer::onEvent(struct eis_event* event) {
     switch (eis_event_get_type(event)) {
-        case EIS_EVENT_CLIENT_CONNECT:
-            onClientConnect(eis_event_get_client(event));
-            break;
-        case EIS_EVENT_CLIENT_DISCONNECT:
-            onClientDisconnect(eis_event_get_client(event));
-            break;
-        case EIS_EVENT_SEAT_BIND:
-            onSeatBind(event);
-            break;
-        case EIS_EVENT_DEVICE_CLOSED:
-            onDeviceClosed(eis_event_get_device(event));
-            break;
-        case EIS_EVENT_KEYBOARD_KEY:
-            onKeyboardKey(event);
-            break;
-        default:
-            break;
+        case EIS_EVENT_CLIENT_CONNECT: onClientConnect(eis_event_get_client(event)); break;
+        case EIS_EVENT_CLIENT_DISCONNECT: onClientDisconnect(eis_event_get_client(event)); break;
+        case EIS_EVENT_SEAT_BIND: onSeatBind(event); break;
+        case EIS_EVENT_DEVICE_CLOSED: onDeviceClosed(eis_event_get_device(event)); break;
+        case EIS_EVENT_KEYBOARD_KEY: onKeyboardKey(event); break;
+        default: break;
     }
 }
 
@@ -136,8 +125,8 @@ void EisKeyboardServer::onDeviceClosed(struct eis_device* device) {
 
 void EisKeyboardServer::onKeyboardKey(struct eis_event* event) {
     struct eis_device* device = eis_event_get_device(event);
-    const uint32_t key   = eis_event_keyboard_get_key(event);
-    const bool     press = eis_event_keyboard_get_key_is_press(event);
+    const uint32_t     key    = eis_event_keyboard_get_key(event);
+    const bool         press  = eis_event_keyboard_get_key_is_press(event);
     for (auto& bound : keyboards_) {
         if (bound.device == device && bound.uinput != nullptr) {
             if (key > KEY_MAX) {

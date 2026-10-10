@@ -136,23 +136,23 @@ const struct libinput_interface interface = {
 
 namespace {
 
-// Passes an EIS client fd over the authed socket (SCM_RIGHTS).
-bool sendFd(int sock, int fd) {
-    char         dummy = 0;
-    struct iovec iov{&dummy, 1};
-    char         cmsgbuf[CMSG_SPACE(sizeof(int))]{};
-    struct msghdr msg{};
-    msg.msg_iov        = &iov;
-    msg.msg_iovlen     = 1;
-    msg.msg_control    = cmsgbuf;
-    msg.msg_controllen = sizeof(cmsgbuf);
-    struct cmsghdr* c = CMSG_FIRSTHDR(&msg);
-    c->cmsg_level     = SOL_SOCKET;
-    c->cmsg_type      = SCM_RIGHTS;
-    c->cmsg_len       = CMSG_LEN(sizeof(int));
-    memcpy(CMSG_DATA(c), &fd, sizeof(fd));
-    return sendmsg(sock, &msg, 0) > 0;
-}
+    // Passes an EIS client fd over the authed socket (SCM_RIGHTS).
+    bool sendFd(int sock, int fd) {
+        char          dummy = 0;
+        struct iovec  iov{&dummy, 1};
+        char          cmsgbuf[CMSG_SPACE(sizeof(int))]{};
+        struct msghdr msg{};
+        msg.msg_iov        = &iov;
+        msg.msg_iovlen     = 1;
+        msg.msg_control    = cmsgbuf;
+        msg.msg_controllen = sizeof(cmsgbuf);
+        struct cmsghdr* c  = CMSG_FIRSTHDR(&msg);
+        c->cmsg_level      = SOL_SOCKET;
+        c->cmsg_type       = SCM_RIGHTS;
+        c->cmsg_len        = CMSG_LEN(sizeof(int));
+        memcpy(CMSG_DATA(c), &fd, sizeof(fd));
+        return sendmsg(sock, &msg, 0) > 0;
+    }
 
 } // namespace
 
@@ -245,7 +245,7 @@ int main(int argc, char* argv[]) {
     fds.push_back({mouse_server_fd.get(), POLLIN, 0});
     fds.push_back({eisServer.eventFd(), POLLIN, 0}); // EIS events
 
-    FdGuard addon_fd;
+    FdGuard          addon_fd;
 
     struct sigaction sa{};
     sa.sa_handler = signal_handler;

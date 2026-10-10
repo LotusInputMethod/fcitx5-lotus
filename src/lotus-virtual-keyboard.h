@@ -32,79 +32,79 @@ struct ei_seat;
 
 namespace fcitx {
 
-class EventLoop;
-class EventSourceIO;
+    class EventLoop;
+    class EventSourceIO;
 
-class VirtualKeyboard {
-  public:
-    VirtualKeyboard()  = default;
-    ~VirtualKeyboard();
+    class VirtualKeyboard {
+      public:
+        VirtualKeyboard() = default;
+        ~VirtualKeyboard();
 
-    VirtualKeyboard(const VirtualKeyboard&)            = delete;
-    VirtualKeyboard& operator=(const VirtualKeyboard&) = delete;
-    VirtualKeyboard(VirtualKeyboard&&)                 = delete;
-    VirtualKeyboard& operator=(VirtualKeyboard&&)      = delete;
+        VirtualKeyboard(const VirtualKeyboard&)            = delete;
+        VirtualKeyboard& operator=(const VirtualKeyboard&) = delete;
+        VirtualKeyboard(VirtualKeyboard&&)                 = delete;
+        VirtualKeyboard& operator=(VirtualKeyboard&&)      = delete;
 
-    /**
+        /**
      * @brief Binds the fcitx event loop for EIS dispatch. Called once from
      * KeyPacer::init (the loop outlives this singleton).
      */
-    void init(EventLoop* loop);
+        void init(EventLoop* loop);
 
-    /**
+        /**
      * @brief Sets the callback fired once when the keyboard device becomes
      * emulatable (first RESUMED, or re-RESUMED after a pause). KeyPacer uses
      * it to re-pump a queue held while not ready.
      */
-    void setResumeCallback(std::function<void()> callback);
+        void setResumeCallback(std::function<void()> callback);
 
-    /**
+        /**
      * @brief Overrides the socket path (tests only; default is kb_socket).
      */
-    void setSocketPath(std::string path);
+        void setSocketPath(std::string path);
 
-    /**
+        /**
      * @brief Runs the EIS handshake if needed: connects the auth socket,
      * receives the EIS fd (SCM_RIGHTS) and sets up the libei sender.
      * @return True if emulatable now or the handshake is in flight.
      */
-    bool ensureConnected();
+        bool ensureConnected();
 
-    /**
+        /**
      * @brief Sends one key event (key + frame). No reconnect, no sleep.
      * @return True if the event was handed to libei (device emulatable).
      */
-    bool send(uint16_t code, uint8_t pressed);
+        bool send(uint16_t code, uint8_t pressed);
 
-    /**
+        /**
      * @brief Whether the keyboard device is currently emulatable.
      */
-    bool isReady() const;
+        bool isReady() const;
 
-    /**
+        /**
      * @brief Tears down the libei context. Idempotent.
      */
-    void close();
+        void close();
 
-  private:
-    void onEiReadable();
-    // Handles one libei event. Returns true on a !ready -> ready transition.
-    // Requires m_ held.
-    bool handleEiEventLocked(struct ei_event* event);
-    // Drops the libei context and device refs. Requires m_ held.
-    void teardownEiLocked();
+      private:
+        void onEiReadable();
+        // Handles one libei event. Returns true on a !ready -> ready transition.
+        // Requires m_ held.
+        bool handleEiEventLocked(struct ei_event* event);
+        // Drops the libei context and device refs. Requires m_ held.
+        void                           teardownEiLocked();
 
-    std::string path_; ///< override for tests; empty = $LOTUS_EIS_SOCKET or kb_socket default
-    mutable std::mutex m_;
-    EventLoop*                 loop_{nullptr};
-    std::function<void()>      resumeCallback_;
-    std::unique_ptr<EventSourceIO> io_;
-    struct ei*                 ei_{nullptr};
-    struct ei_seat*            seat_{nullptr};
-    struct ei_device*          kbd_{nullptr};
-    bool                       ready_{false};
-    uint32_t                   seq_{0};
-};
+        std::string                    path_; ///< override for tests; empty = $LOTUS_EIS_SOCKET or kb_socket default
+        mutable std::mutex             m_;
+        EventLoop*                     loop_{nullptr};
+        std::function<void()>          resumeCallback_;
+        std::unique_ptr<EventSourceIO> io_;
+        struct ei*                     ei_{nullptr};
+        struct ei_seat*                seat_{nullptr};
+        struct ei_device*              kbd_{nullptr};
+        bool                           ready_{false};
+        uint32_t                       seq_{0};
+    };
 
 } // namespace fcitx
 

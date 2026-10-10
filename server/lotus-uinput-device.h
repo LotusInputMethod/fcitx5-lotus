@@ -34,7 +34,7 @@ class UinputDevice {
     UinputDevice(UinputDevice&& other) noexcept;
     UinputDevice& operator=(UinputDevice&& other) noexcept;
 
-    bool              initialize();
+    bool          initialize();
     /**
      * @brief Emits one EV_KEY event with its SYN immediately. No pacing here.
      * @param code Linux KEY_* code.
@@ -44,7 +44,7 @@ class UinputDevice {
     [[nodiscard]] int get_fd() const;
 
   private:
-    void reset();
+    void                    reset();
 
     struct libevdev_uinput* uinput_{nullptr};
 };
