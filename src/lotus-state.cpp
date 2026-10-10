@@ -9,9 +9,12 @@
 #include "lotus-state.h"
 #include "lotus-engine.h"
 #include "lotus-candidates.h"
+#include "lotus-key-pacer.h"
 #include "lotus-utils.h"
 
 #include "bamboo-core.h" // generated cgo header; only included where the bridge is called
+
+#include <linux/input-event-codes.h>
 
 #include <cstddef>
 #include <fcitx-utils/utf8.h>
@@ -87,68 +90,47 @@ namespace fcitx {
         EngineSetOption(lotusEngine_.handle(), &option);
     }
 
-    bool LotusState::connect_uinput_server() {
-        if (uinput_client_fd_ >= 0)
-            return true;
-        const std::string current_path = buildSocketPath("kb_socket");
-        int               current_fd   = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
-        if (current_fd < 0) {
-            LOTUS_ERROR("Failed to create socket: " + std::string(strerror(errno)));
-            return false;
-        }
-
-        struct sockaddr_un addr{};
-        addr.sun_family = AF_UNIX;
-
-        addr.sun_path[0] = '\0';
-        memcpy(&addr.sun_path[1], current_path.c_str(), current_path.length());
-        socklen_t len = offsetof(struct sockaddr_un, sun_path) + current_path.length() + 1;
-
-        if (connect(current_fd, reinterpret_cast<struct sockaddr*>(&addr), len) == 0) {
-            uinput_client_fd_ = current_fd;
-            return true;
-        }
-        LOTUS_ERROR("Failed to connect to socket: " + std::string(strerror(errno)));
-        close(current_fd);
-        int old_fd = uinput_client_fd_.exchange(-1);
-        if (old_fd != -1) {
-            close(old_fd);
-        }
-        return false;
+    bool LotusState::ensureUinputConnected() {
+        return KeyPacer::instance().ensureConnected();
     }
 
-    int LotusState::setup_uinput() {
-        return connect_uinput_server() ? uinput_client_fd_.load(std::memory_order_acquire) : -1;
-    }
-
-    void LotusState::send_kb_msg(KbOp op, size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay) {
-        if (uinput_client_fd_ < 0 && !connect_uinput_server()) {
-            LOTUS_ERROR("Cannot send key request since cannot connect to uinput server");
+    void LotusState::enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay) {
+        if (count == 0)
             return;
-        }
-
-        const KbMsg msg{.op = op, .count = count, .pre_delay = pre_delay, .interval = interval, .post_delay = post_delay};
-        ssize_t     n = send(uinput_client_fd_, &msg, sizeof(msg), MSG_NOSIGNAL);
-
-        if (n < 0) {
-            LOTUS_WARN("Failed to send key request: " + std::string(strerror(errno)));
-            int old_fd = uinput_client_fd_.exchange(-1);
-            if (old_fd != -1) {
-                close(old_fd);
+        KeyJob job;
+        job.reserve((count * 2) + 1);
+        job.push_back(SleepFor{std::chrono::milliseconds{pre_delay}});
+        for (size_t i = 0; i < count; ++i) {
+            if (i > 0) {
+                const uint32_t wait = (i + 1 == count) ? std::max(interval, post_delay) : interval;
+                job.push_back(SleepFor{std::chrono::milliseconds{wait}});
             }
-            if (connect_uinput_server()) {
-                LOTUS_INFO("Reconnected to uinput server successfully");
-                send(uinput_client_fd_, &msg, sizeof(msg), MSG_NOSIGNAL);
-            }
+            job.push_back(KeyMsg{KEY_BACKSPACE, 1});
+            job.push_back(KeyMsg{KEY_BACKSPACE, 0});
         }
+        KeyPacer::instance().push(std::move(job));
     }
 
-    void LotusState::send_backspace_uinput(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay) {
-        send_kb_msg(KbOp::Backspace, count, pre_delay, interval, post_delay);
-    }
-
-    void LotusState::send_select_uinput(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay) {
-        send_kb_msg(KbOp::Select, count, pre_delay, interval, post_delay);
+    void LotusState::enqueueSelect(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay) {
+        if (count == 0)
+            return;
+        KeyJob job;
+        job.reserve((count * 2) + 8);
+        job.push_back(SleepFor{std::chrono::milliseconds{pre_delay}});
+        job.push_back(KeyMsg{KEY_LEFTSHIFT, 1});
+        for (size_t i = 0; i < count; ++i) {
+            job.push_back(SleepFor{std::chrono::milliseconds{interval}});
+            job.push_back(KeyMsg{KEY_LEFT, 1});
+            job.push_back(KeyMsg{KEY_LEFT, 0});
+        }
+        job.push_back(SleepFor{std::chrono::milliseconds{10}});
+        job.push_back(KeyMsg{KEY_LEFTSHIFT, 0});
+        job.push_back(KeyMsg{KEY_DELETE, 1});
+        job.push_back(KeyMsg{KEY_DELETE, 0});
+        job.push_back(SleepFor{std::chrono::milliseconds{post_delay}});
+        job.push_back(KeyMsg{KEY_LEFT, 1});
+        job.push_back(KeyMsg{KEY_LEFT, 0});
+        KeyPacer::instance().push(std::move(job));
     }
 
     bool LotusState::isAutofillCertain(const SurroundingText& s) {
@@ -534,11 +516,11 @@ namespace fcitx {
         // trigger-key compensation above still applies because the last echoed
         // Left is swallowed; autofill compensation does not, see above.
         if (realMode == LotusMode::Select && !isAutofillCertain_) {
-            send_select_uinput(expected_backspaces_, pre_delay, interval, post_delay);
+            enqueueSelect(expected_backspaces_, pre_delay, interval, post_delay);
             LOTUS_INFO("Send select of " + std::to_string(expected_backspaces_) + " characters");
             return;
         }
-        send_backspace_uinput(expected_backspaces_, pre_delay, interval, post_delay);
+        enqueueBackspace(expected_backspaces_, pre_delay, interval, post_delay);
         LOTUS_INFO("Send " + std::to_string(expected_backspaces_) + " backspaces");
     }
 
@@ -608,8 +590,8 @@ namespace fcitx {
             return;
         }
 
-        if (uinput_client_fd_ < 0) {
-            setup_uinput();
+        if (!ensureUinputConnected()) {
+            // Best effort only; guards below re-check before replacing.
         }
 
         if (isBackspace(currentSym) || currentSym == FcitxKey_Return) {
@@ -709,7 +691,7 @@ namespace fcitx {
                     keyEvent.forward();
                 }
             } else {
-                if (uinput_client_fd_ < 0) {
+                if (!ensureUinputConnected()) {
                     LOTUS_ERROR("Cannot connect to uinput server, commit rawkey");
                     std::string rawKey = keyEvent.key().toString();
                     if (!rawKey.empty()) {
@@ -905,8 +887,8 @@ namespace fcitx {
             return;
         }
 
-        if (uinput_client_fd_ < 0) {
-            connect_uinput_server();
+        if (!ensureUinputConnected()) {
+            // Best effort only; macro path below falls back when offline.
         }
 
         if (isBackspace(currentSym)) {
@@ -945,7 +927,7 @@ namespace fcitx {
             if (isMacroExpansion) {
                 LOTUS_INFO("Macro expansion: '" + oldPreBuffer_ + "' -> '" + commitStr + "'");
                 // Try uinput replacement first, fallback to deleteSurroundingText, then plain commit
-                if (uinput_client_fd_ >= 0 && !oldPreBuffer_.empty()) {
+                if (ensureUinputConnected() && !oldPreBuffer_.empty()) {
                     performReplacement(oldPreBuffer_, commitStr);
                 } else if (ic_->capabilityFlags().test(CapabilityFlag::SurroundingText)) {
                     const auto& surrounding = ic_->surroundingText();
@@ -1009,9 +991,8 @@ namespace fcitx {
         }
         if (keyEvent.isRelease())
             return;
-        if (uinput_client_fd_ < 0) {
-            LOTUS_WARN("Cannot connect to uinput server, reconnecting....");
-            connect_uinput_server();
+        if (!ensureUinputConnected()) {
+            LOTUS_WARN("Cannot connect to uinput server, replacements will fall back");
         }
         if (current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
             is_deleting_.store(false);
@@ -1345,7 +1326,7 @@ namespace fcitx {
                         oldPreBuffer_ = preeditStr;
                     }
                 } else {
-                    if (uinput_client_fd_ < 0) {
+                    if (!ensureUinputConnected()) {
                         ic_->commitString(keyUtf8);
                         continue;
                     }

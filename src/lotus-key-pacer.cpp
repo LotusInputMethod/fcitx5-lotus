@@ -26,6 +26,10 @@ void KeyPacer::init(Instance* instance) {
     instance_ = instance;
 }
 
+bool KeyPacer::ensureConnected() {
+    return kb_.ensureConnected();
+}
+
 void KeyPacer::push(KeyJob job) {
     if (job.empty() || instance_ == nullptr)
         return;

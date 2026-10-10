@@ -64,6 +64,12 @@ class KeyPacer {
     void init(Instance* instance);
 
     /**
+     * @brief Ensures the kb_socket connection (best effort). Main loop only.
+     * @return True if the server is reachable.
+     */
+    bool ensureConnected();
+
+    /**
      * @brief Appends a job and starts pumping if idle. Main loop only.
      */
     void push(KeyJob job);

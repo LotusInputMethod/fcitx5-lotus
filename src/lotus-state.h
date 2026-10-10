@@ -109,44 +109,28 @@ namespace fcitx {
         std::chrono::steady_clock::time_point last_commit_time_;
 
         /**
-         * @brief Connects to the uinput server.
-         * @return True if connection successful.
+         * @brief Ensures the uinput server connection via the shared KeyPacer.
+         * @return True if the server is reachable (best-effort connect).
          */
-        static bool connect_uinput_server();
+        static bool ensureUinputConnected();
 
         /**
-         * @brief Sets up uinput device.
-         * @return File descriptor or -1 on error.
+         * @brief Queues N backspace taps paced by EventLoop timers.
+         * @param count Number of backspace taps.
+         * @param pre_delay Ms to wait before the first tap (commit cooldown).
+         * @param interval Ms between consecutive taps.
+         * @param post_delay Ms to wait before the final tap.
          */
-        static int setup_uinput();
+        static void enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
 
         /**
-         * @brief Sends a keyboard request to the uinput server (reconnect on failure).
-         * @param op Operation to request.
-         * @param count Number of backspaces or characters to select.
-         * @param pre_delay Delay in milliseconds before executing the keyboard operation.
-         * @param interval Delay in milliseconds between consecutive injected keys.
-         * @param post_delay Delay in milliseconds after completing the keyboard operation.
-         */
-        static void send_kb_msg(KbOp op, size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
-
-        /**
-         * @brief Sends backspace key events via uinput.
-         * @param count Number of backspaces to send.
-         * @param pre_delay Delay in milliseconds before executing the keyboard operation.
-         * @param interval Delay in milliseconds between consecutive injected keys.
-         * @param post_delay Delay in milliseconds after completing the keyboard operation.
-         */
-        static void send_backspace_uinput(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
-
-        /**
-         * @brief Asks the uinput server to select count characters with Shift+Left.
+         * @brief Queues an N-character Shift+Left selection with legacy tail.
          * @param count Number of characters to select.
-         * @param pre_delay Delay in milliseconds before executing the keyboard operation.
-         * @param interval Delay in milliseconds between consecutive injected keys.
-         * @param post_delay Delay in milliseconds after completing the keyboard operation.
+         * @param pre_delay Ms to wait before Shift-down.
+         * @param interval Ms between consecutive Left taps.
+         * @param post_delay Ms to wait before the final trigger Left.
          */
-        static void send_select_uinput(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
+        static void enqueueSelect(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
 
         /**
          * @brief Checks if autofill is certain for surrounding text.
