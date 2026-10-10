@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 Nguyễn Quang Minh <minhnbnt@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 /**
  * @file key-job-builder.cpp
