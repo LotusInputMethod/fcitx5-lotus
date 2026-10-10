@@ -99,11 +99,13 @@ int main() {
         check(job.empty(), "bs0 empty", "empty", jobStr(job));
     }
 
-    // Select N=2: Shift-down, 2x Left, 10ms, Shift-up, Delete, post, Left.
+    // Select N=2: Shift-down, 2x Left, 10ms, Shift-up, Delete, Sleep(post).
+    // No trailing Left: the commit fires on the last selection echo, so a
+    // tail tap would leak to the app as an extra cursor-left (off-by-one).
     {
         auto job = fcitx::buildSelectJob(2, 5ms, 17ms, 33ms);
-        check(job.size() == 15, "sel2 size", "15", std::to_string(job.size()));
-        if (job.size() == 15) {
+        check(job.size() == 13, "sel2 size", "13", std::to_string(job.size()));
+        if (job.size() == 13) {
             check(isSleep(job[0], 5), "sel2[0]", "Sleep(5ms)=pre", itemStr(job[0]));
             check(isKey(job[1], KEY_LEFTSHIFT, 1), "sel2[1]", "Shift-down", itemStr(job[1]));
             check(isSleep(job[2], 17) && isKey(job[3], KEY_LEFT, 1) && isKey(job[4], KEY_LEFT, 0), "sel2 first Left", "Sleep(17)+Left tap", jobStr(job));
@@ -112,18 +114,17 @@ int main() {
             check(isKey(job[9], KEY_LEFTSHIFT, 0), "sel2[9]", "Shift-up", itemStr(job[9]));
             check(isKey(job[10], KEY_DELETE, 1) && isKey(job[11], KEY_DELETE, 0), "sel2 Del", "Delete tap", jobStr(job));
             check(isSleep(job[12], 33), "sel2 post", "Sleep(33ms)=post", itemStr(job[12]));
-            check(isKey(job[13], KEY_LEFT, 1) && isKey(job[14], KEY_LEFT, 0), "sel2 final Left", "Left tap", jobStr(job));
         }
     }
 
     // Select N=1 shape + empty case.
     {
         auto job = fcitx::buildSelectJob(1, 0ms, 20ms, 25ms);
-        check(job.size() == 12, "sel1 size", "12", std::to_string(job.size()));
-        if (job.size() == 12) {
+        check(job.size() == 10, "sel1 size", "10", std::to_string(job.size()));
+        if (job.size() == 10) {
             check(isKey(job[1], KEY_LEFTSHIFT, 1) && isKey(job[6], KEY_LEFTSHIFT, 0), "sel1 shift flanks", "down@1 up@6", jobStr(job));
+            check(isKey(job[7], KEY_DELETE, 1) && isKey(job[8], KEY_DELETE, 0), "sel1 Del", "Delete tap@7-8", jobStr(job));
             check(isSleep(job[9], 25), "sel1 post", "Sleep(25ms)@9", itemStr(job[9]));
-            check(isKey(job[10], KEY_LEFT, 1) && isKey(job[11], KEY_LEFT, 0), "sel1 final Left", "Left tap@10-11", jobStr(job));
         }
         auto empty = fcitx::buildSelectJob(0, 0ms, 20ms, 25ms);
         check(empty.empty(), "sel0 empty", "empty", jobStr(empty));

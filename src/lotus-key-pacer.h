@@ -53,8 +53,10 @@ using KeyJob    = std::vector<PacerItem>;
  * @brief Pure builders: expand a replacement into a pacer job.
  *
  * Backspace N: [Sleep(pre), tap x N] with Sleep(max(interval,post)) before
- * the final tap. Select N: Shift-down, N x Left, 10ms, Shift-up, Delete,
- * post, Left (legacy tail, byte-for-byte with the old server pacing).
+ * the final tap. Select N: Shift-down, N x Left taps, 10ms, Shift-up,
+ * Delete, Sleep(post). No trailing tap: the commit fires on the last
+ * selection echo, so a tail Left would leak to the app as an extra
+ * cursor-left (off-by-one).
  * Zero sleeps are kept in the job; pump() skips them (burst).
  */
 KeyJob LOTUS_EXPORT buildBackspaceJob(size_t count, std::chrono::milliseconds pre, std::chrono::milliseconds interval, std::chrono::milliseconds post);

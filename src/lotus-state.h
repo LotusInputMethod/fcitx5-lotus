@@ -124,11 +124,11 @@ namespace fcitx {
         static void enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
 
         /**
-         * @brief Queues an N-character Shift+Left selection with legacy tail.
+         * @brief Queues an N-character Shift+Left selection ending in Delete.
          * @param count Number of characters to select.
          * @param pre_delay Ms to wait before Shift-down.
          * @param interval Ms between consecutive Left taps.
-         * @param post_delay Ms to wait before the final trigger Left.
+         * @param post_delay Ms to wait after Delete.
          */
         static void enqueueSelect(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
 

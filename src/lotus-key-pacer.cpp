@@ -34,7 +34,7 @@ KeyJob buildSelectJob(size_t count, std::chrono::milliseconds pre, std::chrono::
     KeyJob job;
     if (count == 0)
         return job;
-    job.reserve((count * 2) + 8);
+    job.reserve((count * 3) + 7);
     job.push_back(SleepFor{pre});
     job.push_back(KeyMsg{KEY_LEFTSHIFT, 1});
     for (size_t i = 0; i < count; ++i) {
@@ -47,8 +47,6 @@ KeyJob buildSelectJob(size_t count, std::chrono::milliseconds pre, std::chrono::
     job.push_back(KeyMsg{KEY_DELETE, 1});
     job.push_back(KeyMsg{KEY_DELETE, 0});
     job.push_back(SleepFor{post});
-    job.push_back(KeyMsg{KEY_LEFT, 1});
-    job.push_back(KeyMsg{KEY_LEFT, 0});
     return job;
 }
 
