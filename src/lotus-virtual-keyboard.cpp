@@ -9,6 +9,7 @@
 #include "lotus-protocol.h"
 #include "lotus-utils.h"
 
+#include <cerrno>
 #include <cstddef>
 #include <cstring>
 #include <sys/socket.h>
@@ -21,6 +22,17 @@ VirtualKeyboard::~VirtualKeyboard() {
     close();
 }
 
+void VirtualKeyboard::setSocketPath(std::string path) {
+    std::lock_guard<std::mutex> lock(m_);
+    if (path_ != path) {
+        path_ = std::move(path);
+        if (fd_ >= 0) {
+            ::close(fd_);
+            fd_ = -1;
+        }
+    }
+}
+
 bool VirtualKeyboard::ensureConnected() {
     std::lock_guard<std::mutex> lock(m_);
     if (fd_ >= 0)
@@ -31,7 +43,7 @@ bool VirtualKeyboard::ensureConnected() {
 
     struct sockaddr_un addr{};
     addr.sun_family  = AF_UNIX;
-    const auto path  = buildSocketPath("kb_socket");
+    const auto path  = path_.empty() ? buildSocketPath("kb_socket") : path_;
     addr.sun_path[0] = '\0';
     memcpy(&addr.sun_path[1], path.data(), path.size());
     auto len = static_cast<socklen_t>(offsetof(struct sockaddr_un, sun_path) + path.size() + 1);
@@ -45,12 +57,25 @@ bool VirtualKeyboard::ensureConnected() {
 }
 
 bool VirtualKeyboard::send(uint16_t code, uint8_t pressed) {
-    const KeyMsg msg{code, pressed};
+    KeyMsg msg{};
+    msg.code    = code;
+    msg.pressed = pressed;
     std::lock_guard<std::mutex> lock(m_);
     if (fd_ < 0)
         return false;
     const ssize_t n = ::send(fd_, &msg, sizeof(msg), MSG_NOSIGNAL);
-    return n == static_cast<ssize_t>(sizeof(msg));
+    if (n == static_cast<ssize_t>(sizeof(msg)))
+        return true;
+    // Dead peer (server restart): drop the fd so the caller's
+    // ensureConnected()+retry actually reconnects instead of reusing it.
+    // Dead peer (server restart): drop the fd so the caller's
+    // ensureConnected()+retry actually reconnects instead of reusing it.
+    const int err = errno;
+    if (err == EPIPE || err == ECONNRESET || err == ENOTCONN || err == EBADF) {
+        ::close(fd_);
+        fd_ = -1;
+    }
+    return false;
 }
 
 void VirtualKeyboard::close() {

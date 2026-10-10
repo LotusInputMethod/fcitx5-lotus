@@ -97,40 +97,13 @@ namespace fcitx {
     void LotusState::enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay) {
         if (count == 0)
             return;
-        KeyJob job;
-        job.reserve((count * 2) + 1);
-        job.push_back(SleepFor{std::chrono::milliseconds{pre_delay}});
-        for (size_t i = 0; i < count; ++i) {
-            if (i > 0) {
-                const uint32_t wait = (i + 1 == count) ? std::max(interval, post_delay) : interval;
-                job.push_back(SleepFor{std::chrono::milliseconds{wait}});
-            }
-            job.push_back(KeyMsg{KEY_BACKSPACE, 1});
-            job.push_back(KeyMsg{KEY_BACKSPACE, 0});
-        }
-        KeyPacer::instance().push(std::move(job));
+        KeyPacer::instance().push(buildBackspaceJob(count, std::chrono::milliseconds{pre_delay}, std::chrono::milliseconds{interval}, std::chrono::milliseconds{post_delay}));
     }
 
     void LotusState::enqueueSelect(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay) {
         if (count == 0)
             return;
-        KeyJob job;
-        job.reserve((count * 2) + 8);
-        job.push_back(SleepFor{std::chrono::milliseconds{pre_delay}});
-        job.push_back(KeyMsg{KEY_LEFTSHIFT, 1});
-        for (size_t i = 0; i < count; ++i) {
-            job.push_back(SleepFor{std::chrono::milliseconds{interval}});
-            job.push_back(KeyMsg{KEY_LEFT, 1});
-            job.push_back(KeyMsg{KEY_LEFT, 0});
-        }
-        job.push_back(SleepFor{std::chrono::milliseconds{10}});
-        job.push_back(KeyMsg{KEY_LEFTSHIFT, 0});
-        job.push_back(KeyMsg{KEY_DELETE, 1});
-        job.push_back(KeyMsg{KEY_DELETE, 0});
-        job.push_back(SleepFor{std::chrono::milliseconds{post_delay}});
-        job.push_back(KeyMsg{KEY_LEFT, 1});
-        job.push_back(KeyMsg{KEY_LEFT, 0});
-        KeyPacer::instance().push(std::move(job));
+        KeyPacer::instance().push(buildSelectJob(count, std::chrono::milliseconds{pre_delay}, std::chrono::milliseconds{interval}, std::chrono::milliseconds{post_delay}));
     }
 
     bool LotusState::isAutofillCertain(const SurroundingText& s) {

@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <mutex>
+#include <string>
 
 namespace fcitx {
 
@@ -30,6 +31,11 @@ class VirtualKeyboard {
     VirtualKeyboard& operator=(const VirtualKeyboard&) = delete;
     VirtualKeyboard(VirtualKeyboard&&)                 = delete;
     VirtualKeyboard& operator=(VirtualKeyboard&&)      = delete;
+
+    /**
+     * @brief Overrides the socket path (tests only; default is kb_socket).
+     */
+    void setSocketPath(std::string path);
 
     /**
      * @brief Lazily connects to the kb_socket (abstract Unix socket).
@@ -50,6 +56,7 @@ class VirtualKeyboard {
 
   private:
     int        fd_{-1};
+    std::string path_; ///< override for tests; empty = buildSocketPath("kb_socket")
     std::mutex m_;
 };
 

@@ -85,6 +85,17 @@ void KeyPacer::push(KeyJob job) {
 
 void KeyPacer::clear() {
     std::lock_guard<std::mutex> lock(m_);
+    resetLocked();
+}
+
+void KeyPacer::stop() {
+    std::lock_guard<std::mutex> lock(m_);
+    resetLocked();
+}
+
+// Drops pending items and releases Shift if held. Never leaves the modifier
+// down on the server device (engine teardown uses stop()).
+void KeyPacer::resetLocked() {
     timer_.reset();
     q_.clear();
     if (shiftDown_) {
@@ -94,13 +105,6 @@ void KeyPacer::clear() {
     }
 }
 
-void KeyPacer::stop() {
-    std::lock_guard<std::mutex> lock(m_);
-    timer_.reset();
-    q_.clear();
-    shiftDown_ = false;
-}
-
 std::atomic<bool>& KeyPacer::immediateFlag() {
     static std::atomic<bool> flag{false};
     return flag;
@@ -108,6 +112,10 @@ std::atomic<bool>& KeyPacer::immediateFlag() {
 
 void KeyPacer::setImmediateDeliveryForTest(bool immediate) {
     immediateFlag().store(immediate, std::memory_order_release);
+}
+
+void KeyPacer::setSocketPathForTest(const std::string& path) {
+    instance().kb_.setSocketPath(path);
 }
 
 KeyJob KeyPacer::lastPushedJobForTest() {

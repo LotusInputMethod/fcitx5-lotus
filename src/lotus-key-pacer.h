@@ -109,6 +109,10 @@ class LOTUS_EXPORT KeyPacer {
      */
     static void setImmediateDeliveryForTest(bool immediate);
     /**
+     * @brief Test hook: redirect the kb socket path (default kb_socket).
+     */
+    static void setSocketPathForTest(const std::string& path);
+    /**
      * @brief Test hook: snapshot of the last pushed job (sleeps included,
      * so tests can assert pre/interval/post values without wall-clock).
      */
@@ -119,6 +123,9 @@ class LOTUS_EXPORT KeyPacer {
     // push() (keyEvent thread, or test main thread) never interleave.
     // VirtualKeyboard has its own leaf mutex; holding m_ across send is safe.
     void pump();
+    // resetLocked() requires m_ held. Shared by clear()/stop() so teardown
+    // also releases Shift instead of leaving it stuck down.
+    void resetLocked();
 
     static std::atomic<bool>& immediateFlag();
 
