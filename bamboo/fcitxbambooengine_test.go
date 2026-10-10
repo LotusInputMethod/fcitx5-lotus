@@ -18,7 +18,7 @@ func newTestEngine(dict map[string]bool, spellCheckWithDicts bool) *FcitxBambooE
 	return &FcitxBambooEngine{
 		preeditor:           bamboo.NewEngine(bamboo.ParseInputMethod(bamboo.InputMethodDefinitions, "Telex"), bamboo.EstdFlags),
 		macroTable:          &MacroTable{},
-		dictionary:          dict,
+		dictionary:          newDictionary(dict),
 		autoNonVnRestore:    true,
 		ddFreeStyle:         true,
 		spellCheckWithDicts: spellCheckWithDicts,
@@ -409,5 +409,56 @@ func TestEnglishNumberW2UInMacroMode(t *testing.T) {
 	typeKeys(e, "new1")
 	if got := e.preeditText; got != "new1" {
 		t.Errorf("type [new1] preedit got [%s] expected [new1]", got)
+	}
+}
+
+func TestAutoRestoreDictPrefixKeepsPartialWord(t *testing.T) {
+	for _, ddFreeStyle := range []bool{true, false} {
+		e := newTestEngine(map[string]bool{"đcu": true}, true)
+		e.ddFreeStyle = ddFreeStyle
+
+		typeKeys(e, "ddc")
+		if got := e.preeditText; got != "đc" {
+			t.Errorf("ddFreeStyle=%v: preedit after [ddc] got [%s] expected [đc] (dictionary prefix)", ddFreeStyle, got)
+		}
+
+		typeKeys(e, "u")
+		if got := e.preeditText; got != "đcu" {
+			t.Errorf("ddFreeStyle=%v: preedit after [ddcu] got [%s] expected [đcu] (dictionary hit)", ddFreeStyle, got)
+		}
+
+		e.preeditProcessKeyEvent(FcitxSpace, 0)
+		if e.commitText != "đcu " {
+			t.Errorf("ddFreeStyle=%v: commit got [%s] expected [đcu ]", ddFreeStyle, e.commitText)
+		}
+	}
+}
+
+func TestAutoRestoreDictPrefixStillRestoresIncompleteWord(t *testing.T) {
+	e := newTestEngine(map[string]bool{"đcu": true}, true)
+	e.ddFreeStyle = false
+
+	typeKeys(e, "ddc")
+	e.preeditProcessKeyEvent(FcitxSpace, 0)
+	if e.commitText != "ddc " {
+		t.Errorf("commit got [%s] expected [ddc ] (incomplete word restored)", e.commitText)
+	}
+}
+
+func TestSpellCheckWithDictsAcceptsDictionaryPrefix(t *testing.T) {
+	e := newTestEngine(map[string]bool{"đcu": true}, true)
+	e.ddFreeStyle = false
+
+	typeKeys(e, "ddc")
+	if e.shouldFallbackToEnglish(true) {
+		t.Errorf("shouldFallbackToEnglish for [đc] with dictionary prefix got [true] expected [false]")
+	}
+
+	typeKeys(e, "u")
+	if e.shouldFallbackToEnglish(true) {
+		t.Errorf("shouldFallbackToEnglish for [đcu] with dictionary hit got [true] expected [false]")
+	}
+	if e.mustFallbackToEnglish() {
+		t.Errorf("mustFallbackToEnglish for [đcu] with dictionary hit got [true] expected [false]")
 	}
 }
