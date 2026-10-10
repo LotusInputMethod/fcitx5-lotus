@@ -8,10 +8,10 @@
 
 /**
  * @file lotus-server.h
- * @brief Uinput server for handling backspace and mouse events.
+ * @brief Dumb uinput server: emits key events immediately, no pacing.
  *
  * This server runs as a separate process with elevated privileges to:
- * - Send backspace key events via uinput device
+ * - Emit single EV_KEY events via uinput device (one per KeyMsg, no sleep)
  * - Monitor mouse button presses via libinput
  * - Communicate with fcitx5 addon via Unix sockets
  */
@@ -75,29 +75,17 @@ class UinputDevice {
     UinputDevice&     operator=(UinputDevice&&)  = default;
 
     bool              initialize();
-    void              send_backspace();
-    void              send_delete();
-    void              send_shift_down();
-    void              send_shift_up();
-    void              send_left();
+    /**
+     * @brief Emits one EV_KEY event with its SYN immediately. No pacing here.
+     * @param code Linux KEY_* code.
+     * @param value 1 = press, 0 = release.
+     */
+    void              send_key(uint16_t code, int value);
     [[nodiscard]] int get_fd() const {
         return guard_.get();
     }
 
   private:
-    /**
-     * @brief Emits a press+release batch for one key (press, SYN, release, SYN),
-     *        same style as the original backspace write.
-     * @param code Linux KEY_* code.
-     */
-    void send_tap(uint16_t code);
-    /**
-     * @brief Emits a single modifier-style event with its SYN.
-     * @param code Linux KEY_* code.
-     * @param value 1 = press, 0 = release.
-     */
-    void    send_mod(uint16_t code, int value);
-
     FdGuard guard_;
 };
 

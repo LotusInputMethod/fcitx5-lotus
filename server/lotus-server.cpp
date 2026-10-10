@@ -13,10 +13,8 @@
 
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cstdint>
 #include <cstring>
-#include <thread>
 #include <vector>
 #include <csignal>
 #include <cstddef>
@@ -80,50 +78,15 @@ bool UinputDevice::initialize() {
     return true;
 }
 
-void UinputDevice::send_tap(uint16_t code) {
+void UinputDevice::send_key(uint16_t code, int value) {
     if (!guard_.is_valid())
         return;
-    std::array<struct input_event, 4> ev{};
-    ev[0].type  = EV_KEY;
-    ev[0].code  = code;
-    ev[0].value = 1; // Press
-    // Zero-initialize ev[1] via {} set this event to SYN_REPORT
-    ev[2].type  = EV_KEY;
-    ev[2].code  = code;
-    ev[2].value = 0; // Release
-    // Zero-initialize ev[3] via {} set this event to SYN_REPORT
-    write(guard_.get(), ev.data(), sizeof(ev));
-}
-
-void UinputDevice::send_mod(uint16_t code, int value) {
-    if (!guard_.is_valid())
-        return;
-    std::array<struct input_event, 2> ev{};
+    struct input_event ev[2]{};
     ev[0].type  = EV_KEY;
     ev[0].code  = code;
     ev[0].value = value;
-    // Zero-initialize ev[1] via {} set this event to SYN_REPORT
-    write(guard_.get(), ev.data(), sizeof(ev));
-}
-
-void UinputDevice::send_backspace() {
-    send_tap(KEY_BACKSPACE);
-}
-
-void UinputDevice::send_delete() {
-    send_tap(KEY_DELETE);
-}
-
-void UinputDevice::send_shift_down() {
-    send_mod(KEY_LEFTSHIFT, 1);
-}
-
-void UinputDevice::send_shift_up() {
-    send_mod(KEY_LEFTSHIFT, 0);
-}
-
-void UinputDevice::send_left() {
-    send_tap(KEY_LEFT);
+    // ev[1] zero-initialized via {} acts as SYN_REPORT
+    write(guard_.get(), ev, sizeof(ev));
 }
 
 LibinputContext::LibinputContext(const struct libinput_interface* interface) : udev_(udev_new()) {
@@ -295,11 +258,6 @@ int main(int argc, char* argv[]) {
 
     FdGuard          addon_fd;
     FdGuard          kb_client_fd;
-    size_t           pending_backspaces = 0;
-    size_t           pending_selects    = 0;     ///< remaining Shift+Left events to pace out
-    bool             shift_held         = false; ///< Shift pressed for an in-flight selection
-    uint32_t         current_post_delay = 0;     ///< stores post_delay from KbMsg
-    uint32_t         current_interval   = 5;     ///< ms between injected keys within one request
 
     struct sigaction sa{};
     sa.sa_handler = signal_handler;
@@ -308,46 +266,16 @@ int main(int argc, char* argv[]) {
     sigaction(SIGTERM, &sa, nullptr);
     sigaction(SIGINT, &sa, nullptr);
 
+    // Dumb pipe: every KeyMsg is emitted immediately. No pacing, no sleeps —
+    // timing lives in the client's KeyPacer. poll() blocks indefinitely.
     while (g_running.load(std::memory_order_acquire)) {
-        int poll_timeout = -1;
-        if (pending_backspaces > 0 || pending_selects > 0) {
-            poll_timeout = static_cast<int>(current_interval);
-        }
-        int ret = poll(fds.data(), fds.size(), poll_timeout);
+        int ret = poll(fds.data(), fds.size(), -1);
 
         if (ret < 0) {
             if (errno == EINTR) {
                 continue;
             }
             break;
-        }
-
-        if (ret == 0) {
-            if (pending_backspaces > 0) {
-                if (pending_backspaces == 1 && current_post_delay > 0) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(current_post_delay));
-                }
-                uinput.send_backspace();
-                --pending_backspaces;
-            } else if (pending_selects > 0) {
-                if (pending_selects > 1) {
-                    uinput.send_left();
-                    --pending_selects;
-                } else {
-                    if (shift_held) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                        uinput.send_shift_up();
-                        shift_held = false;
-                    } else {
-                        uinput.send_delete();
-                        if (current_post_delay > 0) {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(current_post_delay));
-                        }
-                        uinput.send_left();
-                        --pending_selects;
-                    }
-                }
-            }
         }
 
         libinput_dispatch(li_ctx.get_li());
@@ -393,53 +321,19 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // handle connect from addon
+        // handle key events from addon (dumb emit, no pacing)
         if (fds[KB_CLIENT_INDEX].fd >= 0 &&
             (static_cast<unsigned>(fds[KB_CLIENT_INDEX].revents) & (static_cast<unsigned>(POLLIN) | static_cast<unsigned>(POLLHUP) | static_cast<unsigned>(POLLERR))) != 0) {
-            KbMsg   msg{};
-            ssize_t n = recv(fds[KB_CLIENT_INDEX].fd, &msg, sizeof(msg), 0);
+            fcitx::KeyMsg msg{};
+            ssize_t       n = recv(fds[KB_CLIENT_INDEX].fd, &msg, sizeof(msg), 0);
             if (n <= 0) {
                 LotusLogger::instance().warn("Keyboard client disconnected or connection error");
-                if (shift_held) {
-                    uinput.send_shift_up(); // never leave Shift stuck down
-                    shift_held = false;
-                }
-                pending_selects = 0;
                 kb_client_fd.reset(-1);
                 fds[KB_CLIENT_INDEX].fd = -1;
-            } else if (n != static_cast<ssize_t>(sizeof(KbMsg)) && n != static_cast<ssize_t>(sizeof(int32_t))) {
+            } else if (n != static_cast<ssize_t>(sizeof(fcitx::KeyMsg))) {
                 LotusLogger::instance().warn("Malformed keyboard message (" + std::to_string(n) + " bytes)");
             } else {
-                current_interval = msg.interval > 0 ? std::min<uint32_t>(msg.interval, 1000) : 5;
-                if (msg.count > 0 && msg.op == KbOp::Select) {
-                    if (msg.pre_delay > 0) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(msg.pre_delay));
-                    }
-                    current_post_delay = msg.post_delay;
-                    if (!shift_held) {
-                        uinput.send_shift_down();
-                        shift_held = true;
-                    }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(current_interval));
-                    uinput.send_left();
-                    pending_selects += msg.count - 1;
-
-                } else if (msg.count > 0 && msg.op == KbOp::Backspace) {
-                    if (msg.pre_delay > 0) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(msg.pre_delay));
-                    }
-                    current_post_delay = msg.post_delay;
-                    if (shift_held) {
-                        // A stale in-flight selection must not mix with backspaces.
-                        uinput.send_shift_up();
-                        shift_held      = false;
-                        pending_selects = 0;
-                    }
-                    pending_backspaces += msg.count - 1;
-                    uinput.send_backspace();
-                } else if (msg.count > 0) {
-                    LotusLogger::instance().warn("Unknown keyboard message op: " + std::to_string(static_cast<int>(msg.op)));
-                }
+                uinput.send_key(msg.code, msg.pressed);
             }
         }
 
