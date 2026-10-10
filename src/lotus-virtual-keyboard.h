@@ -7,20 +7,33 @@
 
 /**
  * @file lotus-virtual-keyboard.h
- * @brief Thin synchronous sender for KeyMsg over the kb_socket.
+ * @brief libei sender for emulated keys (addon -> EIS server).
  *
- * Single responsibility: own the socket fd and send one KeyMsg at a time.
- * No sleep, no thread, no queue — pacing lives in KeyPacer.
+ * Single responsibility: own the libei client lifecycle and send one key
+ * event at a time. No sleep, no thread, no queue — pacing lives in KeyPacer.
+ *
+ * The EIS fd arrives over the authenticated kb socket (SCM_RIGHTS); every
+ * key then travels as an EIS keyboard event (key + frame per call).
  */
 
 #ifndef _FCITX5_LOTUS_VIRTUAL_KEYBOARD_H_
 #define _FCITX5_LOTUS_VIRTUAL_KEYBOARD_H_
 
 #include <cstdint>
+#include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
 
+struct ei;
+struct ei_device;
+struct ei_event;
+struct ei_seat;
+
 namespace fcitx {
+
+class EventLoop;
+class EventSourceIO;
 
 class VirtualKeyboard {
   public:
@@ -33,31 +46,64 @@ class VirtualKeyboard {
     VirtualKeyboard& operator=(VirtualKeyboard&&)      = delete;
 
     /**
+     * @brief Binds the fcitx event loop for EIS dispatch. Called once from
+     * KeyPacer::init (the loop outlives this singleton).
+     */
+    void init(EventLoop* loop);
+
+    /**
+     * @brief Sets the callback fired once when the keyboard device becomes
+     * emulatable (first RESUMED, or re-RESUMED after a pause). KeyPacer uses
+     * it to re-pump a queue held while not ready.
+     */
+    void setResumeCallback(std::function<void()> callback);
+
+    /**
      * @brief Overrides the socket path (tests only; default is kb_socket).
      */
     void setSocketPath(std::string path);
 
     /**
-     * @brief Lazily connects to the kb_socket (abstract Unix socket).
-     * @return True if a connected fd is held.
+     * @brief Runs the EIS handshake if needed: connects the auth socket,
+     * receives the EIS fd (SCM_RIGHTS) and sets up the libei sender.
+     * @return True if emulatable now or the handshake is in flight.
      */
     bool ensureConnected();
 
     /**
-     * @brief Sends one KeyMsg (no reconnect, no sleep).
-     * @return True if the full message was sent.
+     * @brief Sends one key event (key + frame). No reconnect, no sleep.
+     * @return True if the event was handed to libei (device emulatable).
      */
     bool send(uint16_t code, uint8_t pressed);
 
     /**
-     * @brief Closes the held fd, if any.
+     * @brief Whether the keyboard device is currently emulatable.
+     */
+    bool isReady() const;
+
+    /**
+     * @brief Tears down the libei context. Idempotent.
      */
     void close();
 
   private:
-    int        fd_{-1};
-    std::string path_; ///< override for tests; empty = buildSocketPath("kb_socket")
-    std::mutex m_;
+    void onEiReadable();
+    // Handles one libei event. Returns true on a !ready -> ready transition.
+    // Requires m_ held.
+    bool handleEiEventLocked(struct ei_event* event);
+    // Drops the libei context and device refs. Requires m_ held.
+    void teardownEiLocked();
+
+    std::string path_; ///< override for tests; empty = $LOTUS_EIS_SOCKET or kb_socket default
+    mutable std::mutex m_;
+    EventLoop*                 loop_{nullptr};
+    std::function<void()>      resumeCallback_;
+    std::unique_ptr<EventSourceIO> io_;
+    struct ei*                 ei_{nullptr};
+    struct ei_seat*            seat_{nullptr};
+    struct ei_device*          kbd_{nullptr};
+    bool                       ready_{false};
+    uint32_t                   seq_{0};
 };
 
 } // namespace fcitx

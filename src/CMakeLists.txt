@@ -17,6 +17,7 @@ target_link_libraries(lotus_core_objects PRIVATE
     Fcitx5::Module::Emoji
     Bamboo::Core
     Pthread::Pthread
+    PkgConfig::LIBEI
 )
 
 add_library(lotus MODULE lotus.cpp
@@ -32,6 +33,7 @@ target_link_libraries(lotus
   Fcitx5::Module::Emoji
         Bamboo::Core
         Pthread::Pthread
+        PkgConfig::LIBEI
 )
 
 target_include_directories(lotus PRIVATE

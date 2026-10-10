@@ -11,7 +11,9 @@
  * @brief Dumb uinput server: emits key events immediately, no pacing.
  *
  * This server runs as a separate process with elevated privileges to:
- * - Emit single EV_KEY events via uinput device (one per KeyMsg, no sleep)
+ * - Emit single EV_KEY events via uinput devices (one per EIS key event, no sleep)
+ * - Speak EIS (libeis fd backend) to authenticated clients; the kb socket is
+ *   only the auth gate that hands off EIS fds (SCM_RIGHTS)
  * - Monitor mouse button presses via libinput
  * - Communicate with fcitx5 addon via Unix sockets
  */

@@ -7,17 +7,21 @@
  */
 
 #include "lotus-server.h"
+#include "lotus-eis-server.h"
 #include "lotus-logger.h"
 #include "../src/lotus-executable-path.h"
-#include "../src/lotus-protocol.h"
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <string>
 #include <vector>
 #include <csignal>
 #include <cstddef>
+
+#include <sys/socket.h>
 
 #include <climits> // IWYU pragma: keep
 #include <sched.h>
@@ -171,6 +175,28 @@ const struct libinput_interface interface = {
     .close_restricted = close_restricted,
 };
 
+namespace {
+
+// Passes an EIS client fd over the authed socket (SCM_RIGHTS).
+bool sendFd(int sock, int fd) {
+    char         dummy = 0;
+    struct iovec iov{&dummy, 1};
+    char         cmsgbuf[CMSG_SPACE(sizeof(int))]{};
+    struct msghdr msg{};
+    msg.msg_iov        = &iov;
+    msg.msg_iovlen     = 1;
+    msg.msg_control    = cmsgbuf;
+    msg.msg_controllen = sizeof(cmsgbuf);
+    struct cmsghdr* c = CMSG_FIRSTHDR(&msg);
+    c->cmsg_level     = SOL_SOCKET;
+    c->cmsg_type      = SCM_RIGHTS;
+    c->cmsg_len       = CMSG_LEN(sizeof(int));
+    memcpy(CMSG_DATA(c), &fd, sizeof(fd));
+    return sendmsg(sock, &msg, 0) > 0;
+}
+
+} // namespace
+
 int main(int argc, char* argv[]) {
     std::string target_user;
     if (argc == 3 && strcmp(argv[1], "-u") == 0) { // NOLINT
@@ -194,6 +220,9 @@ int main(int argc, char* argv[]) {
     backspace_socket += "lotussocket-";
     backspace_socket += target_user;
     backspace_socket += "-kb_socket";
+    // Auth gate for the EIS handshake: $LOTUS_EIS_SOCKET overrides the default.
+    if (const char* env = getenv("LOTUS_EIS_SOCKET"); env != nullptr && *env != '\0')
+        backspace_socket = env;
 
     std::string mouse_flag_socket;
     mouse_flag_socket.reserve(48);
@@ -205,12 +234,7 @@ int main(int argc, char* argv[]) {
     backspace_socket.resize(std::min(backspace_socket.length(), max_socket_path_length));
     mouse_flag_socket.resize(std::min(mouse_flag_socket.length(), max_socket_path_length));
 
-    // Setup Uinput
-    UinputDevice uinput;
-    if (!uinput.initialize()) {
-        LotusLogger::instance().error("Failed to initialize uinput device");
-        return 1;
-    }
+    // uinput nodes are created per EIS seat bind (see handleEisEvents).
 
     FdGuard            server_fd(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0));
     FdGuard            mouse_server_fd(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0));
@@ -249,15 +273,20 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    EisKeyboardServer eisServer;
+    if (!eisServer.initialize()) {
+        LotusLogger::instance().error("Failed to initialize EIS backend");
+        return 1;
+    }
+
     std::vector<struct pollfd> fds;
-    const int                  KB_CLIENT_INDEX = 3;
+    const int                  EIS_INDEX = 3;
     fds.push_back({server_fd.get(), POLLIN, 0});
     fds.push_back({li_ctx.get_fd(), POLLIN, 0});
     fds.push_back({mouse_server_fd.get(), POLLIN, 0});
-    fds.push_back({-1, POLLIN, 0}); // Keyboard socket client
+    fds.push_back({eisServer.eventFd(), POLLIN, 0}); // EIS events
 
-    FdGuard          addon_fd;
-    FdGuard          kb_client_fd;
+    FdGuard addon_fd;
 
     struct sigaction sa{};
     sa.sa_handler = signal_handler;
@@ -266,8 +295,8 @@ int main(int argc, char* argv[]) {
     sigaction(SIGTERM, &sa, nullptr);
     sigaction(SIGINT, &sa, nullptr);
 
-    // Dumb pipe: every KeyMsg is emitted immediately. No pacing, no sleeps —
-    // timing lives in the client's KeyPacer. poll() blocks indefinitely.
+    // Dumb pipe: every EIS key event is emitted immediately. No pacing, no
+    // sleeps — timing lives in the client's KeyPacer. poll() blocks indefinitely.
     while (g_running.load(std::memory_order_acquire)) {
         int ret = poll(fds.data(), fds.size(), -1);
 
@@ -312,29 +341,23 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (authorized) {
-                    LotusLogger::instance().info("Fcitx5 connected to keyboard socket (PID: " + std::to_string(cred.pid) + ")");
-                    kb_client_fd.reset(client_fd);
-                    fds[KB_CLIENT_INDEX].fd = kb_client_fd.get();
+                    LotusLogger::instance().info("Fcitx5 connected to keyboard socket (PID: " + std::to_string(cred.pid) + "), passing EIS fd");
+                    const int eisFd = eisServer.addClient();
+                    if (eisFd < 0 || !sendFd(client_fd, eisFd)) {
+                        LotusLogger::instance().warn("Failed to hand off EIS fd to keyboard client");
+                    }
+                    if (eisFd >= 0)
+                        close(eisFd);
+                    close(client_fd);
                 } else {
                     close(client_fd);
                 }
             }
         }
 
-        // handle key events from addon (dumb emit, no pacing)
-        if (fds[KB_CLIENT_INDEX].fd >= 0 &&
-            (static_cast<unsigned>(fds[KB_CLIENT_INDEX].revents) & (static_cast<unsigned>(POLLIN) | static_cast<unsigned>(POLLHUP) | static_cast<unsigned>(POLLERR))) != 0) {
-            fcitx::KeyMsg msg{};
-            ssize_t       n = recv(fds[KB_CLIENT_INDEX].fd, &msg, sizeof(msg), 0);
-            if (n <= 0) {
-                LotusLogger::instance().warn("Keyboard client disconnected or connection error");
-                kb_client_fd.reset(-1);
-                fds[KB_CLIENT_INDEX].fd = -1;
-            } else if (n != static_cast<ssize_t>(sizeof(fcitx::KeyMsg))) {
-                LotusLogger::instance().warn("Malformed keyboard message (" + std::to_string(n) + " bytes)");
-            } else {
-                uinput.send_key(msg.code, msg.pressed);
-            }
+        // handle EIS keyboard events from addons (dumb emit, no pacing)
+        if ((static_cast<unsigned>(fds[EIS_INDEX].revents) & static_cast<unsigned>(POLLIN)) != 0) {
+            eisServer.dispatch();
         }
 
         // connect to mouse socket

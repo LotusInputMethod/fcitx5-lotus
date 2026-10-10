@@ -11,6 +11,7 @@ BuildRequires:  kf6-extra-cmake-modules
 BuildRequires:  gcc-c++
 BuildRequires:  glibc-devel
 BuildRequires:  fcitx5-devel
+BuildRequires:  libei-devel
 BuildRequires:  libinput-devel
 BuildRequires:  systemd-devel
 

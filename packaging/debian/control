@@ -15,6 +15,7 @@ Build-Depends: debhelper-compat (= 13),
                libfcitx5utils-dev,
                libinput-dev,
                libudev-dev,
+               libei-dev,
                pkg-config,
                python3
 Standards-Version: 4.6.0

@@ -9,6 +9,7 @@
   go,
   hicolor-icon-theme,
   kdePackages,
+  libei,
   libinput,
   nix-update-script,
   pkg-config,
@@ -55,6 +56,7 @@ stdenv.mkDerivation (finalAttrs: {
     acl
     fcitx5
     kdePackages.extra-cmake-modules
+    libei
     libinput
     pythonEnv
     qt6.qtbase

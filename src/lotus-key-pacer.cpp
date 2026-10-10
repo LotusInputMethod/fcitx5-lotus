@@ -62,6 +62,8 @@ KeyPacer::~KeyPacer() = default;
 
 void KeyPacer::init(Instance* instance) {
     instance_ = instance;
+    kb_.init(&instance->eventLoop());
+    kb_.setResumeCallback([this] { pump(); });
 }
 
 bool KeyPacer::ensureConnected() {
@@ -75,7 +77,9 @@ void KeyPacer::push(KeyJob job) {
     {
         std::lock_guard<std::mutex> lock(m_);
         lastPushed_ = job;
-        start       = q_.empty() && !timer_;
+        // No timer pending: pump now (also re-pumps a queue held while the
+        // EIS device was not ready). A pending timer continues on its own.
+        start = !timer_;
         for (auto& item : job)
             q_.push_back(std::move(item));
     }
@@ -91,6 +95,7 @@ void KeyPacer::clear() {
 void KeyPacer::stop() {
     std::lock_guard<std::mutex> lock(m_);
     resetLocked();
+    kb_.close();
 }
 
 // Drops pending items and releases Shift if held. Never leaves the modifier
@@ -124,7 +129,9 @@ KeyJob KeyPacer::lastPushedJobForTest() {
 }
 
 void KeyPacer::pump() {
-    std::lock_guard<std::mutex> lock(m_);
+    std::unique_lock<std::mutex> lock(m_);
+    if (timer_)
+        return; // a sleep is pending; its callback continues the burst
     while (!q_.empty()) {
         if (const auto* sleep = std::get_if<SleepFor>(&q_.front())) {
             const auto delay = sleep->delay;
@@ -133,7 +140,10 @@ void KeyPacer::pump() {
                 continue; // burst: no timer for zero delay or test immediate mode
             const uint64_t waitUs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(delay).count());
             const uint64_t when    = now(CLOCK_MONOTONIC) + waitUs;
-            timer_                 = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, when, 0, [this](EventSourceTime*, uint64_t) {
+            // Explicit 1ms accuracy: sd-event applies a huge default slack
+            // when accuracy is 0 (measured 25-226ms late, even out of order),
+            // which would randomly stretch every paced tap.
+            timer_                 = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, when, 1000, [this](EventSourceTime*, uint64_t) {
                 {
                     std::lock_guard<std::mutex> inner(m_);
                     timer_.reset();
@@ -141,6 +151,14 @@ void KeyPacer::pump() {
                 pump();
                 return false;
             });
+            return;
+        }
+        if (!kb_.isReady()) {
+            // Hold the queue instead of dropping steps: start the EIS
+            // handshake (no-op if already in flight); RESUMED re-pumps via
+            // the resume callback. Unlocked: the handshake may poll.
+            lock.unlock();
+            kb_.ensureConnected();
             return;
         }
         const KeyMsg key = std::get<KeyMsg>(q_.front());
