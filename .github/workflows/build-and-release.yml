@@ -12,9 +12,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) && github.run_id || (github.head_ref || github.ref) }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
 
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build-deb:
     name: DEB [${{ matrix.codename }}]
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -37,44 +45,68 @@ jobs:
             codename: resolute
 
     runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.distro }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      CODENAME: ${{ matrix.codename }}
 
     steps:
+      - name: Install git and base tooling
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates git build-essential
+
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Prepare debian directory
         run: cp -r packaging/debian debian
 
+      - name: Install build dependencies
+        run: apt-get build-dep -y --no-install-recommends .
+
       - name: Build DEB
-        uses: jtdor/build-deb-action@v1
-        with:
-          docker-image: ${{ matrix.distro }}
-          buildpackage-opts: --build=binary --no-sign
+        run: |
+          set -euo pipefail
+          dpkg-buildpackage --build=binary --no-sign
+
+      - name: Collect DEB artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p debian/artifacts
+          mv ../*.deb debian/artifacts/
 
       - name: Rename DEB artifacts
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
+          set -euo pipefail
           for f in debian/artifacts/*.deb; do
+            [ -f "$f" ] || continue
             base=$(basename "$f" .deb)
-            sudo mv "$f" "debian/artifacts/${base}_${{ matrix.codename }}.deb"
+            mv "$f" "debian/artifacts/${base}_${CODENAME}.deb"
           done
 
       - name: Create APT Repo
         if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y reprepro gnupg2
+          set -euo pipefail
+          apt-get install -y -qq --no-install-recommends reprepro gnupg2
 
           mkdir -p ~/.gnupg
           chmod 700 ~/.gnupg
           echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
           echo "pinentry-mode loopback"  > ~/.gnupg/gpg.conf
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import
 
           FINGERPRINT=$(gpg --list-secret-keys --with-colons | grep '^fpr' | head -1 | cut -d: -f10)
           echo "${FINGERPRINT}:6:" | gpg --import-ownertrust
           gpg-connect-agent reloadagent /bye || true
 
-          codename="${{ matrix.codename }}"
+          codename="$CODENAME"
           case "$codename" in
             sid)      suite="unstable" ;;
             testing)  suite="testing"  ;;
@@ -114,6 +146,7 @@ jobs:
 
   build-rpm-fedora:
     name: RPM [fedora-${{ matrix.releasever }}]
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -126,54 +159,59 @@ jobs:
             releasever: rawhide
 
     runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.distro }}
+    env:
+      RELEASEVER: ${{ matrix.releasever }}
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
     steps:
+      - name: Install git
+        run: dnf install -y --setopt=install_weak_deps=False git
+
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Build Fedora RPM
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ matrix.distro }}
-          options: -v ${{ github.workspace }}:/work
-          run: |
-            set -euo pipefail
-            find / -name '*openh264*' -type f -delete 2>/dev/null || true
-            dnf clean all
-            dnf install -y rpm-build rpmdevtools dnf-plugins-core
-            rpmdev-setuptree
-            cp /work/packaging/rpm/fedora/fcitx5-lotus.spec ~/rpmbuild/SPECS/
-            dnf builddep --setopt=install_weak_deps=False -y ~/rpmbuild/SPECS/fcitx5-lotus.spec
-            mkdir -p ~/rpmbuild/SOURCES
-            cd /work
-            VERSION=$(grep '^Version:' packaging/rpm/fedora/fcitx5-lotus.spec | awk '{print $2}')
-            tar --exclude='.git' \
-                --exclude='packaging' \
-                --transform "s|^\.|fcitx5-lotus-${VERSION}|" \
-                -czf ~/rpmbuild/SOURCES/fcitx5-lotus-${VERSION}.tar.gz .
-            rpmbuild -bb ~/rpmbuild/SPECS/fcitx5-lotus.spec
-            mkdir -p /work/output
-            if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" = "true" ]; then
-              for rpm in ~/rpmbuild/RPMS/**/*.rpm; do
-                base=$(basename "$rpm" .rpm)
-                mv "$rpm" "/work/output/${base}.${{ matrix.releasever }}.rpm"
-              done
-            else
-              find ~/rpmbuild/RPMS -name '*.rpm' -exec cp {} /work/output/ \;
-            fi
+        run: |
+          set -euo pipefail
+          find /etc/yum.repos.d -name '*openh264*' -type f -delete 2>/dev/null || true
+          dnf clean all
+          dnf install -y --setopt=install_weak_deps=False rpm-build rpmdevtools dnf-plugins-core
+          rpmdev-setuptree
+          cp packaging/rpm/fedora/fcitx5-lotus.spec ~/rpmbuild/SPECS/
+          dnf builddep --setopt=install_weak_deps=False -y ~/rpmbuild/SPECS/fcitx5-lotus.spec
+          mkdir -p ~/rpmbuild/SOURCES
+          VERSION=$(grep '^Version:' packaging/rpm/fedora/fcitx5-lotus.spec | awk '{print $2}')
+          tar --exclude='.git' \
+              --exclude='packaging' \
+              --transform "s|^\.|fcitx5-lotus-${VERSION}|" \
+              -czf ~/rpmbuild/SOURCES/fcitx5-lotus-${VERSION}.tar.gz .
+          rpmbuild -bb ~/rpmbuild/SPECS/fcitx5-lotus.spec
+          mkdir -p output
+          if [ "$IS_TAG" = "true" ]; then
+            find ~/rpmbuild/RPMS -name '*.rpm' -type f | while read -r rpm; do
+              base=$(basename "$rpm" .rpm)
+              mv "$rpm" "output/${base}.${RELEASEVER}.rpm"
+            done
+          else
+            find ~/rpmbuild/RPMS -name '*.rpm' -type f -exec cp {} output/ \;
+          fi
 
       - name: Sign RPM packages and Create Repo
         if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y createrepo-c gnupg2
-
-          sudo chmod -R 777 output/
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          set -euo pipefail
+          dnf install -y --setopt=install_weak_deps=False createrepo_c gnupg2 rpm-sign
 
           mkdir -p ~/.gnupg
           chmod 700 ~/.gnupg
           echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
           echo "pinentry-mode loopback"  > ~/.gnupg/gpg.conf
+          printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import
           gpg-connect-agent reloadagent /bye || true
 
           KEYID=$(gpg --list-secret-keys --with-colons | grep '^sec' | head -1 | cut -d: -f5)
@@ -192,7 +230,7 @@ jobs:
             rpmsign --addsign "$rpm"
           done
 
-          releasever="${{ matrix.releasever }}"
+          releasever="$RELEASEVER"
           dir="repo/rpm/fedora/${releasever}/x86_64"
           mkdir -p "$dir"
 
@@ -236,6 +274,7 @@ jobs:
 
   build-rpm-opensuse:
     name: RPM [opensuse-${{ matrix.releasever }}]
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -244,57 +283,62 @@ jobs:
             releasever: tumbleweed
 
     runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.distro }}
+    env:
+      RELEASEVER: ${{ matrix.releasever }}
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
     steps:
+      - name: Install git
+        run: zypper install -y --no-recommends git
+
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Build openSUSE RPM
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ matrix.distro }}
-          options: -v ${{ github.workspace }}:/work
-          run: |
-            set -euo pipefail
-            zypper -n dup
-            zypper install -y rpm-build rpmdevtools
-            rpmdev-setuptree
-            cp /work/packaging/rpm/opensuse/fcitx5-lotus.spec ~/rpmbuild/SPECS/
-            zypper -n install \
-              $(rpmspec -P ~/rpmbuild/SPECS/fcitx5-lotus.spec \
-                | grep '^BuildRequires:' \
-                | awk '{print $2}' \
-                | xargs)
-            mkdir -p ~/rpmbuild/SOURCES
-            cd /work
-            VERSION=$(grep '^Version:' packaging/rpm/opensuse/fcitx5-lotus.spec | awk '{print $2}')
-            tar --exclude='.git' \
-                --exclude='packaging' \
-                --transform "s|^\.|fcitx5-lotus-${VERSION}|" \
-                -czf ~/rpmbuild/SOURCES/fcitx5-lotus-${VERSION}.tar.gz .
-            rpmbuild -bb ~/rpmbuild/SPECS/fcitx5-lotus.spec
-            mkdir -p /work/output
-            if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" = "true" ]; then
-              for rpm in ~/rpmbuild/RPMS/**/*.rpm; do
-                base=$(basename "$rpm" .rpm)
-                mv "$rpm" "/work/output/${base}.${{ matrix.releasever }}.rpm"
-              done
-            else
-              find ~/rpmbuild/RPMS -name '*.rpm' -exec cp {} /work/output/ \;
-            fi
+        run: |
+          set -euo pipefail
+          zypper --non-interactive remove -y busybox-gawk || true
+          zypper install -y --force-resolution --no-recommends gawk rpm-build rpmdevtools
+          rpmdev-setuptree
+          cp packaging/rpm/opensuse/fcitx5-lotus.spec ~/rpmbuild/SPECS/
+          zypper -n install --no-recommends \
+            $(rpmspec -P ~/rpmbuild/SPECS/fcitx5-lotus.spec \
+              | grep '^BuildRequires:' \
+              | awk '{print $2}' \
+              | xargs)
+          mkdir -p ~/rpmbuild/SOURCES
+          VERSION=$(grep '^Version:' packaging/rpm/opensuse/fcitx5-lotus.spec | awk '{print $2}')
+          tar --exclude='.git' \
+              --exclude='packaging' \
+              --transform "s|^\.|fcitx5-lotus-${VERSION}|" \
+              -czf ~/rpmbuild/SOURCES/fcitx5-lotus-${VERSION}.tar.gz .
+          rpmbuild -bb ~/rpmbuild/SPECS/fcitx5-lotus.spec
+          mkdir -p output
+          if [ "$IS_TAG" = "true" ]; then
+            find ~/rpmbuild/RPMS -name '*.rpm' -type f | while read -r rpm; do
+              base=$(basename "$rpm" .rpm)
+              mv "$rpm" "output/${base}.${RELEASEVER}.rpm"
+            done
+          else
+            find ~/rpmbuild/RPMS -name '*.rpm' -type f -exec cp {} output/ \;
+          fi
 
       - name: Sign RPM packages and Create Repo
         if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y createrepo-c gnupg2
-
-          sudo chmod -R 777 output/
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          set -euo pipefail
+          zypper install -y --no-recommends createrepo_c gnupg2
 
           mkdir -p ~/.gnupg
           chmod 700 ~/.gnupg
           echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
           echo "pinentry-mode loopback"  > ~/.gnupg/gpg.conf
+          printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import
           gpg-connect-agent reloadagent /bye || true
 
           KEYID=$(gpg --list-secret-keys --with-colons | grep '^sec' | head -1 | cut -d: -f5)
@@ -309,11 +353,16 @@ jobs:
             %{__plaintext_filename}
           EOF
 
+          if command -v rpmsign >/dev/null 2>&1; then
+            RPMSIGN=rpmsign
+          else
+            RPMSIGN=rpm
+          fi
           for rpm in output/*.rpm; do
-            rpmsign --addsign "$rpm"
+            "$RPMSIGN" --addsign "$rpm"
           done
 
-          releasever="${{ matrix.releasever }}"
+          releasever="$RELEASEVER"
           dir="repo/rpm/opensuse/${releasever}/x86_64"
           mkdir -p "$dir"
 
@@ -357,51 +406,56 @@ jobs:
 
   build-arch:
     name: Arch Linux (zstd)
+    timeout-minutes: 45
     runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
 
     steps:
+      - name: Install git
+        run: pacman -Syu --noconfirm git
+
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Build on Arch Linux
-        uses: addnab/docker-run-action@v3
-        with:
-          image: archlinux:latest
-          options: -v ${{ github.workspace }}:/work
-          run: |
-            set -euo pipefail
-            pacman -Syu --noconfirm \
-              cmake extra-cmake-modules gcc go \
-              fcitx5 libinput systemd python \
-              make pkgconf zstd
+        run: |
+          set -euo pipefail
+          pacman -Syu --noconfirm \
+            cmake extra-cmake-modules gcc go \
+            fcitx5 libinput systemd python \
+            make pkgconf zstd
 
-            cd /work
-            export LDFLAGS="-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,-z,pack-relative-relocs"
-            export CGO_LDFLAGS="-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,-z,pack-relative-relocs"
-            cmake \
-              -DCMAKE_INSTALL_PREFIX=/usr \
-              -DCMAKE_INSTALL_LIBDIR=/usr/lib \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON \
-              -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-              -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS" \
-              -DCMAKE_MODULE_LINKER_FLAGS="$LDFLAGS" \
-              -DINSTALL_OPENRC=ON \
-              -DINSTALL_RUNIT=ON \
-              -DRUNIT_SV_DIR=/etc/runit/sv \
-              -DBUILD_TESTING=ON \
-              -B build .
-            cmake --build build
-            ctest --test-dir build --output-on-failure
-            DESTDIR=/work/arch-dist cmake --install build
-            find /work/arch-dist/usr/bin -type f \
-              -exec strip --strip-all {} + 2>/dev/null || true
-            find /work/arch-dist/usr/lib -name "*.so*" -type f \
-              -exec strip --strip-unneeded {} + 2>/dev/null || true
+          export LDFLAGS="-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,-z,pack-relative-relocs"
+          export CGO_LDFLAGS="-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,-z,pack-relative-relocs"
+          cmake \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DCMAKE_INSTALL_LIBDIR=/usr/lib \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON \
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
+            -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS" \
+            -DCMAKE_MODULE_LINKER_FLAGS="$LDFLAGS" \
+            -DINSTALL_OPENRC=ON \
+            -DINSTALL_RUNIT=ON \
+            -DRUNIT_SV_DIR=/etc/runit/sv \
+            -DBUILD_TESTING=ON \
+            -B build .
+          cmake --build build
+          ctest --test-dir build --output-on-failure
+          DESTDIR="$PWD/arch-dist" cmake --install build
+          find arch-dist/usr/bin -type f \
+            -exec strip --strip-all {} + 2>/dev/null || true
+          find arch-dist/usr/lib -name "*.so*" -type f \
+            -exec strip --strip-unneeded {} + 2>/dev/null || true
 
       - name: Package as tar.zst
+        env:
+          RAW_VERSION: ${{ github.ref_name }}
         run: |
-          VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION//\//-}"
+          set -euo pipefail
+          VERSION="${RAW_VERSION//\//-}"
           tar -c -I 'zstd -19 -T0' -f "fcitx5-lotus-${VERSION}-x86_64-archlinux.tar.zst" -C arch-dist .
 
       - name: Upload Arch artifact
@@ -415,6 +469,7 @@ jobs:
     name: Create GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [build-deb, build-rpm-fedora, build-rpm-opensuse, build-arch]
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -422,39 +477,51 @@ jobs:
       attestations: write
 
     steps:
-      - name: Download all artifacts
+      - name: Download release assets
         uses: actions/download-artifact@v8
         with:
+          pattern: '{deb-*,rpm-*,arch-tar-zst}'
           path: artifacts/
+          merge-multiple: true
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: 'artifacts/**/*'
+          subject-path: |
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.tar.zst
 
       - name: Upload to GitHub Releases
-        uses: softprops/action-gh-release@v3
-        with:
-          files: |
-            artifacts/deb-*/**/*.deb
-            artifacts/rpm-*/**/*.rpm
-            artifacts/**/*.tar.zst
-          generate_release_notes: true
-          draft: true
-          prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mapfile -d '' assets < <(
+            find artifacts -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.tar.zst' \) -print0
+          )
+          [ "${#assets[@]}" -gt 0 ] || { echo "::error::No release assets found"; exit 1; }
+          echo "Uploading ${#assets[@]} assets to release ${GITHUB_REF_NAME}"
+          gh release create "${GITHUB_REF_NAME}" \
+            --draft \
+            --generate-notes \
+            --verify-tag \
+            --title "${GITHUB_REF_NAME}" \
+            "${assets[@]}"
 
   deploy:
     name: Deploy to Cloudflare Pages
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [release]
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Download all repo artifacts
         uses: actions/download-artifact@v8
@@ -464,6 +531,7 @@ jobs:
 
       - name: Merge Repos
         run: |
+          set -euo pipefail
           mkdir -p repo
           for d in downloaded-repos/repo-*/; do
             if [ -d "$d" ]; then
