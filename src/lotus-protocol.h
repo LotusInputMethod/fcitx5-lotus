@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: 2025 Võ Ngô Hoàng Thành 
- * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  
+ * SPDX-FileCopyrightText: 2025 Võ Ngô Hoàng Thành
+ * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -9,26 +9,21 @@
 #ifndef _LOTUS_PROTOCOL_H_
 #define _LOTUS_PROTOCOL_H_
 
-#include <cstddef>
 #include <cstdint>
 
-/**
- * @brief Keyboard socket operation requested by the fcitx5 addon.
- */
-enum class KbOp : int8_t {
-    Backspace = 0, ///< emit count BackSpace key events
-    Select    = 1, ///< select count characters via Shift+Left
-};
+namespace fcitx {
 
 /**
- * @brief Message on the keyboard socket from the fcitx5 addon to uinput server.
+ * @brief Single key event on the keyboard socket (addon -> uinput server).
+ *
+ * Minimal dumb pipe: code + pressed state only. No counts, no delays —
+ * all pacing lives in KeyPacer on the client via fcitx EventLoop timers.
  */
-struct KbMsg {
-    KbOp     op;         ///< requested operation
-    size_t   count;      ///< number of backspaces / characters to select
-    uint32_t pre_delay;  ///< ms to wait BEFORE sending any key (commit_interval: cooldown between commits)
-    uint32_t interval;   ///< ms between consecutive injected keys (backspace_interval)
-    uint32_t post_delay; ///< ms to wait BEFORE sending the final trigger key (to let DOM expand selection)
+struct KeyMsg {
+    uint16_t code;   ///< linux KEY_*: BACKSPACE / LEFT / DELETE / LEFTSHIFT
+    uint8_t  pressed; ///< 1 = press, 0 = release
 };
+
+} // namespace fcitx
 
 #endif // _LOTUS_PROTOCOL_H_
