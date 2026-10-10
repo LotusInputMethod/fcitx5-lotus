@@ -1,32 +1,64 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Select mode: a replacement is delivered as a Shift+Left selection request on
-// the keyboard socket instead of a backspace stream. The engine commits the
+// Select mode: a replacement is delivered as a Shift+Left selection stream on
+// the keyboard socket instead of backspace taps. The engine commits the
 // replacement once all echoed left arrows have arrived, the intermediate arrows
 // pass through so the app can extend the selection, and no arrow is replayed
 // afterwards.
 #include "fcitx-utils/keysym.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
+#include "lotus-key-pacer.h"
 #include "test-input-context.h"
 
 #include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
+#include <linux/input-event-codes.h>
 
 namespace {
 
-    bool receiveSelectRequest(KbSocketListener& listener, size_t& count, const char* meaning, const char* timeoutExpected = "request within 5000 ms") {
-        KbMsg msg{};
-        if (!listener.receive(msg, meaning, timeoutExpected))
+    // Parses a selection stream: Shift-down, N x Left taps, Shift-up(10ms),
+    // Delete tap, post, final Left tap. Returns N (Left presses before Shift-up).
+    bool parseSelectStream(const std::vector<StampedKey>& stream, size_t& selects, const char* meaning) {
+        selects = 0;
+        size_t i = 0;
+        auto fail = [&](const std::string& expected) {
+            reportFailure("parse selection stream", expected, "items=" + std::to_string(stream.size()) + " parsed=" + std::to_string(i), meaning);
             return false;
-        if (msg.op != KbOp::Select || msg.count <= 0) {
-            reportFailure("receive replacement request", "op=select, count > 0", "op=" + std::to_string(static_cast<int>(msg.op)) + ", count=" + std::to_string(msg.count),
-                          meaning);
-            return false;
+        };
+        auto need = [&](uint16_t code, uint8_t pressed) {
+            return i < stream.size() && stream[i].msg.code == code && stream[i].msg.pressed == pressed;
+        };
+        if (!need(KEY_LEFTSHIFT, 1))
+            return fail("Shift-down first");
+        ++i;
+        while (i + 1 < stream.size() && stream[i].msg.code == KEY_LEFT && stream[i + 1].msg.code == KEY_LEFT) {
+            if (stream[i].msg.pressed != 1 || stream[i + 1].msg.pressed != 0)
+                return fail("Left press/release pairs");
+            ++selects;
+            i += 2;
         }
-        count = msg.count;
+        if (selects == 0)
+            return fail("at least 1 Left tap");
+        if (!need(KEY_LEFTSHIFT, 0))
+            return fail("Shift-up after Left taps");
+        ++i;
+        if (!need(KEY_DELETE, 1))
+            return fail("Delete press after Shift-up");
+        ++i;
+        if (!need(KEY_DELETE, 0))
+            return fail("Delete release after Shift-up");
+        ++i;
+        if (!need(KEY_LEFT, 1))
+            return fail("final Left press");
+        ++i;
+        if (!need(KEY_LEFT, 0))
+            return fail("final Left release");
+        ++i;
+        if (i != stream.size())
+            return fail("no trailing items");
         return true;
     }
 
@@ -49,6 +81,13 @@ namespace {
         return actual;
     }
 
+    bool drainSelect(KbSocketListener& listener, size_t& selects, const char* meaning) {
+        std::vector<StampedKey> stream;
+        if (!listener.receiveAll(stream, meaning))
+            return false;
+        return parseSelectStream(stream, selects, meaning);
+    }
+
 } // namespace
 
 int main() {
@@ -64,6 +103,7 @@ int main() {
                       "the select test cannot exercise Select mode Telex behavior");
         return 1;
     }
+    fcitx::KeyPacer::instance().setImmediateDeliveryForTest(true);
 
     KbSocketListener listener;
     if (!listener.valid())
@@ -80,7 +120,7 @@ int main() {
     if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_s, true))
         return 1;
     size_t selects = 0;
-    if (!receiveSelectRequest(listener, selects, "the initial Telex replacement did not request a selection"))
+    if (!drainSelect(listener, selects, "the initial Telex replacement did not stream a selection"))
         return 1;
 
     // A key typed while the selection is in flight must not commit immediately.
@@ -107,11 +147,10 @@ int main() {
     }
 
     // The buffered x is replayed after the commit and starts a second selection.
-    // No left arrow is replayed: only one new request arrives and it matches the
+    // No left arrow is replayed: only one new stream arrives and it matches the
     // count the replacement needs.
     size_t replaySelects = 0;
-    if (!receiveSelectRequest(listener, replaySelects, "buffered key was not replayed after the selection completed",
-                              "buffered x replay starts another selection request within 5000 ms"))
+    if (!drainSelect(listener, replaySelects, "buffered key was not replayed after the selection completed"))
         return 1;
     for (size_t i = 0; i < replaySelects - 1; ++i) {
         if (!send(engine, entry, *context, FcitxKey_Left, false))

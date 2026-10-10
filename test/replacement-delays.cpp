@@ -1,32 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /**
  * @file replacement-delays.cpp
- * @brief Headless regression test: the global default delays reach the uinput
- *        server through KbMsg (interval = DefaultBackspaceInterval,
- *        post_delay = DefaultPostDelay) and DefaultCommitInterval delays a
- *        replacement that follows a recent commit.
+ * @brief Headless regression test: the global default delays reach the pacer
+ *        job (interval = DefaultBackspaceInterval, post = DefaultPostDelay)
+ *        and DefaultCommitInterval delays a replacement after a recent commit.
+ *
+ * Runs KeyPacer in immediate mode (no EventLoop needed): the whole tap stream
+ * lands in the socket buffer synchronously, while SleepFor values stay
+ * inspectable via lastPushedJobForTest (no wall-clock involved).
  */
 
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
+#include "lotus-key-pacer.h"
 #include "test-input-context.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
+#include <linux/input-event-codes.h>
 
 namespace {
-
-    bool receiveBackspaceRequest(KbSocketListener& listener, KbMsg& msg, const char* meaning, const char* timeoutExpected = "request within 5000 ms") {
-        if (!listener.receive(msg, meaning, timeoutExpected))
-            return false;
-        if (msg.op != KbOp::Backspace || msg.count <= 0) {
-            reportFailure("receive replacement request", "op=backspace, count > 0", "op=" + std::to_string(static_cast<int>(msg.op)) + ", count=" + std::to_string(msg.count),
-                          meaning);
-            return false;
-        }
-        return true;
-    }
 
     bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
         fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
@@ -38,6 +34,34 @@ namespace {
             return false;
         }
         return true;
+    }
+
+    bool isTap(const StampedKey& item, uint16_t code, uint8_t pressed) {
+        return item.msg.code == code && item.msg.pressed == pressed;
+    }
+
+    // Telex a -> á replacement is 2 backspace taps = 4 KeyMsgs press/rel.
+    bool expectTwoTaps(const std::vector<StampedKey>& stream, const char* meaning) {
+        if (stream.size() != 4) {
+            reportFailure("tap stream size", "4 KeyMsgs (2 taps)", std::to_string(stream.size()) + " KeyMsgs", meaning);
+            return false;
+        }
+        for (size_t i = 0; i < 4; i += 2) {
+            if (!isTap(stream[i], KEY_BACKSPACE, 1) || !isTap(stream[i + 1], KEY_BACKSPACE, 0)) {
+                reportFailure("tap stream order", "press,release x2", "code=" + std::to_string(stream[i].msg.code), meaning);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    std::vector<int64_t> sleepMillis(const fcitx::KeyJob& job) {
+        std::vector<int64_t> out;
+        for (const auto& item : job) {
+            if (const auto* sleep = std::get_if<fcitx::SleepFor>(&item))
+                out.push_back(sleep->delay.count());
+        }
+        return out;
     }
 
 } // namespace
@@ -59,6 +83,7 @@ int main() {
                       "the delay wiring cannot be exercised with the wrong configuration");
         return 1;
     }
+    fcitx::KeyPacer::instance().setImmediateDeliveryForTest(true);
 
     KbSocketListener listener;
     if (!listener.valid())
@@ -75,14 +100,20 @@ int main() {
     if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_s, true))
         return 1;
 
-    KbMsg first{};
-    if (!receiveBackspaceRequest(listener, first, "the initial Telex replacement request did not arrive"))
+    std::vector<StampedKey> first;
+    if (!listener.receiveAll(first, "the initial Telex replacement stream did not arrive"))
         return 1;
-    if (first.interval != 17 || first.post_delay != 33 || first.pre_delay != 0) {
-        reportFailure("default delays on the first request", "interval=17, post_delay=33, pre_delay=0",
-                      "interval=" + std::to_string(first.interval) + ", post_delay=" + std::to_string(first.post_delay) + ", pre_delay=" + std::to_string(first.pre_delay),
-                      "DefaultBackspaceInterval/DefaultPostDelay must be forwarded and no commit happened before");
+    if (!expectTwoTaps(first, "the initial Telex replacement did not pace 2 backspace taps"))
         return 1;
+    // N=2: sleeps are [pre=0 (no prior commit), max(17,33)=33 before last tap].
+    {
+        auto sleeps = sleepMillis(fcitx::KeyPacer::instance().lastPushedJobForTest());
+        if (sleeps.size() != 2 || sleeps[0] != 0 || sleeps[1] != 33) {
+            reportFailure("default delays on the first job", "sleeps=[0,33]",
+                          "sleeps=" + std::to_string(sleeps.size()) + (sleeps.empty() ? "" : " first=" + std::to_string(sleeps[0])),
+                          "DefaultBackspaceInterval/DefaultPostDelay must be forwarded and no commit happened before");
+            return 1;
+        }
     }
 
     if (!send(engine, entry, *context, FcitxKey_x, true) || !context->commits().empty()) {
@@ -90,21 +121,28 @@ int main() {
                       "buffered key x was emitted before the first replacement completed");
         return 1;
     }
-    for (size_t i = 0; i < first.count; ++i) {
-        if (!send(engine, entry, *context, FcitxKey_BackSpace, i + 1 == first.count))
+    for (size_t i = 0; i < 2; ++i) {
+        if (!send(engine, entry, *context, FcitxKey_BackSpace, i + 1 == 2))
             return 1;
     }
 
-    KbMsg second{};
-    if (!receiveBackspaceRequest(listener, second, "buffered key was not replayed after deletion", "buffered x replay starts another replacement request within 5000 ms"))
+    std::vector<StampedKey> second;
+    if (!listener.receiveAll(second, "buffered key was not replayed after deletion"))
         return 1;
-    if (second.pre_delay < 900 || second.pre_delay > 1000) {
-        reportFailure("commit cooldown on the repeated request", "pre_delay in [900, 1000]", "pre_delay=" + std::to_string(second.pre_delay),
-                      "DefaultCommitInterval=1000 must delay a replacement that follows the previous commit");
+    if (!expectTwoTaps(second, "buffered x replay did not pace 2 backspace taps"))
         return 1;
+    // Replay happens right after the previous commit: pre ~= 1000ms cooldown.
+    {
+        auto sleeps = sleepMillis(fcitx::KeyPacer::instance().lastPushedJobForTest());
+        if (sleeps.empty() || sleeps[0] < 700 || sleeps[0] > 1000) {
+            reportFailure("commit cooldown on the repeated job", "pre in [700,1000]",
+                          sleeps.empty() ? "no sleeps" : "pre=" + std::to_string(sleeps[0]),
+                          "DefaultCommitInterval=1000 must delay a replacement that follows the previous commit");
+            return 1;
+        }
     }
-    for (size_t i = 0; i < second.count; ++i) {
-        if (!send(engine, entry, *context, FcitxKey_BackSpace, i + 1 == second.count))
+    for (size_t i = 0; i < 2; ++i) {
+        if (!send(engine, entry, *context, FcitxKey_BackSpace, i + 1 == 2))
             return 1;
     }
     return 0;

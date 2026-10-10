@@ -2,32 +2,25 @@
 /**
  * @file app-rule-delay-wire.cpp
  * @brief Headless regression test: a per-app rule's backspace interval and post
- *        delay override the global defaults on the KbMsg sent to the uinput
- *        server.
+ *        delay override the global defaults in the pacer job queued for the
+ *        uinput server.
  */
 
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
+#include "lotus-key-pacer.h"
 #include "test-input-context.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <string>
+#include <vector>
+#include <linux/input-event-codes.h>
 
 namespace {
-
-    bool receiveBackspaceRequest(KbSocketListener& listener, KbMsg& msg, const char* meaning, const char* timeoutExpected = "request within 5000 ms") {
-        if (!listener.receive(msg, meaning, timeoutExpected))
-            return false;
-        if (msg.op != KbOp::Backspace || msg.count <= 0) {
-            reportFailure("receive replacement request", "op=backspace, count > 0", "op=" + std::to_string(static_cast<int>(msg.op)) + ", count=" + std::to_string(msg.count),
-                          meaning);
-            return false;
-        }
-        return true;
-    }
 
     bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
         fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
@@ -64,6 +57,7 @@ int main() {
     config.setValueByPath("DefaultBackspaceInterval", "17");
     config.setValueByPath("DefaultPostDelay", "33");
     engine.setConfig(config);
+    fcitx::KeyPacer::instance().setImmediateDeliveryForTest(true);
 
     KbSocketListener listener;
     if (!listener.valid())
@@ -78,16 +72,30 @@ int main() {
     if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_s, true))
         return 1;
 
-    KbMsg msg{};
-    if (!receiveBackspaceRequest(listener, msg, "the initial Telex replacement request did not arrive"))
+    std::vector<StampedKey> stream;
+    if (!listener.receiveAll(stream, "the initial Telex replacement stream did not arrive"))
         return 1;
-    if (msg.interval != 20 || msg.post_delay != 25) {
-        reportFailure("per-app delays on the request", "interval=20, post_delay=25", "interval=" + std::to_string(msg.interval) + ", post_delay=" + std::to_string(msg.post_delay),
-                      "the per-app rule must win over DefaultBackspaceInterval/DefaultPostDelay");
+    if (stream.size() != 4) {
+        reportFailure("tap stream size", "4 KeyMsgs (2 taps)", std::to_string(stream.size()) + " KeyMsgs", "the Telex replacement must pace 2 backspace taps");
         return 1;
     }
-    for (size_t i = 0; i < msg.count; ++i) {
-        if (!send(engine, entry, *context, FcitxKey_BackSpace, i + 1 == msg.count))
+    // N=2 with rule interval=20/post=25: sleeps are [pre=0, max(20,25)=25].
+    // Exact 25 (not the 33 default) proves the per-app rule wins.
+    {
+        std::vector<int64_t> sleeps;
+        for (const auto& item : fcitx::KeyPacer::instance().lastPushedJobForTest()) {
+            if (const auto* sleep = std::get_if<fcitx::SleepFor>(&item))
+                sleeps.push_back(sleep->delay.count());
+        }
+        if (sleeps.size() != 2 || sleeps[0] != 0 || sleeps[1] != 25) {
+            reportFailure("per-app delays on the job", "sleeps=[0,25]",
+                          "sleeps=" + std::to_string(sleeps.size()) + (sleeps.empty() ? "" : " last=" + std::to_string(sleeps.back())),
+                          "the per-app rule must win over DefaultBackspaceInterval/DefaultPostDelay");
+            return 1;
+        }
+    }
+    for (size_t i = 0; i < 2; ++i) {
+        if (!send(engine, entry, *context, FcitxKey_BackSpace, i + 1 == 2))
             return 1;
     }
     return 0;

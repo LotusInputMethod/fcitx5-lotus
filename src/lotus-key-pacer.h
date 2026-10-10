@@ -19,13 +19,19 @@
 
 #include "lotus-protocol.h"
 #include "lotus-virtual-keyboard.h"
+#include "lotus-export.h"
 
+#include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <mutex>
 #include <variant>
 #include <vector>
+
+#include <linux/input-event-codes.h>
 
 namespace fcitx {
 
@@ -43,7 +49,18 @@ struct SleepFor {
 using PacerItem = std::variant<KeyMsg, SleepFor>;
 using KeyJob    = std::vector<PacerItem>;
 
-class KeyPacer {
+/**
+ * @brief Pure builders: expand a replacement into a pacer job.
+ *
+ * Backspace N: [Sleep(pre), tap x N] with Sleep(max(interval,post)) before
+ * the final tap. Select N: Shift-down, N x Left, 10ms, Shift-up, Delete,
+ * post, Left (legacy tail, byte-for-byte with the old server pacing).
+ * Zero sleeps are kept in the job; pump() skips them (burst).
+ */
+KeyJob LOTUS_EXPORT buildBackspaceJob(size_t count, std::chrono::milliseconds pre, std::chrono::milliseconds interval, std::chrono::milliseconds post);
+KeyJob LOTUS_EXPORT buildSelectJob(size_t count, std::chrono::milliseconds pre, std::chrono::milliseconds interval, std::chrono::milliseconds post);
+
+class LOTUS_EXPORT KeyPacer {
   public:
     /**
      * @brief Global pacer (single FIFO keeps the old additive ordering).
@@ -84,13 +101,33 @@ class KeyPacer {
      */
     void stop();
 
+    /**
+     * @brief Test hook: when true, pump() skips all sleeps and delivers the
+     * whole job synchronously inside push(). Headless tests use this so no
+     * EventLoop is needed (fcitx timers can't be pumped deterministically
+     * off the loop thread, and the loop can't be restarted after exit()).
+     */
+    static void setImmediateDeliveryForTest(bool immediate);
+    /**
+     * @brief Test hook: snapshot of the last pushed job (sleeps included,
+     * so tests can assert pre/interval/post values without wall-clock).
+     */
+    static KeyJob lastPushedJobForTest();
+
   private:
+    // pump() locks m_ for its whole run: timer callbacks (loop thread) and
+    // push() (keyEvent thread, or test main thread) never interleave.
+    // VirtualKeyboard has its own leaf mutex; holding m_ across send is safe.
     void pump();
+
+    static std::atomic<bool>& immediateFlag();
 
     VirtualKeyboard                kb_;
     Instance*                      instance_{nullptr};
     std::deque<PacerItem>          q_;
     std::unique_ptr<EventSourceTime> timer_;
+    std::mutex                     m_;
+    KeyJob                         lastPushed_; ///< test snapshot (sleeps included)
     bool                           shiftDown_{false};
 };
 

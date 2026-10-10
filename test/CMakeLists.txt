@@ -56,6 +56,7 @@ add_lotus_headless_test(select_mode_replacement
     select-mode-replacement.cpp "integration;select")
 add_lotus_headless_test(app_rule_delays app-rule-delays.cpp "integration;apprule")
 add_lotus_headless_test(replacement_delays replacement-delays.cpp "integration;smooth")
+add_lotus_headless_test(key_job_builder key-job-builder.cpp "unit;uinput")
 add_lotus_headless_test(app_rule_delay_wire app-rule-delay-wire.cpp "integration;apprule")
 set_tests_properties(smooth_buffered_key_replay select_mode_replacement replacement_delays app_rule_delay_wire
     PROPERTIES RESOURCE_LOCK lotus_kb_socket)
