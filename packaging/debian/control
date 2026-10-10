@@ -16,6 +16,7 @@ Build-Depends: debhelper-compat (= 13),
                libinput-dev,
                libudev-dev,
                libei-dev,
+               libeis-dev,
                libevdev-dev,
                pkg-config,
                python3
