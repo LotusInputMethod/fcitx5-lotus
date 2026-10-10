@@ -24,8 +24,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include <thread>
-
 namespace fcitx {
     constexpr int MAX_SCAN_LENGTH = 15;
 
@@ -448,20 +446,6 @@ namespace fcitx {
     }
 
     void LotusState::finishReplacement(KeyEvent& event) {
-        // Validate surr cursor pos should match realtextLen after all BS/Left applied
-        const auto& surr = ic_->surroundingText();
-        if (surr.isValid() && surr.cursor() == realtextLen.load(std::memory_order_acquire)) {
-            LOTUS_INFO("Skip retry");
-        } else {
-            // Retry x3 (2 ms each), khi can (chromium,electron,...)
-            for (int retry = 0; retry < 3; ++retry) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(2));
-                const auto& surr2 = ic_->surroundingText();
-                if (surr2.isValid() && surr2.cursor() == realtextLen.load(std::memory_order_acquire)) {
-                    break;
-                }
-            }
-        }
         std::string commitText = std::move(pending_commit_string_);
         pending_commit_string_.clear();
 
@@ -827,7 +811,6 @@ namespace fcitx {
 
                 if (charsToDelete > 0) {
                     ic->deleteSurroundingText(-static_cast<int>(charsToDelete), static_cast<int>(charsToDelete));
-                    std::this_thread::sleep_for(std::chrono::milliseconds(4 * charsToDelete));
                 }
 
                 if (!addedPart.empty()) {

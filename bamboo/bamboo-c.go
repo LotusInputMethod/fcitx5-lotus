@@ -139,9 +139,9 @@ func EngineSetOption(engine uintptr, option *C.FcitxBambooEngineOption) {
 
 //export NewEngine
 func NewEngine(name *C.cchar, dictHandle uintptr, tableHandle uintptr) uintptr {
-	dictionary := map[string]bool{}
+	dictionary := newDictionary(nil)
 	if dict, ok := dictionaryFromHandle(dictHandle); ok {
-		dictionary = *dict
+		dictionary = dict
 	}
 
 	table, ok := macroTableFromHandle(tableHandle)
@@ -173,9 +173,9 @@ func NewEngine(name *C.cchar, dictHandle uintptr, tableHandle uintptr) uintptr {
 
 //export NewCustomEngine
 func NewCustomEngine(definition **C.char, dictHandle uintptr, tableHandle uintptr) uintptr {
-	dictionary := map[string]bool{}
+	dictionary := newDictionary(nil)
 	if dict, ok := dictionaryFromHandle(dictHandle); ok {
-		dictionary = *dict
+		dictionary = dict
 	}
 
 	table, ok := macroTableFromHandle(tableHandle)
@@ -327,7 +327,7 @@ func NewDictionary(fd uintptr) uintptr {
 		}
 		data[string(bytes.ToLower(line))] = true
 	}
-	return uintptr(cgo.NewHandle(&data))
+	return uintptr(cgo.NewHandle(newDictionary(data)))
 }
 
 func main() {}

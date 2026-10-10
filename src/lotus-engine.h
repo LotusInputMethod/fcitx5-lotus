@@ -238,6 +238,11 @@ namespace fcitx {
         std::unique_ptr<EventSourceIO>        mouseEventSource_;
 
         /**
+         * @brief (Re)loads the custom dictionary from disk into the Go engine handle.
+         */
+        void loadDictionary();
+
+        /**
          * @brief Refreshes the bamboo engine with current settings.
          */
         void refreshEngine();

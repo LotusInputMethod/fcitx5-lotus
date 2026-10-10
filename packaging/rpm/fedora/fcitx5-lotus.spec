@@ -1,5 +1,5 @@
 Name:           fcitx5-lotus
-Version:        5.0.0
+Version:        5.0.1
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -113,9 +113,7 @@ fi
 %systemd_postun_with_restart fcitx5-lotus-server@.service
 
 %changelog
-* Fri Oct 09 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 5.0.0-1
-- Add configurable delay
-- Remove Uinput (Slow) mode
-- Fix settings-gui cannot scroll to end
-- Remove legacy uinput ack option for chromium
-- Remove Add application of settings-gui
+* Sun Oct 11 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 5.0.1-1
+- Bypass ime on password or sensitive fields
+- Fix: do not restore a custom dictionary word while it is still a prefix
+- Reload the custom dictionary on every configuration apply

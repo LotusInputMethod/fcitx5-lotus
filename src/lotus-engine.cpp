@@ -338,6 +338,12 @@ namespace fcitx {
         readAsIni(customKeymap_, CustomKeymapFile);
         readAsIni(macroTables_, MacroTableFile);
         macroTableObject_.reset(newMacroTable(macroTables_));
+        loadDictionary();
+        loadAppRules();
+        populateConfig();
+    }
+
+    void LotusEngine::loadDictionary() {
         if (config_.enableDictionary.value()) {
 #if LOTUS_USE_MODERN_FCITX_API
             auto fd = StandardPaths::global().open(StandardPathsType::PkgData, "lotus/vietnamese.cm.dict");
@@ -370,8 +376,6 @@ namespace fcitx {
                 }
             }
         }
-        loadAppRules();
-        populateConfig();
     }
 
     const Configuration* LotusEngine::getSubConfig(const std::string& path) const {
@@ -389,6 +393,7 @@ namespace fcitx {
     void LotusEngine::setConfig(const RawConfig& config) {
         config_.load(config, true);
         saveConfig();
+        loadDictionary();
         populateConfig();
     }
 
@@ -496,12 +501,25 @@ namespace fcitx {
 
     void LotusEngine::keyEvent(const InputMethodEntry& /*entry*/, KeyEvent& keyEvent) {
         auto* ic = keyEvent.inputContext();
+        if (ic == nullptr) {
+            return;
+        }
+
+        auto* state = ic->propertyFor(&factory_);
+
+        if (ic->capabilityFlags().testAny(CapabilityFlag::PasswordOrSensitive)) {
+            if (state != nullptr) {
+                state->reset();
+            }
+            ic->inputPanel().reset();
+            ic->updateUserInterface(UserInterfaceComponent::InputPanel);
+            return;
+        }
 
         if (isSelectingAppMode_ && g_mouse_clicked.load(std::memory_order_acquire)) {
             closeAppModeMenu();
             ic->inputPanel().reset();
             ic->updateUserInterface(UserInterfaceComponent::InputPanel);
-            auto* state = ic->propertyFor(&factory_);
             state->commitBuffer();
             state->reset();
         }
@@ -591,7 +609,6 @@ namespace fcitx {
                                 isSelectingAppMode_ = false;
                                 ic->inputPanel().reset();
                                 ic->updateUserInterface(UserInterfaceComponent::InputPanel);
-                                auto* state = ic->propertyFor(&factory_);
                                 state->commitBuffer();
                                 state->reset();
                                 ic->commitString(charStr);
@@ -622,7 +639,6 @@ namespace fcitx {
                 isSelectingAppMode_ = false;
                 ic->inputPanel().reset();
                 ic->updateUserInterface(UserInterfaceComponent::InputPanel);
-                auto* state = ic->propertyFor(&factory_);
 
                 if (selectedMode != std::nullopt) {
                     state->commitBuffer();
@@ -720,7 +736,6 @@ namespace fcitx {
 
         if (!keyEvent.isRelease() && !config_.modeMenuKey->empty() && keyEvent.key().checkKeyList(*config_.modeMenuKey)) {
             LOTUS_INFO("Mode menu key pressed");
-            auto* state = ic->propertyFor(&factory_);
             if (state != nullptr) {
                 state->commitBuffer();
                 state->reset();
@@ -733,7 +748,6 @@ namespace fcitx {
             keyEvent.filterAndAccept();
             return;
         }
-        auto* state = keyEvent.inputContext()->propertyFor(&factory_);
         state->keyEvent(keyEvent);
         const auto&  s       = ic->surroundingText();
         const auto&  text    = s.text();
