@@ -11,6 +11,7 @@
 #include "lotus-config.h"
 #include "lotus-state.h"
 #include "lotus-candidates.h"
+#include "lotus-key-pacer.h"
 #include "lotus-monitor.h"
 #include "lotus-utils.h"
 #include "lotus-plasma-theme.h"
@@ -213,6 +214,7 @@ namespace fcitx {
     }
 
     LotusEngine::LotusEngine(Instance* instance) : instance_(instance), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
+        KeyPacer::instance().init(instance);
         std::string desktop = getEnv("XDG_CURRENT_DESKTOP");
         isGnome_            = (!desktop.empty()) && desktop.find("GNOME") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
@@ -312,6 +314,7 @@ namespace fcitx {
     }
 
     LotusEngine::~LotusEngine() {
+        KeyPacer::instance().stop();
         stop_flag_monitor.store(true, std::memory_order_release);
         mouseEventSource_.reset();
         int fd = mouse_socket_fd.exchange(-1, std::memory_order_acq_rel);
@@ -319,10 +322,7 @@ namespace fcitx {
             shutdown(fd, SHUT_RDWR);
             close(fd);
         }
-        int old_fd = uinput_client_fd_.exchange(-1);
-        if (old_fd != -1) {
-            close(old_fd);
-        }
+        // kb_socket fd is owned by VirtualKeyboard inside KeyPacer now.
         LOTUS_INFO("Engine destroyed.");
     }
 
