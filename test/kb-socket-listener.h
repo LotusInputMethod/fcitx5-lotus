@@ -39,7 +39,7 @@ inline void reportFailure(const std::string& step, const std::string& expected, 
  * @brief One received KeyMsg with its steady-clock arrival time.
  */
 struct StampedKey {
-    fcitx::KeyMsg                            msg{};
+    fcitx::KeyMsg                         msg{};
     std::chrono::steady_clock::time_point when{};
 };
 
@@ -99,8 +99,8 @@ class KbSocketListener {
             const auto now = std::chrono::steady_clock::now();
             if (now >= deadline)
                 break;
-            const int waitMs = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
-            pollfd    pfd{client_, POLLIN | POLLHUP | POLLRDHUP, 0};
+            const int  waitMs = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
+            pollfd     pfd{client_, POLLIN | POLLHUP | POLLRDHUP, 0};
             const auto pollResult = poll(&pfd, 1, std::min(waitMs, quietMs));
             if (pollResult < 0) {
                 if (errno == EINTR)
@@ -151,8 +151,8 @@ class KbSocketListener {
                 reportFailure("wait for replacement socket connection", "connection before deadline", "timed out", meaning);
                 return false;
             }
-            const int waitMs    = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
-            pollfd    pfd{fd_, POLLIN, 0};
+            const int  waitMs = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
+            pollfd     pfd{fd_, POLLIN, 0};
             const auto pollResult = poll(&pfd, 1, waitMs);
             if (pollResult == 0) {
                 reportFailure("wait for replacement socket connection", "connection before deadline", "timed out", meaning);

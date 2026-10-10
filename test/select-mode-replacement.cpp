@@ -22,15 +22,13 @@ namespace {
     // Parses a selection stream: Shift-down, N x Left taps, Shift-up(10ms),
     // Delete tap, post, final Left tap. Returns N (Left presses before Shift-up).
     bool parseSelectStream(const std::vector<StampedKey>& stream, size_t& selects, const char* meaning) {
-        selects = 0;
-        size_t i = 0;
-        auto fail = [&](const std::string& expected) {
+        selects     = 0;
+        size_t i    = 0;
+        auto   fail = [&](const std::string& expected) {
             reportFailure("parse selection stream", expected, "items=" + std::to_string(stream.size()) + " parsed=" + std::to_string(i), meaning);
             return false;
         };
-        auto need = [&](uint16_t code, uint8_t pressed) {
-            return i < stream.size() && stream[i].msg.code == code && stream[i].msg.pressed == pressed;
-        };
+        auto need = [&](uint16_t code, uint8_t pressed) { return i < stream.size() && stream[i].msg.code == code && stream[i].msg.pressed == pressed; };
         if (!need(KEY_LEFTSHIFT, 1))
             return fail("Shift-down first");
         ++i;

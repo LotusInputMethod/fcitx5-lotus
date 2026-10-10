@@ -31,8 +31,7 @@ namespace {
         for (size_t i = 0; i < stream.size(); ++i) {
             const bool press = (i % 2 == 0);
             if (stream[i].msg.code != KEY_BACKSPACE || stream[i].msg.pressed != (press ? 1 : 0)) {
-                reportFailure("tap stream order", "press,release pairs of BackSpace", "index=" + std::to_string(i) + " code=" + std::to_string(stream[i].msg.code),
-                              meaning);
+                reportFailure("tap stream order", "press,release pairs of BackSpace", "index=" + std::to_string(i) + " code=" + std::to_string(stream[i].msg.code), meaning);
                 return false;
             }
             if (press)

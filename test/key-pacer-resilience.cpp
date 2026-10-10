@@ -24,66 +24,66 @@
 
 namespace {
 
-// Abstract socket name WITHOUT leading NUL (helpers add sun_path[0] = '\0',
-// same convention as buildSocketPath). Private to this binary, so the live
-// server's kb_socket never collides.
-const std::string kPath("lotus-test-resilience-kb");
+    // Abstract socket name WITHOUT leading NUL (helpers add sun_path[0] = '\0',
+    // same convention as buildSocketPath). Private to this binary, so the live
+    // server's kb_socket never collides.
+    const std::string kPath("lotus-test-resilience-kb");
 
-void buildAddr(sockaddr_un& addr, socklen_t& len) {
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family  = AF_UNIX;
-    addr.sun_path[0] = '\0';
-    memcpy(&addr.sun_path[1], kPath.data(), kPath.size());
-    len = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + kPath.size() + 1);
-}
-
-int bindListener() {
-    int fd = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
-    if (fd < 0)
-        return -1;
-    sockaddr_un addr{};
-    socklen_t   len = 0;
-    buildAddr(addr, len);
-    if (bind(fd, reinterpret_cast<sockaddr*>(&addr), len) < 0 || listen(fd, 5) < 0) {
-        close(fd);
-        return -1;
+    void              buildAddr(sockaddr_un& addr, socklen_t& len) {
+        memset(&addr, 0, sizeof(addr));
+        addr.sun_family  = AF_UNIX;
+        addr.sun_path[0] = '\0';
+        memcpy(&addr.sun_path[1], kPath.data(), kPath.size());
+        len = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + kPath.size() + 1);
     }
-    return fd;
-}
 
-int acceptOne(int listenFd, int timeoutMs) {
-    pollfd pfd{listenFd, POLLIN, 0};
-    if (poll(&pfd, 1, timeoutMs) <= 0)
-        return -1;
-    return accept(listenFd, nullptr, nullptr);
-}
-
-// Receives exactly `want` KeyMsgs (with an overall deadline).
-bool recvExact(int clientFd, size_t want, std::vector<fcitx::KeyMsg>& out, int totalMs = 3000) {
-    out.clear();
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(totalMs);
-    while (out.size() < want) {
-        const auto now = std::chrono::steady_clock::now();
-        if (now >= deadline)
-            return false;
-        const int wait = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
-        pollfd    pfd{clientFd, POLLIN, 0};
-        if (poll(&pfd, 1, wait) <= 0)
-            return false;
-        fcitx::KeyMsg msg{};
-        if (recv(clientFd, &msg, sizeof(msg), 0) != static_cast<ssize_t>(sizeof(msg)))
-            return false;
-        out.push_back(msg);
+    int bindListener() {
+        int fd = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
+        if (fd < 0)
+            return -1;
+        sockaddr_un addr{};
+        socklen_t   len = 0;
+        buildAddr(addr, len);
+        if (bind(fd, reinterpret_cast<sockaddr*>(&addr), len) < 0 || listen(fd, 5) < 0) {
+            close(fd);
+            return -1;
+        }
+        return fd;
     }
-    return true;
-}
 
-#define CHECK(cond, what)                                                      \
-    do {                                                                       \
-        if (!(cond)) {                                                          \
-            std::cerr << "FAIL: " << what << " (line " << __LINE__ << ")\n";   \
-            return 1;                                                          \
-        }                                                                      \
+    int acceptOne(int listenFd, int timeoutMs) {
+        pollfd pfd{listenFd, POLLIN, 0};
+        if (poll(&pfd, 1, timeoutMs) <= 0)
+            return -1;
+        return accept(listenFd, nullptr, nullptr);
+    }
+
+    // Receives exactly `want` KeyMsgs (with an overall deadline).
+    bool recvExact(int clientFd, size_t want, std::vector<fcitx::KeyMsg>& out, int totalMs = 3000) {
+        out.clear();
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(totalMs);
+        while (out.size() < want) {
+            const auto now = std::chrono::steady_clock::now();
+            if (now >= deadline)
+                return false;
+            const int wait = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
+            pollfd    pfd{clientFd, POLLIN, 0};
+            if (poll(&pfd, 1, wait) <= 0)
+                return false;
+            fcitx::KeyMsg msg{};
+            if (recv(clientFd, &msg, sizeof(msg), 0) != static_cast<ssize_t>(sizeof(msg)))
+                return false;
+            out.push_back(msg);
+        }
+        return true;
+    }
+
+#define CHECK(cond, what)                                                                                                                                                          \
+    do {                                                                                                                                                                           \
+        if (!(cond)) {                                                                                                                                                             \
+            std::cerr << "FAIL: " << what << " (line " << __LINE__ << ")\n";                                                                                                       \
+            return 1;                                                                                                                                                              \
+        }                                                                                                                                                                          \
     } while (0)
 
 } // namespace

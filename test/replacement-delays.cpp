@@ -135,8 +135,7 @@ int main() {
     {
         auto sleeps = sleepMillis(fcitx::KeyPacer::instance().lastPushedJobForTest());
         if (sleeps.empty() || sleeps[0] < 700 || sleeps[0] > 1000) {
-            reportFailure("commit cooldown on the repeated job", "pre in [700,1000]",
-                          sleeps.empty() ? "no sleeps" : "pre=" + std::to_string(sleeps[0]),
+            reportFailure("commit cooldown on the repeated job", "pre in [700,1000]", sleeps.empty() ? "no sleeps" : "pre=" + std::to_string(sleeps[0]),
                           "DefaultCommitInterval=1000 must delay a replacement that follows the previous commit");
             return 1;
         }
