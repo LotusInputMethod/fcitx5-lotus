@@ -338,6 +338,12 @@ namespace fcitx {
         readAsIni(customKeymap_, CustomKeymapFile);
         readAsIni(macroTables_, MacroTableFile);
         macroTableObject_.reset(newMacroTable(macroTables_));
+        loadDictionary();
+        loadAppRules();
+        populateConfig();
+    }
+
+    void LotusEngine::loadDictionary() {
         if (config_.enableDictionary.value()) {
 #if LOTUS_USE_MODERN_FCITX_API
             auto fd = StandardPaths::global().open(StandardPathsType::PkgData, "lotus/vietnamese.cm.dict");
@@ -370,8 +376,6 @@ namespace fcitx {
                 }
             }
         }
-        loadAppRules();
-        populateConfig();
     }
 
     const Configuration* LotusEngine::getSubConfig(const std::string& path) const {
@@ -389,6 +393,7 @@ namespace fcitx {
     void LotusEngine::setConfig(const RawConfig& config) {
         config_.load(config, true);
         saveConfig();
+        loadDictionary();
         populateConfig();
     }
 
