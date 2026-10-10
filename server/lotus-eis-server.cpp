@@ -7,7 +7,7 @@
 
 #include "lotus-eis-server.h"
 #include "lotus-logger.h"
-#include "lotus-server.h"
+#include "lotus-uinput-device.h"
 
 #include <string>
 

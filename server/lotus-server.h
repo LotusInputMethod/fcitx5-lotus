@@ -24,7 +24,6 @@
 #include <atomic>
 #include <fcntl.h>
 #include <libinput.h>
-#include <linux/uinput.h>
 #include <poll.h>
 #include <pwd.h>
 #include <string>
@@ -59,36 +58,6 @@ class FdGuard {
 
   private:
     int fd_;
-};
-
-/**
- * @brief RAII Wrapper for uinput device.
- * Handles UI_DEV_CREATE and UI_DEV_DESTROY automatically.
- */
-class UinputDevice {
-  public:
-    UinputDevice() = default;
-    ~UinputDevice();
-
-    // Disable copy, allow move
-    UinputDevice(const UinputDevice&)            = delete;
-    UinputDevice& operator=(const UinputDevice&) = delete;
-    UinputDevice(UinputDevice&&)                 = default;
-    UinputDevice&     operator=(UinputDevice&&)  = default;
-
-    bool              initialize();
-    /**
-     * @brief Emits one EV_KEY event with its SYN immediately. No pacing here.
-     * @param code Linux KEY_* code.
-     * @param value 1 = press, 0 = release.
-     */
-    void              send_key(uint16_t code, int value);
-    [[nodiscard]] int get_fd() const {
-        return guard_.get();
-    }
-
-  private:
-    FdGuard guard_;
 };
 
 /**

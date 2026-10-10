@@ -10,6 +10,7 @@
   hicolor-icon-theme,
   kdePackages,
   libei,
+  libevdev,
   libinput,
   nix-update-script,
   pkg-config,
@@ -57,6 +58,7 @@ stdenv.mkDerivation (finalAttrs: {
     fcitx5
     kdePackages.extra-cmake-modules
     libei
+    libevdev
     libinput
     pythonEnv
     qt6.qtbase

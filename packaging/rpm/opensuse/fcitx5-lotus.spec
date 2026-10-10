@@ -12,6 +12,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  glibc-devel
 BuildRequires:  fcitx5-devel
 BuildRequires:  libei-devel
+BuildRequires:  libevdev-devel
 BuildRequires:  libinput-devel
 BuildRequires:  systemd-devel
 

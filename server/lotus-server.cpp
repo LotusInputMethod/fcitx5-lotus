@@ -52,47 +52,6 @@ void FdGuard::reset(int new_fd) {
     fd_ = new_fd;
 }
 
-UinputDevice::~UinputDevice() {
-    if (guard_.is_valid()) {
-        ioctl(guard_.get(), UI_DEV_DESTROY);
-    }
-}
-
-bool UinputDevice::initialize() {
-    int fd = open("/dev/uinput", O_WRONLY);
-    if (fd < 0)
-        return false;
-    guard_.reset(fd);
-
-    if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0 || ioctl(fd, UI_SET_KEYBIT, KEY_BACKSPACE) < 0 || ioctl(fd, UI_SET_KEYBIT, KEY_LEFT) < 0 ||
-        ioctl(fd, UI_SET_KEYBIT, KEY_LEFTSHIFT) < 0 || ioctl(fd, UI_SET_KEYBIT, KEY_DELETE) < 0) {
-        return false;
-    }
-
-    struct uinput_setup usetup{};
-    usetup.id.bustype = BUS_USB;
-    usetup.id.vendor  = 0x1234;
-    usetup.id.product = 0x5678;
-    strncpy(usetup.name, "Lotus-Uinput-Server", UINPUT_MAX_NAME_SIZE - 1);
-
-    if (ioctl(fd, UI_DEV_SETUP, &usetup) < 0 || ioctl(fd, UI_DEV_CREATE) < 0) {
-        return false;
-    }
-    sleep(1);
-    return true;
-}
-
-void UinputDevice::send_key(uint16_t code, int value) {
-    if (!guard_.is_valid())
-        return;
-    struct input_event ev[2]{};
-    ev[0].type  = EV_KEY;
-    ev[0].code  = code;
-    ev[0].value = value;
-    // ev[1] zero-initialized via {} acts as SYN_REPORT
-    write(guard_.get(), ev, sizeof(ev));
-}
-
 LibinputContext::LibinputContext(const struct libinput_interface* interface) : udev_(udev_new()) {
     if (udev_ != nullptr) {
         li_ = libinput_udev_create_context(interface, nullptr, udev_);

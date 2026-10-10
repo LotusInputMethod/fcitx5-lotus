@@ -14,6 +14,7 @@ BuildRequires:  cmake(Fcitx5Core)
 BuildRequires:  libinput-devel
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(libeis-1.0)
+BuildRequires:  pkgconfig(libevdev)
 
 BuildRequires:  golang
 BuildRequires:  python3-devel
