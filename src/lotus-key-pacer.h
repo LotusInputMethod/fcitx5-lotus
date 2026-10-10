@@ -28,6 +28,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -37,6 +38,7 @@ namespace fcitx {
 
     class Instance;
     class EventSourceTime;
+    class LotusState;
 
     /**
  * @brief A pause in the pacer stream. Producer clamps to [1ms,1000ms];
@@ -46,7 +48,36 @@ namespace fcitx {
         std::chrono::milliseconds delay;
     };
 
-    using PacerItem = std::variant<KeyMsg, SleepFor>;
+    static constexpr std::chrono::milliseconds kAwaitEchoTimeout{1000};
+
+    /**
+ * @brief Barrier: pause pumping until enough echoes arrived.
+ *
+ * The pump parks on this item (no timer) and resumes once the echo handler
+ * reports an echo sequence >= targetSeq via notifyEcho(). The timeout is a
+ * fail-open fallback (commit anyway + warn) so a lost echo cannot stall the
+ * queue forever. Echoes prove fcitx saw the keys, not that the app processed
+ * them; see the plan's honest limitation.
+ */
+    struct AwaitEcho {
+        uint32_t                  targetSeq;
+        std::chrono::milliseconds timeout = kAwaitEchoTimeout;
+    };
+
+    /**
+ * @brief Commit point: fire the owner's commit with the carried text, then
+ * continue pumping.
+ *
+ * The text rides the chain (copied from the replacement at build time) so
+ * the order AND the payload are both visible in the job. The pump still
+ * cannot touch InputContext itself: the actual commit runs on the barrier
+ * owner (LotusState) set by the replacement that pushed the job.
+ */
+    struct Commit {
+        std::string text;
+    };
+
+    using PacerItem = std::variant<KeyMsg, SleepFor, AwaitEcho, Commit>;
     using KeyJob    = std::vector<PacerItem>;
 
     /**
@@ -54,13 +85,14 @@ namespace fcitx {
  *
  * Backspace N: [Sleep(pre), tap x N] with Sleep(max(interval,post)) before
  * the final tap. Select N: Shift-down, N x Left taps, 10ms, Shift-up,
- * Delete, Sleep(post). No trailing tap: the commit fires on the last
- * selection echo, so a tail Left would leak to the app as an extra
- * cursor-left (off-by-one).
+ * Sleep(interval), Delete, Sleep(post), AwaitEcho{N+1}, Commit{text}.
+ * The barrier spans the N selection echoes plus the Delete echo; the commit
+ * fires only after the pump observes the full sequence. No trailing tap:
+ * anything sent after Delete would leak to the app as an extra cursor-left.
  * Zero sleeps are kept in the job; pump() skips them (burst).
  */
     KeyJob LOTUS_EXPORT buildBackspaceJob(size_t count, std::chrono::milliseconds pre, std::chrono::milliseconds interval, std::chrono::milliseconds post);
-    KeyJob LOTUS_EXPORT buildSelectJob(size_t count, std::chrono::milliseconds pre, std::chrono::milliseconds interval, std::chrono::milliseconds post);
+    KeyJob LOTUS_EXPORT buildSelectJob(size_t count, std::chrono::milliseconds pre, std::chrono::milliseconds interval, std::chrono::milliseconds post, std::string text);
 
     class LOTUS_EXPORT KeyPacer {
       public:
@@ -104,6 +136,35 @@ namespace fcitx {
         void stop();
 
         /**
+     * @brief Sets the replacement owner for barrier waits and chain commits.
+     *
+     * Set by performReplacement before pushing (cleared on completion, abort
+     * or owner destruction). The pump queries it for the current echo
+     * sequence at park time and invokes its commit when a CommitPending item
+     * is pumped. Main loop only.
+     */
+        void setBarrierOwner(LotusState* owner);
+
+        /**
+     * @brief Clears the barrier owner if it is the given one (owner teardown
+     * or replacement abort paths). Main loop only.
+     */
+        void clearBarrierOwner(const LotusState* owner);
+
+        /**
+     * @brief Whether the pump is parked on an AwaitEcho wait. Lets the stale
+     * replacement guard tell "waiting for echoes" apart from stale state.
+     */
+        [[nodiscard]] bool isWaiting() const;
+
+        /**
+     * @brief Reports one counted echo (echo sequence number). Resumes a
+     * parked AwaitEcho wait whose target is met. Safe to call with no wait
+     * pending (no-op). Main loop only.
+     */
+        void notifyEcho(uint32_t seq);
+
+        /**
      * @brief Test hook: when true, pump() skips all sleeps and delivers the
      * whole job synchronously inside push(). Headless tests use this so no
      * EventLoop is needed (fcitx timers can't be pumped deterministically
@@ -121,10 +182,14 @@ namespace fcitx {
         static KeyJob lastPushedJobForTest();
 
       private:
-        // pump() locks m_ for its whole run: timer callbacks (loop thread) and
-        // push() (keyEvent thread, or test main thread) never interleave.
-        // VirtualKeyboard has its own leaf mutex; holding m_ across send is safe.
+        // pump() uses short critical sections (never holds m_ across sends,
+        // callbacks or waits): notifyEcho (echo handler) → commit callback →
+        // replay → push → pump must not self-deadlock on this mutex.
+        // VirtualKeyboard has its own leaf mutex; lock order is always
+        // KeyPacer m_ (briefly) then VirtualKeyboard m_.
         void pump();
+        // waitTimer_ callback: fail-open resume on lost echoes.
+        void onWaitTimeout();
         // resetLocked() requires m_ held. Shared by clear()/stop() so teardown
         // also releases Shift instead of leaving it stuck down.
         void                             resetLocked();
@@ -135,8 +200,12 @@ namespace fcitx {
         Instance*                        instance_{nullptr};
         std::deque<PacerItem>            q_;
         std::unique_ptr<EventSourceTime> timer_;
-        std::mutex                       m_;
+        std::unique_ptr<EventSourceTime> waitTimer_;
+        LotusState*                      barrierOwner_{nullptr};
+        mutable std::mutex               m_;
         KeyJob                           lastPushed_; ///< test snapshot (sleeps included)
+        uint32_t                         waitTarget_{0};
+        bool                             waiting_{false};
         bool                             shiftDown_{false};
     };
 

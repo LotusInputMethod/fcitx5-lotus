@@ -42,6 +42,27 @@ namespace fcitx {
          * @param ic Pointer to the input context.
          */
         LotusState(LotusEngine* engine, InputContext* ic);
+        /**
+         * @brief Unregisters from the pacer barrier owner on teardown so a
+         * parked wait can never fire into a destroyed state.
+         */
+        ~LotusState();
+
+        /**
+         * @brief Fires a chain Commit item: commits and completes.
+         *
+         * Same tail as finishReplacement but there is no echo event to accept
+         * (the triggering echo was already forwarded). Called on the pump via
+         * the barrier owner, never directly from key handling. The chain text
+         * is authoritative: re-stated into the pending string so no stale
+         * value can substitute it.
+         */
+        void commitFromChain(const std::string& text);
+
+        /**
+         * @brief Current counted-echo sequence for barrier waits.
+         */
+        [[nodiscard]] uint32_t echoSequence() const;
 
         /**
          * @brief Initializes the bamboo engine for this state.
@@ -84,19 +105,15 @@ namespace fcitx {
         friend class LotusEngine;
 
       private:
-        static constexpr size_t MAX_BUFFERED_KEYS = 50;
+        static constexpr size_t               MAX_BUFFERED_KEYS = 50;
 
-        LotusEngine*            engine_;
-        InputContext*           ic_;
-        CGoObject               lotusEngine_;
-        std::string             oldPreBuffer_;
-        bool                    hasHistory_              = false;
-        size_t                  expected_backspaces_     = 0;
-        size_t                  current_backspace_count_ = 0;
-        // Select only: the last selection echo was swallowed with the commit
-        // held for the Delete echo. While true, the 970-guard must not treat
-        // the in-flight state as stale, and the Delete echo completes it.
-        bool                                  awaitingDeleteEcho_ = false;
+        LotusEngine*                          engine_;
+        InputContext*                         ic_;
+        CGoObject                             lotusEngine_;
+        std::string                           oldPreBuffer_;
+        bool                                  hasHistory_              = false;
+        size_t                                expected_backspaces_     = 0;
+        size_t                                current_backspace_count_ = 0;
         std::string                           pending_commit_string_;
         LotusAppRuleSetting                   appRuleSetting_; ///< Per-app rule (mode + delay overrides) pushed by the engine
         std::string                           emojiBuffer_;
@@ -128,13 +145,15 @@ namespace fcitx {
         static void enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
 
         /**
-         * @brief Queues an N-character Shift+Left selection ending in Delete.
+         * @brief Queues an N-character Shift+Left selection ending in a chain commit.
          * @param count Number of characters to select.
          * @param pre_delay Ms to wait before Shift-down.
-         * @param interval Ms between consecutive Left taps.
-         * @param post_delay Ms to wait after Delete.
+         * @param interval Ms between consecutive Left taps (also the settle
+         * gap before Delete).
+         * @param post_delay Ms to wait after the commit.
+         * @param text Replacement text carried by the chain Commit item.
          */
-        static void enqueueSelect(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
+        static void enqueueSelect(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay, std::string text);
 
         /**
          * @brief Checks if autofill is certain for surrounding text.
@@ -178,35 +197,21 @@ namespace fcitx {
         /**
          * @brief Validates the app state and commits the pending string.
          *
-         * Shared head of both replacement completions below; changes no
-         * replacement state besides consuming the pending string.
+         * Shared head of both replacement completions; changes no replacement
+         * state besides consuming the pending string.
          */
         void commitPendingReplacement();
 
         /**
          * @brief Completes an in-flight replacement after all echoed events arrived.
          *
-         * Shared tail of the BackSpace echo handler (and the Select Delete
-         * completion below): commits the pending replacement string, resets
-         * the replacement state, swallows the final echo and replays buffered
-         * keys. In Select mode the last selection echo is swallowed earlier
-         * with the commit held, so this runs either here (BackSpace) or on
-         * the Delete echo.
+         * BackSpace path (and any non-barrier flow): commits, resets state,
+         * swallows the final echo and replays buffered keys. Select mode now
+         * completes through the chain barrier instead (see commitFromChain).
          *
          * @param event The key event of the final echoed key.
          */
         void finishReplacement(KeyEvent& event);
-
-        /**
-         * @brief Completes a Select replacement on the Delete echo.
-         *
-         * Forwards Delete first so the app deletes the selection, then lands
-         * the commit on the deleted text. Same tail as finishReplacement but
-         * the event is forwarded instead of swallowed.
-         *
-         * @param event The Delete echo key event.
-         */
-        void finishReplacementOnDeleteEcho(KeyEvent& event);
 
         /**
          * @brief Performs text replacement via uinput.
