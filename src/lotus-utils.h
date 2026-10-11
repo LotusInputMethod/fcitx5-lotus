@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <string_view>
 #include <sys/un.h>
+#include <sys/socket.h>
 #include <fcitx-utils/log.h>
 #include <fcitx/inputcontext.h>
 

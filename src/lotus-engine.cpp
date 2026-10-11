@@ -15,7 +15,7 @@
 #include "lotus-utils.h"
 #include "lotus-plasma-theme.h"
 
-#include "bamboo-core.h" // generated cgo header; only included where the bridge is called
+#include "bamboo-core.h" // engine C API; calls are forwarded to the helper process
 
 #include <optional>
 #include <sys/socket.h>
@@ -375,6 +375,8 @@ namespace fcitx {
             close(fd);
         }
         closeUinputClient();
+        // Release the engine helper process along with the addon.
+        LotusEngineHelperShutdown();
         LOTUS_INFO("Engine destroyed.");
     }
 

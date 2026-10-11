@@ -11,7 +11,7 @@
 #include "lotus-candidates.h"
 #include "lotus-utils.h"
 
-#include "bamboo-core.h" // generated cgo header; only included where the bridge is called
+#include "bamboo-core.h" // engine C API; calls are forwarded to the helper process
 
 #include <cstddef>
 #include <fcitx-utils/utf8.h>

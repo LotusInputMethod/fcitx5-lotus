@@ -6,42 +6,79 @@
  */
 package main
 
-import "runtime/cgo"
+import (
+	"sync"
+)
 
-// The C++ side reports "there is nothing here" by passing a zero handle:
-// CGoObject::handle() returns 0 when empty, LotusEngine::macroTable() returns 0
-// when no input method is configured, and NewDictionary/NewEngine return 0 when
-// they fail. cgo.Handle(0).Value() and .Delete() both panic on such a handle,
-// and a panic here takes the whole fcitx5 process down, so every handle coming
-// from C has to be checked before it is used.
+// handleTable replaces runtime/cgo handles (unavailable with CGO_ENABLED=0)
+// with process-unique uint64 ids in a mutex-protected map; the connection is
+// served sequentially, so the mutex only guards future concurrent use.
+//
+// Zero is the C++ side's "nothing here" (empty CGoObject, no macro table,
+// failed New*), so every wire handle is checked before use, as before.
+type handleTable struct {
+	mu   sync.Mutex
+	next uint64
+	objs map[uint64]interface{}
+}
 
-func engineFromHandle(h uintptr) (*FcitxBambooEngine, bool) {
+func newHandleTable() *handleTable {
+	return &handleTable{next: 1, objs: map[uint64]interface{}{}}
+}
+
+var table = newHandleTable()
+
+func newHandle(v interface{}) uint64 {
+	table.mu.Lock()
+	defer table.mu.Unlock()
+	id := table.next
+	table.next++
+	table.objs[id] = v
+	return id
+}
+
+func objectFromHandle(h uint64) (interface{}, bool) {
 	if h == 0 {
 		return nil, false
 	}
-	engine, ok := cgo.Handle(h).Value().(*FcitxBambooEngine)
+	table.mu.Lock()
+	defer table.mu.Unlock()
+	v, ok := table.objs[h]
+	return v, ok
+}
+
+func engineFromHandle(h uint64) (*FcitxBambooEngine, bool) {
+	v, ok := objectFromHandle(h)
+	if !ok {
+		return nil, false
+	}
+	engine, ok := v.(*FcitxBambooEngine)
 	return engine, ok
 }
 
-func macroTableFromHandle(h uintptr) (*MacroTable, bool) {
-	if h == 0 {
+func macroTableFromHandle(h uint64) (*MacroTable, bool) {
+	v, ok := objectFromHandle(h)
+	if !ok {
 		return nil, false
 	}
-	table, ok := cgo.Handle(h).Value().(*MacroTable)
-	return table, ok
+	t, ok := v.(*MacroTable)
+	return t, ok
 }
 
-func dictionaryFromHandle(h uintptr) (*dictionary, bool) {
-	if h == 0 {
+func dictionaryFromHandle(h uint64) (*dictionary, bool) {
+	v, ok := objectFromHandle(h)
+	if !ok {
 		return nil, false
 	}
-	dict, ok := cgo.Handle(h).Value().(*dictionary)
-	return dict, ok
+	d, ok := v.(*dictionary)
+	return d, ok
 }
 
-func deleteHandle(h uintptr) {
+func deleteHandle(h uint64) {
 	if h == 0 {
 		return
 	}
-	cgo.Handle(h).Delete()
+	table.mu.Lock()
+	defer table.mu.Unlock()
+	delete(table.objs, h)
 }

@@ -36,6 +36,11 @@ function(add_lotus_headless_test target source labels)
     )
     add_test(NAME ${target} COMMAND ${target})
     set_tests_properties(${target} PROPERTIES LABELS "${labels}" TIMEOUT 20)
+    # Point the IPC shim at the freshly built helper so uninstalled test runs
+    # never pick up (or miss) a system copy.
+    add_dependencies(${target} lotus_engine_helper)
+    set_tests_properties(${target} PROPERTIES
+        ENVIRONMENT "LOTUS_ENGINE_HELPER_BIN=$<TARGET_FILE:Lotus::Helper>")
 endfunction()
 
 # Helper to compile lightweight unit test linked with Bamboo engine core.
@@ -44,6 +49,9 @@ function(add_bamboo_test target source labels)
     target_link_libraries(${target} PRIVATE Bamboo::Core)
     add_test(NAME ${target} COMMAND ${target})
     set_tests_properties(${target} PROPERTIES LABELS "${labels}" TIMEOUT 20)
+    add_dependencies(${target} lotus_engine_helper)
+    set_tests_properties(${target} PROPERTIES
+        ENVIRONMENT "LOTUS_ENGINE_HELPER_BIN=$<TARGET_FILE:Lotus::Helper>")
 endfunction()
 
 add_lotus_headless_test(preedit_lifecycle preedit-lifecycle.cpp "integration;preedit")

@@ -92,6 +92,38 @@ jobs:
         with:
           checkout_path: fcitx5-lotus
 
+  musl:
+    name: Build and test (musl)
+    runs-on: ubuntu-latest
+    container: alpine:3.22
+    steps:
+      - name: Install dependencies
+        run: |
+          apk add --no-cache bash build-base cmake extra-cmake-modules git go fcitx5-dev \
+            libinput-dev eudev-dev fmt-dev libuv-dev boost-dev gettext pkgconf \
+            iso-codes-dev python3 ninja
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          
+      - uses: actions/checkout@v7
+      
+      - name: Build and Install fcitx5-lotus
+        env:
+          CC: gcc
+          CXX: g++
+        uses: fcitx/github-actions@cmake
+        with:
+          path: .
+          cmake-option: -DBUILD_TESTING=ON
+          
+      - name: Discover tests
+        run: |
+          ctest --test-dir build -N
+          
+      - name: Test
+        run: |
+          ctest --test-dir build --output-on-failure --no-tests=error
+
+
   go-bamboo:
     name: Go (bamboo)
     runs-on: ubuntu-latest

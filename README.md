@@ -63,7 +63,7 @@ Dự án này là bản fork được tối ưu hóa từ [bộ gõ VMK](https:/
 
 ## Biên dịch từ mã nguồn (Dành cho nhà phát triển)
 
-Nếu bạn muốn tự biên dịch bộ gõ từ mã nguồn để đóng góp hoặc tuỳ chỉnh (chưa hỗ trợ musl vì [CGo](https://github.com/golang/go/issues/13492)):
+Nếu bạn muốn tự biên dịch bộ gõ từ mã nguồn để đóng góp hoặc tuỳ chỉnh:
 
 ### Yêu cầu hệ thống
 

@@ -5,3 +5,5 @@ cmake_install.cmake
 *.a
 # Generated header file
 bamboo-core.h
+# Helper binary produced by the CGO_ENABLED=0 go build
+lotus-engine-helper

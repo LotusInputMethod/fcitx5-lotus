@@ -52,6 +52,7 @@ cd %{_builddir}/%{name}-%{version}
 %{_bindir}/fcitx5-lotus-settings
 
 %{_libdir}/fcitx5/liblotus.so
+%{_libdir}/fcitx5/lotus-engine-helper
 
 %{_modulesloaddir}/fcitx5-lotus.conf
 %{_unitdir}/fcitx5-lotus-server@.service
