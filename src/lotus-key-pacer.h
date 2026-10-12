@@ -158,6 +158,15 @@ namespace fcitx {
         [[nodiscard]] bool isWaiting() const;
 
         /**
+     * @brief Whether this owner still has an unresolved chain barrier: the
+     * pump is parked on its AwaitEcho wait, or an AwaitEcho item for it is
+     * still queued (pump mid-job, e.g. in a post-Delete sleep). Lets the
+     * stale replacement guard avoid nuking a live barrier whose echoes are
+     * still in flight. Main loop only.
+     */
+        [[nodiscard]] bool hasPendingBarrierFor(const LotusState* owner) const;
+
+        /**
      * @brief Reports one counted echo (echo sequence number). Resumes a
      * parked AwaitEcho wait whose target is met. Safe to call with no wait
      * pending (no-op). Main loop only.

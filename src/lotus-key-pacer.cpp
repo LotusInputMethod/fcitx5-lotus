@@ -141,6 +141,15 @@ namespace fcitx {
         return waiting_;
     }
 
+    bool KeyPacer::hasPendingBarrierFor(const LotusState* owner) const {
+        std::lock_guard<std::mutex> lock(m_);
+        if (owner == nullptr || barrierOwner_ != owner)
+            return false;
+        if (waiting_)
+            return true;
+        return std::any_of(q_.begin(), q_.end(), [](const PacerItem& item) { return std::holds_alternative<AwaitEcho>(item); });
+    }
+
     void KeyPacer::notifyEcho(uint32_t seq) {
         bool resume = false;
         {

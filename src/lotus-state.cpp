@@ -1004,8 +1004,13 @@ namespace fcitx {
             LOTUS_WARN("Cannot connect to uinput server, replacements will fall back");
         }
         // A parked echo wait is legitimate in-flight state (commit held for
-        // echoes), not stale: only abort when nothing is awaited.
-        if (!KeyPacer::instance().isWaiting() && current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
+        // echoes), not stale: only abort when nothing is awaited. A queued
+        // (not yet parked) barrier counts as awaited too: its echoes may
+        // already be arriving (e.g. the Delete echo landing during the
+        // post-Delete sleep), and clearing the queue here would drop the
+        // pending AwaitEcho+Commit so the commit never fires.
+        if (!KeyPacer::instance().isWaiting() && !KeyPacer::instance().hasPendingBarrierFor(this) && current_backspace_count_ >= expected_backspaces_ &&
+            is_deleting_.load()) {
             LOTUS_WARN("Aborting in-flight replacement: count=" + std::to_string(current_backspace_count_) + " expected=" +
                        std::to_string(expected_backspaces_) + " pending=" + pending_commit_string_);
             is_deleting_.store(false);
