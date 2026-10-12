@@ -145,6 +145,7 @@ namespace fcitx {
         bool resume = false;
         {
             std::lock_guard<std::mutex> lock(m_);
+            LOTUS_INFO("KeyPacer: notifyEcho seq=" + std::to_string(seq) + (waiting_ ? " target=" + std::to_string(waitTarget_) : " (not waiting)"));
             if (waiting_ && seq >= waitTarget_) {
                 waiting_ = false;
                 waitTimer_.reset();
@@ -224,6 +225,7 @@ namespace fcitx {
                     std::lock_guard<std::mutex> lock(m_);
                     seen = (barrierOwner_ != nullptr) ? barrierOwner_->echoSequence() : 0;
                     if (seen < wait->targetSeq && instance_ != nullptr) {
+                        LOTUS_INFO("KeyPacer: parking on echo wait target=" + std::to_string(wait->targetSeq) + " seen=" + std::to_string(seen));
                         waiting_              = true;
                         waitTarget_           = wait->targetSeq;
                         const uint64_t waitUs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(wait->timeout).count());
@@ -235,6 +237,7 @@ namespace fcitx {
                         return;
                     }
                 }
+                LOTUS_INFO("KeyPacer: echo wait already satisfied, continuing to commit");
                 continue; // already satisfied (or no owner/loop): don't park
             }
             if (const auto* commit = std::get_if<Commit>(&item)) {
@@ -244,6 +247,7 @@ namespace fcitx {
                     owner         = barrierOwner_;
                     barrierOwner_ = nullptr; // single-fire even if it re-pushes
                 }
+                LOTUS_INFO("KeyPacer: firing chain commit, owner=" + std::string(owner != nullptr ? "set" : "null"));
                 if (owner != nullptr)
                     owner->commitFromChain(commit->text);
                 else

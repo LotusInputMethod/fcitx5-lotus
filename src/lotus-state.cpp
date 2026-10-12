@@ -450,6 +450,7 @@ namespace fcitx {
     void LotusState::commitFromChain(const std::string& text) {
         // The chain text is authoritative (same value performReplacement stored,
         // re-stated here so aborts/concurrency can't substitute a stale string).
+        LOTUS_INFO("Chain barrier lifted, committing: " + text);
         pending_commit_string_ = text;
         commitPendingReplacement();
         expected_backspaces_     = 0;
@@ -478,6 +479,7 @@ namespace fcitx {
             return false; // Allow intermediate backspaces/lefts to reach the app to clear autofill/old text / extend the selection.
         }
         if (isSelectEcho) {
+            LOTUS_INFO("Last select echo swallowed, commit held for barrier: " + pending_commit_string_);
             event.filterAndAccept();
             return true;
         }
@@ -1004,6 +1006,8 @@ namespace fcitx {
         // A parked echo wait is legitimate in-flight state (commit held for
         // echoes), not stale: only abort when nothing is awaited.
         if (!KeyPacer::instance().isWaiting() && current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
+            LOTUS_WARN("Aborting in-flight replacement: count=" + std::to_string(current_backspace_count_) + " expected=" +
+                       std::to_string(expected_backspaces_) + " pending=" + pending_commit_string_);
             is_deleting_.store(false);
             current_backspace_count_ = 0;
             expected_backspaces_     = 0;
@@ -1114,6 +1118,7 @@ namespace fcitx {
                     // the app deletes before the commit lands.
                     if (is_deleting_.load(std::memory_order_acquire)) {
                         current_backspace_count_ += 1;
+                        LOTUS_INFO("Delete echo counted: " + std::to_string(current_backspace_count_) + "/" + std::to_string(expected_backspaces_));
                         KeyPacer::instance().notifyEcho(current_backspace_count_);
                     }
                     keyEvent.forward();
