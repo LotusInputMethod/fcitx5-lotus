@@ -134,7 +134,7 @@ const struct libinput_interface interface = {
     .close_restricted = close_restricted,
 };
 
-<namespace {
+namespace {
 
     // Passes an EIS client fd over the authed socket (SCM_RIGHTS).
     bool sendFd(int sock, int fd) {

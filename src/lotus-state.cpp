@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <string>
+#include <thread>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -96,7 +97,7 @@ namespace fcitx {
         EngineSetOption(lotusEngine_.handle(), &option);
     }
 
-<    bool LotusState::ensureUinputConnected() {
+    bool LotusState::ensureUinputConnected() {
         return KeyPacer::instance().ensureConnected();
     }
 
@@ -408,7 +409,7 @@ namespace fcitx {
         ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
     }
 
-<    void LotusState::commitPendingReplacement() {
+    void LotusState::commitPendingReplacement() {
         // Validate surr cursor pos should match realtextLen after all BS/Left applied
         const auto& surr = ic_->surroundingText();
         if (surr.isValid() && surr.cursor() == realtextLen.load(std::memory_order_acquire)) {
