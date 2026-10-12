@@ -9,8 +9,11 @@
 #include "lotus-config.h"
 
 #include <cstddef>
+#include <cstring>
+#include <fcitx-utils/standardpath.h>
 #include <fcitx-utils/utf8.h>
 #include <pwd.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -52,6 +55,33 @@ std::string buildSocketPath(std::string_view base_path_suffix) {
     const size_t max_socket_path_length = UNIX_PATH_MAX - 1;
     path.resize(std::min(path.length(), max_socket_path_length));
     return path;
+}
+
+int makeAbstractUnixSocket(std::string_view name, struct sockaddr_un& addr, socklen_t& len) {
+    const int fd = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
+    if (fd < 0) {
+        return -1;
+    }
+    addr.sun_family  = AF_UNIX;
+    addr.sun_path[0] = '\0';
+    memcpy(&addr.sun_path[1], name.data(), name.size());
+    len = offsetof(struct sockaddr_un, sun_path) + name.size() + 1;
+    return fd;
+}
+
+void closeUinputClient() {
+    int old_fd = uinput_client_fd_.exchange(-1);
+    if (old_fd != -1) {
+        close(old_fd);
+    }
+}
+
+std::string lotusConfigDir() {
+#if LOTUS_USE_MODERN_FCITX_API
+    return (fcitx::StandardPaths::global().userDirectory(fcitx::StandardPathsType::Config) / "fcitx5" / "conf").string();
+#else
+    return fcitx::StandardPath::global().userDirectory(fcitx::StandardPath::Type::Config) + "/fcitx5/conf";
+#endif
 }
 
 int64_t now_ms() {

@@ -25,7 +25,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from ui.helpers import add_help_icon
+from ui.helpers import add_help_icon, bool_to_str, config_bool, set_add_button_mode
 from ui.pages.base_editor import BaseEditorPage
 from ui.pages.dynamic_settings import CardWidget
 
@@ -240,12 +240,10 @@ class MacroEditorPage(BaseEditorPage):
             config_data = self.dbus.get_config()
             if config_data:
                 values = config_data.get("values", {})
-                self.cb_enable.setChecked(str(values.get("EnableMacro", "True")).lower() == "true")
-                self.cb_capitalize.setChecked(
-                    str(values.get("CapitalizeMacro", "True")).lower() == "true"
-                )
+                self.cb_enable.setChecked(config_bool(values, "EnableMacro", "True"))
+                self.cb_capitalize.setChecked(config_bool(values, "CapitalizeMacro", "True"))
                 self.cb_enable_off_mode.setChecked(
-                    str(values.get("EnableMacroInOffMode", "False")).lower() == "true"
+                    config_bool(values, "EnableMacroInOffMode", "False")
                 )
 
                 # Populate macro skip modifier trigger
@@ -346,20 +344,15 @@ class MacroEditorPage(BaseEditorPage):
 
     def save_data(self) -> bool:
         # Save global macro settings via DBus
-        config_data = self.dbus.get_config()
-        if config_data:
-            values = config_data.get("values", {})
-            values["EnableMacro"] = "True" if self.cb_enable.isChecked() else "False"
-            values["CapitalizeMacro"] = "True" if self.cb_capitalize.isChecked() else "False"
-            values["EnableMacroInOffMode"] = (
-                "True" if self.cb_enable_off_mode.isChecked() else "False"
-            )
-            values["MacroSkipTriggerModifier"] = self.cb_skip_modifier.currentData()
-            values["TimeFormat"] = self.input_time_format.currentText()
-            values["DateFormat"] = self.input_date_format.currentText()
-            if not self.dbus.set_config(values):
-                return False
-        elif not self.dbus.iface:
+        updates = {
+            "EnableMacro": bool_to_str(self.cb_enable.isChecked()),
+            "CapitalizeMacro": bool_to_str(self.cb_capitalize.isChecked()),
+            "EnableMacroInOffMode": bool_to_str(self.cb_enable_off_mode.isChecked()),
+            "MacroSkipTriggerModifier": self.cb_skip_modifier.currentData(),
+            "TimeFormat": self.input_time_format.currentText(),
+            "DateFormat": self.input_date_format.currentText(),
+        }
+        if not self.dbus.save_values(updates):
             return False
 
         data = []
@@ -376,17 +369,9 @@ class MacroEditorPage(BaseEditorPage):
         self.initial_state = self._get_current_state()
         return True
 
-    def _find_row_by_key(self, key: str) -> int | None:
-        """Finds row index for a given key. Returns None if not found."""
-        for r in range(self.table.rowCount()):
-            item = self.table.item(r, 0)
-            if item and item.text() == key:
-                return r
-        return None
-
     def upsert_row(self, key: str, value: str, sort: bool = True):
         # Update existing
-        row = self._find_row_by_key(key)
+        row = self.find_row_by_key(key)
         if row is not None:
             self.table.item(row, 1).setText(value)
             self._apply_row_highlight(row, key)
@@ -479,13 +464,8 @@ class MacroEditorPage(BaseEditorPage):
         # Disable button if key is invalid, empty, or value is empty
         self.btn_add.setEnabled(not is_invalid and bool(key) and bool(val))
 
-        found = self._find_row_by_key(key) is not None
-        if found:
-            self.btn_add.setIcon(QIcon.fromTheme("document-save"))
-            self.btn_add.setText(_("Update"))
-        else:
-            self.btn_add.setIcon(QIcon.fromTheme("list-add"))
-            self.btn_add.setText(_("Add"))
+        found = self.find_row_by_key(key) is not None
+        set_add_button_mode(self.btn_add, found, _("Update"), _("Add"))
 
     def on_row_selected(self, row, column):
         key_item = self.table.item(row, 0)

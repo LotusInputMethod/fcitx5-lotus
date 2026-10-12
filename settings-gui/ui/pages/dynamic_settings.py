@@ -23,8 +23,14 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from ui.components import HotkeyEditorWidget, ScrollContent, SingleKeyCaptureWidget
-from ui.helpers import add_help_icon
+from ui.components import HotkeyEditorWidget, ScrollContent, SingleKeyCaptureWidget, clear_layout
+from ui.helpers import (
+    add_help_icon,
+    as_bool,
+    bool_to_str,
+    config_bool,
+    notify_parent_changed,
+)
 
 
 class SettingsCategory(Enum):
@@ -194,10 +200,7 @@ class DynamicSettingsPage(QWidget):
     def load_config(self):
         self.blockSignals(True)
         try:
-            while self.container_layout.count():
-                item = self.container_layout.takeAt(0)
-                if item.widget():
-                    item.widget().deleteLater()
+            clear_layout(self.container_layout)
             self.button_groups.clear()
             self.modified_values.clear()
             self.shortcut_labels.clear()
@@ -361,12 +364,10 @@ class DynamicSettingsPage(QWidget):
         row_layout = QHBoxLayout()
         row_layout.setContentsMargins(0, 0, 0, 0)
         cb = QCheckBox(_(label))
-        is_checked = str(val).lower() == "true"
+        is_checked = as_bool(val)
         cb.setChecked(is_checked)
 
-        cb.toggled.connect(
-            lambda checked, k=key: self.update_config(k, "True" if checked else "False")
-        )
+        cb.toggled.connect(lambda checked, k=key: self.update_config(k, bool_to_str(checked)))
         row_layout.addWidget(cb)
         add_help_icon(row_layout, key)
         row_layout.addStretch()
@@ -390,11 +391,9 @@ class DynamicSettingsPage(QWidget):
             visibility_val = self.current_values.get(visibility_key, "True")
 
             cb = QCheckBox()
-            cb.setChecked(str(visibility_val).lower() == "true")
+            cb.setChecked(as_bool(visibility_val))
             cb.toggled.connect(
-                lambda checked, k=visibility_key: self.update_config(
-                    k, "True" if checked else "False"
-                )
+                lambda checked, k=visibility_key: self.update_config(k, bool_to_str(checked))
             )
             row_layout.addWidget(cb)
 
@@ -546,9 +545,7 @@ class DynamicSettingsPage(QWidget):
             if vis_meta:
                 default_visibility = vis_meta[3]
 
-            is_enabled = (
-                str(self.current_values.get(visibility_key, default_visibility)).lower() == "true"
-            )
+            is_enabled = config_bool(self.current_values, visibility_key, default_visibility)
             if is_enabled:
                 default_shortcut = ""
                 shortcut_meta = (
@@ -641,6 +638,4 @@ class DynamicSettingsPage(QWidget):
             self._validate_mode_shortcuts()
 
         # Notify the parent window (LotusSettingsWindow) if it exists
-        main_win = self.window()
-        if hasattr(main_win, "on_changed"):
-            main_win.on_changed()
+        notify_parent_changed(self)

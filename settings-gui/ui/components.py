@@ -201,6 +201,14 @@ def pretty_format_hotkey_parts(hotkey_str):
     return pretty_parts
 
 
+def clear_layout(layout) -> None:
+    """Removes and deletes every widget owned by the layout."""
+    while layout.count():
+        item = layout.takeAt(0)
+        if item.widget():
+            item.widget().deleteLater()
+
+
 class KeyCap(QLabel):
     """A label styled as a keyboard keycap."""
 
@@ -309,10 +317,7 @@ class HotkeyCaptureWidget(QPushButton):
         self._update_display()
 
     def _clear_layout(self):
-        while self.main_layout.count():
-            item = self.main_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.main_layout)
 
     def _update_display(self):
         self._clear_layout()

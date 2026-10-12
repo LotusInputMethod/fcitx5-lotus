@@ -57,6 +57,31 @@ extern std::atomic<int>                           mouse_socket_fd;   ///< Mouse 
 std::string LOTUS_EXPORT buildSocketPath(std::string_view base_path_suffix);
 
 /**
+ * @brief Creates a non-blocking abstract-namespace UNIX socket.
+ *
+ * Fills @p addr with the abstract socket name and @p len with the address
+ * length. The caller keeps ownership of the returned descriptor and is
+ * responsible for connect()/bind() and for closing it on failure.
+ *
+ * @param name Socket name inside the abstract namespace.
+ * @param addr Destination address.
+ * @param len Destination address length.
+ * @return Socket descriptor, or -1 when the socket could not be created.
+ */
+int makeAbstractUnixSocket(std::string_view name, struct sockaddr_un& addr, socklen_t& len);
+
+/**
+ * @brief Closes the uinput client socket and marks the client as disconnected.
+ */
+void closeUinputClient();
+
+/**
+ * @brief Returns the fcitx5 configuration directory of the current user.
+ * @return Path of the fcitx5 configuration directory.
+ */
+std::string lotusConfigDir();
+
+/**
  * @brief Gets current time in milliseconds.
  * @return Timestamp in milliseconds.
  */

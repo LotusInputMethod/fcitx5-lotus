@@ -27,6 +27,7 @@
 #include <poll.h>
 #include <pwd.h>
 #include <string>
+#include <string_view>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -156,6 +157,20 @@ int open_restricted(const char* path, int flags, void* user_data);
  * @param user_data Unused user data.
  */
 void close_restricted(int fd, void* user_data);
+
+/**
+ * @brief Authorizes a new client of one of the server sockets.
+ *
+ * Fetches the peer credentials, verifies the peer UID and that the peer
+ * executable is the fcitx5 binary that is allowed to talk to the server.
+ *
+ * @param fd Accepted client socket.
+ * @param expectedUid UID the server was started for.
+ * @param socketLabel Socket name used in the log messages.
+ * @param peerPid Received peer PID, zero when the credentials could not be read.
+ * @return True when the peer is allowed to use the socket.
+ */
+bool authorizePeer(int fd, uid_t expectedUid, std::string_view socketLabel, pid_t& peerPid);
 
 /**
  * @brief libinput interface callbacks.

@@ -15,7 +15,7 @@
 
 namespace fcitx {
 
-    static std::string trim(const std::string& s) {
+    std::string trim(const std::string& s) {
         const auto begin = s.find_first_not_of(" \t\r");
         if (begin == std::string::npos)
             return "";
@@ -23,7 +23,7 @@ namespace fcitx {
         return s.substr(begin, end - begin + 1);
     }
 
-    static std::string joinPath(const std::string& dir, const std::string& name) {
+    std::string joinPath(const std::string& dir, const std::string& name) {
         if (dir.empty())
             return name;
         if (dir.back() == '/')
@@ -31,7 +31,7 @@ namespace fcitx {
         return dir + "/" + name;
     }
 
-    static std::vector<std::string> splitPathList(const std::string& list) {
+    std::vector<std::string> splitPathList(const std::string& list) {
         std::vector<std::string> result;
         std::stringstream        ss(list);
         std::string              item;
@@ -42,13 +42,12 @@ namespace fcitx {
         return result;
     }
 
-    static std::string envOr(const std::string& name, const std::string& fallback) {
+    std::string envOr(const std::string& name, const std::string& fallback) {
         std::string value = getEnv(name);
         return !value.empty() ? value : fallback;
     }
 
-    // Reads "key=value" from "[group]" of a KConfig-style INI file.
-    static std::optional<std::string> readIniValue(const std::string& path, const std::string& group, const std::string& key) {
+    std::optional<std::string> readIniValue(const std::string& path, const std::string& group, const std::string& key) {
         std::ifstream file(path);
         if (!file.is_open())
             return std::nullopt;
@@ -74,8 +73,7 @@ namespace fcitx {
         return std::nullopt;
     }
 
-    // KConfig cascade: the user file wins over system files.
-    static std::optional<std::string> readConfigValue(const PlasmaThemeSearchPaths& paths, const std::string& fileName, const std::string& group, const std::string& key) {
+    std::optional<std::string> readConfigValue(const PlasmaThemeSearchPaths& paths, const std::string& fileName, const std::string& group, const std::string& key) {
         if (auto value = readIniValue(joinPath(paths.configHome, fileName), group, key))
             return value;
         for (const auto& dir : paths.configDirs) {
@@ -85,7 +83,7 @@ namespace fcitx {
         return std::nullopt;
     }
 
-    static std::vector<std::string> dataSearchDirs(const PlasmaThemeSearchPaths& paths) {
+    std::vector<std::string> dataSearchDirs(const PlasmaThemeSearchPaths& paths) {
         std::vector<std::string> dirs;
         if (!paths.dataHome.empty())
             dirs.push_back(paths.dataHome);
@@ -93,8 +91,7 @@ namespace fcitx {
         return dirs;
     }
 
-    // Parses "r,g,b" (an optional fourth alpha component is ignored).
-    static std::optional<std::array<int, 3>> parseRgb(const std::string& value) {
+    std::optional<std::array<int, 3>> parseRgb(const std::string& value) {
         std::array<int, 3> rgb{};
         std::stringstream  ss(value);
         std::string        part;
@@ -115,8 +112,7 @@ namespace fcitx {
         return rgb;
     }
 
-    // Same rule as xdg-desktop-portal-kde: qGray(background) < 192 is dark.
-    static std::optional<bool> isDarkBackground(const std::optional<std::string>& value) {
+    std::optional<bool> isDarkBackground(const std::optional<std::string>& value) {
         if (!value)
             return std::nullopt;
         const auto rgb = parseRgb(*value);
@@ -127,7 +123,7 @@ namespace fcitx {
         return gray < 192;
     }
 
-    static std::optional<bool> isDarkSystemScheme(const PlasmaThemeSearchPaths& paths) {
+    std::optional<bool> isDarkSystemScheme(const PlasmaThemeSearchPaths& paths) {
         if (auto dark = isDarkBackground(readConfigValue(paths, "kdeglobals", "Colors:Window", "BackgroundNormal")))
             return dark;
 

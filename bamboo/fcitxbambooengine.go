@@ -19,7 +19,7 @@ import (
 type FcitxBambooEngine struct {
 	preeditor               bamboo.IEngine
 	macroTable              *MacroTable
-	dictionary              map[string]bool
+	dictionary              *dictionary
 	autoNonVnRestore        bool
 	ddFreeStyle             bool
 	macroEnabled            bool
@@ -180,6 +180,14 @@ func (e *FcitxBambooEngine) shouldFallbackToEnglish(checkVnRune bool) bool {
 	if checkVnRune && !bamboo.HasAnyVietnameseRune(vnSeq) {
 		return false
 	}
+	// A dictionary word (or the beginning of one) must not be restored to the
+	// raw keystrokes while it is still being typed. A sequence that is not a
+	// dictionary prefix still follows the Vietnamese rules below, and an
+	// incomplete word is still rejected at the word break by
+	// mustFallbackToEnglish.
+	if e.spellCheckWithDicts && e.dictionary.hasWordOrPrefix(vnSeq) {
+		return false
+	}
 	return !e.preeditor.IsValid(false)
 }
 
@@ -257,7 +265,7 @@ func (e *FcitxBambooEngine) mustFallbackToEnglish() bool {
 		return false
 	}
 	if e.spellCheckWithDicts {
-		return !e.dictionary[vnSeq]
+		return !e.dictionary.hasWord(vnSeq)
 	}
 	return !e.preeditor.IsValid(true)
 }

@@ -28,6 +28,7 @@ from qtpy.QtWidgets import (
 )
 
 from ui.components import ScrollContent
+from ui.helpers import local_dict_path
 from ui.pages.dynamic_settings import CardWidget
 
 
@@ -112,10 +113,6 @@ class BackupPage(QWidget):
         scroll.setWidget(content_widget)
         root_layout.addWidget(scroll)
 
-    def _get_local_dict_path(self) -> str:
-        xdg_data_home = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
-        return os.path.join(xdg_data_home, "fcitx5/lotus/vietnamese.cm.dict")
-
     def do_export(self):
         """Creates a JSON backup of selected components."""
         selected = {k: cb.isChecked() for k, cb in self.checkboxes.items()}
@@ -159,7 +156,7 @@ class BackupPage(QWidget):
                 backup["rules"] = rules
 
             if selected["dictionary"]:
-                dict_path = self._get_local_dict_path()
+                dict_path = local_dict_path()
                 if os.path.exists(dict_path):
                     with open(dict_path, "r", encoding="utf-8") as f:
                         backup["dictionary"] = f.read()
@@ -269,7 +266,7 @@ class BackupPage(QWidget):
 
             if "dictionary" in selected_keys and "dictionary" in backup:
                 try:
-                    dict_path = self._get_local_dict_path()
+                    dict_path = local_dict_path()
                     os.makedirs(os.path.dirname(dict_path), exist_ok=True)
                     with open(dict_path, "w", encoding="utf-8") as f:
                         f.write(backup["dictionary"])

@@ -27,6 +27,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
 )
 
+from ui.helpers import bool_to_str, config_bool, local_dict_path
 from ui.pages.base_editor import BaseEditorPage
 
 try:
@@ -51,10 +52,6 @@ class DictEditorPage(BaseEditorPage):
         self._is_loaded = False
         self._load_failed = False
         self._setup_ui()
-
-    def _get_local_dict_path(self) -> str:
-        xdg_data_home = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
-        return os.path.join(xdg_data_home, "fcitx5/lotus/vietnamese.cm.dict")
 
     def _get_global_dict_path(self) -> str:
         # Common locations for fcitx5 pkgdata
@@ -167,12 +164,10 @@ class DictEditorPage(BaseEditorPage):
             config_data = self.dbus.get_config()
             if config_data:
                 values = config_data.get("values", {})
-                self.cb_enable.setChecked(
-                    str(values.get("EnableDictionary", "True")).lower() == "true"
-                )
+                self.cb_enable.setChecked(config_bool(values, "EnableDictionary", "True"))
 
             self.words = []
-            local_path = self._get_local_dict_path()
+            local_path = local_dict_path()
             global_path = self._get_global_dict_path()
             path_to_read = local_path if os.path.exists(local_path) else global_path
 
@@ -260,16 +255,10 @@ class DictEditorPage(BaseEditorPage):
             return False
 
         # Save global dictionary settings via DBus
-        config_data = self.dbus.get_config()
-        if config_data:
-            values = config_data.get("values", {})
-            values["EnableDictionary"] = "True" if self.cb_enable.isChecked() else "False"
-            if not self.dbus.set_config(values):
-                return False
-        elif not self.dbus.iface:
+        if not self.dbus.save_values({"EnableDictionary": bool_to_str(self.cb_enable.isChecked())}):
             return False
 
-        local_path = self._get_local_dict_path()
+        local_path = local_dict_path()
         try:
             target_dir = os.path.dirname(local_path)
             os.makedirs(target_dir, exist_ok=True)

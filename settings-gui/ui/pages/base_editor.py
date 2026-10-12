@@ -10,6 +10,8 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from ui.helpers import notify_parent_changed
+
 
 class BaseEditorPage(QWidget):
     """Base UI for table-based editors."""
@@ -55,10 +57,16 @@ class BaseEditorPage(QWidget):
 
     def _on_item_changed(self):
         """Notifies parent window of change."""
-        main_win = self.window()
-        if hasattr(main_win, "on_changed"):
-            main_win.on_changed()
+        notify_parent_changed(self)
         self.update_button_states()
+
+    def find_row_by_key(self, key: str) -> int | None:
+        """Finds row index for a given key. Returns None if not found."""
+        for r in range(self.table.rowCount()):
+            item = self.table.item(r, 0)
+            if item and item.text() == key:
+                return r
+        return None
 
     def update_button_states(self):
         """Standard button state update logic."""

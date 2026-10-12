@@ -31,6 +31,7 @@ from qtpy.QtWidgets import (
 )
 
 from ui.components import ScrollContent
+from ui.helpers import notify_parent_changed
 from ui.pages.dynamic_settings import CardWidget
 
 # Mode constants as defined in C++ LotusEngine
@@ -541,9 +542,7 @@ class ModeManagerPage(QWidget):
         self._notify_changed()
 
     def _notify_changed(self):
-        main_win = self.window()
-        if hasattr(main_win, "on_changed"):
-            main_win.on_changed()
+        notify_parent_changed(self)
 
     def is_modified(self):
         """Returns True if the current state differs from the initial loaded state."""
@@ -568,15 +567,10 @@ class ModeManagerPage(QWidget):
         try:
             mode_changed = self.combo_global_mode.currentData() != self.original_global_mode
             if mode_changed or self.modified_default_delays:
-                config_data = self.dbus.get_config()
-                if config_data:
-                    latest_values = config_data.get("values", {})
-                    if mode_changed:
-                        latest_values["Mode"] = self.combo_global_mode.currentData()
-                    latest_values.update(self.modified_default_delays)
-                    if not self.dbus.set_config(latest_values):
-                        return False
-                elif not self.dbus.iface:
+                updates = dict(self.modified_default_delays)
+                if mode_changed:
+                    updates["Mode"] = self.combo_global_mode.currentData()
+                if not self.dbus.save_values(updates):
                     return False
 
             data = []

@@ -31,11 +31,11 @@ func macroTableFromHandle(h uintptr) (*MacroTable, bool) {
 	return table, ok
 }
 
-func dictionaryFromHandle(h uintptr) (*map[string]bool, bool) {
+func dictionaryFromHandle(h uintptr) (*dictionary, bool) {
 	if h == 0 {
 		return nil, false
 	}
-	dict, ok := cgo.Handle(h).Value().(*map[string]bool)
+	dict, ok := cgo.Handle(h).Value().(*dictionary)
 	return dict, ok
 }
 

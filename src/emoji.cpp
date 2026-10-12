@@ -6,6 +6,7 @@
  */
 
 #include "emoji.h"
+#include "lotus-utils.h"
 #include <algorithm>
 #include <emoji_public.h>
 #include <fcitx-utils/standardpath.h>
@@ -15,11 +16,7 @@ EmojiLoader::EmojiLoader(fcitx::AddonManager* addonManager) {
     if (addonManager != nullptr) {
         emojiAddon_ = addonManager->addon("emoji", true);
     }
-#if LOTUS_USE_MODERN_FCITX_API
-    historyPath_ = (fcitx::StandardPaths::global().userDirectory(fcitx::StandardPathsType::Config) / "fcitx5" / "conf" / "lotus-emoji-history.conf").string();
-#else
-    historyPath_ = fcitx::StandardPath::global().userDirectory(fcitx::StandardPath::Type::Config) + "/fcitx5/conf/lotus-emoji-history.conf";
-#endif
+    historyPath_ = lotusConfigDir() + "/lotus-emoji-history.conf";
     loadFromFcitx5("en");
     loadHistory();
 }
