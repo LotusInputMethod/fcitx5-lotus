@@ -1007,10 +1007,9 @@ namespace fcitx {
         // already be arriving (e.g. the Delete echo landing during the
         // post-Delete sleep), and clearing the queue here would drop the
         // pending AwaitEcho+Commit so the commit never fires.
-        if (!KeyPacer::instance().isWaiting() && !KeyPacer::instance().hasPendingBarrierFor(this) && current_backspace_count_ >= expected_backspaces_ &&
-            is_deleting_.load()) {
-            LOTUS_WARN("Aborting in-flight replacement: count=" + std::to_string(current_backspace_count_) + " expected=" +
-                       std::to_string(expected_backspaces_) + " pending=" + pending_commit_string_);
+        if (!KeyPacer::instance().isWaiting() && !KeyPacer::instance().hasPendingBarrierFor(this) && current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
+            LOTUS_WARN("Aborting in-flight replacement: count=" + std::to_string(current_backspace_count_) + " expected=" + std::to_string(expected_backspaces_) +
+                       " pending=" + pending_commit_string_);
             is_deleting_.store(false);
             current_backspace_count_ = 0;
             expected_backspaces_     = 0;
