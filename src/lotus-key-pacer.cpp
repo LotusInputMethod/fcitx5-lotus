@@ -10,6 +10,7 @@
 #include "lotus-utils.h"
 
 #include <algorithm>
+#include <type_traits>
 #include <linux/input-event-codes.h>
 #include <fcitx/instance.h>
 #include <fcitx-utils/event.h>
@@ -193,7 +194,15 @@ namespace fcitx {
     }
 
     void KeyPacer::pump() {
-        for (;;) {
+        // PacerItem alternative indexes dispatched by the switch below.
+        // Pinned so reordering the variant breaks loudly instead of silently
+        // misdispatching.
+        static_assert(std::is_same_v<std::variant_alternative_t<0, PacerItem>, KeyMsg>);
+        static_assert(std::is_same_v<std::variant_alternative_t<1, PacerItem>, SleepFor>);
+        static_assert(std::is_same_v<std::variant_alternative_t<2, PacerItem>, AwaitEcho>);
+        static_assert(std::is_same_v<std::variant_alternative_t<3, PacerItem>, Commit>);
+
+        while (true) {
             PacerItem item;
             {
                 std::lock_guard<std::mutex> lock(m_);
@@ -204,81 +213,94 @@ namespace fcitx {
                 item = q_.front();
                 q_.pop_front();
             }
-            if (const auto* sleep = std::get_if<SleepFor>(&item)) {
-                const auto delay = sleep->delay;
-                if (delay.count() == 0 || immediateFlag().load(std::memory_order_acquire))
-                    continue; // burst: no timer for zero delay or test immediate mode
-                const uint64_t waitUs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(delay).count());
-                const uint64_t when   = now(CLOCK_MONOTONIC) + waitUs;
-                // Explicit 1ms accuracy: sd-event applies a huge default slack
-                // when accuracy is 0 (measured 25-226ms late, even out of order),
-                // which would randomly stretch every paced tap.
-                std::lock_guard<std::mutex> lock(m_);
-                timer_ = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, when, 1000, [this](EventSourceTime*, uint64_t) {
-                    {
-                        std::lock_guard<std::mutex> inner(m_);
-                        timer_.reset();
-                    }
-                    pump();
-                    return false;
-                });
-                return;
-            }
-            if (const auto* wait = std::get_if<AwaitEcho>(&item)) {
-                // All sends before this point are already out; echoes arrive
-                // asynchronously. Park here: the echo handler resumes via
-                // notifyEcho once the target sequence is observed.
-                uint32_t seen = 0;
-                {
-                    std::lock_guard<std::mutex> lock(m_);
-                    seen = (barrierOwner_ != nullptr) ? barrierOwner_->echoSequence() : 0;
-                    if (seen < wait->targetSeq && instance_ != nullptr) {
-                        waiting_              = true;
-                        waitTarget_           = wait->targetSeq;
-                        const uint64_t waitUs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(wait->timeout).count());
-                        const uint64_t when   = now(CLOCK_MONOTONIC) + waitUs;
-                        waitTimer_            = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, when, 1000, [this](EventSourceTime*, uint64_t) {
-                            onWaitTimeout();
-                            return false;
-                        });
+            switch (item.index()) {
+                case 0: { // KeyMsg
+                    const KeyMsg key = std::get<0>(item);
+                    if (!kb_.isReady()) {
+                        // Hold the queue instead of dropping steps: start the EIS
+                        // handshake (no-op if already in flight); RESUMED re-pumps via
+                        // the resume callback. Unlocked: the handshake may poll.
+                        {
+                            std::lock_guard<std::mutex> lock(m_);
+                            q_.push_front(key);
+                        }
+                        kb_.ensureConnected();
                         return;
                     }
+                    bool sent = kb_.send(key.code, key.pressed);
+                    if (!sent && kb_.ensureConnected())
+                        sent = kb_.send(key.code, key.pressed);
+                    if (!sent)
+                        LOTUS_WARN("KeyPacer: failed to send key, dropping step");
+                    if (key.code == KEY_LEFTSHIFT) {
+                        std::lock_guard<std::mutex> lock(m_);
+                        shiftDown_ = (key.pressed != 0);
+                    }
+                    break;
                 }
-                continue; // already satisfied (or no owner/loop): don't park
-            }
-            if (const auto* commit = std::get_if<Commit>(&item)) {
-                LotusState* owner = nullptr;
-                {
+                case 1: { // SleepFor
+                    const auto delay = std::get<1>(item).delay;
+                    if (delay.count() == 0 || immediateFlag().load(std::memory_order_acquire))
+                        continue; // burst: no timer for zero delay or test immediate mode
+                    const uint64_t waitUs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(delay).count());
+                    const uint64_t when   = now(CLOCK_MONOTONIC) + waitUs;
+                    // Explicit 1ms accuracy: sd-event applies a huge default slack
+                    // when accuracy is 0 (measured 25-226ms late, even out of order),
+                    // which would randomly stretch every paced tap.
                     std::lock_guard<std::mutex> lock(m_);
-                    owner         = barrierOwner_;
-                    barrierOwner_ = nullptr; // single-fire even if it re-pushes
+                    timer_ = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, when, 1000, [this](EventSourceTime*, uint64_t) {
+                        {
+                            std::lock_guard<std::mutex> inner(m_);
+                            timer_.reset();
+                        }
+                        pump();
+                        return false;
+                    });
+                    return;
                 }
-                if (owner != nullptr)
-                    owner->commitFromChain(commit->text);
-                else
-                    LOTUS_WARN("KeyPacer: Commit with no owner, skipping");
-                continue;
-            }
-            const KeyMsg key = std::get<KeyMsg>(item);
-            if (!kb_.isReady()) {
-                // Hold the queue instead of dropping steps: start the EIS
-                // handshake (no-op if already in flight); RESUMED re-pumps via
-                // the resume callback. Unlocked: the handshake may poll.
-                {
-                    std::lock_guard<std::mutex> lock(m_);
-                    q_.push_front(key);
+                case 2: { // AwaitEcho
+                    // All sends before this point are already out; echoes arrive
+                    // asynchronously. Park here: the echo handler resumes via
+                    // notifyEcho once the target sequence is observed.
+                    const uint32_t targetSeq = std::get<2>(item).targetSeq;
+                    const auto     timeout   = std::get<2>(item).timeout;
+                    uint32_t       seen      = 0;
+                    {
+                        std::lock_guard<std::mutex> lock(m_);
+                        seen = (barrierOwner_ != nullptr) ? barrierOwner_->echoSequence() : 0;
+                        if (seen < targetSeq && instance_ != nullptr) {
+                            waiting_              = true;
+                            waitTarget_           = targetSeq;
+                            const uint64_t waitUs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(timeout).count());
+                            const uint64_t when   = now(CLOCK_MONOTONIC) + waitUs;
+                            waitTimer_            = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, when, 1000, [this](EventSourceTime*, uint64_t) {
+                                onWaitTimeout();
+                                return false;
+                            });
+                            return;
+                        }
+                    }
+                    continue; // already satisfied (or no owner/loop): don't park
                 }
-                kb_.ensureConnected();
-                return;
-            }
-            bool sent = kb_.send(key.code, key.pressed);
-            if (!sent && kb_.ensureConnected())
-                sent = kb_.send(key.code, key.pressed);
-            if (!sent)
-                LOTUS_WARN("KeyPacer: failed to send key, dropping step");
-            if (key.code == KEY_LEFTSHIFT) {
-                std::lock_guard<std::mutex> lock(m_);
-                shiftDown_ = (key.pressed != 0);
+                case 3: { // Commit
+                    LotusState* owner = nullptr;
+                    {
+                        std::lock_guard<std::mutex> lock(m_);
+                        owner         = barrierOwner_;
+                        barrierOwner_ = nullptr; // single-fire even if it re-pushes
+                    }
+                    if (owner != nullptr)
+                        owner->commitFromChain(std::get<3>(item).text);
+                    else
+                        LOTUS_WARN("KeyPacer: Commit with no owner, skipping");
+                    continue;
+                }
+                default: {
+                    // Unreachable unless the variant is valueless by exception:
+                    // drop the item instead of stalling the pump.
+                    LOTUS_WARN("KeyPacer: unknown queue item, dropping");
+                    break;
+                }
             }
         }
     }
