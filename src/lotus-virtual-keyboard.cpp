@@ -71,17 +71,17 @@ namespace fcitx {
     }
 
     void VirtualKeyboard::init(EventLoop* loop) {
-        std::lock_guard<std::mutex> lock(m_);
+        std::scoped_lock lock(m_);
         loop_ = loop;
     }
 
     void VirtualKeyboard::setResumeCallback(std::function<void()> callback) {
-        std::lock_guard<std::mutex> lock(m_);
+        std::scoped_lock lock(m_);
         resumeCallback_ = std::move(callback);
     }
 
     void VirtualKeyboard::setSocketPath(std::string path) {
-        std::lock_guard<std::mutex> lock(m_);
+        std::scoped_lock lock(m_);
         if (path_ != path) {
             path_ = std::move(path);
             teardownEiLocked();
@@ -89,7 +89,7 @@ namespace fcitx {
     }
 
     bool VirtualKeyboard::ensureConnected() {
-        std::lock_guard<std::mutex> lock(m_);
+        std::scoped_lock lock(m_);
         if (ready_)
             return true;
         if (ei_ != nullptr)
@@ -145,7 +145,7 @@ namespace fcitx {
     }
 
     bool VirtualKeyboard::send(uint16_t code, uint8_t pressed) {
-        std::lock_guard<std::mutex> lock(m_);
+        std::scoped_lock lock(m_);
         if (!ready_ || kbd_ == nullptr || ei_ == nullptr)
             return false;
         ei_device_keyboard_key(kbd_, code, pressed != 0);
@@ -154,19 +154,19 @@ namespace fcitx {
     }
 
     bool VirtualKeyboard::isReady() const {
-        std::lock_guard<std::mutex> lock(m_);
+        std::scoped_lock lock(m_);
         return ready_;
     }
 
     void VirtualKeyboard::close() {
-        std::lock_guard<std::mutex> lock(m_);
+        std::scoped_lock lock(m_);
         teardownEiLocked();
     }
 
     void VirtualKeyboard::onEiReadable() {
         std::function<void()> resume;
         {
-            std::lock_guard<std::mutex> lock(m_);
+            std::scoped_lock lock(m_);
             if (ei_ == nullptr)
                 return;
             ei_dispatch(ei_);

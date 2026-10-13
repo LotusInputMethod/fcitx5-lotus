@@ -201,7 +201,46 @@ namespace fcitx {
         void onWaitTimeout();
         // resetLocked() requires m_ held. Shared by clear()/stop() so teardown
         // also releases Shift instead of leaving it stuck down.
-        void                             resetLocked();
+        void resetLocked();
+
+        /**
+     * @brief Outcome of one pump step: Continue keeps draining the queue,
+     * Parked means a timer or echo wait now owns the next step.
+     */
+        enum class Step {
+            Continue,
+            Parked
+        };
+
+        // One handler per PacerItem alternative; each returns Parked when a
+        // timer or echo wait now owns the next move.
+
+        /**
+     * @brief Sends one key tap, retrying once after a reconnect. Parks the
+     * step back at the queue head while the EIS device is not ready.
+     */
+        [[nodiscard]] Step sendKey(const KeyMsg& key);
+
+        /**
+     * @brief Arms the next pump after a sleep; zero sleeps burst instead.
+     */
+        [[nodiscard]] Step sleepStep(std::chrono::milliseconds delay);
+
+        /**
+     * @brief Parks on an echo barrier until notifyEcho() or the fail-open
+     * timeout resumes the pump.
+     */
+        [[nodiscard]] Step awaitStep(const AwaitEcho& await);
+
+        /**
+     * @brief Fires the chain commit once and consumes the barrier owner.
+     */
+        void commitStep(const Commit& commit);
+
+        /**
+     * @brief Exits a parked echo wait. Caller holds m_.
+     */
+        void                             clearWaitLocked();
 
         static std::atomic<bool>&        immediateFlag();
 
