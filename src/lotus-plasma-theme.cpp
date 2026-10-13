@@ -98,7 +98,7 @@ namespace fcitx {
         size_t             count = 0;
         while (std::getline(ss, part, ',')) {
             part = trim(part);
-            if (part.empty() || part.size() > 3 || !std::all_of(part.begin(), part.end(), [](char c) { return c >= '0' && c <= '9'; }))
+            if (part.empty() || part.size() > 3 || !std::ranges::all_of(part, [](char c) { return c >= '0' && c <= '9'; }))
                 return std::nullopt;
             const int component = std::stoi(part);
             if (component > 255)
@@ -151,7 +151,7 @@ namespace fcitx {
         // Plasma's session startup puts kdedefaults first in XDG_CONFIG_DIRS;
         // add it when fcitx5 was started with a different environment.
         const std::string kdeDefaults = joinPath(paths.configHome, "kdedefaults");
-        if (std::find(paths.configDirs.begin(), paths.configDirs.end(), kdeDefaults) == paths.configDirs.end())
+        if (std::ranges::find(paths.configDirs, kdeDefaults) == paths.configDirs.end())
             paths.configDirs.insert(paths.configDirs.begin(), kdeDefaults);
 
         return paths;
@@ -159,7 +159,7 @@ namespace fcitx {
 
     bool isKdePlasmaSession(const std::string& xdgCurrentDesktop) {
         const auto desktops = splitPathList(xdgCurrentDesktop);
-        return std::find(desktops.begin(), desktops.end(), "KDE") != desktops.end();
+        return std::ranges::find(desktops, "KDE") != desktops.end();
     }
 
     std::optional<bool> isPlasmaPanelDark(const PlasmaThemeSearchPaths& paths) {

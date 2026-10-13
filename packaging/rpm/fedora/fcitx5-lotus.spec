@@ -17,7 +17,6 @@ BuildRequires:  pkgconfig(libei-1.0)
 BuildRequires:  pkgconfig(libeis-1.0)
 BuildRequires:  pkgconfig(libevdev)
 
-BuildRequires:  golang
 BuildRequires:  python3-devel
 
 %{?systemd_ordering}

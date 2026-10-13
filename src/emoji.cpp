@@ -40,7 +40,7 @@ void EmojiLoader::loadFromFcitx5(const std::string& language) {
 
 void EmojiLoader::recordHistory(const EmojiEntry& entry) {
     // Remove if already exists to move to top
-    historyList.erase(std::remove_if(historyList.begin(), historyList.end(), [&](const auto& e) { return e.output == entry.output; }), historyList.end());
+    historyList.erase(std::ranges::remove_if(historyList, [&](const auto& e) { return e.output == entry.output; }).begin(), historyList.end());
 
     historyList.insert(historyList.begin(), entry);
 
@@ -131,11 +131,11 @@ std::vector<EmojiEntry> EmojiLoader::search(const std::string& prefix) {
 
             score -= (lastMatchIndex - firstMatchIndex);
 
-            results.push_back({entry, score});
+            results.push_back({.entry = entry, .score = score});
         }
     }
 
-    std::sort(results.begin(), results.end(), [](const auto& a, const auto& b) {
+    std::ranges::sort(results, [](const auto& a, const auto& b) {
         if (a.score != b.score)
             return a.score > b.score;
         return a.entry.trigger.size() < b.entry.trigger.size();

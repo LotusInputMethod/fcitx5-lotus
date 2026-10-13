@@ -1,116 +1,66 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "bamboo-core.h"
+//
+// Regression #370: a macro whose key is made of digits only used to lose the letter case of its
+// value when auto-capitalization is enabled. Driven through the C++ engine (the Go C ABI is gone).
+#include "key_processor.h"
 
-#include <array>
-#include <cerrno>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
+#include "input_method.h"
+#include "macro_table.h"
+#include "utf8.h"
+
+#include <cstdint>
+#include <cstdio>
 #include <memory>
 #include <string>
 
-#include <unistd.h>
-
 namespace {
 
-    void reportFailure(const std::string& step, const std::string& expected, const std::string& actual, const std::string& meaning) {
-        std::cerr << "Step: " << step << '\n';
-        std::cerr << "Expected: " << expected << '\n';
-        std::cerr << "Actual: " << actual << '\n';
-        std::cerr << "Meaning: " << meaning << '\n';
-    }
+    using lotus::KeyProcessor;
+    using lotus::MacroTable;
+    using lotus::Options;
 
-    class Handle {
-      public:
-        explicit Handle(uintptr_t value = 0) : value_(value) {}
-        ~Handle() {
-            if (value_ != 0)
-                DeleteObject(value_);
-        }
-
-        Handle(const Handle&)                       = delete;
-        Handle& operator=(const Handle&)            = delete;
-        Handle(Handle&&)                            = delete;
-        Handle&                 operator=(Handle&&) = delete;
-
-        [[nodiscard]] uintptr_t get() const {
-            return value_;
-        }
-
-        explicit operator bool() const {
-            return value_ != 0;
-        }
-
-      private:
-        uintptr_t value_;
-    };
-
-    bool processKey(uintptr_t engine, uint32_t key, const char* name) {
-        if (EngineProcessKeyEvent(engine, key, 0) == 0U) {
-            reportFailure("process key " + std::string(name), "key event accepted", "key event rejected", "the production Bamboo engine did not retain the numeric macro trigger");
-            return false;
-        }
-        return true;
+    /** @brief Builds a processor with the option set the regression was reported with. */
+    KeyProcessor newProcessor(const std::shared_ptr<const MacroTable>& macroTable) {
+        KeyProcessor processor(lotus::cachedInputMethod("Telex"), true);
+        Options      options;
+        options.autoNonVnRestore = true;
+        options.ddFreeStyle      = true;
+        options.macroEnabled     = true;
+        // Keep auto-capitalization enabled: regression #370 altered the expansion's
+        // original letter case when the macro key consisted solely of digits.
+        options.autoCapitalizeMacro = true;
+        options.spellCheckWithDicts = true;
+        options.outputCharset       = "Unicode";
+        options.modernStyle         = false;
+        options.freeMarking         = false;
+        options.w2u                 = lotus::W2uMode::Disabled;
+        options.bracketTransform    = lotus::BracketTransformMode::Disabled;
+        options.timeFormat          = "%H:%M";
+        options.dateFormat          = "%d/%m/%Y";
+        processor.setOptions(options);
+        processor.setMacroTable(macroTable);
+        return processor;
     }
 
 } // namespace
 
-int main() {
-    std::string dictionaryPath = "/tmp/fcitx5-lotus-numeric-macro-XXXXXX";
-    const int   dictionaryFd   = mkstemp(dictionaryPath.data());
-    if (dictionaryFd < 0) {
-        reportFailure("create empty temporary dictionary", "mkstemp succeeds", std::strerror(errno), "the test cannot construct a production dictionary handle");
-        return 1;
+int run_numeric_macro_case() {
+    auto macroTable = std::make_shared<MacroTable>();
+    macroTable->set("123", "Mixed Case");
+
+    KeyProcessor processor = newProcessor(macroTable);
+
+    // Tab terminates the numeric key sequence and triggers macro expansion.
+    bool accepted = true;
+    for (const uint32_t key : {static_cast<uint32_t>('1'), static_cast<uint32_t>('2'), static_cast<uint32_t>('3'), 0xFF09U}) {
+        accepted = processor.processKey(key, {}) && accepted;
     }
 
-    Handle dictionary(NewDictionary(static_cast<uintptr_t>(dictionaryFd)));
-    unlink(dictionaryPath.c_str());
-    if (!dictionary) {
-        reportFailure("create dictionary handle", "non-zero handle", "zero handle", "NewDictionary rejected the empty temporary dictionary");
+    const std::string actual = lotus::utf8::encode(processor.takeCommit());
+    if (!accepted || actual != "Mixed Case") {
+        std::printf("FAIL numeric macro: accepted=%d expected [Mixed Case] actual [%s]\n", accepted ? 1 : 0, actual.c_str());
         return 1;
     }
-
-    std::string          key   = "123";
-    std::string          value = "Mixed Case";
-    std::array<char*, 3> macroDefinition{key.data(), value.data(), nullptr};
-    Handle               macroTable(NewMacroTable(macroDefinition.data()));
-    if (!macroTable) {
-        reportFailure("create macro table handle", "non-zero handle", "zero handle", "NewMacroTable rejected the numeric macro definition");
-        return 1;
-    }
-
-    Handle engine(NewEngine("Telex", dictionary.get(), macroTable.get()));
-    if (!engine) {
-        reportFailure("create Telex engine handle", "non-zero handle", "zero handle", "NewEngine rejected valid production dependency handles");
-        return 1;
-    }
-
-    FcitxBambooEngineOption option{};
-    option.autoNonVnRestore = true;
-    option.ddFreeStyle      = true;
-    option.macroEnabled     = true;
-    // Keep auto-capitalization enabled: regression #370 altered the expansion's
-    // original letter case when the macro key consisted solely of digits.
-    option.autoCapitalizeMacro = true;
-    option.spellCheckWithDicts = true;
-    option.outputCharset       = "Unicode";
-    option.modernStyle         = false;
-    option.freeMarking         = false;
-    option.w2u                 = 0;
-    option.bracketTransform    = 0;
-    option.timeFormat          = "%H:%M";
-    option.dateFormat          = "%d/%m/%Y";
-    EngineSetOption(engine.get(), &option);
-
-    // Tab terminates the numeric key sequence and triggers macro expansion in Bamboo core.
-    if (!processKey(engine.get(), '1', "1") || !processKey(engine.get(), '2', "2") || !processKey(engine.get(), '3', "3") || !processKey(engine.get(), 0xff09, "Tab"))
-        return 1;
-
-    std::unique_ptr<char, decltype(&std::free)> commit(EnginePullCommit(engine.get()), &std::free);
-    const std::string                           actual = commit ? commit.get() : "<null>";
-    if (actual != "Mixed Case") {
-        reportFailure("verify numeric macro case preservation", "Mixed Case", actual, "auto-capitalization must not change a numeric-only macro expansion's mixed case");
-        return 1;
-    }
+    std::printf("numeric macro case preservation: all checks passed\n");
     return 0;
 }

@@ -19,6 +19,8 @@
 #include <fcitx-config/configuration.h>
 #include <fcitx-config/enum.h>
 #include <fcitx-utils/i18n.h>
+
+#include "types.h"
 #include <fcitx-utils/stringutils.h>
 
 namespace fcitx {
@@ -47,25 +49,16 @@ namespace fcitx {
     LotusMode intToMode(int mode);
 
     /**
-     * @brief W2U mode for w to ư conversion.
+     * @brief W2U mode for w to ư conversion, shared with the engine (lotus::W2uMode).
      */
-    enum class W2UMode : std::uint8_t {
-        Disabled   = 0,
-        NonStart   = 1,
-        Everywhere = 2,
-    };
-
-    FCITX_CONFIG_ENUM_NAME_WITH_I18N(W2UMode, N_("Disabled"), N_("Non-Start"), N_("Everywhere"));
+    using lotus::W2uMode;
+    FCITX_CONFIG_ENUM_NAME_WITH_I18N(W2uMode, N_("Disabled"), N_("Non-Start"), N_("Everywhere"));
 
     /**
-     * @brief Bracket transform mode for [ -> ơ, ] -> ư conversion.
+     * @brief Bracket transform mode for [ -> ơ, ] -> ư conversion, shared with the engine
+     *        (lotus::BracketTransformMode).
      */
-    enum class BracketTransformMode : std::uint8_t {
-        Disabled   = 0,
-        NonStart   = 1,
-        Everywhere = 2,
-    };
-
+    using lotus::BracketTransformMode;
     FCITX_CONFIG_ENUM_NAME_WITH_I18N(BracketTransformMode, N_("Disabled"), N_("Non-Start"), N_("Everywhere"));
 
     /**
@@ -183,7 +176,7 @@ namespace fcitx {
             if (list.empty()) {
                 return true;
             }
-            return std::find(list.begin(), list.end(), name) != list.end();
+            return std::ranges::find(list, name) != list.end();
         }
 
         /**
@@ -238,7 +231,7 @@ namespace fcitx {
             this, "ModeMenuKey", _("Mode Menu Hotkey"), {Key("grave")}, KeyListConstrain({KeyConstrainFlag::AllowModifierLess, KeyConstrainFlag::AllowModifierOnly})};
         KeyListOption cycleModeKey{this, "CycleModeKey", _("Cycle Mode Hotkey"), {}, KeyListConstrain({KeyConstrainFlag::AllowModifierLess, KeyConstrainFlag::AllowModifierOnly})};
         SubConfigOption                                                                appRules{this, "AppRules", _("App Rules"), "fcitx://config/addon/lotus/app_rules"};
-        OptionWithAnnotation<W2UMode, W2UModeI18NAnnotation>                           w2u{this, "W2U", _("Type w to Produce ư"), W2UMode::NonStart};
+        OptionWithAnnotation<W2uMode, W2uModeI18NAnnotation>                           w2u{this, "W2U", _("Type w to Produce ư"), W2uMode::NonStart};
         OptionWithAnnotation<BracketTransformMode, BracketTransformModeI18NAnnotation> bracketTransform{this, "BracketTransform", _("Type [ -> ơ, ] -> ư, { -> Ơ, } -> Ư"),
                                                                                                         BracketTransformMode::Disabled};
 

@@ -63,10 +63,18 @@ LibinputContext::LibinputContext(const struct libinput_interface* interface) : u
 }
 
 LibinputContext::~LibinputContext() {
-    if (li_ != nullptr)
+    reset();
+}
+
+void LibinputContext::reset() {
+    if (li_ != nullptr) {
         libinput_unref(li_);
-    if (udev_ != nullptr)
+        li_ = nullptr;
+    }
+    if (udev_ != nullptr) {
         udev_unref(udev_);
+        udev_ = nullptr;
+    }
 }
 
 void signal_handler(int sig) {
@@ -199,7 +207,7 @@ int main(int argc, char* argv[]) {
     LotusLogger::instance().info("Target user: " + target_user);
 
     uid_t expected_uid = get_uid_for_user(target_user);
-    if (expected_uid == static_cast<uid_t>(-1)) {
+    if (expected_uid == static_cast<uid_t>(-1)) { // NOLINT(modernize-use-integer-sign-comparison)
         LotusLogger::instance().error("Failed to find UID for target user: " + target_user);
         return 1;
     }

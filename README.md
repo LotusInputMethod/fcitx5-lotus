@@ -63,14 +63,14 @@ Dự án này là bản fork được tối ưu hóa từ [bộ gõ VMK](https:/
 
 ## Biên dịch từ mã nguồn (Dành cho nhà phát triển)
 
-Nếu bạn muốn tự biên dịch bộ gõ từ mã nguồn để đóng góp hoặc tuỳ chỉnh (chưa hỗ trợ musl vì [CGo](https://github.com/golang/go/issues/13492)):
+Nếu bạn muốn tự biên dịch bộ gõ từ mã nguồn để đóng góp hoặc tuỳ chỉnh:
 
 ### Yêu cầu hệ thống
 
-- **Debian/Ubuntu:** `sudo apt-get install cmake extra-cmake-modules libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev libinput-dev libudev-dev g++ golang hicolor-icon-theme pkg-config fcitx5-modules-dev python3-qtpy python3-dbus acl`
-- **Fedora/RHEL:** `sudo dnf install cmake extra-cmake-modules fcitx5-devel libinput-devel libudev-devel gcc-c++ golang hicolor-icon-theme systemd-devel python3-pyside6 python3-QtPy python3-dbus acl`
-- **openSUSE:** `sudo zypper install cmake kf6-extra-cmake-modules fcitx5-devel libinput-devel systemd-devel gcc-c++ go hicolor-icon-theme systemd-devel python3-pyside6 python3-QtPy python3-dbus-python acl`
-- **Arch:** `sudo pacman -S --needed cmake extra-cmake-modules gcc go git python make pkgconf acl fcitx5 libinput hicolor-icon-theme python-qtpy python-dbus`
+- **Debian/Ubuntu:** `sudo apt-get install cmake extra-cmake-modules libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev libinput-dev libudev-dev g++ hicolor-icon-theme pkg-config fcitx5-modules-dev python3-qtpy python3-dbus acl`
+- **Fedora/RHEL:** `sudo dnf install cmake extra-cmake-modules fcitx5-devel libinput-devel libudev-devel gcc-c++ hicolor-icon-theme systemd-devel python3-pyside6 python3-QtPy python3-dbus acl`
+- **openSUSE:** `sudo zypper install cmake kf6-extra-cmake-modules fcitx5-devel libinput-devel systemd-devel gcc-c++ hicolor-icon-theme systemd-devel python3-pyside6 python3-QtPy python3-dbus-python acl`
+- **Arch:** `sudo pacman -S --needed cmake extra-cmake-modules gcc git python make pkgconf acl fcitx5 libinput hicolor-icon-theme python-qtpy python-dbus`
 
 ### Cài đặt
 
@@ -160,7 +160,13 @@ Dự án này tuân thủ cấu trúc của [all-contributors](https://github.co
 
 Dự án được phân phối dưới giấy phép **GNU General Public License v3 (GPL-3.0-or-later)**. Xem [`LICENSE`](LICENSE) để biết thêm chi tiết.
 
-Các thư viện bên thứ ba (bao gồm các thành phần theo giấy phép MIT) vẫn giữ nguyên bản quyền của các tác giả gốc. Danh sách ghi công đầy đủ có trong mục **About** của ứng dụng.
+Các thư viện bên thứ ba (bao gồm các thành phần theo giấy phép MIT) vẫn giữ nguyên bản quyền của các tác giả gốc. Cụ thể:
+
+- **[bamboo-core](https://github.com/BambooEngine/bamboo-core)** — engine gõ tiếng Việt gốc bằng Go, MIT, © 2018 Luong Thanh Lam. Bản MIT được giữ tại [`lotus/LICENSE.bamboo-core`](lotus/LICENSE.bamboo-core).
+- **[VMK](https://github.com/thanhpy2009/VMK)** — dự án mà addon này fork trực tiếp, GPL-3.0-or-later.
+- **[fcitx5-bamboo](https://github.com/fcitx/fcitx5-bamboo)** — addon fcitx5 mà phần glue được dựa theo, LGPL-2.1.
+
+Phần C++ của engine (`lotus/`) là bản port từ bamboo-core và phát hành dưới GPL-3.0-or-later. Danh sách ghi công đầy đủ có trong [`CREDITS`](CREDITS) và trong mục **About** của ứng dụng.
 
 ---
 

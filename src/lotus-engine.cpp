@@ -7,6 +7,7 @@
  *
  */
 #include "lotus-engine.h"
+#include "lotus-fd-guard.h"
 #include "fcitx-utils/keysym.h"
 #include "lotus-config.h"
 #include "lotus-state.h"
@@ -16,10 +17,13 @@
 #include "lotus-utils.h"
 #include "lotus-plasma-theme.h"
 
-#include "bamboo-core.h" // generated cgo header; only included where the bridge is called
+#include "dictionary.h"
+#include "input_method.h"
+#include "utf8.h"
 
 #include <optional>
 #include <sys/socket.h>
+#include <unistd.h>
 #include <utility>
 
 #include <fcitx-config/iniparser.h>
@@ -31,9 +35,11 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <unordered_set>
 
 #include <fcntl.h>
@@ -114,20 +120,20 @@ namespace fcitx {
 
         auto       resolve = [&config](const ModeNameEntry& nameEntry) {
             if (nameEntry.mode.has_value()) {
-                return ModeOrderEntry{*nameEntry.mode, modeShortcut(config, *nameEntry.mode), modeVisible(config, *nameEntry.mode), false};
+                return ModeOrderEntry{.mode = *nameEntry.mode, .key = modeShortcut(config, *nameEntry.mode), .visible = modeVisible(config, *nameEntry.mode), .isDefault = false};
             }
-            return ModeOrderEntry{config.mode.value(), shortcutKey(*config.shortcutDefault), *config.showModeDefault, true};
+            return ModeOrderEntry{.mode = config.mode.value(), .key = shortcutKey(*config.shortcutDefault), .visible = *config.showModeDefault, .isDefault = true};
         };
 
         std::vector<ModeOrderEntry> entries;
         for (const auto& name : order) {
-            const auto* const it = std::find_if(kModeNames.begin(), kModeNames.end(), [&name](const ModeNameEntry& entry) { return entry.name == name; });
+            const auto* const it = std::ranges::find_if(kModeNames, [&name](const ModeNameEntry& entry) { return entry.name == name; });
             if (it != kModeNames.end()) {
                 entries.push_back(resolve(*it));
             }
         }
         for (const auto& nameEntry : kModeNames) {
-            const bool listed = std::any_of(order.begin(), order.end(), [&nameEntry](const std::string& name) { return nameEntry.name == name; });
+            const bool listed = std::ranges::any_of(order, [&nameEntry](const std::string& name) { return nameEntry.name == name; });
             if (!listed) {
                 entries.push_back(resolve(nameEntry));
             }
@@ -137,20 +143,20 @@ namespace fcitx {
 
     bool isAppModeMenuReservedKey(KeySym sym, const lotusConfig& config) {
         std::array<KeySym, 10> modeShortcuts{};
-        std::transform(kModeNames.begin(), kModeNames.end(), modeShortcuts.begin(), [&config](const ModeNameEntry& nameEntry) {
+        std::ranges::transform(kModeNames, modeShortcuts.begin(), [&config](const ModeNameEntry& nameEntry) {
             if (nameEntry.mode.has_value()) {
                 return modeShortcut(config, *nameEntry.mode);
             }
             return shortcutKey(*config.shortcutDefault);
         });
-        if (std::find(modeShortcuts.begin(), modeShortcuts.end(), sym) != modeShortcuts.end()) {
+        if (std::ranges::find(modeShortcuts, sym) != modeShortcuts.end()) {
             return true;
         }
 
         static const std::array<KeySym, 7> reservedMenuKeys = {
             FcitxKey_Escape, FcitxKey_Tab, FcitxKey_ISO_Left_Tab, FcitxKey_Return, FcitxKey_space, FcitxKey_Up, FcitxKey_Down,
         };
-        return std::find(reservedMenuKeys.begin(), reservedMenuKeys.end(), sym) != reservedMenuKeys.end();
+        return std::ranges::find(reservedMenuKeys, sym) != reservedMenuKeys.end();
     }
 
     KeySym typeKeyForModeMenuHotkey(KeySym hotkeySym, const lotusConfig& config) {
@@ -183,39 +189,36 @@ namespace fcitx {
         // GTK_THEME is honored by lightweight DEs that lack the settings
         // portal; covers XFCE, openbox, etc. with a dark theme.
         if (std::string theme = getEnv("GTK_THEME"); !theme.empty()) {
-            std::transform(theme.begin(), theme.end(), theme.begin(), ::tolower);
+            std::ranges::transform(theme, theme.begin(), ::tolower);
             if (theme.find("dark") != std::string::npos) {
                 cachedValue = true;
                 return cachedValue;
             }
         }
 
-        FILE* pipe = popen("dbus-send --session --dest=org.freedesktop.portal.Desktop --print-reply /org/freedesktop/portal/desktop org.freedesktop.portal.Settings.ReadOne "
-                           "string:'org.freedesktop.appearance' string:'color-scheme' 2>/dev/null",
-                           "r");
-        if (pipe != nullptr) {
+        const auto openPipe = [](const char* command) { return std::unique_ptr<FILE, int (*)(FILE*)>(popen(command, "r"), pclose); };
+
+        auto pipe = openPipe("dbus-send --session --dest=org.freedesktop.portal.Desktop --print-reply /org/freedesktop/portal/desktop org.freedesktop.portal.Settings.ReadOne "
+                             "string:'org.freedesktop.appearance' string:'color-scheme' 2>/dev/null");
+        if (pipe) {
             std::array<char, 256> buffer{};
-            while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+            while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
                 uint32_t value = 0;
                 // The sscanf return value is checked and the value is only compared against 1.
                 if (sscanf(buffer.data(), "%*[^v]variant uint32 %u", &value) == 1) { //NOLINT(bugprone-unchecked-string-to-number-conversion)
-                    pclose(pipe);
                     cachedValue = value == 1;
                     return cachedValue;
                 }
             }
-            pclose(pipe);
         }
 
-        pipe = popen("gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null", "r");
-        if (pipe != nullptr) {
+        pipe = openPipe("gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null");
+        if (pipe) {
             std::array<char, 256> buffer{};
-            if (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-                pclose(pipe);
+            if (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
                 cachedValue = strstr(buffer.data(), "prefer-dark") != nullptr;
                 return cachedValue;
             }
-            pclose(pipe);
         }
 
         // GTK settings file — covers DEs where the dark preference is stored
@@ -237,39 +240,21 @@ namespace fcitx {
         return cachedValue;
     }
 
-    uintptr_t newMacroTable(const lotusMacroTable& macroTable) {
-        const auto&        macros = *macroTable.macros;
-        std::vector<char*> charArray;
-        charArray.reserve((macros.size() * 2) + 1);
+    std::shared_ptr<const lotus::MacroTable> buildMacroTable(const lotusMacroTable& macroTable) {
+        auto        table  = std::make_shared<lotus::MacroTable>();
+        const auto& macros = *macroTable.macros;
         for (const auto& keymap : macros) {
-            // External C API doesn't use const, but doesn't modify data
-            charArray.push_back(const_cast<char*>(keymap.key->data()));   //NOLINT
-            charArray.push_back(const_cast<char*>(keymap.value->data())); //NOLINT
+            table->set(*keymap.key, *keymap.value);
         }
-        charArray.push_back(nullptr);
-        return NewMacroTable(charArray.data());
+        return table;
     }
 
-    std::vector<std::string> convertToStringList(char** list) {
-        std::vector<std::string> result;
-        if (list == nullptr) {
-            return result;
-        }
-        // Go allocates the array and every element with malloc (toCStringArray in bamboo-c.go);
-        // owned here so an allocation failure while building result does not leak them.
-        const std::unique_ptr<char*, decltype(&std::free)> owner(list, &std::free);      //NOLINT
-        for (size_t i = 0; list[i] != nullptr; ++i) {                                    //NOLINT
-            const std::unique_ptr<char, decltype(&std::free)> item(list[i], &std::free); //NOLINT
-            result.emplace_back(item.get());
-        }
-        return result;
+    const std::shared_ptr<const lotus::MacroTable>& LotusEngine::macroTable() const {
+        return macroTable_;
     }
 
-    uintptr_t LotusEngine::macroTable() const {
-        if (config_.inputMethod.value().empty()) {
-            return 0;
-        }
-        return macroTableObject_.handle();
+    const std::shared_ptr<const lotus::Dictionary>& LotusEngine::dictionary() const {
+        return dictionary_;
     }
 
     LotusEngine::LotusEngine(Instance* instance) : instance_(instance), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
@@ -277,11 +262,9 @@ namespace fcitx {
         std::string desktop = getEnv("XDG_CURRENT_DESKTOP");
         isGnome_            = (!desktop.empty()) && desktop.find("GNOME") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
-        Init();
         {
-            auto imNames = convertToStringList(GetInputMethodNames());
-            imNames.emplace_back("Custom");
-            imNames_ = std::move(imNames);
+            imNames_ = lotus::inputMethodNames();
+            imNames_.emplace_back("Custom");
         }
         config_.inputMethod.annotation().setList(imNames_);
 
@@ -294,7 +277,7 @@ namespace fcitx {
         charsetMenu_ = std::make_unique<Menu>();
         charsetAction_->setMenu(charsetMenu_.get());
 
-        auto charsets = convertToStringList(GetCharsetNames());
+        const std::vector<std::string>& charsets = lotus::charsetNames();
         for (const auto& charset : charsets) {
             charsetSubAction_.emplace_back(std::make_unique<SimpleAction>());
             auto* action = charsetSubAction_.back().get();
@@ -352,19 +335,21 @@ namespace fcitx {
         action->setShortText(textLong);
         action->setIcon(iconName);
         action->setCheckable(false);
-        connections_.emplace_back(action->connect<SimpleAction::Activated>([this, &action, &option, textOnOff](InputContext* ic) {
-            option.setValue(!option.value());
+        auto* const actionPtr = action.get();
+        auto* const optionPtr = &option;
+        connections_.emplace_back(action->connect<SimpleAction::Activated>([this, actionPtr, optionPtr, textOnOff](InputContext* ic) {
+            optionPtr->setValue(!optionPtr->value());
             saveConfig();
             refreshOption();
-            updateAction(ic, action, option, textOnOff);
+            updateAction(ic, *actionPtr, *optionPtr, textOnOff);
         }));
         uiManager.registerAction(actionId, action.get());
     }
 
-    void LotusEngine::updateAction(InputContext* ic, std::unique_ptr<SimpleAction>& action, Option<bool>& option, const std::string& textOnOff) {
-        action->setShortText((option.value() ? "✔ " : "✖ ") + textOnOff);
+    void LotusEngine::updateAction(InputContext* ic, SimpleAction& action, Option<bool>& option, const std::string& textOnOff) {
+        action.setShortText((option.value() ? "✔ " : "✖ ") + textOnOff);
         if (ic != nullptr) {
-            action->update(ic);
+            action.update(ic);
         }
     }
 
@@ -372,10 +357,9 @@ namespace fcitx {
         KeyPacer::instance().stop();
         stop_flag_monitor.store(true, std::memory_order_release);
         mouseEventSource_.reset();
-        int fd = mouse_socket_fd.exchange(-1, std::memory_order_acq_rel);
-        if (fd >= 0) {
-            shutdown(fd, SHUT_RDWR);
-            close(fd);
+        FdGuard fd(mouse_socket_fd.exchange(-1, std::memory_order_acq_rel));
+        if (fd.is_valid()) {
+            shutdown(fd.get(), SHUT_RDWR);
         }
         // kb_socket fd is owned by VirtualKeyboard inside KeyPacer now.
         LOTUS_INFO("Engine destroyed.");
@@ -392,13 +376,25 @@ namespace fcitx {
         readAsIni(config_, "conf/lotus.conf");
         readAsIni(customKeymap_, CustomKeymapFile);
         readAsIni(macroTables_, MacroTableFile);
-        macroTableObject_.reset(newMacroTable(macroTables_));
+        macroTable_ = buildMacroTable(macroTables_);
         loadDictionary();
         loadAppRules();
         populateConfig();
     }
 
     void LotusEngine::loadDictionary() {
+        auto dictionary = std::make_shared<lotus::Dictionary>();
+        // Go read the descriptor handed to it; the port reads the same descriptor into the text
+        // Dictionary::loadFromText expects.
+        auto loadFromFd = [&dictionary](int rawFd) {
+            FdGuard                fd(rawFd);
+            std::string            contents;
+            std::array<char, 4096> buffer{};
+            for (ssize_t count = ::read(fd.get(), buffer.data(), buffer.size()); count > 0; count = ::read(fd.get(), buffer.data(), buffer.size())) {
+                contents.append(buffer.data(), static_cast<std::size_t>(count));
+            }
+            dictionary->loadFromText(contents);
+        };
         if (config_.enableDictionary.value()) {
 #if LOTUS_USE_MODERN_FCITX_API
             auto fd = StandardPaths::global().open(StandardPathsType::PkgData, "lotus/vietnamese.cm.dict");
@@ -406,7 +402,7 @@ namespace fcitx {
             auto fd = StandardPath::global().open(StandardPath::Type::PkgData, "lotus/vietnamese.cm.dict", O_RDONLY);
 #endif
             if (fd.isValid()) {
-                dictionary_.reset(NewDictionary(fd.release()));
+                loadFromFd(fd.release());
             }
         } else {
 #if LOTUS_USE_MODERN_FCITX_API
@@ -416,21 +412,22 @@ namespace fcitx {
 #endif
             for (const auto& p : paths) {
 #if LOTUS_USE_MODERN_FCITX_API
-                if (!isStartsWith(p.string(), "/home/")) {
+                if (!p.string().starts_with("/home/")) {
                     auto fd = fcitx::UnixFD(::open(p.c_str(), O_RDONLY));
                     if (fd.isValid()) {
-                        dictionary_.reset(NewDictionary(fd.release()));
+                        loadFromFd(fd.release());
 #else
-                if (!isStartsWith(p, "home/")) {
+                if (!p.starts_with("home/")) {
                     int fd = ::open(p.c_str(), O_RDONLY);
                     if (fd != -1) {
-                        dictionary_.reset(NewDictionary(fd));
+                        loadFromFd(fd);
 #endif
                         break;
                     }
                 }
             }
         }
+        dictionary_ = std::move(dictionary);
     }
 
     const Configuration* LotusEngine::getSubConfig(const std::string& path) const {
@@ -456,11 +453,11 @@ namespace fcitx {
         refreshEngine();
         refreshOption();
         updateCharsetAction(nullptr);
-        updateAction(nullptr, spellCheckAction_, config_.spellCheck, _("Spell Check"));
-        updateAction(nullptr, macroAction_, config_.enableMacro, _("Macro"));
-        updateAction(nullptr, capitalizeMacroAction_, config_.capitalizeMacro, _("Capitalize Macro"));
-        updateAction(nullptr, autoNonVnRestoreAction_, config_.autoNonVnRestore, _("Auto Non-VN Restore"));
-        updateAction(nullptr, enableDictionaryAction_, config_.enableDictionary, _("Custom Dictionary"));
+        updateAction(nullptr, *spellCheckAction_, config_.spellCheck, _("Spell Check"));
+        updateAction(nullptr, *macroAction_, config_.enableMacro, _("Macro"));
+        updateAction(nullptr, *capitalizeMacroAction_, config_.capitalizeMacro, _("Capitalize Macro"));
+        updateAction(nullptr, *autoNonVnRestoreAction_, config_.autoNonVnRestore, _("Auto Non-VN Restore"));
+        updateAction(nullptr, *enableDictionaryAction_, config_.enableDictionary, _("Custom Dictionary"));
     }
 
     void LotusEngine::setSubConfig(const std::string& path, const RawConfig& config) {
@@ -471,21 +468,26 @@ namespace fcitx {
         } else if (path == "lotus-macro") {
             macroTables_.load(config, true);
             safeSaveAsIni(macroTables_, MacroTableFile);
-            macroTableObject_.reset(newMacroTable(macroTables_));
+            macroTable_ = buildMacroTable(macroTables_);
             refreshEngine();
         } else if (path == "app_rules") {
             appRulesTables_.load(config, true);
             {
                 std::scoped_lock lock(appRulesMutex_);
                 for (auto it = appRules_.begin(); it != appRules_.end();) {
-                    if (!isStartsWith(it->first, "ctx_")) {
+                    if (!it->first.starts_with("ctx_")) {
                         it = appRules_.erase(it);
                     } else {
                         ++it;
                     }
                 }
                 for (const auto& rule : *appRulesTables_.rules) {
-                    appRules_[*rule.app] = {intToMode(*rule.mode), *rule.commitInterval, *rule.backspaceInterval, *rule.postDelay};
+                    appRules_[*rule.app] = {
+                        .mode              = intToMode(*rule.mode),
+                        .commitInterval    = *rule.commitInterval,
+                        .backspaceInterval = *rule.backspaceInterval,
+                        .postDelay         = *rule.postDelay,
+                    };
                 }
             }
             saveAppRules();
@@ -661,7 +663,7 @@ namespace fcitx {
                         clearAppRule(currentConfigureApp_);
                     } else {
                         setAppRule(currentConfigureApp_, selectedMode.value());
-                        if (!isStartsWith(currentConfigureApp_, "ctx_")) {
+                        if (!currentConfigureApp_.starts_with("ctx_")) {
                             saveAppRules();
                         }
                     }
@@ -752,7 +754,7 @@ namespace fcitx {
     void LotusEngine::syncRealtextLen(InputContext* ic) {
         const auto&  s       = ic->surroundingText();
         const auto&  text    = s.text();
-        size_t       textLen = fcitx_utf8_strlen(text.c_str());
+        const size_t textLen = lotus::utf8::length(text);
         unsigned int cursor  = s.cursor();
         if (textLen == static_cast<size_t>(cursor))
             realtextLen.store(static_cast<unsigned int>(textLen), std::memory_order_release);
@@ -902,7 +904,7 @@ namespace fcitx {
             std::scoped_lock                                     lock(appRulesMutex_);
             std::unordered_map<std::string, LotusAppRuleSetting> ctxRules;
             for (const auto& [app, setting] : appRules_) {
-                if (isStartsWith(app, "ctx_")) {
+                if (app.starts_with("ctx_")) {
                     ctxRules[app] = setting;
                 }
             }
@@ -937,7 +939,12 @@ namespace fcitx {
                         int commit     = field(1);
                         int backspace  = field(2);
                         int post       = field(3);
-                        tempRules[app] = {intToMode(mode), commit > 0 ? commit : 0, backspace > 0 ? backspace : 0, post > 0 ? post : 0};
+                        tempRules[app] = {
+                            .mode              = intToMode(mode),
+                            .commitInterval    = commit > 0 ? commit : 0,
+                            .backspaceInterval = backspace > 0 ? backspace : 0,
+                            .postDelay         = post > 0 ? post : 0,
+                        };
                     } catch (const std::exception&) { LOTUS_WARN("Invalid mode value for app: " + app); }
                 }
             }
@@ -953,7 +960,7 @@ namespace fcitx {
         std::scoped_lock          lock(appRulesMutex_);
         std::vector<lotusAppRule> rules;
         for (const auto& pair : appRules_) {
-            if (pair.first.find("ctx_") == 0)
+            if (pair.first.starts_with("ctx_"))
                 continue;
             lotusAppRule rule;
             rule.app.setValue(pair.first);
@@ -978,7 +985,7 @@ namespace fcitx {
         file << "# app=mode[,commit_interval_ms[,backspace_interval_ms[,post_delay_ms]]]   0/omitted = use defaults\n";
         std::scoped_lock lock(appRulesMutex_);
         for (const auto& pair : appRules_) {
-            bool currentIsCtx = isStartsWith(pair.first, "ctx_");
+            bool currentIsCtx = pair.first.starts_with("ctx_");
             if (!currentIsCtx) {
                 const int   commit    = pair.second.commitInterval;
                 const int   backspace = pair.second.backspaceInterval;
@@ -1002,7 +1009,7 @@ namespace fcitx {
         if (it != appRules_.end()) {
             return it->second;
         }
-        return {config_.mode.value(), 0, 0, 0};
+        return {.mode = config_.mode.value(), .commitInterval = 0, .backspaceInterval = 0, .postDelay = 0};
     }
 
     LotusMode LotusEngine::getAppRule(const std::string& appName) const {
@@ -1071,7 +1078,7 @@ namespace fcitx {
                         clearAppRule(currentConfigureApp_);
                     } else {
                         setAppRule(currentConfigureApp_, mode);
-                        if (!isStartsWith(currentConfigureApp_, "ctx_")) {
+                        if (!currentConfigureApp_.starts_with("ctx_")) {
                             saveAppRules();
                         }
                     }
@@ -1109,17 +1116,12 @@ namespace fcitx {
                 std::string       keyLabel      = keyUtf8.empty() ? "" : "[" + keyUtf8 + "] ";
                 candidateList->append(std::make_unique<AppModeCandidateWord>(getLabel(entry.mode, keyLabel + modeLabel(entry)), applyMode(entry.mode, isDefaultItem)));
 
-                if (entry.mode == realMode && !isDefaultItem) {
+                const bool selectedByMode    = entry.mode == realMode && !isDefaultItem;
+                const bool selectedByDefault = isDefaultItem && getAppRule(currentConfigureApp_) == defaultMode && !appRules_.contains(currentConfigureApp_);
+                if (selectedByMode || selectedByDefault) {
                     activeSelectionIdx = currentCandidateIdx;
-                } else if (isDefaultItem && getAppRule(currentConfigureApp_) == defaultMode) {
-#if __cplusplus >= 202002L
-                    if (!appRules_.contains(currentConfigureApp_)) {
-#else
-                    if (appRules_.find(currentConfigureApp_) == appRules_.end()) {
-#endif
-                        activeSelectionIdx = currentCandidateIdx;
-                    }
                 }
+
                 currentCandidateIdx++;
             }
         }
@@ -1255,9 +1257,9 @@ namespace fcitx {
             appRules_.erase(appName);
         }
         auto rules = *appRulesTables_.rules;
-        rules.erase(std::remove_if(rules.begin(), rules.end(), [&appName](const auto& rule) { return *rule.app == appName; }), rules.end());
+        rules.erase(std::ranges::remove_if(rules, [&appName](const auto& rule) { return *rule.app == appName; }).begin(), rules.end());
         appRulesTables_.rules.setValue(std::move(rules));
-        if (!isStartsWith(appName, "ctx_")) {
+        if (!appName.starts_with("ctx_")) {
             saveAppRules();
         }
     }
@@ -1269,37 +1271,36 @@ namespace fcitx {
 
         const std::string  mouse_socket_path = buildSocketPath("mouse_socket");
         struct sockaddr_un addr{};
-        socklen_t          len  = 0;
-        int                sock = makeAbstractUnixSocket(mouse_socket_path, addr, len);
-        if (sock < 0) {
+        socklen_t          len = 0;
+        FdGuard            sock(makeAbstractUnixSocket(mouse_socket_path, addr, len));
+        if (!sock.is_valid()) {
             LOTUS_ERROR("Failed to create mouse socket: " + std::string(strerror(errno)));
             return;
         }
 
-        if (connect(sock, reinterpret_cast<struct sockaddr*>(&addr), len) < 0) {
+        if (connect(sock.get(), reinterpret_cast<struct sockaddr*>(&addr), len) < 0) {
             LOTUS_ERROR("Failed to connect to mouse socket: " + std::string(strerror(errno)));
-            close(sock);
             return;
         }
 
         std::string peer_exe_path;
-        if (!authenticateMouseSocketPeer(sock, peer_exe_path)) {
+        if (!authenticateMouseSocketPeer(sock.get(), peer_exe_path)) {
             LOTUS_WARN("Unauthorized connection attempt from: " + peer_exe_path);
-            close(sock);
             return;
         }
 
-        mouse_socket_fd.store(sock, std::memory_order_release);
+        const int sockFd = sock.get();
+        mouse_socket_fd.store(sock.release(), std::memory_order_release);
         LOTUS_INFO("Mouse socket connected and registered to Fcitx EventLoop.");
 
-        mouseEventSource_ = instance_->eventLoop().addIOEvent(sock, IOEventFlag::In, [this, sock](EventSourceIO*, int, IOEventFlags) {
+        mouseEventSource_ = instance_->eventLoop().addIOEvent(sockFd, IOEventFlag::In, [this, sockFd](EventSourceIO*, int, IOEventFlags) {
             std::array<char, 16> buf{};
-            ssize_t              n = recv(sock, buf.data(), buf.size(), 0);
+            ssize_t              n = recv(sockFd, buf.data(), buf.size(), 0);
             if (n <= 0) {
                 LOTUS_ERROR("Mouse socket recv error or disconnected: " + std::string(strerror(errno)));
                 mouseEventSource_.reset();
                 mouse_socket_fd.store(-1, std::memory_order_release);
-                close(sock);
+                close(sockFd);
                 return true;
             }
 

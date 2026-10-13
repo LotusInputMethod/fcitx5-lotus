@@ -1,0 +1,31 @@
+# Credits
+
+## Upstream projects
+
+- **bamboo-core** — <https://github.com/BambooEngine/bamboo-core> — the original Go engine this
+  addon's Vietnamese processing is derived from, Copyright (C) 2018 Luong Thanh Lam
+  <ltlam93@gmail.com>, MIT license. The MIT text is preserved at
+  [`lotus/LICENSE.bamboo-core`](lotus/LICENSE.bamboo-core) so every distribution of the C++ port
+  keeps the license and the attribution, as MIT requires.
+- **VMK** — <https://github.com/thanhpy2009/VMK> — the project this addon was forked from,
+  GPL-3.0-or-later.
+- **fcitx5-bamboo** — <https://github.com/fcitx/fcitx5-bamboo> — the fcitx5 addon whose glue the
+  forked addon layer follows, Copyright (C) 2022-2022 CSSlayer <wengxt@gmail.com>, LGPL-2.1.
+
+## This repository
+
+- The engine was ported to C++17 in `lotus/`, derived from bamboo-core (MIT) as credited above, and
+  is distributed under GPL-3.0-or-later like the addon itself. Every file carries both attributions
+  in its SPDX header.
+- The tables in `lotus/data/` are generated from the same upstream Go sources, so they carry the same
+  attribution.
+- The corpus in `test/golden/` was dumped from the upstream Go engine before the port and is the 1:1
+  reference the C++ port is verified against.
+
+## fcitx5-lotus
+
+Copyright (C) 2022-2022 CSSlayer <wengxt@gmail.com>
+Copyright (C) 2025 Võ Ngô Hoàng Thành <thanhpy2009@gmail.com>
+Copyright (C) 2026 Nguyen Hoàng Ky <nhktmdzhg@gmail.com>
+
+Licensed under GPL-3.0-or-later; see `LICENSE`.

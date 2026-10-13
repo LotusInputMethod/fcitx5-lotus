@@ -1,7 +1,0 @@
-# CMake build files
-CMakeFiles/
-Makefile
-cmake_install.cmake
-*.a
-# Generated header file
-bamboo-core.h

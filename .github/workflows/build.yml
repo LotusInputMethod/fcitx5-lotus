@@ -44,7 +44,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          pacman -Syu --noconfirm base-devel clang cmake ninja extra-cmake-modules fmt libuv boost git go libei libinput systemd-libs extra-cmake-modules python
+          pacman -Syu --noconfirm base-devel clang cmake ninja extra-cmake-modules fmt libuv boost git libei libevdev libinput systemd-libs python
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5-lotus"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5"
@@ -73,7 +73,7 @@ jobs:
         if: matrix.compiler == 'gcc'
         uses: github/codeql-action/init@v4.38.3
         with:
-          languages: cpp,go
+          languages: cpp
           source-root: fcitx5-lotus
       - name: Build and Install fcitx5-lotus
         uses: fcitx/github-actions@cmake
@@ -91,51 +91,6 @@ jobs:
         uses: github/codeql-action/analyze@v4.38.3
         with:
           checkout_path: fcitx5-lotus
-
-  go-bamboo:
-    name: Go (bamboo)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version: '1.18'
-      - name: Test
-        working-directory: bamboo
-        run: go test -race ./...
-      - name: Vet
-        working-directory: bamboo
-        run: go vet ./...
-      - name: gofmt
-        working-directory: bamboo
-        run: |
-          test -z "$(gofmt -l *_test.go)"
-
-  go-bamboo-core-test:
-    name: Bamboo Core Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version: '1.18'
-      - name: Test engine
-        working-directory: bamboo/bamboo-core
-        run: go test -race ./...
-
-  go-bamboo-core-lint:
-    name: Bamboo Core Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version: '1.18'
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.14
-          working-directory: bamboo/bamboo-core
 
   python-lint:
     name: Python lint

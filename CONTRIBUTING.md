@@ -19,9 +19,8 @@ Cảm ơn bạn quan tâm đến việc đóng góp cho dự án fcitx5-lotus! T
 
 ### Yêu cầu hệ thống
 
-- GCC hoặc Clang với hỗ trợ C++17
+- GCC hoặc Clang với hỗ trợ C++20
 - CMake >= 3.16
-- Go 1.20+ (cho bamboo engine)
 - Fcitx5 development headers
 - Git
 

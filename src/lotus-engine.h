@@ -17,7 +17,8 @@
 
 #include "lotus-config.h"
 #include "emoji.h"
-#include "lotus.h"
+#include "dictionary.h"
+#include "macro_table.h"
 #include <array>
 #include <mutex>
 #include <memory>
@@ -35,7 +36,6 @@
 
 namespace fcitx {
 
-    class CGoObject;
     class LotusState;
 
     /**
@@ -51,15 +51,15 @@ namespace fcitx {
      */
     inline constexpr std::array<ModeNameEntry, 9> kModeNames{
         {
-            {"Smooth", LotusMode::Smooth},
-            {"Minecraft", LotusMode::Minecraft},
-            {"Select", LotusMode::Select},
-            {"SurroundingText", LotusMode::SurroundingText},
-            {"Preedit", LotusMode::Preedit},
-            {"Emoji", LotusMode::Emoji},
-            {"Off", LotusMode::Off},
-            {"SuperSmooth", LotusMode::SuperSmooth},
-            {"Default", std::nullopt},
+            {.name = "Smooth", .mode = LotusMode::Smooth},
+            {.name = "Minecraft", .mode = LotusMode::Minecraft},
+            {.name = "Select", .mode = LotusMode::Select},
+            {.name = "SurroundingText", .mode = LotusMode::SurroundingText},
+            {.name = "Preedit", .mode = LotusMode::Preedit},
+            {.name = "Emoji", .mode = LotusMode::Emoji},
+            {.name = "Off", .mode = LotusMode::Off},
+            {.name = "SuperSmooth", .mode = LotusMode::SuperSmooth},
+            {.name = "Default", .mode = std::nullopt},
         },
     };
 
@@ -127,18 +127,11 @@ namespace fcitx {
     KeySym typeKeyForModeMenuHotkey(KeySym hotkeySym, const lotusConfig& config);
 
     /**
-     * @brief Allocates a Go macro table handle from the macro table configuration.
+     * @brief Builds the macro table of the engine from the macro table configuration.
      * @param macroTable Macro table read from the configuration file.
-     * @return Handle of the Go macro table, or 0 when there is nothing to build.
+     * @return Shared macro table; empty when the configuration has no macro.
      */
-    uintptr_t newMacroTable(const lotusMacroTable& macroTable);
-
-    /**
-     * @brief Copies a NULL-terminated C string array into a string vector.
-     * @param list Array of C strings.
-     * @return The array contents, stopping at the NULL terminator.
-     */
-    std::vector<std::string> convertToStringList(char** list);
+    std::shared_ptr<const lotus::MacroTable> buildMacroTable(const lotusMacroTable& macroTable);
 
     /**
      * @brief Main engine class for Lotus input method.
@@ -280,18 +273,16 @@ namespace fcitx {
         const lotusCustomKeymap& customKeymap() const;
 
         /**
-         * @brief Gets the dictionary handle.
-         * @return CGo handle for the dictionary.
+         * @brief Gets the dictionary shared with every input context.
+         * @return Shared dictionary (null when no dictionary file was loaded).
          */
-        uintptr_t dictionary() const {
-            return dictionary_.handle();
-        }
+        const std::shared_ptr<const lotus::Dictionary>& dictionary() const;
 
         /**
-         * @brief Gets the macro table handle.
-         * @return CGo handle for the macro table.
+         * @brief Gets the macro table shared with every input context.
+         * @return Shared macro table.
          */
-        uintptr_t macroTable() const;
+        const std::shared_ptr<const lotus::MacroTable>& macroTable() const;
 
         /**
          * @brief Gets the emoji loader.
@@ -311,7 +302,7 @@ namespace fcitx {
         lotusCustomKeymap                                    emptyCustomKeymap_;
 
         lotusMacroTable                                      macroTables_;
-        CGoObject                                            macroTableObject_;
+        std::shared_ptr<const lotus::MacroTable>             macroTable_;
         lotusAppRules                                        appRulesTables_;
 
         FactoryFor<LotusState>                               factory_;
@@ -329,7 +320,7 @@ namespace fcitx {
         std::unique_ptr<SimpleAction>                        settingsAction_;
         std::vector<SimpleAction*>                           toggleActions_;
         std::vector<ScopedConnection>                        connections_;
-        CGoObject                                            dictionary_;
+        std::shared_ptr<const lotus::Dictionary>             dictionary_;
         std::unordered_map<std::string, LotusAppRuleSetting> appRules_;
         std::string                                          appRulesPath_;
         bool                                                 isSelectingAppMode_ = false;
@@ -386,7 +377,7 @@ namespace fcitx {
          * @param option The option to toggle
          * @param textOnOff The text to display when on/off
          */
-        static void updateAction(InputContext* ic, std::unique_ptr<SimpleAction>& action, Option<bool>& option, const std::string& textOnOff);
+        static void updateAction(InputContext* ic, SimpleAction& action, Option<bool>& option, const std::string& textOnOff);
 
         /**
          * @brief Updates the charset action UI.

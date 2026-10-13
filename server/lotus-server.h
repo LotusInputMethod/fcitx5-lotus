@@ -79,7 +79,7 @@ class LibinputContext {
 
     LibinputContext& operator=(LibinputContext&& other) noexcept {
         if (this != &other) {
-            this->~LibinputContext();
+            reset();
             udev_       = other.udev_;
             li_         = other.li_;
             other.udev_ = nullptr;
@@ -95,10 +95,15 @@ class LibinputContext {
         return li_;
     }
     [[nodiscard]] int get_fd() const {
-        return libinput_get_fd(li_);
+        return li_ == nullptr ? -1 : libinput_get_fd(li_);
     }
 
   private:
+    /**
+     * @brief Releases the libinput and udev contexts, if they were created.
+     */
+    void             reset();
+
     struct udev*     udev_ = nullptr;
     struct libinput* li_   = nullptr;
 };

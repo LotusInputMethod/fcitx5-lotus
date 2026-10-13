@@ -17,7 +17,6 @@ BuildRequires:  pkgconfig(libevdev)
 BuildRequires:  libinput-devel
 BuildRequires:  systemd-devel
 
-BuildRequires:  go
 BuildRequires:  sysuser-tools
 Requires(pre):  sysuser-shadow >= 3.1
 

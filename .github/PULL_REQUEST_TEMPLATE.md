@@ -24,6 +24,6 @@
 - [ ] Đã chạy `clang-format` (tuân thủ `.clang-format`)
 - [ ] Đã kiểm tra `ruff check` và `ruff format` (cho phần Python `settings-gui`)
 - [ ] Build C++ thành công (`cmake .. && make`)
-- [ ] Test pass (`cd bamboo/ && go test -race ./...`)
+- [ ] Test pass (`cmake --build build && ctest --test-dir build --output-on-failure`)
 - [ ] Đã rebase với nhánh `dev` mới nhất
 - [ ] Các CI checks pass:

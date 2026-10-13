@@ -36,6 +36,7 @@ refresh-contributor
 # Compiled outputs
 *.so
 lotus-version.h
+tools/gen_engine_data.py
 # Logs
 *.log
 __pycache__/

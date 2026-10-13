@@ -8,7 +8,7 @@ override_dh_python3:
 	dh_python3 --shebang=/usr/bin/python3
 
 override_dh_dwz:
-	@echo "Skipping dh_dwz (incompatible with Go/mixed debug sections)"
+	@echo "Skipping dh_dwz (incompatible with mixed debug sections)"
 
 override_dh_auto_configure:
 	dh_auto_configure -- -DLOTUS_BYTECOMPILE_PYTHON=OFF -DBUILD_TESTING=ON

@@ -5,11 +5,11 @@
 
 version: 2
 updates:
-  - package-ecosystem: "github-actions" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: 'github-actions' # See documentation for possible values
+    directory: '/' # Location of package manifests
     schedule:
-      interval: "weekly"
-    target-branch: "dev"
+      interval: 'weekly'
+    target-branch: 'dev'
     # Group github/codeql-action action updates into one PR so every github/codeql-action step
     # (init/analyze) is always bumped to the same version at the same time.
     # Mixed versions make CodeQL fail with:
@@ -17,6 +17,4 @@ updates:
     groups:
       github-actions:
         patterns:
-          - "github/codeql-action"
-    ignore:
-      - dependency-name: "golangci/golangci-lint-action"
+          - 'github/codeql-action'

@@ -14,7 +14,7 @@ bool isAllowedExecutablePath(std::string_view exePath, std::string_view expected
     if (exePath == expectedPath) {
         return true;
     }
-    if (altPrefix.empty() || exePath.size() <= altPrefix.size() || exePath.compare(0, altPrefix.size(), altPrefix) != 0) {
+    if (altPrefix.empty() || exePath.size() <= altPrefix.size() || !exePath.starts_with(altPrefix)) {
         return false;
     }
 

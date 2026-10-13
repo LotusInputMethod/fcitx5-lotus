@@ -6,6 +6,7 @@
  *
  */
 #include "lotus-executable-path.h"
+#include "lotus-fd-guard.h"
 #include "lotus-monitor.h"
 #include "lotus-utils.h"
 
@@ -31,15 +32,14 @@ bool authenticateMouseSocketPeer(int sock, std::string& out_exe_path) {
     std::array<char, 64> proc_path{};
     snprintf(proc_path.data(), proc_path.size(), "/proc/%d/cmdline", cred.pid);
 
-    int fd = open(proc_path.data(), O_RDONLY);
-    if (fd < 0) {
+    FdGuard fd(open(proc_path.data(), O_RDONLY));
+    if (!fd.is_valid()) {
         LOTUS_ERROR("Failed to open cmdline: " + std::string(strerror(errno)));
         return false;
     }
 
     std::array<char, PATH_MAX> exe_path{};
-    ssize_t                    bytes_read = read(fd, exe_path.data(), exe_path.size() - 1);
-    close(fd);
+    ssize_t                    bytes_read = read(fd.get(), exe_path.data(), exe_path.size() - 1);
 
     if (bytes_read <= 0) {
         LOTUS_ERROR("Failed to read cmdline: " + std::string(strerror(errno)));

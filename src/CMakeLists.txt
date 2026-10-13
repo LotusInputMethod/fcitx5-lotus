@@ -15,10 +15,33 @@ target_link_libraries(lotus_core_objects PRIVATE
     Fcitx5::Core
     Fcitx5::Config
     Fcitx5::Module::Emoji
-    Bamboo::Core
+    Lotus::Engine
     Pthread::Pthread
     PkgConfig::LIBEI
 )
+
+# Parse the shared fcitx5 headers once instead of once per TU.
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
+    target_precompile_headers(lotus_core_objects PRIVATE
+        <fcitx/instance.h>
+        <fcitx/addonmanager.h>
+        <fcitx/addonfactory.h>
+        <fcitx/inputmethodengine.h>
+        <fcitx/action.h>
+        <fcitx/inputcontext.h>
+        <fcitx/candidatelist.h>
+        <fcitx/inputpanel.h>
+        <fcitx/text.h>
+        <fcitx/menu.h>
+        <fcitx/userinterface.h>
+        <fcitx/userinterfacemanager.h>
+        <fcitx-config/iniparser.h>
+        <fcitx-utils/log.h>
+        <fcitx-utils/event.h>
+        <fcitx-utils/keysym.h>
+        <fcitx-utils/utf8.h>
+    )
+endif()
 
 add_library(lotus MODULE lotus.cpp
     $<TARGET_OBJECTS:lotus_core_objects>
@@ -26,12 +49,11 @@ add_library(lotus MODULE lotus.cpp
 )
 set_target_properties(lotus PROPERTIES OUTPUT_NAME "lotus")
 set_target_properties(lotus PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_options(lotus PRIVATE "-Wl,-exclude-libs,ALL")
 target_link_libraries(lotus
         Fcitx5::Core
         Fcitx5::Config
   Fcitx5::Module::Emoji
-        Bamboo::Core
+        Lotus::Engine
         Pthread::Pthread
         PkgConfig::LIBEI
 )

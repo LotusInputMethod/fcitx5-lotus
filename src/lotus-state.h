@@ -15,14 +15,15 @@
 #ifndef _FCITX5_LOTUS_STATE_H_
 #define _FCITX5_LOTUS_STATE_H_
 
-#include "lotus.h"
 #include "emoji-entry.h"
+#include "key_processor.h"
 #include "lotus-protocol.h"
 #include "lotus-utils.h"
 
 #include <chrono>
 #include <cstddef>
 #include <fcitx/inputcontext.h>
+#include <memory>
 
 namespace fcitx {
     class LotusEngine;
@@ -35,13 +36,6 @@ namespace fcitx {
      * @return The delay clamped to the supported range.
      */
     int clampDelay(int value);
-
-    /**
-     * @brief Commits text to the client application and logs it once.
-     * @param ic Input context of the client.
-     * @param text Text to commit.
-     */
-    void commitStringWithLog(InputContext* ic, const std::string& text);
 
     /**
      * @brief Whether a code point breaks a word.
@@ -130,14 +124,14 @@ namespace fcitx {
 
         LotusEngine*                          engine_;
         InputContext*                         ic_;
-        CGoObject                             lotusEngine_;
-        std::string                           oldPreBuffer_;
+        std::shared_ptr<lotus::KeyProcessor>  lotusEngine_;
+        std::u32string                        oldPreBuffer_;
         bool                                  hasHistory_              = false;
         size_t                                expected_backspaces_     = 0;
         size_t                                current_backspace_count_ = 0;
-        std::string                           pending_commit_string_;
+        std::u32string                        pending_commit_string_;
         LotusAppRuleSetting                   appRuleSetting_; ///< Per-app rule (mode + delay overrides) pushed by the engine
-        std::string                           emojiBuffer_;
+        std::u32string                        emojiBuffer_;
         std::vector<EmojiEntry>               emojiCandidates_;
         std::vector<KeyEntry>                 buffered_keys_; ///< Keystrokes buffered during replacement
         bool                                  isPrevSpace_           = false;
@@ -292,18 +286,18 @@ namespace fcitx {
 
         /**
          * @brief Performs text replacement via uinput.
-         * @param deletedPart Text to delete.
-         * @param addedPart Text to insert.
+         * @param deletedPart UTF-32 text to delete.
+         * @param addedPart UTF-32 text to insert.
          */
-        void performReplacement(const std::string& deletedPart, const std::string& addedPart);
+        void performReplacement(const std::u32string& deletedPart, const std::u32string& addedPart);
 
         /**
          * @brief Replaces the last character, either through surrounding text or through uinput.
-         * @param deleted Text to delete.
-         * @param added Text to insert.
+         * @param deleted UTF-32 text to delete.
+         * @param added UTF-32 text to insert.
          * @param logMsg Message to log once the replacement is issued.
          */
-        void commitOrReplace(const std::string& deleted, const std::string& added, const std::string& logMsg);
+        void commitOrReplace(const std::u32string& deleted, const std::u32string& added, const std::string& logMsg);
 
         /**
          * @brief Forwards special keys (cursor move, Tab, Escape, modifiers) and reports
@@ -318,13 +312,13 @@ namespace fcitx {
          * @brief Reads the text the engine wants to commit.
          * @return The pending commit text, empty when there is none.
          */
-        std::string pullCommitString();
+        std::u32string pullCommitString();
 
         /**
          * @brief Reads the current engine preedit.
          * @return The preedit text, empty when there is none.
          */
-        std::string pullPreeditString();
+        std::u32string pullPreeditString();
 
         /**
          * @brief Handles the double space to period replacement.
@@ -415,11 +409,6 @@ namespace fcitx {
          * @return The unshifted key symbol
          */
         static KeySym unshiftKeySym(KeySym sym);
-
-        /**
-         * @brief update last commit time.
-         */
-        void updateLastCommitTime();
     };
 
 } // namespace fcitx

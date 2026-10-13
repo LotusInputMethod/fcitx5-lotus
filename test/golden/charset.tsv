@@ -1,0 +1,1531 @@
+# charset	codepoint	hexEncodedBytes
+Unicode	U+0061	61
+Unicode	U+00E0	c3a0
+Unicode	U+00E1	c3a1
+Unicode	U+1EA3	e1baa3
+Unicode	U+00E3	c3a3
+Unicode	U+1EA1	e1baa1
+Unicode	U+0103	c483
+Unicode	U+1EB1	e1bab1
+Unicode	U+1EAF	e1baaf
+Unicode	U+1EB3	e1bab3
+Unicode	U+1EB5	e1bab5
+Unicode	U+1EB7	e1bab7
+Unicode	U+00E2	c3a2
+Unicode	U+1EA7	e1baa7
+Unicode	U+1EA5	e1baa5
+Unicode	U+1EA9	e1baa9
+Unicode	U+1EAB	e1baab
+Unicode	U+1EAD	e1baad
+Unicode	U+0065	65
+Unicode	U+00E8	c3a8
+Unicode	U+00E9	c3a9
+Unicode	U+1EBB	e1babb
+Unicode	U+1EBD	e1babd
+Unicode	U+1EB9	e1bab9
+Unicode	U+00EA	c3aa
+Unicode	U+1EC1	e1bb81
+Unicode	U+1EBF	e1babf
+Unicode	U+1EC3	e1bb83
+Unicode	U+1EC5	e1bb85
+Unicode	U+1EC7	e1bb87
+Unicode	U+0069	69
+Unicode	U+00EC	c3ac
+Unicode	U+00ED	c3ad
+Unicode	U+1EC9	e1bb89
+Unicode	U+0129	c4a9
+Unicode	U+1ECB	e1bb8b
+Unicode	U+006F	6f
+Unicode	U+00F2	c3b2
+Unicode	U+00F3	c3b3
+Unicode	U+1ECF	e1bb8f
+Unicode	U+00F5	c3b5
+Unicode	U+1ECD	e1bb8d
+Unicode	U+00F4	c3b4
+Unicode	U+1ED3	e1bb93
+Unicode	U+1ED1	e1bb91
+Unicode	U+1ED5	e1bb95
+Unicode	U+1ED7	e1bb97
+Unicode	U+1ED9	e1bb99
+Unicode	U+01A1	c6a1
+Unicode	U+1EDD	e1bb9d
+Unicode	U+1EDB	e1bb9b
+Unicode	U+1EDF	e1bb9f
+Unicode	U+1EE1	e1bba1
+Unicode	U+1EE3	e1bba3
+Unicode	U+0075	75
+Unicode	U+00F9	c3b9
+Unicode	U+00FA	c3ba
+Unicode	U+1EE7	e1bba7
+Unicode	U+0169	c5a9
+Unicode	U+1EE5	e1bba5
+Unicode	U+01B0	c6b0
+Unicode	U+1EEB	e1bbab
+Unicode	U+1EE9	e1bba9
+Unicode	U+1EED	e1bbad
+Unicode	U+1EEF	e1bbaf
+Unicode	U+1EF1	e1bbb1
+Unicode	U+0079	79
+Unicode	U+1EF3	e1bbb3
+Unicode	U+00FD	c3bd
+Unicode	U+1EF7	e1bbb7
+Unicode	U+1EF9	e1bbb9
+Unicode	U+1EF5	e1bbb5
+Unicode	U+0064	64
+Unicode	U+0044	44
+Unicode	U+0111	c491
+Unicode	U+0110	c490
+Unicode	U+0061	61
+Unicode	U+0041	41
+Unicode	U+01A1	c6a1
+Unicode	U+01A0	c6a0
+Unicode	U+01B0	c6b0
+Unicode	U+01AF	c6af
+Unicode	U+0103	c483
+Unicode	U+0102	c482
+Unicode	U+00E2	c3a2
+Unicode	U+00C2	c382
+Unicode	U+00EA	c3aa
+Unicode	U+00CA	c38a
+Unicode	U+00F4	c3b4
+Unicode	U+00D4	c394
+BKHCM 1	U+0061	61
+BKHCM 1	U+00E0	c2bf
+BKHCM 1	U+00E1	c2be
+BKHCM 1	U+1EA3	c380
+BKHCM 1	U+00E3	c381
+BKHCM 1	U+1EA1	c382
+BKHCM 1	U+0103	c397
+BKHCM 1	U+1EB1	c399
+BKHCM 1	U+1EAF	c398
+BKHCM 1	U+1EB3	c39a
+BKHCM 1	U+1EB5	c39b
+BKHCM 1	U+1EB7	c39c
+BKHCM 1	U+00E2	c39d
+BKHCM 1	U+1EA7	c39f
+BKHCM 1	U+1EA5	c39e
+BKHCM 1	U+1EA9	c3a0
+BKHCM 1	U+1EAB	c3a1
+BKHCM 1	U+1EAD	c3a2
+BKHCM 1	U+0065	65
+BKHCM 1	U+00E8	c384
+BKHCM 1	U+00E9	c383
+BKHCM 1	U+1EBB	c385
+BKHCM 1	U+1EBD	c386
+BKHCM 1	U+1EB9	c387
+BKHCM 1	U+00EA	c3a3
+BKHCM 1	U+1EC1	c3a5
+BKHCM 1	U+1EBF	c3a4
+BKHCM 1	U+1EC3	c3a6
+BKHCM 1	U+1EC5	c3a7
+BKHCM 1	U+1EC7	c3a8
+BKHCM 1	U+0069	69
+BKHCM 1	U+00EC	c389
+BKHCM 1	U+00ED	c388
+BKHCM 1	U+1EC9	c38a
+BKHCM 1	U+0129	c38b
+BKHCM 1	U+1ECB	c38c
+BKHCM 1	U+006F	6f
+BKHCM 1	U+00F2	c38e
+BKHCM 1	U+00F3	c38d
+BKHCM 1	U+1ECF	c38f
+BKHCM 1	U+00F5	c390
+BKHCM 1	U+1ECD	c391
+BKHCM 1	U+00F4	c3a9
+BKHCM 1	U+1ED3	c3ab
+BKHCM 1	U+1ED1	c3aa
+BKHCM 1	U+1ED5	c3ac
+BKHCM 1	U+1ED7	c3ad
+BKHCM 1	U+1ED9	c3ae
+BKHCM 1	U+01A1	c3af
+BKHCM 1	U+1EDD	c3b1
+BKHCM 1	U+1EDB	c3b0
+BKHCM 1	U+1EDF	c3b2
+BKHCM 1	U+1EE1	c3b3
+BKHCM 1	U+1EE3	c3b4
+BKHCM 1	U+0075	75
+BKHCM 1	U+00F9	c393
+BKHCM 1	U+00FA	c392
+BKHCM 1	U+1EE7	c394
+BKHCM 1	U+0169	c395
+BKHCM 1	U+1EE5	c396
+BKHCM 1	U+01B0	c3b5
+BKHCM 1	U+1EEB	c3b7
+BKHCM 1	U+1EE9	c3b6
+BKHCM 1	U+1EED	c3b8
+BKHCM 1	U+1EEF	c3b9
+BKHCM 1	U+1EF1	c3ba
+BKHCM 1	U+0079	79
+BKHCM 1	U+1EF3	c3bc
+BKHCM 1	U+00FD	c3bb
+BKHCM 1	U+1EF7	c3bd
+BKHCM 1	U+1EF9	c3be
+BKHCM 1	U+1EF5	c3bf
+BKHCM 1	U+0064	64
+BKHCM 1	U+0044	44
+BKHCM 1	U+0111	c2bd
+BKHCM 1	U+0110	7d
+BKHCM 1	U+0061	61
+BKHCM 1	U+0041	41
+BKHCM 1	U+01A1	c3af
+BKHCM 1	U+01A0	c2b1
+BKHCM 1	U+01B0	c3b5
+BKHCM 1	U+01AF	c2b7
+BKHCM 1	U+0103	c397
+BKHCM 1	U+0102	e284a2
+BKHCM 1	U+00E2	c39d
+BKHCM 1	U+00C2	c5b8
+BKHCM 1	U+00EA	c3a3
+BKHCM 1	U+00CA	c2a5
+BKHCM 1	U+00F4	c3a9
+BKHCM 1	U+00D4	c2ab
+BKHCM 2	U+0061	61
+BKHCM 2	U+00E0	61c3a2
+BKHCM 2	U+00E1	61c3a1
+BKHCM 2	U+1EA3	61c3a3
+BKHCM 2	U+00E3	61c3a4
+BKHCM 2	U+1EA1	61c3a5
+BKHCM 2	U+0103	c3b9
+BKHCM 2	U+1EB1	c3b9c3a7
+BKHCM 2	U+1EAF	c3b9c3a6
+BKHCM 2	U+1EB3	c3b9c3a8
+BKHCM 2	U+1EB5	c3b9c3a9
+BKHCM 2	U+1EB7	c3b9c3a5
+BKHCM 2	U+00E2	c3aa
+BKHCM 2	U+1EA7	c3aac3ac
+BKHCM 2	U+1EA5	c3aac3ab
+BKHCM 2	U+1EA9	c3aac3ad
+BKHCM 2	U+1EAB	c3aac3ae
+BKHCM 2	U+1EAD	c3aac3a5
+BKHCM 2	U+0065	65
+BKHCM 2	U+00E8	65c3a2
+BKHCM 2	U+00E9	65c3a1
+BKHCM 2	U+1EBB	65c3a3
+BKHCM 2	U+1EBD	65c3a4
+BKHCM 2	U+1EB9	65c3a5
+BKHCM 2	U+00EA	c3af
+BKHCM 2	U+1EC1	c3afc3ac
+BKHCM 2	U+1EBF	c3afc3ab
+BKHCM 2	U+1EC3	c3afc3ad
+BKHCM 2	U+1EC5	c3afc3ae
+BKHCM 2	U+1EC7	c3afc3a5
+BKHCM 2	U+0069	69
+BKHCM 2	U+00EC	c3b2
+BKHCM 2	U+00ED	c3b1
+BKHCM 2	U+1EC9	c3b3
+BKHCM 2	U+0129	c3b4
+BKHCM 2	U+1ECB	c3b5
+BKHCM 2	U+006F	6f
+BKHCM 2	U+00F2	6fc3a2
+BKHCM 2	U+00F3	6fc3a1
+BKHCM 2	U+1ECF	6fc3a3
+BKHCM 2	U+00F5	6fc3a4
+BKHCM 2	U+1ECD	6fc3a5
+BKHCM 2	U+00F4	c3b6
+BKHCM 2	U+1ED3	c3b6c3ac
+BKHCM 2	U+1ED1	c3b6c3ab
+BKHCM 2	U+1ED5	c3b6c3ad
+BKHCM 2	U+1ED7	c3b6c3ae
+BKHCM 2	U+1ED9	c3b6c3a5
+BKHCM 2	U+01A1	c3ba
+BKHCM 2	U+1EDD	c3bac3a2
+BKHCM 2	U+1EDB	c3bac3a1
+BKHCM 2	U+1EDF	c3bac3a3
+BKHCM 2	U+1EE1	c3bac3a4
+BKHCM 2	U+1EE3	c3bac3a5
+BKHCM 2	U+0075	75
+BKHCM 2	U+00F9	75c3a2
+BKHCM 2	U+00FA	75c3a1
+BKHCM 2	U+1EE7	75c3a3
+BKHCM 2	U+0169	75c3a4
+BKHCM 2	U+1EE5	75c3a5
+BKHCM 2	U+01B0	c3bb
+BKHCM 2	U+1EEB	c3bbc3a2
+BKHCM 2	U+1EE9	c3bbc3a1
+BKHCM 2	U+1EED	c3bbc3a3
+BKHCM 2	U+1EEF	c3bbc3a4
+BKHCM 2	U+1EF1	c3bbc3a5
+BKHCM 2	U+0079	79
+BKHCM 2	U+1EF3	79c3a2
+BKHCM 2	U+00FD	79c3a1
+BKHCM 2	U+1EF7	79c3a3
+BKHCM 2	U+1EF9	79c3a4
+BKHCM 2	U+1EF5	79c3a5
+BKHCM 2	U+0064	64
+BKHCM 2	U+0044	44
+BKHCM 2	U+0111	c3a0
+BKHCM 2	U+0110	c380
+BKHCM 2	U+0061	61
+BKHCM 2	U+0041	41
+BKHCM 2	U+01A1	c3ba
+BKHCM 2	U+01A0	c39a
+BKHCM 2	U+01B0	c3bb
+BKHCM 2	U+01AF	c39b
+BKHCM 2	U+0103	c3b9
+BKHCM 2	U+0102	c399
+BKHCM 2	U+00E2	c3aa
+BKHCM 2	U+00C2	c38a
+BKHCM 2	U+00EA	c3af
+BKHCM 2	U+00CA	c38f
+BKHCM 2	U+00F4	c3b6
+BKHCM 2	U+00D4	c396
+NCR Decimal	U+0061	61
+NCR Decimal	U+00E0	26233232343b
+NCR Decimal	U+00E1	26233232353b
+NCR Decimal	U+1EA3	2623373834333b
+NCR Decimal	U+00E3	26233232373b
+NCR Decimal	U+1EA1	2623373834313b
+NCR Decimal	U+0103	26233235393b
+NCR Decimal	U+1EB1	2623373835373b
+NCR Decimal	U+1EAF	2623373835353b
+NCR Decimal	U+1EB3	2623373835393b
+NCR Decimal	U+1EB5	2623373836313b
+NCR Decimal	U+1EB7	2623373836333b
+NCR Decimal	U+00E2	26233232363b
+NCR Decimal	U+1EA7	2623373834373b
+NCR Decimal	U+1EA5	2623373834353b
+NCR Decimal	U+1EA9	2623373834393b
+NCR Decimal	U+1EAB	2623373835313b
+NCR Decimal	U+1EAD	2623373835333b
+NCR Decimal	U+0065	65
+NCR Decimal	U+00E8	26233233323b
+NCR Decimal	U+00E9	26233233333b
+NCR Decimal	U+1EBB	2623373836373b
+NCR Decimal	U+1EBD	2623373836393b
+NCR Decimal	U+1EB9	2623373836353b
+NCR Decimal	U+00EA	26233233343b
+NCR Decimal	U+1EC1	2623373837333b
+NCR Decimal	U+1EBF	2623373837313b
+NCR Decimal	U+1EC3	2623373837353b
+NCR Decimal	U+1EC5	2623373837373b
+NCR Decimal	U+1EC7	2623373837393b
+NCR Decimal	U+0069	69
+NCR Decimal	U+00EC	26233233363b
+NCR Decimal	U+00ED	26233233373b
+NCR Decimal	U+1EC9	2623373838313b
+NCR Decimal	U+0129	26233239373b
+NCR Decimal	U+1ECB	2623373838333b
+NCR Decimal	U+006F	6f
+NCR Decimal	U+00F2	26233234323b
+NCR Decimal	U+00F3	26233234333b
+NCR Decimal	U+1ECF	2623373838373b
+NCR Decimal	U+00F5	26233234353b
+NCR Decimal	U+1ECD	2623373838353b
+NCR Decimal	U+00F4	26233234343b
+NCR Decimal	U+1ED3	2623373839313b
+NCR Decimal	U+1ED1	2623373838393b
+NCR Decimal	U+1ED5	2623373839333b
+NCR Decimal	U+1ED7	2623373839353b
+NCR Decimal	U+1ED9	2623373839373b
+NCR Decimal	U+01A1	26233431373b
+NCR Decimal	U+1EDD	2623373930313b
+NCR Decimal	U+1EDB	2623373839393b
+NCR Decimal	U+1EDF	2623373930333b
+NCR Decimal	U+1EE1	2623373930353b
+NCR Decimal	U+1EE3	2623373930373b
+NCR Decimal	U+0075	75
+NCR Decimal	U+00F9	26233234393b
+NCR Decimal	U+00FA	26233235303b
+NCR Decimal	U+1EE7	2623373931313b
+NCR Decimal	U+0169	26233336313b
+NCR Decimal	U+1EE5	2623373930393b
+NCR Decimal	U+01B0	26233433323b
+NCR Decimal	U+1EEB	2623373931353b
+NCR Decimal	U+1EE9	2623373931333b
+NCR Decimal	U+1EED	2623373931373b
+NCR Decimal	U+1EEF	2623373931393b
+NCR Decimal	U+1EF1	2623373932313b
+NCR Decimal	U+0079	79
+NCR Decimal	U+1EF3	2623373932333b
+NCR Decimal	U+00FD	26233235333b
+NCR Decimal	U+1EF7	2623373932373b
+NCR Decimal	U+1EF9	2623373932393b
+NCR Decimal	U+1EF5	2623373932353b
+NCR Decimal	U+0064	64
+NCR Decimal	U+0044	44
+NCR Decimal	U+0111	26233237333b
+NCR Decimal	U+0110	26233237323b
+NCR Decimal	U+0061	61
+NCR Decimal	U+0041	41
+NCR Decimal	U+01A1	26233431373b
+NCR Decimal	U+01A0	26233431363b
+NCR Decimal	U+01B0	26233433323b
+NCR Decimal	U+01AF	26233433313b
+NCR Decimal	U+0103	26233235393b
+NCR Decimal	U+0102	26233235383b
+NCR Decimal	U+00E2	26233232363b
+NCR Decimal	U+00C2	26233139343b
+NCR Decimal	U+00EA	26233233343b
+NCR Decimal	U+00CA	26233230323b
+NCR Decimal	U+00F4	26233234343b
+NCR Decimal	U+00D4	26233231323b
+NCR Hex	U+0061	61
+NCR Hex	U+00E0	c3a0
+NCR Hex	U+00E1	c3a1
+NCR Hex	U+1EA3	262378314541333b
+NCR Hex	U+00E3	c3a3
+NCR Hex	U+1EA1	262378314541313b
+NCR Hex	U+0103	2623783130333b
+NCR Hex	U+1EB1	262378314542313b
+NCR Hex	U+1EAF	262378314541463b
+NCR Hex	U+1EB3	262378314542333b
+NCR Hex	U+1EB5	262378314542353b
+NCR Hex	U+1EB7	262378314542373b
+NCR Hex	U+00E2	c3a2
+NCR Hex	U+1EA7	262378314541373b
+NCR Hex	U+1EA5	262378314541353b
+NCR Hex	U+1EA9	262378314541393b
+NCR Hex	U+1EAB	262378314541423b
+NCR Hex	U+1EAD	262378314541443b
+NCR Hex	U+0065	65
+NCR Hex	U+00E8	c3a8
+NCR Hex	U+00E9	c3a9
+NCR Hex	U+1EBB	262378314542423b
+NCR Hex	U+1EBD	262378314542443b
+NCR Hex	U+1EB9	262378314542393b
+NCR Hex	U+00EA	c3aa
+NCR Hex	U+1EC1	262378314543313b
+NCR Hex	U+1EBF	262378314542463b
+NCR Hex	U+1EC3	262378314543333b
+NCR Hex	U+1EC5	262378314543353b
+NCR Hex	U+1EC7	262378314543373b
+NCR Hex	U+0069	69
+NCR Hex	U+00EC	c3ac
+NCR Hex	U+00ED	c3ad
+NCR Hex	U+1EC9	262378314543393b
+NCR Hex	U+0129	2623783132393b
+NCR Hex	U+1ECB	262378314543423b
+NCR Hex	U+006F	6f
+NCR Hex	U+00F2	c3b2
+NCR Hex	U+00F3	c3b3
+NCR Hex	U+1ECF	262378314543463b
+NCR Hex	U+00F5	c3b5
+NCR Hex	U+1ECD	262378314543443b
+NCR Hex	U+00F4	c3b4
+NCR Hex	U+1ED3	262378314544333b
+NCR Hex	U+1ED1	262378314544313b
+NCR Hex	U+1ED5	262378314544353b
+NCR Hex	U+1ED7	262378314544373b
+NCR Hex	U+1ED9	262378314544393b
+NCR Hex	U+01A1	2623783141313b
+NCR Hex	U+1EDD	262378314544443b
+NCR Hex	U+1EDB	262378314544423b
+NCR Hex	U+1EDF	262378314544463b
+NCR Hex	U+1EE1	262378314545313b
+NCR Hex	U+1EE3	262378314545333b
+NCR Hex	U+0075	75
+NCR Hex	U+00F9	c3b9
+NCR Hex	U+00FA	c3ba
+NCR Hex	U+1EE7	262378314545373b
+NCR Hex	U+0169	2623783136393b
+NCR Hex	U+1EE5	262378314545353b
+NCR Hex	U+01B0	2623783142303b
+NCR Hex	U+1EEB	262378314545423b
+NCR Hex	U+1EE9	262378314545393b
+NCR Hex	U+1EED	262378314545443b
+NCR Hex	U+1EEF	262378314545463b
+NCR Hex	U+1EF1	262378314546313b
+NCR Hex	U+0079	79
+NCR Hex	U+1EF3	262378314546333b
+NCR Hex	U+00FD	c3bd
+NCR Hex	U+1EF7	262378314546373b
+NCR Hex	U+1EF9	262378314546393b
+NCR Hex	U+1EF5	262378314546353b
+NCR Hex	U+0064	64
+NCR Hex	U+0044	44
+NCR Hex	U+0111	2623783131313b
+NCR Hex	U+0110	2623783131303b
+NCR Hex	U+0061	61
+NCR Hex	U+0041	41
+NCR Hex	U+01A1	2623783141313b
+NCR Hex	U+01A0	2623783141303b
+NCR Hex	U+01B0	2623783142303b
+NCR Hex	U+01AF	2623783141463b
+NCR Hex	U+0103	2623783130333b
+NCR Hex	U+0102	2623783130323b
+NCR Hex	U+00E2	c3a2
+NCR Hex	U+00C2	c382
+NCR Hex	U+00EA	c3aa
+NCR Hex	U+00CA	c38a
+NCR Hex	U+00F4	c3b4
+NCR Hex	U+00D4	c394
+TCVN3 (ABC)	U+0061	61
+TCVN3 (ABC)	U+00E0	c2b5
+TCVN3 (ABC)	U+00E1	c2b8
+TCVN3 (ABC)	U+1EA3	c2b6
+TCVN3 (ABC)	U+00E3	c2b7
+TCVN3 (ABC)	U+1EA1	c2b9
+TCVN3 (ABC)	U+0103	c2a8
+TCVN3 (ABC)	U+1EB1	c2bb
+TCVN3 (ABC)	U+1EAF	c2be
+TCVN3 (ABC)	U+1EB3	c2bc
+TCVN3 (ABC)	U+1EB5	c2bd
+TCVN3 (ABC)	U+1EB7	c386
+TCVN3 (ABC)	U+00E2	c2a9
+TCVN3 (ABC)	U+1EA7	c387
+TCVN3 (ABC)	U+1EA5	c38a
+TCVN3 (ABC)	U+1EA9	c388
+TCVN3 (ABC)	U+1EAB	c389
+TCVN3 (ABC)	U+1EAD	c38b
+TCVN3 (ABC)	U+0065	65
+TCVN3 (ABC)	U+00E8	c38c
+TCVN3 (ABC)	U+00E9	c390
+TCVN3 (ABC)	U+1EBB	c38e
+TCVN3 (ABC)	U+1EBD	c38f
+TCVN3 (ABC)	U+1EB9	c391
+TCVN3 (ABC)	U+00EA	c2aa
+TCVN3 (ABC)	U+1EC1	c392
+TCVN3 (ABC)	U+1EBF	c395
+TCVN3 (ABC)	U+1EC3	c393
+TCVN3 (ABC)	U+1EC5	c394
+TCVN3 (ABC)	U+1EC7	c396
+TCVN3 (ABC)	U+0069	69
+TCVN3 (ABC)	U+00EC	c397
+TCVN3 (ABC)	U+00ED	c39d
+TCVN3 (ABC)	U+1EC9	c398
+TCVN3 (ABC)	U+0129	c39c
+TCVN3 (ABC)	U+1ECB	c39e
+TCVN3 (ABC)	U+006F	6f
+TCVN3 (ABC)	U+00F2	c39f
+TCVN3 (ABC)	U+00F3	c3a3
+TCVN3 (ABC)	U+1ECF	c3a1
+TCVN3 (ABC)	U+00F5	c3a2
+TCVN3 (ABC)	U+1ECD	c3a4
+TCVN3 (ABC)	U+00F4	c2ab
+TCVN3 (ABC)	U+1ED3	c3a5
+TCVN3 (ABC)	U+1ED1	c3a8
+TCVN3 (ABC)	U+1ED5	c3a6
+TCVN3 (ABC)	U+1ED7	c3a7
+TCVN3 (ABC)	U+1ED9	c3a9
+TCVN3 (ABC)	U+01A1	c2ac
+TCVN3 (ABC)	U+1EDD	c3aa
+TCVN3 (ABC)	U+1EDB	c3ad
+TCVN3 (ABC)	U+1EDF	c3ab
+TCVN3 (ABC)	U+1EE1	c3ac
+TCVN3 (ABC)	U+1EE3	c3ae
+TCVN3 (ABC)	U+0075	75
+TCVN3 (ABC)	U+00F9	c3af
+TCVN3 (ABC)	U+00FA	c3b3
+TCVN3 (ABC)	U+1EE7	c3b1
+TCVN3 (ABC)	U+0169	c3b2
+TCVN3 (ABC)	U+1EE5	c3b4
+TCVN3 (ABC)	U+01B0	c2ad
+TCVN3 (ABC)	U+1EEB	c3b5
+TCVN3 (ABC)	U+1EE9	c3b8
+TCVN3 (ABC)	U+1EED	c3b6
+TCVN3 (ABC)	U+1EEF	c3b7
+TCVN3 (ABC)	U+1EF1	c3b9
+TCVN3 (ABC)	U+0079	79
+TCVN3 (ABC)	U+1EF3	c3ba
+TCVN3 (ABC)	U+00FD	c3bd
+TCVN3 (ABC)	U+1EF7	c3bb
+TCVN3 (ABC)	U+1EF9	c3bc
+TCVN3 (ABC)	U+1EF5	c3be
+TCVN3 (ABC)	U+0064	64
+TCVN3 (ABC)	U+0044	44
+TCVN3 (ABC)	U+0111	c2ae
+TCVN3 (ABC)	U+0110	c2a7
+TCVN3 (ABC)	U+0061	61
+TCVN3 (ABC)	U+0041	41
+TCVN3 (ABC)	U+01A1	c2ac
+TCVN3 (ABC)	U+01A0	c2a5
+TCVN3 (ABC)	U+01B0	c2ad
+TCVN3 (ABC)	U+01AF	c2a6
+TCVN3 (ABC)	U+0103	c2a8
+TCVN3 (ABC)	U+0102	c2a1
+TCVN3 (ABC)	U+00E2	c2a9
+TCVN3 (ABC)	U+00C2	c2a2
+TCVN3 (ABC)	U+00EA	c2aa
+TCVN3 (ABC)	U+00CA	c2a3
+TCVN3 (ABC)	U+00F4	c2ab
+TCVN3 (ABC)	U+00D4	c2a4
+UTF-8	U+0061	61
+UTF-8	U+00E0	c383c2a0
+UTF-8	U+00E1	c383c2a1
+UTF-8	U+1EA3	c3a1c2bac2a3
+UTF-8	U+00E3	c383c2a3
+UTF-8	U+1EA1	c3a1c2bac2a1
+UTF-8	U+0103	c384c692
+UTF-8	U+1EB1	c3a1c2bac2b1
+UTF-8	U+1EAF	c3a1c2bac2af
+UTF-8	U+1EB3	c3a1c2bac2b3
+UTF-8	U+1EB5	c3a1c2bac2b5
+UTF-8	U+1EB7	c3a1c2bac2b7
+UTF-8	U+00E2	c383c2a2
+UTF-8	U+1EA7	c3a1c2bac2a7
+UTF-8	U+1EA5	c3a1c2bac2a5
+UTF-8	U+1EA9	c3a1c2bac2a9
+UTF-8	U+1EAB	c3a1c2bac2ab
+UTF-8	U+1EAD	c3a1c2bac2ad
+UTF-8	U+0065	65
+UTF-8	U+00E8	c383c2a8
+UTF-8	U+00E9	c383c2a9
+UTF-8	U+1EBB	c3a1c2bac2bb
+UTF-8	U+1EBD	c3a1c2bac2bd
+UTF-8	U+1EB9	c3a1c2bac2b9
+UTF-8	U+00EA	c383c2aa
+UTF-8	U+1EC1	c3a1c2bbc281
+UTF-8	U+1EBF	c3a1c2bac2bf
+UTF-8	U+1EC3	c3a1c2bbc692
+UTF-8	U+1EC5	c3a1c2bbe280a6
+UTF-8	U+1EC7	c3a1c2bbe280a1
+UTF-8	U+0069	69
+UTF-8	U+00EC	c383c2ac
+UTF-8	U+00ED	c383c2ad
+UTF-8	U+1EC9	c3a1c2bbe280b0
+UTF-8	U+0129	c384c2a9
+UTF-8	U+1ECB	c3a1c2bbe280b9
+UTF-8	U+006F	6f
+UTF-8	U+00F2	c383c2b2
+UTF-8	U+00F3	c383c2b3
+UTF-8	U+1ECF	c3a1c2bbc28f
+UTF-8	U+00F5	c383c2b5
+UTF-8	U+1ECD	c3a1c2bbc28d
+UTF-8	U+00F4	c383c2b4
+UTF-8	U+1ED3	c3a1c2bbe2809c
+UTF-8	U+1ED1	c3a1c2bbe28098
+UTF-8	U+1ED5	c3a1c2bbe280a2
+UTF-8	U+1ED7	c3a1c2bbe28094
+UTF-8	U+1ED9	c3a1c2bbe284a2
+UTF-8	U+01A1	c386c2a1
+UTF-8	U+1EDD	c3a1c2bbc29d
+UTF-8	U+1EDB	c3a1c2bbe280ba
+UTF-8	U+1EDF	c3a1c2bbc5b8
+UTF-8	U+1EE1	c3a1c2bbc2a1
+UTF-8	U+1EE3	c3a1c2bbc2a3
+UTF-8	U+0075	75
+UTF-8	U+00F9	c383c2b9
+UTF-8	U+00FA	c383c2ba
+UTF-8	U+1EE7	c3a1c2bbc2a7
+UTF-8	U+0169	c385c2a9
+UTF-8	U+1EE5	c3a1c2bbc2a5
+UTF-8	U+01B0	c386c2b0
+UTF-8	U+1EEB	c3a1c2bbc2ab
+UTF-8	U+1EE9	c3a1c2bbc2a9
+UTF-8	U+1EED	c3a1c2bbc2ad
+UTF-8	U+1EEF	c3a1c2bbc2af
+UTF-8	U+1EF1	c3a1c2bbc2b1
+UTF-8	U+0079	79
+UTF-8	U+1EF3	c3a1c2bbc2b3
+UTF-8	U+00FD	c383c2bd
+UTF-8	U+1EF7	c3a1c2bbc2b7
+UTF-8	U+1EF9	c3a1c2bbc2b9
+UTF-8	U+1EF5	c3a1c2bbc2b5
+UTF-8	U+0064	64
+UTF-8	U+0044	44
+UTF-8	U+0111	c384e28098
+UTF-8	U+0110	c384c290
+UTF-8	U+0061	61
+UTF-8	U+0041	41
+UTF-8	U+01A1	c386c2a1
+UTF-8	U+01A0	c386c2a0
+UTF-8	U+01B0	c386c2b0
+UTF-8	U+01AF	c386c2af
+UTF-8	U+0103	c384c692
+UTF-8	U+0102	c384e2809a
+UTF-8	U+00E2	c383c2a2
+UTF-8	U+00C2	c383e2809a
+UTF-8	U+00EA	c383c2aa
+UTF-8	U+00CA	c383c5a0
+UTF-8	U+00F4	c383c2b4
+UTF-8	U+00D4	c383e2809d
+Unicode C string Decimal	U+0061	61
+Unicode C string Decimal	U+00E0	5c75323234
+Unicode C string Decimal	U+00E1	5c75323235
+Unicode C string Decimal	U+1EA3	5c7537383433
+Unicode C string Decimal	U+00E3	5c75323237
+Unicode C string Decimal	U+1EA1	5c7537383431
+Unicode C string Decimal	U+0103	5c75323539
+Unicode C string Decimal	U+1EB1	5c7537383537
+Unicode C string Decimal	U+1EAF	5c7537383535
+Unicode C string Decimal	U+1EB3	5c7537383539
+Unicode C string Decimal	U+1EB5	5c7537383631
+Unicode C string Decimal	U+1EB7	5c7537383633
+Unicode C string Decimal	U+00E2	5c75323236
+Unicode C string Decimal	U+1EA7	5c7537383437
+Unicode C string Decimal	U+1EA5	5c7537383435
+Unicode C string Decimal	U+1EA9	5c7537383439
+Unicode C string Decimal	U+1EAB	5c7537383531
+Unicode C string Decimal	U+1EAD	5c7537383533
+Unicode C string Decimal	U+0065	65
+Unicode C string Decimal	U+00E8	5c75323332
+Unicode C string Decimal	U+00E9	5c75323333
+Unicode C string Decimal	U+1EBB	5c7537383637
+Unicode C string Decimal	U+1EBD	5c7537383639
+Unicode C string Decimal	U+1EB9	5c7537383635
+Unicode C string Decimal	U+00EA	5c75323334
+Unicode C string Decimal	U+1EC1	5c7537383733
+Unicode C string Decimal	U+1EBF	5c7537383731
+Unicode C string Decimal	U+1EC3	5c7537383735
+Unicode C string Decimal	U+1EC5	5c7537383737
+Unicode C string Decimal	U+1EC7	5c7537383739
+Unicode C string Decimal	U+0069	69
+Unicode C string Decimal	U+00EC	5c75323336
+Unicode C string Decimal	U+00ED	5c75323337
+Unicode C string Decimal	U+1EC9	5c7537383831
+Unicode C string Decimal	U+0129	5c75323937
+Unicode C string Decimal	U+1ECB	5c7537383833
+Unicode C string Decimal	U+006F	6f
+Unicode C string Decimal	U+00F2	5c75323432
+Unicode C string Decimal	U+00F3	5c75323433
+Unicode C string Decimal	U+1ECF	5c7537383837
+Unicode C string Decimal	U+00F5	5c75323435
+Unicode C string Decimal	U+1ECD	5c7537383835
+Unicode C string Decimal	U+00F4	5c75323434
+Unicode C string Decimal	U+1ED3	5c7537383931
+Unicode C string Decimal	U+1ED1	5c7537383839
+Unicode C string Decimal	U+1ED5	5c7537383933
+Unicode C string Decimal	U+1ED7	5c7537383935
+Unicode C string Decimal	U+1ED9	5c7537383937
+Unicode C string Decimal	U+01A1	5c75343137
+Unicode C string Decimal	U+1EDD	5c7537393031
+Unicode C string Decimal	U+1EDB	5c7537383939
+Unicode C string Decimal	U+1EDF	5c7537393033
+Unicode C string Decimal	U+1EE1	5c7537393035
+Unicode C string Decimal	U+1EE3	5c7537393037
+Unicode C string Decimal	U+0075	75
+Unicode C string Decimal	U+00F9	5c75323439
+Unicode C string Decimal	U+00FA	5c75323530
+Unicode C string Decimal	U+1EE7	5c7537393131
+Unicode C string Decimal	U+0169	5c75333631
+Unicode C string Decimal	U+1EE5	5c7537393039
+Unicode C string Decimal	U+01B0	5c75343332
+Unicode C string Decimal	U+1EEB	5c7537393135
+Unicode C string Decimal	U+1EE9	5c7537393133
+Unicode C string Decimal	U+1EED	5c7537393137
+Unicode C string Decimal	U+1EEF	5c7537393139
+Unicode C string Decimal	U+1EF1	5c7537393231
+Unicode C string Decimal	U+0079	79
+Unicode C string Decimal	U+1EF3	5c7537393233
+Unicode C string Decimal	U+00FD	5c75323533
+Unicode C string Decimal	U+1EF7	5c7537393237
+Unicode C string Decimal	U+1EF9	5c7537393239
+Unicode C string Decimal	U+1EF5	5c7537393235
+Unicode C string Decimal	U+0064	64
+Unicode C string Decimal	U+0044	44
+Unicode C string Decimal	U+0111	5c75323733
+Unicode C string Decimal	U+0110	5c75323732
+Unicode C string Decimal	U+0061	61
+Unicode C string Decimal	U+0041	41
+Unicode C string Decimal	U+01A1	5c75343137
+Unicode C string Decimal	U+01A0	5c75343136
+Unicode C string Decimal	U+01B0	5c75343332
+Unicode C string Decimal	U+01AF	5c75343331
+Unicode C string Decimal	U+0103	5c75323539
+Unicode C string Decimal	U+0102	5c75323538
+Unicode C string Decimal	U+00E2	5c75323236
+Unicode C string Decimal	U+00C2	5c75313934
+Unicode C string Decimal	U+00EA	5c75323334
+Unicode C string Decimal	U+00CA	5c75323032
+Unicode C string Decimal	U+00F4	5c75323434
+Unicode C string Decimal	U+00D4	5c75323132
+Unicode C string Hex	U+0061	61
+Unicode C string Hex	U+00E0	5c784530
+Unicode C string Hex	U+00E1	5c784531
+Unicode C string Hex	U+1EA3	5c7831454133
+Unicode C string Hex	U+00E3	5c784533
+Unicode C string Hex	U+1EA1	5c7831454131
+Unicode C string Hex	U+0103	5c78313033
+Unicode C string Hex	U+1EB1	5c7831454231
+Unicode C string Hex	U+1EAF	5c7831454146
+Unicode C string Hex	U+1EB3	5c7831454233
+Unicode C string Hex	U+1EB5	5c7831454235
+Unicode C string Hex	U+1EB7	5c7831454237
+Unicode C string Hex	U+00E2	5c784532
+Unicode C string Hex	U+1EA7	5c7831454137
+Unicode C string Hex	U+1EA5	5c7831454135
+Unicode C string Hex	U+1EA9	5c7831454139
+Unicode C string Hex	U+1EAB	5c7831454142
+Unicode C string Hex	U+1EAD	5c7831454144
+Unicode C string Hex	U+0065	65
+Unicode C string Hex	U+00E8	5c784538
+Unicode C string Hex	U+00E9	5c784539
+Unicode C string Hex	U+1EBB	5c7831454242
+Unicode C string Hex	U+1EBD	5c7831454244
+Unicode C string Hex	U+1EB9	5c7831454239
+Unicode C string Hex	U+00EA	5c784541
+Unicode C string Hex	U+1EC1	5c7831454331
+Unicode C string Hex	U+1EBF	5c7831454246
+Unicode C string Hex	U+1EC3	5c7831454333
+Unicode C string Hex	U+1EC5	5c7831454335
+Unicode C string Hex	U+1EC7	5c7831454337
+Unicode C string Hex	U+0069	69
+Unicode C string Hex	U+00EC	5c784543
+Unicode C string Hex	U+00ED	5c784544
+Unicode C string Hex	U+1EC9	5c7831454339
+Unicode C string Hex	U+0129	5c78313239
+Unicode C string Hex	U+1ECB	5c7831454342
+Unicode C string Hex	U+006F	6f
+Unicode C string Hex	U+00F2	5c784632
+Unicode C string Hex	U+00F3	5c784633
+Unicode C string Hex	U+1ECF	5c7831454346
+Unicode C string Hex	U+00F5	5c784635
+Unicode C string Hex	U+1ECD	5c7831454344
+Unicode C string Hex	U+00F4	5c784634
+Unicode C string Hex	U+1ED3	5c7831454433
+Unicode C string Hex	U+1ED1	5c7831454431
+Unicode C string Hex	U+1ED5	5c7831454435
+Unicode C string Hex	U+1ED7	5c7831454437
+Unicode C string Hex	U+1ED9	5c7831454439
+Unicode C string Hex	U+01A1	5c78314131
+Unicode C string Hex	U+1EDD	5c7831454444
+Unicode C string Hex	U+1EDB	5c7831454442
+Unicode C string Hex	U+1EDF	5c7831454446
+Unicode C string Hex	U+1EE1	5c7831454531
+Unicode C string Hex	U+1EE3	5c7831454533
+Unicode C string Hex	U+0075	75
+Unicode C string Hex	U+00F9	5c784639
+Unicode C string Hex	U+00FA	5c784641
+Unicode C string Hex	U+1EE7	5c7831454537
+Unicode C string Hex	U+0169	5c78313639
+Unicode C string Hex	U+1EE5	5c7831454535
+Unicode C string Hex	U+01B0	5c78314230
+Unicode C string Hex	U+1EEB	5c7831454542
+Unicode C string Hex	U+1EE9	5c7831454539
+Unicode C string Hex	U+1EED	5c7831454544
+Unicode C string Hex	U+1EEF	5c7831454546
+Unicode C string Hex	U+1EF1	5c7831454631
+Unicode C string Hex	U+0079	79
+Unicode C string Hex	U+1EF3	5c7831454633
+Unicode C string Hex	U+00FD	5c784644
+Unicode C string Hex	U+1EF7	5c7831454637
+Unicode C string Hex	U+1EF9	5c7831454639
+Unicode C string Hex	U+1EF5	5c7831454635
+Unicode C string Hex	U+0064	64
+Unicode C string Hex	U+0044	44
+Unicode C string Hex	U+0111	5c78313131
+Unicode C string Hex	U+0110	5c78313130
+Unicode C string Hex	U+0061	61
+Unicode C string Hex	U+0041	41
+Unicode C string Hex	U+01A1	5c78314131
+Unicode C string Hex	U+01A0	5c78314130
+Unicode C string Hex	U+01B0	5c78314230
+Unicode C string Hex	U+01AF	5c78314146
+Unicode C string Hex	U+0103	5c78313033
+Unicode C string Hex	U+0102	5c78313032
+Unicode C string Hex	U+00E2	5c784532
+Unicode C string Hex	U+00C2	5c784332
+Unicode C string Hex	U+00EA	5c784541
+Unicode C string Hex	U+00CA	5c784341
+Unicode C string Hex	U+00F4	5c784634
+Unicode C string Hex	U+00D4	5c784434
+Unicode tổ hợp	U+0061	61
+Unicode tổ hợp	U+00E0	61cc80
+Unicode tổ hợp	U+00E1	61cc81
+Unicode tổ hợp	U+1EA3	61cc89
+Unicode tổ hợp	U+00E3	61cc83
+Unicode tổ hợp	U+1EA1	61cca3
+Unicode tổ hợp	U+0103	c483
+Unicode tổ hợp	U+1EB1	c483cc80
+Unicode tổ hợp	U+1EAF	c483cc81
+Unicode tổ hợp	U+1EB3	c483cc89
+Unicode tổ hợp	U+1EB5	c483cc83
+Unicode tổ hợp	U+1EB7	c483cca3
+Unicode tổ hợp	U+00E2	c3a2
+Unicode tổ hợp	U+1EA7	c3a2cc80
+Unicode tổ hợp	U+1EA5	c3a2cc81
+Unicode tổ hợp	U+1EA9	c3a2cc89
+Unicode tổ hợp	U+1EAB	c3a2cc83
+Unicode tổ hợp	U+1EAD	c3a2cca3
+Unicode tổ hợp	U+0065	65
+Unicode tổ hợp	U+00E8	65cc80
+Unicode tổ hợp	U+00E9	65cc81
+Unicode tổ hợp	U+1EBB	65cc89
+Unicode tổ hợp	U+1EBD	65cc83
+Unicode tổ hợp	U+1EB9	65cca3
+Unicode tổ hợp	U+00EA	c3aa
+Unicode tổ hợp	U+1EC1	c3aacc80
+Unicode tổ hợp	U+1EBF	c3aacc81
+Unicode tổ hợp	U+1EC3	c3aacc89
+Unicode tổ hợp	U+1EC5	c3aacc83
+Unicode tổ hợp	U+1EC7	c3aacca3
+Unicode tổ hợp	U+0069	69
+Unicode tổ hợp	U+00EC	69cc80
+Unicode tổ hợp	U+00ED	69cc81
+Unicode tổ hợp	U+1EC9	69cc89
+Unicode tổ hợp	U+0129	69cc83
+Unicode tổ hợp	U+1ECB	69cca3
+Unicode tổ hợp	U+006F	6f
+Unicode tổ hợp	U+00F2	6fcc80
+Unicode tổ hợp	U+00F3	6fcc81
+Unicode tổ hợp	U+1ECF	6fcc89
+Unicode tổ hợp	U+00F5	6fcc83
+Unicode tổ hợp	U+1ECD	6fcca3
+Unicode tổ hợp	U+00F4	c3b4
+Unicode tổ hợp	U+1ED3	c3b4cc80
+Unicode tổ hợp	U+1ED1	c3b4cc81
+Unicode tổ hợp	U+1ED5	c3b4cc89
+Unicode tổ hợp	U+1ED7	c3b4cc83
+Unicode tổ hợp	U+1ED9	c3b4cca3
+Unicode tổ hợp	U+01A1	c6a1
+Unicode tổ hợp	U+1EDD	c6a1cc80
+Unicode tổ hợp	U+1EDB	c6a1cc81
+Unicode tổ hợp	U+1EDF	c6a1cc89
+Unicode tổ hợp	U+1EE1	c6a1cc83
+Unicode tổ hợp	U+1EE3	c6a1cca3
+Unicode tổ hợp	U+0075	75
+Unicode tổ hợp	U+00F9	75cc80
+Unicode tổ hợp	U+00FA	75cc81
+Unicode tổ hợp	U+1EE7	75cc89
+Unicode tổ hợp	U+0169	75cc83
+Unicode tổ hợp	U+1EE5	75cca3
+Unicode tổ hợp	U+01B0	c6b0
+Unicode tổ hợp	U+1EEB	c6b0cc80
+Unicode tổ hợp	U+1EE9	c6b0cc81
+Unicode tổ hợp	U+1EED	c6b0cc89
+Unicode tổ hợp	U+1EEF	c6b0cc83
+Unicode tổ hợp	U+1EF1	c6b0cca3
+Unicode tổ hợp	U+0079	79
+Unicode tổ hợp	U+1EF3	79cc80
+Unicode tổ hợp	U+00FD	79cc81
+Unicode tổ hợp	U+1EF7	79cc89
+Unicode tổ hợp	U+1EF9	79cc83
+Unicode tổ hợp	U+1EF5	79cca3
+Unicode tổ hợp	U+0064	64
+Unicode tổ hợp	U+0044	44
+Unicode tổ hợp	U+0111	c491
+Unicode tổ hợp	U+0110	c490
+Unicode tổ hợp	U+0061	61
+Unicode tổ hợp	U+0041	41
+Unicode tổ hợp	U+01A1	c6a1
+Unicode tổ hợp	U+01A0	c6a0
+Unicode tổ hợp	U+01B0	c6b0
+Unicode tổ hợp	U+01AF	c6af
+Unicode tổ hợp	U+0103	c483
+Unicode tổ hợp	U+0102	c482
+Unicode tổ hợp	U+00E2	c3a2
+Unicode tổ hợp	U+00C2	c382
+Unicode tổ hợp	U+00EA	c3aa
+Unicode tổ hợp	U+00CA	c38a
+Unicode tổ hợp	U+00F4	c3b4
+Unicode tổ hợp	U+00D4	c394
+VIQR	U+0061	61
+VIQR	U+00E0	6160
+VIQR	U+00E1	6127
+VIQR	U+1EA3	613f
+VIQR	U+00E3	617e
+VIQR	U+1EA1	612e
+VIQR	U+0103	6128
+VIQR	U+1EB1	612860
+VIQR	U+1EAF	612827
+VIQR	U+1EB3	61283f
+VIQR	U+1EB5	61287e
+VIQR	U+1EB7	61282e
+VIQR	U+00E2	615e
+VIQR	U+1EA7	615e60
+VIQR	U+1EA5	615e27
+VIQR	U+1EA9	615e3f
+VIQR	U+1EAB	615e7e
+VIQR	U+1EAD	615e2e
+VIQR	U+0065	65
+VIQR	U+00E8	6560
+VIQR	U+00E9	6527
+VIQR	U+1EBB	653f
+VIQR	U+1EBD	657e
+VIQR	U+1EB9	652e
+VIQR	U+00EA	655e
+VIQR	U+1EC1	655e60
+VIQR	U+1EBF	655e27
+VIQR	U+1EC3	655e3f
+VIQR	U+1EC5	655e7e
+VIQR	U+1EC7	655e2e
+VIQR	U+0069	69
+VIQR	U+00EC	6960
+VIQR	U+00ED	6927
+VIQR	U+1EC9	693f
+VIQR	U+0129	697e
+VIQR	U+1ECB	692e
+VIQR	U+006F	6f
+VIQR	U+00F2	6f60
+VIQR	U+00F3	6f27
+VIQR	U+1ECF	6f3f
+VIQR	U+00F5	6f7e
+VIQR	U+1ECD	6f2e
+VIQR	U+00F4	6f5e
+VIQR	U+1ED3	6f5e60
+VIQR	U+1ED1	6f5e27
+VIQR	U+1ED5	6f5e3f
+VIQR	U+1ED7	6f5e7e
+VIQR	U+1ED9	6f5e2e
+VIQR	U+01A1	6f2b
+VIQR	U+1EDD	6f2b60
+VIQR	U+1EDB	6f2b27
+VIQR	U+1EDF	6f2b3f
+VIQR	U+1EE1	6f2b7e
+VIQR	U+1EE3	6f2b2e
+VIQR	U+0075	75
+VIQR	U+00F9	7560
+VIQR	U+00FA	7527
+VIQR	U+1EE7	753f
+VIQR	U+0169	757e
+VIQR	U+1EE5	752e
+VIQR	U+01B0	752b
+VIQR	U+1EEB	752b60
+VIQR	U+1EE9	752b27
+VIQR	U+1EED	752b3f
+VIQR	U+1EEF	752b7e
+VIQR	U+1EF1	752b2e
+VIQR	U+0079	79
+VIQR	U+1EF3	7960
+VIQR	U+00FD	7927
+VIQR	U+1EF7	793f
+VIQR	U+1EF9	797e
+VIQR	U+1EF5	792e
+VIQR	U+0064	64
+VIQR	U+0044	44
+VIQR	U+0111	6464
+VIQR	U+0110	4444
+VIQR	U+0061	61
+VIQR	U+0041	41
+VIQR	U+01A1	6f2b
+VIQR	U+01A0	4f2b
+VIQR	U+01B0	752b
+VIQR	U+01AF	552b
+VIQR	U+0103	6128
+VIQR	U+0102	4128
+VIQR	U+00E2	615e
+VIQR	U+00C2	415e
+VIQR	U+00EA	655e
+VIQR	U+00CA	455e
+VIQR	U+00F4	6f5e
+VIQR	U+00D4	4f5e
+VISCII	U+0061	61
+VISCII	U+00E0	c3a0
+VISCII	U+00E1	c3a1
+VISCII	U+1EA3	c3a4
+VISCII	U+00E3	c3a3
+VISCII	U+1EA1	c395
+VISCII	U+0103	c3a5
+VISCII	U+1EB1	c2a2
+VISCII	U+1EAF	c2a1
+VISCII	U+1EB3	c386
+VISCII	U+1EB5	c387
+VISCII	U+1EB7	c2a3
+VISCII	U+00E2	c3a2
+VISCII	U+1EA7	c2a5
+VISCII	U+1EA5	c2a4
+VISCII	U+1EA9	c2a6
+VISCII	U+1EAB	c3a7
+VISCII	U+1EAD	c2a7
+VISCII	U+0065	65
+VISCII	U+00E8	c3a8
+VISCII	U+00E9	c3a9
+VISCII	U+1EBB	c3ab
+VISCII	U+1EBD	c2a8
+VISCII	U+1EB9	c2a9
+VISCII	U+00EA	c3aa
+VISCII	U+1EC1	c2ab
+VISCII	U+1EBF	c2aa
+VISCII	U+1EC3	c2ac
+VISCII	U+1EC5	c2ad
+VISCII	U+1EC7	c2ae
+VISCII	U+0069	69
+VISCII	U+00EC	c3ac
+VISCII	U+00ED	c3ad
+VISCII	U+1EC9	c3af
+VISCII	U+0129	c3ae
+VISCII	U+1ECB	c2b8
+VISCII	U+006F	6f
+VISCII	U+00F2	c3b2
+VISCII	U+00F3	c3b3
+VISCII	U+1ECF	c3b6
+VISCII	U+00F5	c3b5
+VISCII	U+1ECD	c3b7
+VISCII	U+00F4	c3b4
+VISCII	U+1ED3	c2b0
+VISCII	U+1ED1	c2af
+VISCII	U+1ED5	c2b1
+VISCII	U+1ED7	c2b2
+VISCII	U+1ED9	c2b5
+VISCII	U+01A1	c2bd
+VISCII	U+1EDD	c2b6
+VISCII	U+1EDB	c2be
+VISCII	U+1EDF	c2b7
+VISCII	U+1EE1	c39e
+VISCII	U+1EE3	c3be
+VISCII	U+0075	75
+VISCII	U+00F9	c3b9
+VISCII	U+00FA	c3ba
+VISCII	U+1EE7	c3bc
+VISCII	U+0169	c3bb
+VISCII	U+1EE5	c3b8
+VISCII	U+01B0	c39f
+VISCII	U+1EEB	c397
+VISCII	U+1EE9	c391
+VISCII	U+1EED	c398
+VISCII	U+1EEF	c3a6
+VISCII	U+1EF1	c3b1
+VISCII	U+0079	79
+VISCII	U+1EF3	c38f
+VISCII	U+00FD	c3bd
+VISCII	U+1EF7	c396
+VISCII	U+1EF9	c39b
+VISCII	U+1EF5	c39c
+VISCII	U+0064	64
+VISCII	U+0044	44
+VISCII	U+0111	c3b0
+VISCII	U+0110	c390
+VISCII	U+0061	61
+VISCII	U+0041	41
+VISCII	U+01A1	c2bd
+VISCII	U+01A0	c2b4
+VISCII	U+01B0	c39f
+VISCII	U+01AF	c2bf
+VISCII	U+0103	c3a5
+VISCII	U+0102	c385
+VISCII	U+00E2	c3a2
+VISCII	U+00C2	c382
+VISCII	U+00EA	c3aa
+VISCII	U+00CA	c38a
+VISCII	U+00F4	c3b4
+VISCII	U+00D4	c394
+VNI Windows	U+0061	61
+VNI Windows	U+00E0	61c3b8
+VNI Windows	U+00E1	61c3b9
+VNI Windows	U+1EA3	61c3bb
+VNI Windows	U+00E3	61c3b5
+VNI Windows	U+1EA1	61c3af
+VNI Windows	U+0103	61c3aa
+VNI Windows	U+1EB1	61c3a8
+VNI Windows	U+1EAF	61c3a9
+VNI Windows	U+1EB3	61c3ba
+VNI Windows	U+1EB5	61c3bc
+VNI Windows	U+1EB7	61c3ab
+VNI Windows	U+00E2	61c3a2
+VNI Windows	U+1EA7	61c3a0
+VNI Windows	U+1EA5	61c3a1
+VNI Windows	U+1EA9	61c3a5
+VNI Windows	U+1EAB	61c3a3
+VNI Windows	U+1EAD	61c3a4
+VNI Windows	U+0065	65
+VNI Windows	U+00E8	65c3b8
+VNI Windows	U+00E9	65c3b9
+VNI Windows	U+1EBB	65c3bb
+VNI Windows	U+1EBD	65c3b5
+VNI Windows	U+1EB9	65c3af
+VNI Windows	U+00EA	65c3a2
+VNI Windows	U+1EC1	65c3a0
+VNI Windows	U+1EBF	65c3a1
+VNI Windows	U+1EC3	65c3a5
+VNI Windows	U+1EC5	65c3a3
+VNI Windows	U+1EC7	65c3a4
+VNI Windows	U+0069	69
+VNI Windows	U+00EC	c3ac
+VNI Windows	U+00ED	c3ad
+VNI Windows	U+1EC9	c3a6
+VNI Windows	U+0129	c3b3
+VNI Windows	U+1ECB	c3b2
+VNI Windows	U+006F	6f
+VNI Windows	U+00F2	6fc3b8
+VNI Windows	U+00F3	6fc3b9
+VNI Windows	U+1ECF	6fc3bb
+VNI Windows	U+00F5	6fc3b5
+VNI Windows	U+1ECD	6fc3af
+VNI Windows	U+00F4	6fc3a2
+VNI Windows	U+1ED3	6fc3a0
+VNI Windows	U+1ED1	6fc3a1
+VNI Windows	U+1ED5	6fc3a5
+VNI Windows	U+1ED7	6fc3a3
+VNI Windows	U+1ED9	6fc3a4
+VNI Windows	U+01A1	c3b4
+VNI Windows	U+1EDD	c3b4c3b8
+VNI Windows	U+1EDB	c3b4c3b9
+VNI Windows	U+1EDF	c3b4c3bb
+VNI Windows	U+1EE1	c3b4c3b5
+VNI Windows	U+1EE3	c3b4c3af
+VNI Windows	U+0075	75
+VNI Windows	U+00F9	75c3b8
+VNI Windows	U+00FA	75c3b9
+VNI Windows	U+1EE7	75c3bb
+VNI Windows	U+0169	75c3b5
+VNI Windows	U+1EE5	75c3af
+VNI Windows	U+01B0	c3b6
+VNI Windows	U+1EEB	c3b6c3b8
+VNI Windows	U+1EE9	c3b6c3b9
+VNI Windows	U+1EED	c3b6c3bb
+VNI Windows	U+1EEF	c3b6c3b5
+VNI Windows	U+1EF1	c3b6c3af
+VNI Windows	U+0079	79
+VNI Windows	U+1EF3	79c3b8
+VNI Windows	U+00FD	79c3b9
+VNI Windows	U+1EF7	79c3bb
+VNI Windows	U+1EF9	79c3b5
+VNI Windows	U+1EF5	c3ae
+VNI Windows	U+0064	64
+VNI Windows	U+0044	44
+VNI Windows	U+0111	c3b1
+VNI Windows	U+0110	c391
+VNI Windows	U+0061	61
+VNI Windows	U+0041	41
+VNI Windows	U+01A1	c3b4
+VNI Windows	U+01A0	c394
+VNI Windows	U+01B0	c3b6
+VNI Windows	U+01AF	c396
+VNI Windows	U+0103	61c3aa
+VNI Windows	U+0102	41c38a
+VNI Windows	U+00E2	61c3a2
+VNI Windows	U+00C2	41c382
+VNI Windows	U+00EA	65c3a2
+VNI Windows	U+00CA	45c382
+VNI Windows	U+00F4	6fc3a2
+VNI Windows	U+00D4	4fc382
+VPS	U+0061	61
+VPS	U+00E0	c3a0
+VPS	U+00E1	c3a1
+VPS	U+1EA3	c3a4
+VPS	U+00E3	c3a3
+VPS	U+1EA1	c3a5
+VPS	U+0103	c3a6
+VPS	U+1EB1	c2a2
+VPS	U+1EAF	c2a1
+VPS	U+1EB3	c2a3
+VPS	U+1EB5	c2a4
+VPS	U+1EB7	c2a5
+VPS	U+00E2	c3a2
+VPS	U+1EA7	c380
+VPS	U+1EA5	c383
+VPS	U+1EA9	c384
+VPS	U+1EAB	c385
+VPS	U+1EAD	c386
+VPS	U+0065	65
+VPS	U+00E8	c3a8
+VPS	U+00E9	c3a9
+VPS	U+1EBB	c388
+VPS	U+1EBD	c3ab
+VPS	U+1EB9	c38b
+VPS	U+00EA	c3aa
+VPS	U+1EC1	c5a0
+VPS	U+1EBF	e280b0
+VPS	U+1EC3	e280b9
+VPS	U+1EC5	c38d
+VPS	U+1EC7	c592
+VPS	U+0069	69
+VPS	U+00EC	c3ac
+VPS	U+00ED	c3ad
+VPS	U+1EC9	c38c
+VPS	U+0129	c3af
+VPS	U+1ECB	c38e
+VPS	U+006F	6f
+VPS	U+00F2	c3b2
+VPS	U+00F3	c3b3
+VPS	U+1ECF	c395
+VPS	U+00F5	c3b5
+VPS	U+1ECD	e280a0
+VPS	U+00F4	c3b4
+VPS	U+1ED3	c392
+VPS	U+1ED1	c393
+VPS	U+1ED5	c2b0
+VPS	U+1ED7	e280a1
+VPS	U+1ED9	c2b6
+VPS	U+01A1	c396
+VPS	U+1EDD	c2a9
+VPS	U+1EDB	c2a7
+VPS	U+1EDF	c2aa
+VPS	U+1EE1	c2ab
+VPS	U+1EE3	c2ae
+VPS	U+0075	75
+VPS	U+00F9	c3b9
+VPS	U+00FA	c3ba
+VPS	U+1EE7	c3bb
+VPS	U+0169	c39b
+VPS	U+1EE5	c3b8
+VPS	U+01B0	c39c
+VPS	U+1EEB	c398
+VPS	U+1EE9	c399
+VPS	U+1EED	c2ba
+VPS	U+1EEF	c2bb
+VPS	U+1EF1	c2bf
+VPS	U+0079	79
+VPS	U+1EF3	c3bf
+VPS	U+00FD	c5a1
+VPS	U+1EF7	e280ba
+VPS	U+1EF9	c38f
+VPS	U+1EF5	c593
+VPS	U+0064	64
+VPS	U+0044	44
+VPS	U+0111	c387
+VPS	U+0110	c3b1
+VPS	U+0061	61
+VPS	U+0041	41
+VPS	U+01A1	c396
+VPS	U+01A0	c3b7
+VPS	U+01B0	c39c
+VPS	U+01AF	c390
+VPS	U+0103	c3a6
+VPS	U+0102	cb86
+VPS	U+00E2	c3a2
+VPS	U+00C2	c382
+VPS	U+00EA	c3aa
+VPS	U+00CA	c38a
+VPS	U+00F4	c3b4
+VPS	U+00D4	c394
+Vietware Full	U+0061	61
+Vietware Full	U+00E0	c2aa
+Vietware Full	U+00E1	c380
+Vietware Full	U+1EA3	c2b6
+Vietware Full	U+00E3	c2ba
+Vietware Full	U+1EA1	c381
+Vietware Full	U+0103	c5b8
+Vietware Full	U+1EB1	c382
+Vietware Full	U+1EAF	c385
+Vietware Full	U+1EB3	c383
+Vietware Full	U+1EB5	c384
+Vietware Full	U+1EB7	c386
+Vietware Full	U+00E2	c2a1
+Vietware Full	U+1EA7	c387
+Vietware Full	U+1EA5	c38a
+Vietware Full	U+1EA9	c388
+Vietware Full	U+1EAB	c389
+Vietware Full	U+1EAD	c38b
+Vietware Full	U+0065	65
+Vietware Full	U+00E8	c38c
+Vietware Full	U+00E9	c38f
+Vietware Full	U+1EBB	c38d
+Vietware Full	U+1EBD	c38e
+Vietware Full	U+1EB9	c391
+Vietware Full	U+00EA	c2a3
+Vietware Full	U+1EC1	c392
+Vietware Full	U+1EBF	c395
+Vietware Full	U+1EC3	c393
+Vietware Full	U+1EC5	c394
+Vietware Full	U+1EC7	c396
+Vietware Full	U+0069	69
+Vietware Full	U+00EC	c398
+Vietware Full	U+00ED	c39b
+Vietware Full	U+1EC9	c399
+Vietware Full	U+0129	c39a
+Vietware Full	U+1ECB	c39c
+Vietware Full	U+006F	6f
+Vietware Full	U+00F2	c39f
+Vietware Full	U+00F3	c3a2
+Vietware Full	U+1ECF	c3a0
+Vietware Full	U+00F5	c3a1
+Vietware Full	U+1ECD	c3a3
+Vietware Full	U+00F4	c2a4
+Vietware Full	U+1ED3	c3a4
+Vietware Full	U+1ED1	c3a7
+Vietware Full	U+1ED5	c3a5
+Vietware Full	U+1ED7	c3a6
+Vietware Full	U+1ED9	c3a8
+Vietware Full	U+01A1	c2a5
+Vietware Full	U+1EDD	c3a9
+Vietware Full	U+1EDB	c3ac
+Vietware Full	U+1EDF	c3aa
+Vietware Full	U+1EE1	c3ab
+Vietware Full	U+1EE3	c3ad
+Vietware Full	U+0075	75
+Vietware Full	U+00F9	c3ae
+Vietware Full	U+00FA	c3b2
+Vietware Full	U+1EE7	c3af
+Vietware Full	U+0169	c3b1
+Vietware Full	U+1EE5	c3b3
+Vietware Full	U+01B0	c2a7
+Vietware Full	U+1EEB	c3b4
+Vietware Full	U+1EE9	c3b7
+Vietware Full	U+1EED	c3b5
+Vietware Full	U+1EEF	c3b6
+Vietware Full	U+1EF1	c3b8
+Vietware Full	U+0079	79
+Vietware Full	U+1EF3	c3b9
+Vietware Full	U+00FD	c3bc
+Vietware Full	U+1EF7	c3ba
+Vietware Full	U+1EF9	c3bb
+Vietware Full	U+1EF5	c3bf
+Vietware Full	U+0064	64
+Vietware Full	U+0044	44
+Vietware Full	U+0111	c2a2
+Vietware Full	U+0110	cb9c
+Vietware Full	U+0061	61
+Vietware Full	U+0041	41
+Vietware Full	U+01A1	c2a5
+Vietware Full	U+01A0	e280ba
+Vietware Full	U+01B0	c2a7
+Vietware Full	U+01AF	c593
+Vietware Full	U+0103	c5b8
+Vietware Full	U+0102	e28093
+Vietware Full	U+00E2	c2a1
+Vietware Full	U+00C2	e28094
+Vietware Full	U+00EA	c2a3
+Vietware Full	U+00CA	e284a2
+Vietware Full	U+00F4	c2a4
+Vietware Full	U+00D4	c5a1
+Vietware X	U+0061	61
+Vietware X	U+00E0	61c3ac
+Vietware X	U+00E1	61c3af
+Vietware X	U+1EA3	61c3ad
+Vietware X	U+00E3	61c3ae
+Vietware X	U+1EA1	61c3bb
+Vietware X	U+0103	c3a0
+Vietware X	U+1EB1	c3a0c3b2
+Vietware X	U+1EAF	c3a0c3b5
+Vietware X	U+1EB3	c3a0c3b3
+Vietware X	U+1EB5	c3a0c3b4
+Vietware X	U+1EB7	c3a0c3bb
+Vietware X	U+00E2	c3a1
+Vietware X	U+1EA7	c3a1c3b6
+Vietware X	U+1EA5	c3a1c3ba
+Vietware X	U+1EA9	c3a1c3b8
+Vietware X	U+1EAB	c3a1c3b9
+Vietware X	U+1EAD	c3a1c3bb
+Vietware X	U+0065	65
+Vietware X	U+00E8	65c3ac
+Vietware X	U+00E9	65c3af
+Vietware X	U+1EBB	65c3ad
+Vietware X	U+1EBD	65c3ae
+Vietware X	U+1EB9	65c3bb
+Vietware X	U+00EA	c3a3
+Vietware X	U+1EC1	c3a3c3b6
+Vietware X	U+1EBF	c3a3c3ba
+Vietware X	U+1EC3	c3a3c3b8
+Vietware X	U+1EC5	c3a3c3b9
+Vietware X	U+1EC7	c3a3c3bb
+Vietware X	U+0069	69
+Vietware X	U+00EC	c3a7
+Vietware X	U+00ED	c3aa
+Vietware X	U+1EC9	c3a8
+Vietware X	U+0129	c3a9
+Vietware X	U+1ECB	c3ab
+Vietware X	U+006F	6f
+Vietware X	U+00F2	6fc3ac
+Vietware X	U+00F3	6fc3af
+Vietware X	U+1ECF	6fc3ad
+Vietware X	U+00F5	6fc3ae
+Vietware X	U+1ECD	6fc3bc
+Vietware X	U+00F4	c3a4
+Vietware X	U+1ED3	c3a4c3b6
+Vietware X	U+1ED1	c3a4c3ba
+Vietware X	U+1ED5	c3a4c3b8
+Vietware X	U+1ED7	c3a4c3b9
+Vietware X	U+1ED9	c3a4c3bc
+Vietware X	U+01A1	c3a5
+Vietware X	U+1EDD	c3a5c3ac
+Vietware X	U+1EDB	c3a5c3af
+Vietware X	U+1EDF	c3a5c3ad
+Vietware X	U+1EE1	c3a5c3ae
+Vietware X	U+1EE3	c3a5c3bc
+Vietware X	U+0075	75
+Vietware X	U+00F9	75c3ac
+Vietware X	U+00FA	75c3af
+Vietware X	U+1EE7	75c3ad
+Vietware X	U+0169	75c3ae
+Vietware X	U+1EE5	75c3bb
+Vietware X	U+01B0	c3a6
+Vietware X	U+1EEB	c3a6c3ac
+Vietware X	U+1EE9	c3a6c3af
+Vietware X	U+1EED	c3a6c3ad
+Vietware X	U+1EEF	c3a6c3ae
+Vietware X	U+1EF1	c3a6c3bb
+Vietware X	U+0079	79
+Vietware X	U+1EF3	79c3ac
+Vietware X	U+00FD	79c3af
+Vietware X	U+1EF7	79c3ad
+Vietware X	U+1EF9	79c3ae
+Vietware X	U+1EF5	79c3b1
+Vietware X	U+0064	64
+Vietware X	U+0044	44
+Vietware X	U+0111	c3a2
+Vietware X	U+0110	c382
+Vietware X	U+0061	61
+Vietware X	U+0041	41
+Vietware X	U+01A1	c3a5
+Vietware X	U+01A0	c385
+Vietware X	U+01B0	c3a6
+Vietware X	U+01AF	c386
+Vietware X	U+0103	c3a0
+Vietware X	U+0102	c380
+Vietware X	U+00E2	c3a1
+Vietware X	U+00C2	c381
+Vietware X	U+00EA	c3a3
+Vietware X	U+00CA	c383
+Vietware X	U+00F4	c3a4
+Vietware X	U+00D4	c384
+Windows 1258 codepage	U+0061	61
+Windows 1258 codepage	U+00E0	61c38c
+Windows 1258 codepage	U+00E1	61c3ac
+Windows 1258 codepage	U+1EA3	61c392
+Windows 1258 codepage	U+00E3	61c39e
+Windows 1258 codepage	U+1EA1	61c3b2
+Windows 1258 codepage	U+0103	c3a3
+Windows 1258 codepage	U+1EB1	c3a3c38c
+Windows 1258 codepage	U+1EAF	c3a3c3ac
+Windows 1258 codepage	U+1EB3	c3a3c392
+Windows 1258 codepage	U+1EB5	c3a3c39e
+Windows 1258 codepage	U+1EB7	c3a3c3b2
+Windows 1258 codepage	U+00E2	c3a2
+Windows 1258 codepage	U+1EA7	c3a2c38c
+Windows 1258 codepage	U+1EA5	c3a2c3ac
+Windows 1258 codepage	U+1EA9	c3a2c392
+Windows 1258 codepage	U+1EAB	c3a2c39e
+Windows 1258 codepage	U+1EAD	c3a2c3b2
+Windows 1258 codepage	U+0065	65
+Windows 1258 codepage	U+00E8	65c38c
+Windows 1258 codepage	U+00E9	65c3ac
+Windows 1258 codepage	U+1EBB	65c392
+Windows 1258 codepage	U+1EBD	65c39e
+Windows 1258 codepage	U+1EB9	65c3b2
+Windows 1258 codepage	U+00EA	c3aa
+Windows 1258 codepage	U+1EC1	c3aac38c
+Windows 1258 codepage	U+1EBF	c3aac3ac
+Windows 1258 codepage	U+1EC3	c3aac392
+Windows 1258 codepage	U+1EC5	c3aac39e
+Windows 1258 codepage	U+1EC7	c3aac3b2
+Windows 1258 codepage	U+0069	69
+Windows 1258 codepage	U+00EC	69c38c
+Windows 1258 codepage	U+00ED	69c3ac
+Windows 1258 codepage	U+1EC9	69c392
+Windows 1258 codepage	U+0129	69c39e
+Windows 1258 codepage	U+1ECB	69c3b2
+Windows 1258 codepage	U+006F	6f
+Windows 1258 codepage	U+00F2	6fc38c
+Windows 1258 codepage	U+00F3	6fc3ac
+Windows 1258 codepage	U+1ECF	6fc392
+Windows 1258 codepage	U+00F5	6fc39e
+Windows 1258 codepage	U+1ECD	6fc3b2
+Windows 1258 codepage	U+00F4	c3b4
+Windows 1258 codepage	U+1ED3	c3b4c38c
+Windows 1258 codepage	U+1ED1	c3b4c3ac
+Windows 1258 codepage	U+1ED5	c3b4c392
+Windows 1258 codepage	U+1ED7	c3b4c39e
+Windows 1258 codepage	U+1ED9	c3b4c3b2
+Windows 1258 codepage	U+01A1	c3b5
+Windows 1258 codepage	U+1EDD	c3b5c38c
+Windows 1258 codepage	U+1EDB	c3b5c3ac
+Windows 1258 codepage	U+1EDF	c3b5c392
+Windows 1258 codepage	U+1EE1	c3b5c39e
+Windows 1258 codepage	U+1EE3	c3b5c3b2
+Windows 1258 codepage	U+0075	75
+Windows 1258 codepage	U+00F9	75c38c
+Windows 1258 codepage	U+00FA	75c3ac
+Windows 1258 codepage	U+1EE7	75c392
+Windows 1258 codepage	U+0169	75c39e
+Windows 1258 codepage	U+1EE5	75c3b2
+Windows 1258 codepage	U+01B0	c3bd
+Windows 1258 codepage	U+1EEB	c3bdc38c
+Windows 1258 codepage	U+1EE9	c3bdc3ac
+Windows 1258 codepage	U+1EED	c3bdc392
+Windows 1258 codepage	U+1EEF	c3bdc39e
+Windows 1258 codepage	U+1EF1	c3bdc3b2
+Windows 1258 codepage	U+0079	79
+Windows 1258 codepage	U+1EF3	79c38c
+Windows 1258 codepage	U+00FD	79c3ac
+Windows 1258 codepage	U+1EF7	79c392
+Windows 1258 codepage	U+1EF9	79c39e
+Windows 1258 codepage	U+1EF5	79c3b2
+Windows 1258 codepage	U+0064	64
+Windows 1258 codepage	U+0044	44
+Windows 1258 codepage	U+0111	c3b0
+Windows 1258 codepage	U+0110	c490
+Windows 1258 codepage	U+0061	61
+Windows 1258 codepage	U+0041	41
+Windows 1258 codepage	U+01A1	c3b5
+Windows 1258 codepage	U+01A0	c395
+Windows 1258 codepage	U+01B0	c3bd
+Windows 1258 codepage	U+01AF	c39d
+Windows 1258 codepage	U+0103	c3a3
+Windows 1258 codepage	U+0102	c383
+Windows 1258 codepage	U+00E2	c3a2
+Windows 1258 codepage	U+00C2	c382
+Windows 1258 codepage	U+00EA	c3aa
+Windows 1258 codepage	U+00CA	c38a
+Windows 1258 codepage	U+00F4	c3b4
+Windows 1258 codepage	U+00D4	c394
