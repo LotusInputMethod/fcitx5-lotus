@@ -19,6 +19,8 @@
 
 namespace fcitx {
 
+    using std::chrono::milliseconds;
+
     namespace {
 
         /**
@@ -26,13 +28,13 @@ namespace fcitx {
      * when accuracy is 0 (measured 25-226ms late, even out of order), which
      * would randomly stretch every paced tap.
      */
-        constexpr uint64_t kTimerAccuracyUs = 1000;
+        constexpr std::chrono::microseconds kTimerAccuracy{1000};
 
         /**
      * @brief Settle gap (legacy server tick): the app must observe Shift-up
      * before Delete acts, otherwise it may apply Shift+Delete semantics.
      */
-        constexpr std::chrono::milliseconds kSelectSettleGap{10};
+        constexpr milliseconds kSelectSettleGap{10};
 
         /**
      * @brief Combines one lambda per PacerItem alternative into a single
@@ -48,7 +50,7 @@ namespace fcitx {
         /**
      * @brief Deadline of a monotonic timer: now + delay, in microseconds.
      */
-        uint64_t monotonicDeadlineUs(std::chrono::milliseconds delay) {
+        uint64_t monotonicDeadlineUs(milliseconds delay) {
             return now(CLOCK_MONOTONIC) + static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(delay).count());
         }
 
@@ -62,8 +64,8 @@ namespace fcitx {
      * @param fire Invoked when the timer fires.
      */
         template <typename Fire>
-        void armTimer(EventLoop& loop, std::unique_ptr<EventSourceTime>& slot, std::chrono::milliseconds delay, Fire&& fire) {
-            slot = loop.addTimeEvent(CLOCK_MONOTONIC, monotonicDeadlineUs(delay), kTimerAccuracyUs, [fire = std::forward<Fire>(fire)](EventSourceTime*, uint64_t) mutable {
+        void armTimer(EventLoop& loop, std::unique_ptr<EventSourceTime>& slot, milliseconds delay, Fire&& fire) {
+            slot = loop.addTimeEvent(CLOCK_MONOTONIC, monotonicDeadlineUs(delay), kTimerAccuracy.count(), [fire = std::forward<Fire>(fire)](EventSourceTime*, uint64_t) mutable {
                 fire();
                 return false;
             });
@@ -71,7 +73,12 @@ namespace fcitx {
 
     } // namespace
 
-    KeyJob buildBackspaceJob(size_t count, std::chrono::milliseconds pre, std::chrono::milliseconds interval, std::chrono::milliseconds post) {
+    // The builders push explicit temporaries on purpose: PacerItem is a
+    // variant of aggregates, std::variant has no multi-argument constructor
+    // and aggregates are not implicit conversion targets, so the tidy
+    // emplace_back suggestion does not compile here.
+    // NOLINTBEGIN(modernize-use-emplace)
+    KeyJob buildBackspaceJob(size_t count, milliseconds pre, milliseconds interval, milliseconds post) {
         KeyJob job;
         if (count == 0)
             return job;
@@ -86,7 +93,7 @@ namespace fcitx {
         return job;
     }
 
-    KeyJob buildSelectJob(size_t count, std::chrono::milliseconds pre, std::chrono::milliseconds interval, std::chrono::milliseconds post, std::string text) {
+    KeyJob buildSelectJob(size_t count, milliseconds pre, milliseconds interval, milliseconds post, std::string text) {
         KeyJob job;
         if (count == 0)
             return job;
@@ -113,6 +120,7 @@ namespace fcitx {
         job.push_back(Commit{std::move(text)});
         return job;
     }
+    // NOLINTEND(modernize-use-emplace)
 
     KeyPacer& KeyPacer::instance() {
         static KeyPacer pacer;
@@ -312,7 +320,7 @@ namespace fcitx {
     // Schedules the next pump after the sleep. Zero sleeps burst (the producer
     // clamps to >= 1ms; zero is a pure ordering marker) and test immediate
     // mode skips all sleeps.
-    KeyPacer::Step KeyPacer::sleepStep(std::chrono::milliseconds delay) {
+    KeyPacer::Step KeyPacer::sleepStep(milliseconds delay) {
         if (delay.count() == 0 || immediateFlag().load(std::memory_order_acquire))
             return Step::Continue;
         std::scoped_lock lock(m_);
