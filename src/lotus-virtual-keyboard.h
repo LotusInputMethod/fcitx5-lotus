@@ -14,6 +14,10 @@
  *
  * The EIS fd arrives over the authenticated kb socket (SCM_RIGHTS); every
  * key then travels as an EIS keyboard event (key + frame per call).
+ *
+ * Socket selection: a path starting with '/' is a filesystem EI socket and
+ * uses the direct protocol (connect + EI handshake, no auth gate); anything
+ * else is an abstract-namespace auth socket with the SCM_RIGHTS handoff.
  */
 
 #ifndef _FCITX5_LOTUS_VIRTUAL_KEYBOARD_H_
@@ -60,6 +64,7 @@ namespace fcitx {
 
         /**
      * @brief Overrides the socket path (tests only; default is kb_socket).
+     * A leading '/' selects the direct EI filesystem-socket mode.
      */
         void setSocketPath(std::string path);
 
@@ -94,7 +99,7 @@ namespace fcitx {
         // Drops the libei context and device refs. Requires m_ held.
         void                           teardownEiLocked();
 
-        std::string                    path_; ///< override for tests; empty = $LOTUS_EIS_SOCKET or kb_socket default
+        std::string                    path_; ///< override for tests; empty = $LOTUS_EIS_SOCKET or kb_socket default; leading '/' = direct EI socket
         mutable std::mutex             m_;
         EventLoop*                     loop_{nullptr};
         std::function<void()>          resumeCallback_;

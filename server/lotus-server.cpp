@@ -236,7 +236,7 @@ int main(int argc, char* argv[]) {
 
     // uinput nodes are created per EIS seat bind (see handleEisEvents).
 
-    FdGuard            server_fd(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0));
+    FdGuard            server_fd(socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0));
     FdGuard            mouse_server_fd(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0));
 
     struct sockaddr_un addr_kb{};

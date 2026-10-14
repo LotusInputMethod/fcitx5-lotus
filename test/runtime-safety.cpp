@@ -139,7 +139,7 @@ int main() {
     eis_setup_backend_fd(eis);
     const int   eisFd = eis_backend_fd_add_client(eis);
 
-    const int   listenFd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+    const int   listenFd = socket(AF_UNIX, SOCK_STREAM, 0);
     sockaddr_un addr{};
     addr.sun_family  = AF_UNIX;
     addr.sun_path[0] = '\0';

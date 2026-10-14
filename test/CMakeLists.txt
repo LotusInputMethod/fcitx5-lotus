@@ -82,6 +82,7 @@ add_lotus_headless_test(preedit_smoke_server preedit-smoke-server.cpp "integrati
 # add_lotus_headless_test(replacement_delays replacement-delays.cpp "integration;smooth")
 add_lotus_headless_test(app_rule_delays app-rule-delays.cpp "integration;apprule")
 add_lotus_headless_test(key_job_builder key-job-builder.cpp "unit;uinput")
+add_lotus_headless_test(direct_eis_socket direct-eis-socket.cpp "integration;uinput")
 add_lotus_headless_test(select_delete_echo_commit select-delete-echo-commit.cpp "integration;select")
 add_lotus_headless_test(dict_reload dict-reload.cpp "integration;dictionary")
 # add_lotus_headless_test(key_pacer_resilience key-pacer-resilience.cpp "unit;uinput")

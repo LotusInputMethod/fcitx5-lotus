@@ -32,8 +32,11 @@ namespace fcitx {
         constexpr int kHandshakeTimeoutMs = 2000;
 
         // Auth socket name: explicit test override > $LOTUS_EIS_SOCKET >
-        // buildSocketPath("kb_socket"). Abstract namespace (stored without the
-        // leading NUL; callers set sun_path[0] = '\0').
+        // buildSocketPath("kb_socket"). Names NOT starting with '/' live in the
+        // abstract namespace (stored without the leading NUL; callers set
+        // sun_path[0] = '\0') and use the SCM_RIGHTS auth gate. Names starting
+        // with '/' are filesystem paths to a plain EI socket (reis-style
+        // daemons): connect and speak the EI protocol directly.
         std::string resolveSocketName(const std::string& overridePath) {
             if (!overridePath.empty())
                 return overridePath;
@@ -99,46 +102,64 @@ namespace fcitx {
         teardownEiLocked();
 
         const std::string name = resolveSocketName(path_);
-        const int         auth = socket(AF_UNIX, SOCK_SEQPACKET, 0);
-        if (auth < 0)
+        // Leading '/' -> filesystem EI socket (direct protocol, no fd handoff);
+        // anything else stays in the abstract namespace behind the auth gate.
+        const bool direct = !name.empty() && name.front() == '/';
+        const int  auth   = direct ? -1 : socket(AF_UNIX, SOCK_STREAM, 0);
+        if (!direct && auth < 0)
             return false;
 
         bool ok = false;
         do {
-            struct sockaddr_un addr{};
-            addr.sun_family      = AF_UNIX;
-            const size_t copyLen = std::min(name.size(), sizeof(addr.sun_path) - 2);
-            addr.sun_path[0]     = '\0';
-            memcpy(&addr.sun_path[1], name.data(), copyLen);
-            const auto len = static_cast<socklen_t>(offsetof(struct sockaddr_un, sun_path) + copyLen + 1);
-            if (connect(auth, reinterpret_cast<struct sockaddr*>(&addr), len) != 0)
-                break;
-            struct pollfd pfd{auth, POLLIN, 0};
-            if (poll(&pfd, 1, kHandshakeTimeoutMs) <= 0)
-                break;
-            const int eisFd = recvFd(auth);
-            if (eisFd < 0)
-                break;
-            ei_ = ei_new_sender(nullptr);
-            if (ei_ == nullptr) {
-                ::close(eisFd);
-                break;
+            if (direct) {
+                ei_ = ei_new_sender(nullptr);
+                if (ei_ == nullptr)
+                    break;
+                ei_configure_name(ei_, "fcitx5-lotus");
+                // libei connects (SOCK_STREAM), owns the fd and runs the EI
+                // protocol; access control is the server socket's fs perms.
+                if (ei_setup_backend_socket(ei_, name.c_str()) != 0) {
+                    ei_unref(ei_);
+                    ei_ = nullptr;
+                    break;
+                }
+            } else {
+                struct sockaddr_un addr{};
+                addr.sun_family      = AF_UNIX;
+                const size_t copyLen = std::min(name.size(), sizeof(addr.sun_path) - 2);
+                addr.sun_path[0]     = '\0';
+                memcpy(&addr.sun_path[1], name.data(), copyLen);
+                const auto len = static_cast<socklen_t>(offsetof(struct sockaddr_un, sun_path) + copyLen + 1);
+                if (connect(auth, reinterpret_cast<struct sockaddr*>(&addr), len) != 0)
+                    break;
+                struct pollfd pfd{auth, POLLIN, 0};
+                if (poll(&pfd, 1, kHandshakeTimeoutMs) <= 0)
+                    break;
+                const int eisFd = recvFd(auth);
+                if (eisFd < 0)
+                    break;
+                ei_ = ei_new_sender(nullptr);
+                if (ei_ == nullptr) {
+                    ::close(eisFd);
+                    break;
+                }
+                ei_configure_name(ei_, "fcitx5-lotus");
+                if (ei_setup_backend_fd(ei_, eisFd) != 0) {
+                    ::close(eisFd); // setup refused ownership
+                    ei_unref(ei_);
+                    ei_ = nullptr;
+                    break;
+                }
             }
-            ei_configure_name(ei_, "fcitx5-lotus");
-            if (ei_setup_backend_fd(ei_, eisFd) != 0) {
-                ::close(eisFd); // setup refused ownership
-                ei_unref(ei_);
-                ei_ = nullptr;
-                break;
-            }
-            // ei owns eisFd from here on.
+            // ei owns its fd from here on.
             io_ = loop_->addIOEvent(ei_get_fd(ei_), IOEventFlag::In, [this](EventSourceIO*, int, IOEventFlags) {
                 onEiReadable();
                 return true;
             });
-            ok  = true;
+            ok = true;
         } while (false);
-        ::close(auth);
+        if (auth >= 0)
+            ::close(auth);
         if (!ok)
             teardownEiLocked();
         return ok;

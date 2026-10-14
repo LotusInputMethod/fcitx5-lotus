@@ -45,7 +45,7 @@ struct StampedKey {
 
 class KbSocketListener {
   public:
-    KbSocketListener() : fd_(socket(AF_UNIX, SOCK_SEQPACKET, 0)) {
+    KbSocketListener() : fd_(socket(AF_UNIX, SOCK_STREAM, 0)) {
 
         if (fd_ < 0) {
             fail("socket");
