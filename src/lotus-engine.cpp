@@ -452,6 +452,14 @@ namespace fcitx {
     void LotusEngine::populateConfig() {
         refreshEngine();
         refreshOption();
+        // Pre-warm the EIS transport for the configured mode: pays the
+        // connect + EI handshake up front (startup, GUI mode switch) so the
+        // first replacement does not stall waiting for RESUMED. Idempotent;
+        // a dead server fails instantly and the per-key lazy connect remains
+        // the fallback.
+        if (isUinputMode(config_.mode.value())) {
+            KeyPacer::instance().ensureConnected();
+        }
         updateCharsetAction(nullptr);
         updateAction(nullptr, *spellCheckAction_, config_.spellCheck, _("Spell Check"));
         updateAction(nullptr, *macroAction_, config_.enableMacro, _("Macro"));
@@ -523,6 +531,13 @@ namespace fcitx {
         const bool focusBounce        = uinputMode && state->lastDeactivateTime_ > 0 && now_ms() - state->lastDeactivateTime_ < 100;
         const bool resumeReplacement  = focusBounce && state->deletionInterruptedAt_ > 0 && is_deleting_.load();
         state->deletionInterruptedAt_ = 0;
+
+        // Pre-warm the EIS transport on focus-in so the first replacement in
+        // this app does not pay connect + handshake latency. Idempotent (a
+        // live connection or an in-flight handshake returns at once).
+        if (uinputMode) {
+            KeyPacer::instance().ensureConnected();
+        }
 
         if (!resumeReplacement) {
             is_deleting_.store(false);
