@@ -102,7 +102,8 @@ namespace fcitx {
     void LotusState::enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay, std::string text) {
         if (count == 0)
             return;
-        KeyPacer::instance().push(buildBackspaceJob(count, std::chrono::milliseconds{pre_delay}, std::chrono::milliseconds{interval}, std::chrono::milliseconds{post_delay}, std::move(text)));
+        KeyPacer::instance().push(
+            buildBackspaceJob(count, std::chrono::milliseconds{pre_delay}, std::chrono::milliseconds{interval}, std::chrono::milliseconds{post_delay}, std::move(text)));
     }
 
     void LotusState::enqueueSelect(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay, std::string text) {
@@ -1297,7 +1298,7 @@ namespace fcitx {
     void LotusState::replayBufferedKeys() {
         LOTUS_INFO("Starting replay buffered keys");
         while (!buffered_keys_.empty()) {
-            const KeyEntry entry = buffered_keys_.pop();
+            const KeyEntry entry        = buffered_keys_.pop();
             auto           sym          = static_cast<KeySym>(entry.sym);
             uint32_t       state        = entry.state;
             const uint32_t keyCodePoint = Key::keySymToUnicode(sym);

@@ -16,7 +16,7 @@
 
 namespace {
 
-    int failures = 0;
+    int  failures = 0;
 
     void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual) {
         if (ok)

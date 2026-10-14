@@ -28,7 +28,7 @@
  * @brief Bounded FIFO of keystrokes awaiting replay.
  */
 class KeyBuffer {
-public:
+  public:
     /**
      * @brief True when no keystroke is waiting for replay.
      */
@@ -62,10 +62,10 @@ public:
         queue_.clear();
     }
 
-private:
+  private:
     static constexpr size_t kMaxEntries = 50; ///< Same cap as the old inline checks.
 
-    std::deque<KeyEntry> queue_;
+    std::deque<KeyEntry>    queue_;
 };
 
 #endif // _FCITX5_LOTUS_KEY_BUFFER_H_
