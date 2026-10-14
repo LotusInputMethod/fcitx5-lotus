@@ -51,7 +51,8 @@ namespace fcitx {
      * @brief Deadline of a monotonic timer: now + delay, in microseconds.
      */
         uint64_t monotonicDeadlineUs(milliseconds delay) {
-            return now(CLOCK_MONOTONIC) + static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(delay).count());
+            auto delayMicro = std::chrono::duration_cast<std::chrono::microseconds>(delay);
+            return now(CLOCK_MONOTONIC) + static_cast<uint64_t>(delayMicro.count());
         }
 
         /**
@@ -78,11 +79,11 @@ namespace fcitx {
     // and aggregates are not implicit conversion targets, so the tidy
     // emplace_back suggestion does not compile here.
     // NOLINTBEGIN(modernize-use-emplace)
-    KeyJob buildBackspaceJob(size_t count, milliseconds pre, milliseconds interval, milliseconds post) {
+    KeyJob buildBackspaceJob(size_t count, milliseconds pre, milliseconds interval, milliseconds post, std::string text) {
         KeyJob job;
         if (count == 0)
             return job;
-        job.reserve(count * 3);
+        job.reserve((count * 3) + 2);
         job.push_back(SleepFor{pre});
         for (size_t i = 0; i < count; ++i) {
             if (i > 0)
@@ -90,6 +91,13 @@ namespace fcitx {
             job.push_back(KeyMsg{KEY_BACKSPACE, 1});
             job.push_back(KeyMsg{KEY_BACKSPACE, 0});
         }
+        // Chain-visible commit point, same contract as Select: the echo
+        // handler counts every tap's echo and notifies; the pump parks here
+        // until all N echoes are observed, then fires the commit. The final
+        // echo is swallowed by the handler, so nothing leaks past the deleted
+        // range.
+        job.push_back(AwaitEcho{static_cast<uint32_t>(count), kAwaitEchoTimeout});
+        job.push_back(Commit{std::move(text)});
         return job;
     }
 

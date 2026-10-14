@@ -99,10 +99,10 @@ namespace fcitx {
         return KeyPacer::instance().ensureConnected();
     }
 
-    void LotusState::enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay) {
+    void LotusState::enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay, std::string text) {
         if (count == 0)
             return;
-        KeyPacer::instance().push(buildBackspaceJob(count, std::chrono::milliseconds{pre_delay}, std::chrono::milliseconds{interval}, std::chrono::milliseconds{post_delay}));
+        KeyPacer::instance().push(buildBackspaceJob(count, std::chrono::milliseconds{pre_delay}, std::chrono::milliseconds{interval}, std::chrono::milliseconds{post_delay}, std::move(text)));
     }
 
     void LotusState::enqueueSelect(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay, std::string text) {
@@ -422,15 +422,6 @@ namespace fcitx {
         }
     }
 
-    void LotusState::finishReplacement(KeyEvent& event) {
-        commitPendingReplacement();
-        expected_backspaces_     = 0;
-        current_backspace_count_ = 0;
-        event.filterAndAccept();
-        is_deleting_.store(false, std::memory_order_release);
-        replayBufferedKeys();
-    }
-
     uint32_t LotusState::echoSequence() const {
         return static_cast<uint32_t>(current_backspace_count_);
     }
@@ -466,11 +457,13 @@ namespace fcitx {
         if (current_backspace_count_ < expected_backspaces_) {
             return false; // Allow intermediate backspaces/lefts to reach the app to clear autofill/old text / extend the selection.
         }
-        if (isSelectEcho) {
-            event.filterAndAccept();
-            return true;
-        }
-        finishReplacement(event);
+        // Both tails end the same way: the last echo (selection Left in
+        // Select, backspace in Smooth) is swallowed — the app must not
+        // receive it. The commit has already fired synchronously inside
+        // notifyEcho() above through the parked chain barrier
+        // (AwaitEcho -> Commit -> commitFromChain), which also cleared
+        // is_deleting_ and replayed buffered keys.
+        event.filterAndAccept();
         return true;
     }
 
@@ -521,7 +514,7 @@ namespace fcitx {
             LOTUS_INFO("Send select of " + std::to_string(expected_backspaces_) + " characters");
             return;
         }
-        enqueueBackspace(expected_backspaces_, pre_delay, interval, post_delay);
+        enqueueBackspace(expected_backspaces_, pre_delay, interval, post_delay, lotus::utf8::encode(addedPart));
         LOTUS_INFO("Send " + std::to_string(expected_backspaces_) + " backspaces");
     }
 

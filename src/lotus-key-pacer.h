@@ -83,15 +83,20 @@ namespace fcitx {
     /**
  * @brief Pure builders: expand a replacement into a pacer job.
  *
- * Backspace N: [Sleep(pre), tap x N] with Sleep(max(interval,post)) before
- * the final tap. Select N: Shift-down, N x Left taps, 10ms, Shift-up,
- * Sleep(interval), Delete, Sleep(post), AwaitEcho{N+1}, Commit{text}.
- * The barrier spans the N selection echoes plus the Delete echo; the commit
- * fires only after the pump observes the full sequence. No trailing tap:
- * anything sent after Delete would leak to the app as an extra cursor-left.
+ * Backspace N: [Sleep(pre), tap x N, AwaitEcho{N}, Commit{text}] with
+ * Sleep(max(interval,post)) before the final tap. Select N: Shift-down,
+ * N x Left taps, 10ms, Shift-up, Sleep(interval), Delete, Sleep(post),
+ * AwaitEcho{N+1}, Commit{text}.
+ * Both tails share one contract: the echo handler counts every echo and
+ * notifies; the pump parks on the barrier until the full echo sequence is
+ * observed, then fires the chain commit (fail-open after the timeout). The
+ * final echo is swallowed by the echo handler, so the app sees exactly
+ * count-1 forwarded taps plus the commit — the barrier target counts the
+ * swallowed echo too. No trailing tap beyond the deleted range: anything
+ * sent after it would leak to the app.
  * Zero sleeps are kept in the job; pump() skips them (burst).
  */
-    KeyJob LOTUS_EXPORT buildBackspaceJob(size_t count, std::chrono::milliseconds pre, std::chrono::milliseconds interval, std::chrono::milliseconds post);
+    KeyJob LOTUS_EXPORT buildBackspaceJob(size_t count, std::chrono::milliseconds pre, std::chrono::milliseconds interval, std::chrono::milliseconds post, std::string text);
     KeyJob LOTUS_EXPORT buildSelectJob(size_t count, std::chrono::milliseconds pre, std::chrono::milliseconds interval, std::chrono::milliseconds post, std::string text);
 
     class LOTUS_EXPORT KeyPacer {

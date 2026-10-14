@@ -103,7 +103,7 @@ int main() {
 
     // One backspace tap: parks while the device is not ready, delivers once
     // RESUMED arrives over the direct socket.
-    fcitx::KeyPacer::instance().push(fcitx::buildBackspaceJob(1, std::chrono::milliseconds(0), std::chrono::milliseconds(1), std::chrono::milliseconds(1)));
+    fcitx::KeyPacer::instance().push(fcitx::buildBackspaceJob(1, std::chrono::milliseconds(0), std::chrono::milliseconds(1), std::chrono::milliseconds(1), ""));
 
     // Generous exit: a working transport delivers within ms; 3s covers CI.
     const uint64_t when = fcitx::now(CLOCK_MONOTONIC) + 3000ULL * 1000;

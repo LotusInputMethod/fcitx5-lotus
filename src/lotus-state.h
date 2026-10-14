@@ -66,11 +66,12 @@ namespace fcitx {
         /**
          * @brief Fires a chain Commit item: commits and completes.
          *
-         * Same tail as finishReplacement but there is no echo event to accept
-         * (the triggering echo was already forwarded). Called on the pump via
-         * the barrier owner, never directly from key handling. The chain text
-         * is authoritative: re-stated into the pending string so no stale
-         * value can substitute it.
+         * Shared tail of every replacement mode (Select and backspace both
+         * end in a chain barrier now): commits, resets the echo state,
+         * clears is_deleting_ and replays buffered keys. Called on the pump
+         * via the barrier owner, never directly from key handling. The chain
+         * text is authoritative: re-stated into the pending string so no
+         * stale value can substitute it.
          */
         void commitFromChain(const std::string& text);
 
@@ -151,13 +152,15 @@ namespace fcitx {
         static bool ensureUinputConnected();
 
         /**
-         * @brief Queues N backspace taps paced by EventLoop timers.
-         * @param count Number of backspace taps.
+         * @brief Queues N backspace taps paced by EventLoop timers, ending in
+         * a chain commit.
+         * @param count Number of backspace taps (also the echo barrier target).
          * @param pre_delay Ms to wait before the first tap (commit cooldown).
          * @param interval Ms between consecutive taps.
          * @param post_delay Ms to wait before the final tap.
+         * @param text Replacement text carried by the chain Commit item.
          */
-        static void enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
+        static void enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay, std::string text);
 
         /**
          * @brief Queues an N-character Shift+Left selection ending in a chain commit.
@@ -272,17 +275,6 @@ namespace fcitx {
          * state besides consuming the pending string.
          */
         void commitPendingReplacement();
-
-        /**
-         * @brief Completes an in-flight replacement after all echoed events arrived.
-         *
-         * BackSpace path (and any non-barrier flow): commits, resets state,
-         * swallows the final echo and replays buffered keys. Select mode now
-         * completes through the chain barrier instead (see commitFromChain).
-         *
-         * @param event The key event of the final echoed key.
-         */
-        void finishReplacement(KeyEvent& event);
 
         /**
          * @brief Performs text replacement via uinput.

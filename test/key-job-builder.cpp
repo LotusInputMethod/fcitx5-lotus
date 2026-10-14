@@ -74,44 +74,51 @@ int main() {
     using namespace std::chrono_literals;
 
     // Backspace N=2, pre=0, interval=17, post=33: last gap uses max(17,33)=33.
+    // Tail is the shared chain contract: AwaitEcho{N} then Commit{text}.
     {
-        auto job = fcitx::buildBackspaceJob(2, 0ms, 17ms, 33ms);
-        check(job.size() == 6, "bs2 size", "6", std::to_string(job.size()));
-        if (job.size() == 6) {
+        auto job = fcitx::buildBackspaceJob(2, 0ms, 17ms, 33ms, "AB");
+        check(job.size() == 8, "bs2 size", "8", std::to_string(job.size()));
+        if (job.size() == 8) {
             check(isSleep(job[0], 0), "bs2[0]", "Sleep(0ms)", itemStr(job[0]));
             check(isKey(job[1], KEY_BACKSPACE, 1), "bs2[1]", "Key(BS,press)", itemStr(job[1]));
             check(isKey(job[2], KEY_BACKSPACE, 0), "bs2[2]", "Key(BS,release)", itemStr(job[2]));
             check(isSleep(job[3], 33), "bs2[3]", "Sleep(33ms)=max(interval,post)", itemStr(job[3]));
             check(isKey(job[4], KEY_BACKSPACE, 1), "bs2[4]", "Key(BS,press)", itemStr(job[4]));
             check(isKey(job[5], KEY_BACKSPACE, 0), "bs2[5]", "Key(BS,release)", itemStr(job[5]));
+            check(isAwait(job[6], 2), "bs2[6]", "AwaitEcho{2}", itemStr(job[6]));
+            check(isCommit(job[7], "AB"), "bs2[7]", "Commit(AB)", itemStr(job[7]));
         }
     }
 
     // Backspace N=1: single tap, only pre sleep, no interval.
     {
-        auto job = fcitx::buildBackspaceJob(1, 20ms, 17ms, 33ms);
-        check(job.size() == 3, "bs1 size", "3", std::to_string(job.size()));
-        if (job.size() == 3) {
+        auto job = fcitx::buildBackspaceJob(1, 20ms, 17ms, 33ms, "AB");
+        check(job.size() == 5, "bs1 size", "5", std::to_string(job.size()));
+        if (job.size() == 5) {
             check(isSleep(job[0], 20), "bs1[0]", "Sleep(20ms)", itemStr(job[0]));
             check(isKey(job[1], KEY_BACKSPACE, 1), "bs1[1]", "Key(BS,press)", itemStr(job[1]));
             check(isKey(job[2], KEY_BACKSPACE, 0), "bs1[2]", "Key(BS,release)", itemStr(job[2]));
+            check(isAwait(job[3], 1), "bs1[3]", "AwaitEcho{1}", itemStr(job[3]));
+            check(isCommit(job[4], "AB"), "bs1[4]", "Commit(AB)", itemStr(job[4]));
         }
     }
 
     // Backspace N=3, interval wins over post for middle gap.
     {
-        auto job = fcitx::buildBackspaceJob(3, 5ms, 50ms, 10ms);
-        check(job.size() == 9, "bs3 size", "9", std::to_string(job.size()));
-        if (job.size() == 9) {
+        auto job = fcitx::buildBackspaceJob(3, 5ms, 50ms, 10ms, "AB");
+        check(job.size() == 11, "bs3 size", "11", std::to_string(job.size()));
+        if (job.size() == 11) {
             check(isSleep(job[0], 5), "bs3 pre", "Sleep(5ms)", itemStr(job[0]));
             check(isSleep(job[3], 50), "bs3 mid", "Sleep(50ms)=interval", itemStr(job[3]));
             check(isSleep(job[6], 50), "bs3 last", "Sleep(50ms)=max(50,10)", itemStr(job[6]));
+            check(isAwait(job[9], 3), "bs3[9]", "AwaitEcho{3}", itemStr(job[9]));
+            check(isCommit(job[10], "AB"), "bs3[10]", "Commit(AB)", itemStr(job[10]));
         }
     }
 
     // Backspace N=0: empty job, nothing queued.
     {
-        auto job = fcitx::buildBackspaceJob(0, 0ms, 17ms, 33ms);
+        auto job = fcitx::buildBackspaceJob(0, 0ms, 17ms, 33ms, "AB");
         check(job.empty(), "bs0 empty", "empty", jobStr(job));
     }
 
