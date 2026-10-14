@@ -138,13 +138,9 @@ int run_rules_parser() {
         check("matchAppendingLetters abc", !matchAppendingLetters(U"abc").has_value());
     }
 
-    // parseInputMethod: an unknown name yields the default input method, like Go's ParseInputMethod.
+    // parseInputMethod: the definition of an input method is parsed from its generated table entry.
     {
-        const auto unknown = lotus::parseInputMethod("NonExistent");
-        check("unknown input method", unknown.name.empty() && unknown.rules.empty() && unknown.keys.empty());
-
-        const auto telex = lotus::parseInputMethod("Telex");
-        check("telex name", telex.name == "Telex");
+        const lotus::InputMethod telex = lotus::parseInputMethod(lotus::data::inputMethodDefinitions().at(static_cast<std::size_t>(lotus::InputMethodId::Telex)));
         check("telex keys", telex.keys.size() == 11U);
         check("telex rules", !telex.rules.empty());
     }
@@ -153,22 +149,20 @@ int run_rules_parser() {
     // configured input method for every input context and on every configuration refresh), so the
     // result must equal parseInputMethod() and stay the same object.
     {
-        const lotus::InputMethod& first  = lotus::cachedInputMethod("Telex");
-        const lotus::InputMethod& second = lotus::cachedInputMethod("Telex");
+        const lotus::InputMethod& first  = lotus::cachedInputMethod(lotus::InputMethodId::Telex);
+        const lotus::InputMethod& second = lotus::cachedInputMethod(lotus::InputMethodId::Telex);
         check("cachedInputMethod reuses one object", &first == &second);
 
-        const lotus::InputMethod parsed = lotus::parseInputMethod("Telex");
-        bool                     same   = first.name == parsed.name && first.keys == parsed.keys && first.superKeys == parsed.superKeys && first.toneKeys == parsed.toneKeys &&
-            first.appendingKeys == parsed.appendingKeys && first.rules.size() == parsed.rules.size();
+        const lotus::InputMethod parsed = lotus::parseInputMethod(lotus::data::inputMethodDefinitions().at(static_cast<std::size_t>(lotus::InputMethodId::Telex)));
+        bool same = first.keys == parsed.keys && first.superKeys == parsed.superKeys && first.toneKeys == parsed.toneKeys && first.appendingKeys == parsed.appendingKeys &&
+            first.rules.size() == parsed.rules.size();
         for (std::size_t i = 0; same && i < parsed.rules.size(); ++i) {
             same = first.rules[i].key == parsed.rules[i].key && first.rules[i].effectType == parsed.rules[i].effectType && first.rules[i].effectOn == parsed.rules[i].effectOn &&
                 first.rules[i].result == parsed.rules[i].result && first.rules[i].appendedRules.size() == parsed.rules[i].appendedRules.size();
         }
         check("cachedInputMethod matches parseInputMethod", same);
 
-        const lotus::InputMethod& unknown = lotus::cachedInputMethod("NonExistent");
-        check("cachedInputMethod unknown name", unknown.name.empty() && unknown.rules.empty() && unknown.keys.empty());
-        check("cachedInputMethod unknown is stable", &unknown == &lotus::cachedInputMethod("NonExistent"));
+        check("custom has no built-in definition", lotus::cachedInputMethod(lotus::InputMethodId::Custom).rules.empty());
     }
 
     if (failures != 0) {

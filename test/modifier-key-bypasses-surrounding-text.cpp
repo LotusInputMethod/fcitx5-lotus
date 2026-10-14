@@ -25,7 +25,7 @@ int main() {
     config.setValueByPath("Mode", "Surrounding Text");
     config.setValueByPath("InputMethod", "Telex");
     engine.setConfig(config);
-    if (engine.config().mode.value() != fcitx::LotusMode::SurroundingText || engine.config().inputMethod.value() != "Telex") {
+    if (engine.config().mode.value() != fcitx::LotusMode::SurroundingText || engine.config().inputMethod.value() != fcitx::InputMethodId::Telex) {
         reportFailure("configure Surrounding Text/Telex", "mode=SurroundingText, input method=Telex", "configured mode or input method differs",
                       "the raw Fcitx configuration values did not serialize to Surrounding Text Telex behavior");
         return 1;

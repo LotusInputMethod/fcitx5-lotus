@@ -15,14 +15,11 @@
 #include "transformation.h"
 #include "types.h"
 
-#include <cstddef>
-#include <cstdint>
 #include <cstdio>
 #include <memory>
 #include <string>
 #include <variant>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 namespace {
@@ -120,7 +117,7 @@ namespace {
 } // namespace
 
 int run_engine_utils() {
-    const InputMethod       telex  = lotus::cachedInputMethod("Telex");
+    const InputMethod       telex  = lotus::cachedInputMethod(lotus::InputMethodId::Telex);
     const std::vector<Rule> wRules = rulesForKey(telex, U'w');
     const std::vector<Rule> oRules = rulesForKey(telex, U'o');
 

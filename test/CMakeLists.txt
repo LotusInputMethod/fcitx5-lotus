@@ -52,6 +52,8 @@ add_executable(lotus_unit_tests lotus-unit-test-main.cpp)
 target_link_libraries(lotus_unit_tests PRIVATE Lotus::Engine)
 target_compile_definitions(lotus_unit_tests PRIVATE LOTUS_TEST_GOLDEN_DIR="${PROJECT_SOURCE_DIR}/test/golden")
 
+set_target_properties(lotus_unit_tests PROPERTIES UNITY_BUILD OFF)
+
 add_lotus_unit_test(lotus_utf8 utf8 lotus-utf8-test.cpp "unit;lotus")
 add_lotus_unit_test(lotus_data data lotus-data-test.cpp "unit;lotus")
 add_lotus_unit_test(lotus_utils utils lotus-utils-test.cpp "unit;lotus")
@@ -71,25 +73,25 @@ add_lotus_headless_test(preedit_lifecycle preedit-lifecycle.cpp "integration;pre
 add_lotus_headless_test(app_rule_reset app-rule-reset.cpp "integration;apprule")
 add_lotus_headless_test(preedit_smoke_client preedit-smoke-client.cpp "integration;preedit")
 add_lotus_headless_test(preedit_smoke_server preedit-smoke-server.cpp "integration;preedit")
-# TODO(EIS test harness): the transport moved from raw KeyMsg sockets to EIS.
-# These tests need a mini EIS server (backend_fd + key-stream asserts) before
-# they can run again; key_job_builder still pins the pacer job contract.
-# add_lotus_headless_test(smooth_buffered_key_replay
-#     smooth-buffered-key-replay.cpp "integration;smooth")
-# add_lotus_headless_test(select_mode_replacement
-#     select-mode-replacement.cpp "integration;select")
-# add_lotus_headless_test(app_rule_delays app-rule-delays.cpp "integration;apprule")
-# add_lotus_headless_test(replacement_delays replacement-delays.cpp "integration;smooth")
+# NOTE(merge origin/dev): upstream revived these raw-socket tests. They bind
+# the shared kb_socket listener first, so they fail locally while a live
+# fcitx5 holds it (manual testing) — CI has no such holder, let them run.
+add_lotus_headless_test(smooth_buffered_key_replay
+    smooth-buffered-key-replay.cpp "integration;smooth")
+add_lotus_headless_test(select_mode_replacement
+    select-mode-replacement.cpp "integration;select")
 add_lotus_headless_test(app_rule_delays app-rule-delays.cpp "integration;apprule")
+add_lotus_headless_test(replacement_delays replacement-delays.cpp "integration;smooth")
 add_lotus_headless_test(key_job_builder key-job-builder.cpp "unit;uinput")
 add_lotus_headless_test(key_buffer key-buffer.cpp "unit;buffer")
 add_lotus_headless_test(direct_eis_socket direct-eis-socket.cpp "integration;uinput")
 add_lotus_headless_test(select_delete_echo_commit select-delete-echo-commit.cpp "integration;select")
 add_lotus_headless_test(dict_reload dict-reload.cpp "integration;dictionary")
+add_lotus_headless_test(app_rule_delay_wire app-rule-delay-wire.cpp "integration;apprule")
 # add_lotus_headless_test(key_pacer_resilience key-pacer-resilience.cpp "unit;uinput")
-# add_lotus_headless_test(app_rule_delay_wire app-rule-delay-wire.cpp "integration;apprule")
-# set_tests_properties(smooth_buffered_key_replay select_mode_replacement replacement_delays app_rule_delay_wire
-#     PROPERTIES RESOURCE_LOCK lotus_kb_socket)
+set_tests_properties(smooth_buffered_key_replay select_mode_replacement replacement_delays app_rule_delay_wire
+    PROPERTIES RESOURCE_LOCK lotus_kb_socket)
+add_lotus_headless_test(config_enum_names config-enum-names.cpp "unit;config")
 add_lotus_headless_test(modifier_key_bypasses_surrounding_text
     modifier-key-bypasses-surrounding-text.cpp "integration;surrounding")
 add_lotus_headless_test(runtime_safety

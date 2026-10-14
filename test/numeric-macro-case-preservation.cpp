@@ -21,7 +21,7 @@ namespace {
 
     /** @brief Builds a processor with the option set the regression was reported with. */
     KeyProcessor newProcessor(const std::shared_ptr<const MacroTable>& macroTable) {
-        KeyProcessor processor(lotus::cachedInputMethod("Telex"), true);
+        KeyProcessor processor(lotus::cachedInputMethod(lotus::InputMethodId::Telex), true);
         Options      options;
         options.autoNonVnRestore = true;
         options.ddFreeStyle      = true;
@@ -30,7 +30,7 @@ namespace {
         // original letter case when the macro key consisted solely of digits.
         options.autoCapitalizeMacro = true;
         options.spellCheckWithDicts = true;
-        options.outputCharset       = "Unicode";
+        options.outputCharset       = lotus::Charset::Unicode;
         options.modernStyle         = false;
         options.freeMarking         = false;
         options.w2u                 = lotus::W2uMode::Disabled;

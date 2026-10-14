@@ -20,6 +20,8 @@
 #include <fcitx-config/enum.h>
 #include <fcitx-utils/i18n.h>
 
+#include "encoder.h"
+#include "input_method.h"
 #include "types.h"
 #include <fcitx-utils/stringutils.h>
 
@@ -84,10 +86,18 @@ namespace fcitx {
 
     FCITX_CONFIG_ENUM_NAME_WITH_I18N(IconTheme, N_("Auto"), N_("Light"), N_("Dark"));
 
-    struct InputMethodConstrain;
-    struct InputMethodAnnotation;
+    /**
+     * @brief Output charsets, shared with the engine (lotus::data::Charset).
+     */
+    using lotus::Charset;
+    FCITX_CONFIG_ENUM_NAME(Charset, "Unicode", "BKHCM 1", "BKHCM 2", "NCR Decimal", "NCR Hex", "TCVN3 (ABC)", "UTF-8", "Unicode C string Decimal", "Unicode C string Hex",
+                           "Unicode tổ hợp", "VIQR", "VISCII", "VNI Windows", "VPS", "Vietware Full", "Vietware X", "Windows 1258 codepage");
 
-    using InputMethodOption = Option<std::string, InputMethodConstrain, DefaultMarshaller<std::string>, InputMethodAnnotation>;
+    /**
+     * @brief Input methods, shared with the engine (lotus::data::InputMethodId).
+     */
+    using lotus::InputMethodId;
+    FCITX_CONFIG_ENUM_NAME(InputMethodId, "Telex", "VNI", "Telex + VNI", "Telex + VNI + VIQR", "VIQR", "Microsoft layout", "VNI Bàn phím tiếng Pháp", "Custom");
 
     /**
      * @brief Annotation for string list options in configuration UI.
@@ -125,13 +135,16 @@ namespace fcitx {
         std::vector<std::string> list_; // NOLINT
     };
 
-    struct InputMethodAnnotation : public StringListAnnotation {
+    /**
+     * @brief Annotation for the input method option: plain enum names plus the custom keymap sub-config.
+     */
+    struct InputMethodAnnotation : public EnumAnnotation {
         /**
          * @brief Dumps description with sub-config paths.
          * @param config Config to write to.
          */
         void dumpDescription(RawConfig& config) const {
-            StringListAnnotation::dumpDescription(config);
+            EnumAnnotation::dumpDescription(config);
             config.setValueByPath("LaunchSubConfig", "True");
         }
     };
@@ -152,41 +165,6 @@ namespace fcitx {
         DateFormatAnnotation() {
             list_ = {"%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d", "%d/%m/%y", "%y-%m-%d", ""};
         }
-    };
-
-    /**
-     * @brief Constraint validator for input method options.
-     */
-    struct InputMethodConstrain {
-        using Type = std::string;
-
-        /**
-         * @brief Constructs with option pointer.
-         * @param option Pointer to input method option.
-         */
-        explicit InputMethodConstrain(const InputMethodOption* option) : option_(option) {}
-
-        /**
-         * @brief Validates if name is in the allowed list.
-         * @param name Name to check.
-         * @return True if valid.
-         */
-        [[nodiscard]] bool check(const std::string& name) const {
-            const auto& list = option_->annotation().list();
-            if (list.empty()) {
-                return true;
-            }
-            return std::ranges::find(list, name) != list.end();
-        }
-
-        /**
-         * @brief Dumps description (no-op).
-         * @param config Unused.
-         */
-        void dumpDescription(RawConfig& /*unused*/) const {}
-
-      private:
-        const InputMethodOption* option_;
     };
 
     FCITX_CONFIGURATION(lotusKeymap, Option<std::string> key{this, "Key", _("Key"), ""}; Option<std::string> value{this, "Value", _("Value"), ""};);
@@ -223,11 +201,9 @@ namespace fcitx {
     FCITX_CONFIGURATION(
         lotusConfig,
 
-        OptionWithAnnotation<LotusMode, LotusModeI18NAnnotation>                                         mode{this, "Mode", _("Mode"), LotusMode::Preedit};
-        Option<std::string, InputMethodConstrain, DefaultMarshaller<std::string>, InputMethodAnnotation> inputMethod{
-            this, "InputMethod", _("Input Method"), "Telex", InputMethodConstrain(&inputMethod), {}, InputMethodAnnotation()};
-        OptionWithAnnotation<std::string, StringListAnnotation> outputCharset{this, "OutputCharset", _("Output Charset"), "Unicode", {}, {}, StringListAnnotation()};
-        KeyListOption                                           modeMenuKey{
+        OptionWithAnnotation<LotusMode, LotusModeI18NAnnotation>   mode{this, "Mode", _("Mode"), LotusMode::Preedit};
+        OptionWithAnnotation<InputMethodId, InputMethodAnnotation> inputMethod{this, "InputMethod", _("Input Method"), InputMethodId::Telex};
+        OptionWithAnnotation<Charset, EnumAnnotation> outputCharset{this, "OutputCharset", _("Output Charset"), Charset::Unicode}; KeyListOption modeMenuKey{
             this, "ModeMenuKey", _("Mode Menu Hotkey"), {Key("grave")}, KeyListConstrain({KeyConstrainFlag::AllowModifierLess, KeyConstrainFlag::AllowModifierOnly})};
         KeyListOption cycleModeKey{this, "CycleModeKey", _("Cycle Mode Hotkey"), {}, KeyListConstrain({KeyConstrainFlag::AllowModifierLess, KeyConstrainFlag::AllowModifierOnly})};
         SubConfigOption                                                                appRules{this, "AppRules", _("App Rules"), "fcitx://config/addon/lotus/app_rules"};

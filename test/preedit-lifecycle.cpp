@@ -51,7 +51,7 @@ int main() {
     config.setValueByPath("Mode", "Preedit");
     config.setValueByPath("InputMethod", "Telex");
     engine.setConfig(config);
-    if (engine.config().mode.value() != fcitx::LotusMode::Preedit || engine.config().inputMethod.value() != "Telex") {
+    if (engine.config().mode.value() != fcitx::LotusMode::Preedit || engine.config().inputMethod.value() != fcitx::InputMethodId::Telex) {
         reportFailure("configure Preedit/Telex", "mode=Preedit, input method=Telex", "configured mode or input method differs",
                       "the lifecycle test cannot exercise client preedit behavior");
         return 1;

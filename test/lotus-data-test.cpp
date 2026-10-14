@@ -40,17 +40,19 @@ namespace {
 } // namespace
 
 int run_data() {
-    // Charsets: 16 tables, 2112 entries, values byte identical to Go (including the raw-string tables).
+    // Charsets: the table is indexed by Charset, 16 entries for the 17 charsets (Unicode is empty),
+    // 2112 entries total, values byte identical to Go.
     std::size_t totalEntries = 0;
     for (const auto& table : charsetDefinitions()) {
-        totalEntries += table.second.size();
+        totalEntries += table.size();
     }
-    check("charset table count", charsetDefinitions().size() == 16);
+    check("charset table count", charsetDefinitions().size() == kCharsetCount);
     check("charset entry count", totalEntries == 2112);
-    check("TCVN3 'đ'", charsetDefinitions().at("TCVN3 (ABC)").at(U'đ') == "\xC2\xAE");
-    check("C string hex 'đ'", charsetDefinitions().at("Unicode C string Hex").at(U'đ') == "\\x111");
-    check("NCR hex 'ơ'", charsetDefinitions().at("NCR Hex").at(U'ơ') == "&#x1A1;");
-    check("NCR decimal 'đ'", charsetDefinitions().at("NCR Decimal").at(U'đ') == "&#273;");
+    check("Unicode has no table", charsetDefinitions().at(static_cast<std::size_t>(Charset::Unicode)).empty());
+    check("TCVN3 'đ'", charsetDefinitions().at(static_cast<std::size_t>(Charset::Tcvn3Abc)).at(U'đ') == "\xC2\xAE");
+    check("C string hex 'đ'", charsetDefinitions().at(static_cast<std::size_t>(Charset::UnicodeCStringHex)).at(U'đ') == "\\x111");
+    check("NCR hex 'ơ'", charsetDefinitions().at(static_cast<std::size_t>(Charset::NcrHex)).at(U'ơ') == "&#x1A1;");
+    check("NCR decimal 'đ'", charsetDefinitions().at(static_cast<std::size_t>(Charset::NcrDecimal)).at(U'đ') == "&#273;");
 
     // Vowels, punctuation and mark families.
     check("vowel count", vowels().size() == 72);
@@ -77,13 +79,21 @@ int run_data() {
     check("vc matrix row 5 empty", vcMatrix()[5].empty());
     check("vc matrix row 7", vcMatrix()[7] == std::vector<int>{4});
 
-    // Input methods: 7 definitions.
-    check("input method count", inputMethodDefinitions().size() == 7);
-    check("telex w", inputMethodDefinitions().at("Telex").at("w") == "UOA_ƯƠĂ");
-    check("telex d", inputMethodDefinitions().at("Telex").at("d") == "D_Đ");
-    check("vni 9", inputMethodDefinitions().at("VNI").at("9") == "D_Đ");
-    check("viqr apostrophe", inputMethodDefinitions().at("VIQR").at("'") == "DauSac");
-    check("french layout é", inputMethodDefinitions().at("VNI Bàn phím tiếng Pháp").at("é") == "DauSac");
+    // Input methods: 8 ids, the 7 built-in ones have a definition and Custom has none.
+    check("input method count", inputMethodDefinitions().size() == kInputMethodCount);
+    check("custom has no definition", inputMethodDefinitions().at(static_cast<std::size_t>(InputMethodId::Custom)).empty());
+    std::size_t definedMethods = 0;
+    for (const auto& definition : inputMethodDefinitions()) {
+        if (!definition.empty()) {
+            ++definedMethods;
+        }
+    }
+    check("built-in definition count", definedMethods == 7);
+    check("telex w", inputMethodDefinitions().at(static_cast<std::size_t>(InputMethodId::Telex)).at("w") == "UOA_ƯƠĂ");
+    check("telex d", inputMethodDefinitions().at(static_cast<std::size_t>(InputMethodId::Telex)).at("d") == "D_Đ");
+    check("vni 9", inputMethodDefinitions().at(static_cast<std::size_t>(InputMethodId::Vni)).at("9") == "D_Đ");
+    check("viqr apostrophe", inputMethodDefinitions().at(static_cast<std::size_t>(InputMethodId::Viqr)).at("'") == "DauSac");
+    check("french layout é", inputMethodDefinitions().at(static_cast<std::size_t>(InputMethodId::VniFrench)).at("é") == "DauSac");
 
     // Case map.
     check("case pair count", lowerUpperPairs().size() == 108);

@@ -14,7 +14,6 @@
 
 #include "types.h"
 
-#include <string>
 #include <variant>
 #include <vector>
 
@@ -54,7 +53,6 @@ namespace lotus {
 
     /** @brief One input method with its parsed rules, 1:1 with Go's InputMethod. */
     struct InputMethod {
-        std::string           name;          // Definition name, empty for an unknown name
         std::vector<Rule>     rules;         // Rules of every definition line, sorted by key
         std::vector<char32_t> superKeys;     // Keys whose line mentions "uo"
         std::vector<char32_t> toneKeys;      // Keys that produce tone rules

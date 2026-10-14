@@ -45,7 +45,7 @@ namespace {
     }
 
     lotus::Engine newStdEngine() {
-        return {lotus::cachedInputMethod("Telex"), lotus::kEstdFlags};
+        return {lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::kEstdFlags};
     }
 
 } // namespace
@@ -53,7 +53,7 @@ namespace {
 int run_engine_smoke() {
     {
         lotus::Engine engine = newStdEngine();
-        check("input method name", engine.inputMethod().name == "Telex");
+        check("input method keys", engine.inputMethod().keys.size() == 11U);
         check("flags", engine.flag().bits == lotus::kEstdFlags.bits);
         type(engine, U"dd");
         checkPreedit("dd", engine, U"đ");

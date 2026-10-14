@@ -14,7 +14,7 @@
 #include "utf8.h"
 
 #include <array>
-#include <cstdint>
+
 #include <cstdio>
 #include <string>
 #include <string_view>
@@ -69,7 +69,7 @@ namespace {
 
     // Go's NewEngine(ParseInputMethod(GetInputMethodDefinitions(), "Telex"), EstdFlags).
     Engine newTelexEngine() {
-        return {lotus::cachedInputMethod("Telex"), lotus::kEstdFlags};
+        return {lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::kEstdFlags};
     }
 
     // Go's t.Run(tt.input, ...) subtest name, kept as "RebuildFromText('<input>')".

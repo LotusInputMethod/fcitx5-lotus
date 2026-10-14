@@ -306,7 +306,6 @@ namespace fcitx {
         lotusAppRules                                        appRulesTables_;
 
         FactoryFor<LotusState>                               factory_;
-        std::vector<std::string>                             imNames_;
 
         std::unique_ptr<SimpleAction>                        charsetAction_;
         std::vector<std::unique_ptr<SimpleAction>>           charsetSubAction_;

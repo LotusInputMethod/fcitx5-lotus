@@ -77,14 +77,14 @@ namespace lotus {
 
     /** @brief Options of the processor, 1:1 with Go's FcitxBambooEngineOption (bamboo-c.go). */
     struct Options {
-        bool        autoNonVnRestore    = true;                         // Restore the raw key strokes of a non-Vietnamese word
-        bool        ddFreeStyle         = true;                         // Allow "dd" inside a non-Vietnamese sequence
-        bool        macroEnabled        = false;                        // Expand macros at a word break and on Tab
-        bool        autoCapitalizeMacro = false;                        // Follow the case of the trigger word
-        bool        spellCheckWithDicts = true;                         // Spell check against the custom dictionary
-        bool        modernStyle         = true;                         // "hòa" instead of "hoà"
-        bool        freeMarking         = true;                         // Free tone marking style
-        std::string outputCharset       = std::string(kUnicodeCharset); // Charset of the committed text
+        bool    autoNonVnRestore    = true;             // Restore the raw key strokes of a non-Vietnamese word
+        bool    ddFreeStyle         = true;             // Allow "dd" inside a non-Vietnamese sequence
+        bool    macroEnabled        = false;            // Expand macros at a word break and on Tab
+        bool    autoCapitalizeMacro = false;            // Follow the case of the trigger word
+        bool    spellCheckWithDicts = true;             // Spell check against the custom dictionary
+        bool    modernStyle         = true;             // "hòa" instead of "hoà"
+        bool    freeMarking         = true;             // Free tone marking style
+        Charset outputCharset       = Charset::Unicode; // Charset of the committed text
         // Empty optional = follow the engine flags, the mode a fresh engine starts in. The addon always
         // fills them from the configuration, so it only ever sees the three public enumerators.
         std::optional<W2uMode>              w2u              = std::nullopt; // "w" to "ư" mode

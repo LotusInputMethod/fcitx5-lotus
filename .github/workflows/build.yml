@@ -24,8 +24,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: fcitx/github-actions@clang-format
 
-  check:
-    name: Build and test
+  check-glibc:
+    name: Build and test (glibc)
     runs-on: ubuntu-latest
     container: archlinux:latest
 
@@ -91,6 +91,54 @@ jobs:
         uses: github/codeql-action/analyze@v4.38.3
         with:
           checkout_path: fcitx5-lotus
+
+  check-musl:
+    name: Build and test (musl)
+    runs-on: ubuntu-latest
+    container: alpine:latest
+    env:
+      CC: gcc
+      CXX: g++
+    steps:
+      - name: Install dependencies
+        run: |
+          apk add --no-cache build-base cmake ninja extra-cmake-modules libuv-dev git libinput-dev python3 zlib-dev gettext-dev util-linux-dev linux-headers
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5-lotus"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5"
+      - uses: actions/checkout@v7
+        with:
+          repository: fcitx/fcitx5
+          path: fcitx5
+      - name: Cache fcitx5 data files
+        uses: actions/cache@v6
+        with:
+          path: 'fcitx5/**/*.tar.*'
+          key: ${{ runner.os }}-${{ hashFiles('fcitx5/src/modules/spell/CMakeLists.txt') }}
+      - name: Build and Install fcitx5
+        uses: fcitx/github-actions@cmake
+        with:
+          path: fcitx5
+          shell: sh
+          cmake-option: >-
+            -DENABLE_KEYBOARD=Off -DENABLE_X11=Off -DENABLE_WAYLAND=Off
+            -DENABLE_ENCHANT=Off -DENABLE_DBUS=Off -DENABLE_SERVER=Off
+            -DUSE_SYSTEMD=Off -DENABLE_EMOJI=On
+      - uses: actions/checkout@v7
+        with:
+          path: fcitx5-lotus
+      - name: Build and Install fcitx5-lotus
+        uses: fcitx/github-actions@cmake
+        with:
+          path: fcitx5-lotus
+          shell: sh
+          cmake-option: -DBUILD_TESTING=ON
+      - name: Discover tests
+        run: |
+          ctest --test-dir fcitx5-lotus/build -N
+      - name: Test
+        run: |
+          ctest --test-dir fcitx5-lotus/build --output-on-failure --no-tests=error
 
   python-lint:
     name: Python lint

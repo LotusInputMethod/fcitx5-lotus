@@ -251,7 +251,7 @@ namespace lotus {
         // are decoded back to code points. The Unicode charset is the identity apart from the code
         // points a UTF-8 round trip cannot carry, which utf8::sanitize replaces the same way, so the
         // round trip is skipped.
-        if (std::string_view(options_.outputCharset) == kUnicodeCharset) {
+        if (options_.outputCharset == Charset::Unicode) {
             return utf8::sanitize(text);
         }
         return utf8::decode(encode(options_.outputCharset, text));

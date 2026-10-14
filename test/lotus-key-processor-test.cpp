@@ -113,7 +113,7 @@ namespace {
 
     // Go's newTestEngine(dict, spellCheckWithDicts).
     KeyProcessor newTestEngine(const std::vector<std::string>& dict, bool spellCheckWithDicts) {
-        KeyProcessor engine(lotus::cachedInputMethod("Telex"), spellCheckWithDicts);
+        KeyProcessor engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), spellCheckWithDicts);
         auto         table = std::make_shared<lotus::MacroTable>();
         engine.setMacroTable(std::move(table));
         auto dictionary = std::make_shared<lotus::Dictionary>();
@@ -245,12 +245,12 @@ namespace {
         checkBool("updatePreedit(\"\") left commit non-empty", engine.takeCommit().empty(), true);
     }
 
-    // TestEncodeCharsets: bamboo.Encode(cs, "tôi") is the identity for these charsets (they are
-    // either the Unicode table or unknown names, which Go and the port both pass through).
+    // TestEncodeCharsets: bamboo.Encode(cs, "tôi") is the identity for the Unicode charset; the names
+    // the Go test used for the pass-through case ("VNI", "TCVN3") are not table entries, and a legacy
+    // charset is no longer the identity.
     void case_encode_charsets() {
-        for (const std::string_view cs : {"Unicode", "VNI", "TCVN3"}) {
-            checkStr("Encode(cs, tôi) got [tôi] expected [tôi]", lotus::encode(cs, U"tôi"), "tôi");
-        }
+        checkStr("Encode(Unicode, tôi) got [tôi] expected [tôi]", lotus::encode(lotus::Charset::Unicode, U"tôi"), "tôi");
+        checkBool("legacy charset is not the identity", lotus::encode(lotus::Charset::Tcvn3Abc, U"tôi") != lotus::encode(lotus::Charset::Unicode, U"tôi"), true);
     }
 
     // The charset step of updatePreedit/takeCommit: the Unicode charset keeps the code points, a
@@ -264,7 +264,7 @@ namespace {
         checkU32("Unicode commit got [đ] expected [đ]", unicodeEngine.takeCommit(), U"đ");
 
         KeyProcessor legacyEngine            = newTestEngine({}, false);
-        legacyEngine.options().outputCharset = "TCVN3 (ABC)";
+        legacyEngine.options().outputCharset = lotus::Charset::Tcvn3Abc;
         typeKeys(legacyEngine, "dd");
         checkU32("TCVN3 (ABC) preedit got [®] expected [®]", legacyEngine.preedit(), U"®");
         legacyEngine.commitPreedit();
@@ -710,7 +710,7 @@ namespace {
             auto               it = processors.find(id);
             if (it == processors.end()) {
                 const auto   opts = static_cast<uint32_t>(std::stoul(row.fields[4]));
-                KeyProcessor processor(lotus::cachedInputMethod("Telex"), (opts & kOptSpellCheckWithDicts) != 0);
+                KeyProcessor processor(lotus::cachedInputMethod(lotus::InputMethodId::Telex), (opts & kOptSpellCheckWithDicts) != 0);
                 auto         dictionary = std::make_shared<lotus::Dictionary>();
                 dictionary->loadFromWords({"vietnam", "nguoi", "duong"});
                 processor.setDictionary(std::move(dictionary));

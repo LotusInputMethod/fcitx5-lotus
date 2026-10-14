@@ -109,17 +109,10 @@ bool isUinputMode(fcitx::LotusMode mode) {
     return std::ranges::find(modes, mode) != modes.end();
 }
 
-int compareAndSplitU32(std::u32string_view A, std::u32string_view B, std::u32string& deletedPart, std::u32string& addedPart) {
-    size_t i = 0;
-    size_t j = 0;
-    while (i < A.size() && j < B.size() && A[i] == B[j]) {
-        ++i;
-        ++j;
-    }
-
-    deletedPart.assign(A, i, std::u32string_view::npos);
-    addedPart.assign(B, j, std::u32string_view::npos);
-    return (deletedPart.empty() && addedPart.empty()) ? 1 : 2;
+DiffPart compareAndSplitU32(std::u32string_view A, std::u32string_view B) {
+    auto [itA, itB] = std::ranges::mismatch(A, B);
+    size_t offset   = std::distance(A.begin(), itA);
+    return {.deletedPart = A.substr(offset), .addedPart = B.substr(offset)};
 }
 
 std::string getFrontendName(fcitx::InputContext* ic) {

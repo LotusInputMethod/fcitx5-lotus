@@ -79,7 +79,7 @@ namespace {
 
     // Go's newStdEngine: Telex + EstdFlags + BracketTransformEverywhere.
     Engine newStdEngine() {
-        Engine engine(lotus::cachedInputMethod("Telex"), lotus::kEstdFlags);
+        Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::kEstdFlags);
         engine.setBracketTransformMode(lotus::BracketTransformMode::Everywhere);
         return engine;
     }
@@ -197,7 +197,7 @@ namespace {
         type(engine, U"]]a", kVietnamese);
         checkU32("Process ]aa", processed(engine, kVietnamese), U"]a");
 
-        Engine bracketEngine(lotus::cachedInputMethod("Telex"), lotus::kEstdFlags);
+        Engine bracketEngine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::kEstdFlags);
         bracketEngine.setBracketTransformMode(lotus::BracketTransformMode::Everywhere);
         type(bracketEngine, U"[", kVietnamese);
         checkU32("Process BracketTransform [[]", processed(bracketEngine, kVietnamese), U"ơ");
@@ -335,7 +335,7 @@ namespace {
     }
 
     void case_process_eenghf() {
-        Engine engine(lotus::cachedInputMethod("Telex"), lotus::kEstdFlags);
+        Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::kEstdFlags);
         engine.setBracketTransformMode(lotus::BracketTransformMode::Everywhere);
         type(engine, U"ddawks", kVietnamese);
         checkU32("Process eenghf", processed(engine, kVietnamese), U"đắk");
@@ -360,7 +360,7 @@ namespace {
     }
 
     void case_process_to5() {
-        Engine engine(lotus::cachedInputMethod("VNI"), lotus::kEstdFlags);
+        Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Vni), lotus::kEstdFlags);
         type(engine, U"o55", kVietnamese);
         checkU32("Process [o55-VNI]", processed(engine, kVietnamese), U"o5");
     }
@@ -372,7 +372,7 @@ namespace {
     }
 
     void case_process_choas() {
-        Engine engine(lotus::cachedInputMethod("Telex"), withoutStdToneStyle());
+        Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), withoutStdToneStyle());
         engine.setBracketTransformMode(lotus::BracketTransformMode::Everywhere);
         type(engine, U"choas", kVietnamese);
         checkU32("Process [choas]", processed(engine, kVietnamese), U"choá");
@@ -392,7 +392,7 @@ namespace {
     }
 
     void case_bamboo_engine_restore_last_word_tcvn() {
-        Engine engine(lotus::cachedInputMethod("Microsoft layout"), lotus::kEstdFlags);
+        Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::MicrosoftLayout), lotus::kEstdFlags);
         type(engine, U"112", kVietnamese);
         checkU32("Process-VIE 112 (Microsoft layout)", processed(engine, kVietnamese), U"1â");
         engine.restoreLastWord(false);
@@ -517,10 +517,10 @@ namespace {
 
     void case_ew2u_enabled() {
         // Standard Telex (no w -> ư rule)
-        const lotus::InputMethod im = lotus::cachedInputMethod("Telex");
+        const lotus::InputMethod im = lotus::cachedInputMethod(lotus::InputMethodId::Telex);
 
         // Flag OFF
-        Engine engine(lotus::cachedInputMethod("Telex"), withoutW2u());
+        Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), withoutW2u());
         engine.processKey(U'w', kVietnamese);
         checkU32("Ew2uEnabled OFF: Process [w]", processed(engine, kVietnamese), U"w");
 
@@ -573,12 +573,12 @@ namespace {
         checkCase(engine, U"tawsk", U"tắk", true);
 
         // w2u OFF: previously stayed raw "boawjm".
-        engine = Engine(lotus::cachedInputMethod("Telex"), withoutW2u());
+        engine = Engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), withoutW2u());
         checkCase(engine, U"boawjm", U"boặm", true);
     }
 
     void case_bracket_transform_global() {
-        Engine engine(lotus::cachedInputMethod("Telex"), lotus::kEstdFlags);
+        Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::kEstdFlags);
         engine.setBracketTransformMode(lotus::BracketTransformMode::Everywhere);
 
         type(engine, U"[", kVietnamese);
@@ -605,7 +605,7 @@ namespace {
     }
 
     void case_bracket_transform_with_tone() {
-        Engine engine(lotus::cachedInputMethod("Telex"), lotus::kEstdFlags);
+        Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::kEstdFlags);
         engine.setBracketTransformMode(lotus::BracketTransformMode::Everywhere);
 
         // Test m[f -> mờ
@@ -619,7 +619,7 @@ namespace {
     }
 
     void case_bracket_disabled_with_tone() {
-        Engine engine(lotus::cachedInputMethod("Telex"), lotus::kEstdFlags);
+        Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::kEstdFlags);
         engine.setBracketTransformMode(lotus::BracketTransformMode::Disabled);
 
         // Test m[f -> m[f (since [ is literal and not a vowel, f remains f)
@@ -670,7 +670,8 @@ namespace {
             const std::string& id = row.fields[0];
             auto               it = engines.find(id);
             if (it == engines.end()) {
-                auto engine = std::make_unique<Engine>(lotus::cachedInputMethod("Telex"), lotus::engineFlagsFromBits(static_cast<uint32_t>(std::stoul(row.fields[4]))));
+                auto engine =
+                    std::make_unique<Engine>(lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::engineFlagsFromBits(static_cast<uint32_t>(std::stoul(row.fields[4]))));
                 engine->setW2uMode(w2uModeOf(row.fields[5]));
                 engine->setBracketTransformMode(bracketTransformModeOf(row.fields[6]));
                 it = engines.emplace(id, std::move(engine)).first;

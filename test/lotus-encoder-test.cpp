@@ -8,6 +8,7 @@
 #include "golden-reader.h"
 #include "utf8.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <set>
 #include <string>
@@ -27,25 +28,26 @@ namespace {
 } // namespace
 
 int run_encoder() {
-    const std::vector<GoldenRow> kCharsetGolden = readGolden(std::string(LOTUS_TEST_GOLDEN_DIR) + "/charset.tsv");
+    const std::vector<GoldenRow>                                 kCharsetGolden = readGolden(std::string(LOTUS_TEST_GOLDEN_DIR) + "/charset.tsv");
 
-    // TestGetCharsetNames
-    const std::vector<std::string>& names1 = lotus::charsetNames();
-    const std::vector<std::string>& names2 = lotus::charsetNames();
-    check("charset names not empty", !names1.empty());
-    check("first charset is Unicode", !names1.empty() && names1[0] == lotus::kUnicodeCharset);
-    check("charset names deterministic", names1 == names2);
-    check("charset names count", names1.size() == 17U);
+    constexpr std::array<std::string_view, lotus::kCharsetCount> kNames = {
+        "Unicode",        "BKHCM 1", "BKHCM 2", "NCR Decimal", "NCR Hex", "TCVN3 (ABC)",   "UTF-8",      "Unicode C string Decimal", "Unicode C string Hex",
+        "Unicode tổ hợp", "VIQR",    "VISCII",  "VNI Windows", "VPS",     "Vietware Full", "Vietware X", "Windows 1258 codepage",
+    };
+    check("charset names count", kNames.size() == lotus::kCharsetCount);
+    check("first charset is Unicode", kNames[0] == "Unicode");
 
     // TestEncode
     const std::u32string input = lotus::utf8::decode("Tiếng Việt");
-    check("encode Unicode", lotus::encode(lotus::kUnicodeCharset, input) == "Tiếng Việt");
-    check("encode unknown charset", lotus::encode("NonExistentCharset", input) == "Tiếng Việt");
-    for (const auto& name : names1) {
-        if (name == lotus::kUnicodeCharset) {
+    check("encode Unicode", lotus::encode(lotus::Charset::Unicode, input) == "Tiếng Việt");
+    for (std::size_t i = 0; i < lotus::kCharsetCount; ++i) {
+        const auto charset = static_cast<lotus::Charset>(i);
+        if (charset == lotus::Charset::Unicode) {
+            check("unicode table is empty", lotus::data::charsetDefinitions().at(i).empty());
             continue;
         }
-        check("encode charset non-empty", !lotus::encode(name, input).empty());
+        check("charset table exists", !lotus::data::charsetDefinitions().at(i).empty());
+        check("encode charset non-empty", !lotus::encode(charset, input).empty());
     }
 
     // Golden corpus: every charset entry must match the bytes the Go engine produced.
@@ -56,9 +58,14 @@ int run_encoder() {
             continue;
         }
         charsetsSeen.insert(row.fields[0]);
+        const auto* const name = std::ranges::find(kNames, row.fields[0]);
+        if (name == kNames.end()) {
+            check("golden charset is a known enum", false);
+            continue;
+        }
         const std::string    codepointHex = row.fields[1].substr(2U);
         const std::u32string single(1U, static_cast<char32_t>(hexValue(codepointHex)));
-        const std::string    actual = lotus::encode(row.fields[0], single);
+        const std::string    actual = lotus::encode(static_cast<lotus::Charset>(static_cast<std::size_t>(name - kNames.begin())), single);
         if (actual != fromHex(row.fields[2])) {
             std::printf("FAIL golden %s U+%s: got %zu bytes, expected %zu\n", row.fields[0].c_str(), row.fields[1].c_str(), actual.size(), fromHex(row.fields[2]).size());
             ++failures;

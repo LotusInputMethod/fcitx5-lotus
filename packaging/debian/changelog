@@ -1,7 +1,5 @@
-fcitx5-lotus (5.0.1-1) unstable; urgency=medium
+fcitx5-lotus (5.0.2-1) unstable; urgency=medium
 
-  * Bypass ime on password or sensitive fields
-  * Fix: do not restore a custom dictionary word while it is still a prefix
-  * Reload the custom dictionary on every configuration apply
+  * Rewrite core engine from Go to C++20 for better performance and maintainability
 
- -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Sun, 11 Oct 2026 00:07:00 +0700
+ -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Wed, 14 Oct 2026 00:59:00 +0700

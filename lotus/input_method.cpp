@@ -11,11 +11,12 @@
 #include "input_method.h"
 
 #include "case_map.h"
-#include "data/input_method_data.h"
 #include "rules_parser.h"
 #include "utf8.h"
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -23,9 +24,8 @@
 
 namespace lotus {
 
-    InputMethod parseInputMethod(const std::unordered_map<std::string, std::string>& definition, std::string_view name) {
+    InputMethod parseInputMethod(const std::unordered_map<std::string, std::string>& definition) {
         InputMethod method;
-        method.name = name;
 
         // Go iterates a map here, so the order of the definition keys is random; only the
         // key -> rules association matters, and the keys/toneKeys/appendingKeys lists are used
@@ -58,35 +58,16 @@ namespace lotus {
         return method;
     }
 
-    InputMethod parseInputMethod(std::string_view name) {
-        const auto& definitions = data::inputMethodDefinitions();
-        const auto  definition  = definitions.find(std::string(name));
-        if (definition == definitions.end()) {
-            return InputMethod{};
-        }
-        return parseInputMethod(definition->second, name);
-    }
-
-    const InputMethod& cachedInputMethod(std::string_view name) {
-        static const std::unordered_map<std::string, InputMethod> kCache = [] {
-            std::unordered_map<std::string, InputMethod> cache;
-            for (const auto& entry : data::inputMethodDefinitions()) {
-                cache.emplace(entry.first, parseInputMethod(entry.first));
+    const InputMethod& cachedInputMethod(InputMethodId id) {
+        static const std::array<InputMethod, kInputMethodCount> kCache = [] {
+            std::array<InputMethod, kInputMethodCount> cache;
+            const auto&                                definitions = data::inputMethodDefinitions();
+            for (std::size_t i = 0; i < kInputMethodCount; ++i) {
+                cache.at(i) = parseInputMethod(definitions.at(i));
             }
             return cache;
         }();
-        static const InputMethod kUnknown;
-        const auto               found = kCache.find(std::string(name));
-        return found != kCache.end() ? found->second : kUnknown;
-    }
-
-    const std::vector<std::string>& inputMethodNames() {
-        // Go's order table (bamboo-c.go:279-287): the definitions live in a map, so the menu order
-        // has to be spelled out instead of derived from the data.
-        static const std::vector<std::string> kNames = {
-            "Telex", "VNI", "Telex + VNI", "Telex + VNI + VIQR", "VIQR", "Microsoft layout", "VNI Bàn phím tiếng Pháp",
-        };
-        return kNames;
+        return kCache.at(static_cast<std::size_t>(id));
     }
 
 } // namespace lotus
