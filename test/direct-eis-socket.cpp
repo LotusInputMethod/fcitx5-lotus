@@ -24,11 +24,11 @@
 
 namespace {
 
-    int       keyEventsSeen = 0;
-    int       backspacePresses = 0;
-    int       failures = 0;
+    int  keyEventsSeen    = 0;
+    int  backspacePresses = 0;
+    int  failures         = 0;
 
-    void      check(bool ok, const std::string& what) {
+    void check(bool ok, const std::string& what) {
         if (ok)
             return;
         ++failures;
@@ -80,10 +80,9 @@ int main() {
     configureTestPaths("fcitx5-lotus-direct-eis-socket");
     // Absolute filesystem path: must select the direct EI mode, not the
     // abstract auth-gate handshake.
-    const std::string socketPath =
-        (std::filesystem::temp_directory_path() / "fcitx5-lotus-direct-eis-socket" / "direct-eis.sock").string();
+    const std::string socketPath = (std::filesystem::temp_directory_path() / "fcitx5-lotus-direct-eis-socket" / "direct-eis.sock").string();
 
-    TestInstance testInstance;
+    TestInstance      testInstance;
     fcitx::KeyPacer::instance().init(&testInstance.instance);
     fcitx::KeyPacer::instance().setSocketPathForTest(socketPath);
     fcitx::KeyPacer::instance().setImmediateDeliveryForTest(true);
@@ -107,7 +106,7 @@ int main() {
 
     // Generous exit: a working transport delivers within ms; 3s covers CI.
     const uint64_t when = fcitx::now(CLOCK_MONOTONIC) + 3000ULL * 1000;
-    auto quit = loop.addTimeEvent(CLOCK_MONOTONIC, when, 1000, [&loop](fcitx::EventSourceTime*, uint64_t) {
+    auto           quit = loop.addTimeEvent(CLOCK_MONOTONIC, when, 1000, [&loop](fcitx::EventSourceTime*, uint64_t) {
         loop.exit();
         return false;
     });

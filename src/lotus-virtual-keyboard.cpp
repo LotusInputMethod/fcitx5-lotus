@@ -156,7 +156,7 @@ namespace fcitx {
                 onEiReadable();
                 return true;
             });
-            ok = true;
+            ok  = true;
         } while (false);
         if (auth >= 0)
             ::close(auth);
