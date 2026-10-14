@@ -1114,9 +1114,9 @@ namespace fcitx {
                     stateToBuffer = stateToBuffer.unset(KeyState::Shift);
                 }
                 std::string keyUtf8Check = Key::keySymToUTF8(symToBuffer);
-                if (!keyUtf8Check.empty() && buffered_keys_.size() < MAX_BUFFERED_KEYS) {
+                if (!keyUtf8Check.empty()) {
                     LOTUS_WARN("Typing so fast, add key to queue");
-                    buffered_keys_.push_back({.sym = symToBuffer, .state = stateToBuffer});
+                    buffered_keys_.push({.sym = symToBuffer, .state = stateToBuffer});
                 }
                 keyEvent.filterAndAccept();
             }
@@ -1307,14 +1307,10 @@ namespace fcitx {
 
     void LotusState::replayBufferedKeys() {
         LOTUS_INFO("Starting replay buffered keys");
-        if (buffered_keys_.empty()) {
-            return;
-        }
-        auto keys = std::move(buffered_keys_);
-        buffered_keys_.clear();
-        for (size_t i = 0; i < keys.size(); ++i) {
-            auto           sym          = static_cast<KeySym>(keys[i].sym);
-            uint32_t       state        = keys[i].state;
+        while (!buffered_keys_.empty()) {
+            const KeyEntry entry = buffered_keys_.pop();
+            auto           sym          = static_cast<KeySym>(entry.sym);
+            uint32_t       state        = entry.state;
             const uint32_t keyCodePoint = Key::keySymToUnicode(sym);
             if (keyCodePoint == 0U) {
                 continue;
@@ -1330,12 +1326,7 @@ namespace fcitx {
                 compareAndSplitU32(oldPreBuffer_, commitStr, deletedPart, addedPart);
 
                 if (!deletedPart.empty()) {
-                    // Re-buffer remaining keys for next replay cycle.
-                    for (size_t j = i + 1; j < keys.size(); ++j) {
-                        if (buffered_keys_.size() < MAX_BUFFERED_KEYS) {
-                            buffered_keys_.push_back(keys[j]);
-                        }
-                    }
+                    // Remaining keys stay queued for the next replay cycle.
                     performReplacement(deletedPart, addedPart);
                     hasHistory_ = false;
                     (*lotusEngine_).reset();
@@ -1380,12 +1371,7 @@ namespace fcitx {
                         is_deleting_.store(false, std::memory_order_release);
                     }
 
-                    // Re-buffer remaining keys for next replay cycle.
-                    for (size_t j = i + 1; j < keys.size(); ++j) {
-                        if (buffered_keys_.size() < MAX_BUFFERED_KEYS) {
-                            buffered_keys_.push_back(keys[j]);
-                        }
-                    }
+                    // Remaining keys stay queued for the next replay cycle.
                     performReplacement(deletedPart, addedPart);
                     oldPreBuffer_ = preeditStr;
                     return;

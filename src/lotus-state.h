@@ -17,6 +17,7 @@
 
 #include "emoji-entry.h"
 #include "key_processor.h"
+#include "lotus-key-buffer.h"
 #include "lotus-protocol.h"
 #include "lotus-utils.h"
 
@@ -121,8 +122,6 @@ namespace fcitx {
         friend class LotusEngine;
 
       private:
-        static constexpr size_t               MAX_BUFFERED_KEYS = 50;
-
         LotusEngine*                          engine_;
         InputContext*                         ic_;
         std::shared_ptr<lotus::KeyProcessor>  lotusEngine_;
@@ -134,7 +133,7 @@ namespace fcitx {
         LotusAppRuleSetting                   appRuleSetting_; ///< Per-app rule (mode + delay overrides) pushed by the engine
         std::u32string                        emojiBuffer_;
         std::vector<EmojiEntry>               emojiCandidates_;
-        std::vector<KeyEntry>                 buffered_keys_; ///< Keystrokes buffered during replacement
+        KeyBuffer                             buffered_keys_; ///< Keystrokes buffered during replacement
         bool                                  isPrevSpace_           = false;
         bool                                  isPrevHyphen_          = false;
         bool                                  shouldCapitalize_      = false;
