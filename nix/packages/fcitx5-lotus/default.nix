@@ -3,6 +3,7 @@
   stdenv,
   acl,
   cmake,
+  ninja,
   fcitx5,
   fetchFromGitHub,
   gettext,
@@ -43,6 +44,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = [
     cmake
+    ninja
     gettext
     hicolor-icon-theme
     kdePackages.extra-cmake-modules

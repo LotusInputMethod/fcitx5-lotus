@@ -1,3 +1,5 @@
+%define __builder ninja
+
 Name:           fcitx5-lotus
 Version:        5.0.2
 Release:        1
@@ -7,6 +9,7 @@ URL:            https://github.com/LotusInputMethod/fcitx5-lotus
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
 BuildRequires:  cmake
+BuildRequires:  ninja
 BuildRequires:  kf6-extra-cmake-modules
 BuildRequires:  gcc-c++
 BuildRequires:  glibc-devel
@@ -42,6 +45,9 @@ cd %{_builddir}/%{name}-%{version}
 %cmake_install
 %find_lang %{name}
 %py3_compile %{buildroot}%{_datadir}/fcitx5-lotus
+
+%check
+%ctest
 
 %files -f %{name}.lang
 %{_datadir}/licenses/%{name}/LICENSE
@@ -118,6 +124,3 @@ fi
 %changelog
 * Wed Oct 14 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 5.0.2-1
 - Rewrite core engine from Go to C++20 for better performance and maintainability
-
-%check
-%ctest
