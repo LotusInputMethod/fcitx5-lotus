@@ -18,6 +18,7 @@ target_link_libraries(lotus_core_objects PRIVATE
     Fcitx5::Module::Emoji
     Lotus::Engine
     Pthread::Pthread
+    PkgConfig::LIBEI
 )
 
 # Parse the shared fcitx5 headers once instead of once per TU.
@@ -55,6 +56,7 @@ target_link_libraries(lotus
   Fcitx5::Module::Emoji
         Lotus::Engine
         Pthread::Pthread
+        PkgConfig::LIBEI
 )
 
 target_include_directories(lotus PRIVATE

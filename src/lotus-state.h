@@ -18,6 +18,7 @@
 #include "emoji-entry.h"
 #include "key_processor.h"
 #include "common-protocol.h"
+#include "lotus-protocol.h"
 #include "lotus-utils.h"
 
 #include <chrono>
@@ -57,6 +58,28 @@ namespace fcitx {
          * @param ic Pointer to the input context.
          */
         LotusState(LotusEngine* engine, InputContext* ic);
+        /**
+         * @brief Unregisters from the pacer barrier owner on teardown so a
+         * parked wait can never fire into a destroyed state.
+         */
+        ~LotusState();
+
+        /**
+         * @brief Fires a chain Commit item: commits and completes.
+         *
+         * Shared tail of every replacement mode (Select and backspace both
+         * end in a chain barrier now): commits, resets the echo state,
+         * clears is_deleting_ and replays buffered keys. Called on the pump
+         * via the barrier owner, never directly from key handling. The chain
+         * text is authoritative: re-stated into the pending string so no
+         * stale value can substitute it.
+         */
+        void commitFromChain(const std::string& text);
+
+        /**
+         * @brief Current counted-echo sequence for barrier waits.
+         */
+        [[nodiscard]] uint32_t echoSequence() const;
 
         /**
          * @brief Initializes the bamboo engine for this state.
@@ -124,44 +147,32 @@ namespace fcitx {
         std::chrono::steady_clock::time_point last_commit_time_;
 
         /**
-         * @brief Connects to the uinput server.
-         * @return True if connection successful.
+         * @brief Ensures the uinput server connection via the shared KeyPacer.
+         * @return True if the server is reachable (best-effort connect).
          */
-        static bool connect_uinput_server();
+        static bool ensureUinputConnected();
 
         /**
-         * @brief Sets up uinput device.
-         * @return File descriptor or -1 on error.
+         * @brief Queues N backspace taps paced by EventLoop timers, ending in
+         * a chain commit.
+         * @param count Number of backspace taps (also the echo barrier target).
+         * @param pre_delay Ms to wait before the first tap (commit cooldown).
+         * @param interval Ms between consecutive taps.
+         * @param post_delay Ms to wait before the final tap.
+         * @param text Replacement text carried by the chain Commit item.
          */
-        static int setup_uinput();
+        static void enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay, std::string text);
 
         /**
-         * @brief Sends a keyboard request to the uinput server (reconnect on failure).
-         * @param op Operation to request.
-         * @param count Number of backspaces or characters to select.
-         * @param pre_delay Delay in milliseconds before executing the keyboard operation.
-         * @param interval Delay in milliseconds between consecutive injected keys.
-         * @param post_delay Delay in milliseconds after completing the keyboard operation.
-         */
-        static void send_kb_msg(KbOp op, size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
-
-        /**
-         * @brief Sends backspace key events via uinput.
-         * @param count Number of backspaces to send.
-         * @param pre_delay Delay in milliseconds before executing the keyboard operation.
-         * @param interval Delay in milliseconds between consecutive injected keys.
-         * @param post_delay Delay in milliseconds after completing the keyboard operation.
-         */
-        static void send_backspace_uinput(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
-
-        /**
-         * @brief Asks the uinput server to select count characters with Shift+Left.
+         * @brief Queues an N-character Shift+Left selection ending in a chain commit.
          * @param count Number of characters to select.
-         * @param pre_delay Delay in milliseconds before executing the keyboard operation.
-         * @param interval Delay in milliseconds between consecutive injected keys.
-         * @param post_delay Delay in milliseconds after completing the keyboard operation.
+         * @param pre_delay Ms to wait before Shift-down.
+         * @param interval Ms between consecutive Left taps (also the settle
+         * gap before Delete).
+         * @param post_delay Ms to wait after the commit.
+         * @param text Replacement text carried by the chain Commit item.
          */
-        static void send_select_uinput(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay);
+        static void enqueueSelect(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay, std::string text);
 
         /**
          * @brief Handles the pre-dispatch guards of a key event (engine presence, shift in
@@ -259,15 +270,12 @@ namespace fcitx {
         bool handleUInputKeyPress(KeyEvent& event, KeySym currentSym);
 
         /**
-         * @brief Completes an in-flight replacement after all echoed events arrived.
+         * @brief Validates the app state and commits the pending string.
          *
-         * Shared tail of the BackSpace and Shift+Left echo handlers: waits for the
-         * app to settle, commits the pending replacement string, resets the
-         * replacement state, swallows the final echo and replays buffered keys.
-         *
-         * @param event The key event of the final echoed key.
+         * Shared head of both replacement completions; changes no replacement
+         * state besides consuming the pending string.
          */
-        void finishReplacement(KeyEvent& event);
+        void commitPendingReplacement();
 
         /**
          * @brief Performs text replacement via uinput.

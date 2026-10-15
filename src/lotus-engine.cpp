@@ -12,6 +12,7 @@
 #include "lotus-config.h"
 #include "lotus-state.h"
 #include "lotus-candidates.h"
+#include "lotus-key-pacer.h"
 #include "lotus-monitor.h"
 #include "lotus-utils.h"
 #include "lotus-plasma-theme.h"
@@ -256,6 +257,7 @@ namespace fcitx {
     }
 
     LotusEngine::LotusEngine(Instance* instance) : instance_(*instance), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
+        KeyPacer::instance().init(instance);
         std::string desktop = getEnv("XDG_CURRENT_DESKTOP");
         isGnome_            = (!desktop.empty()) && desktop.find("GNOME") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
@@ -346,13 +348,14 @@ namespace fcitx {
     }
 
     LotusEngine::~LotusEngine() {
+        KeyPacer::instance().stop();
         stop_flag_monitor.store(true, std::memory_order_release);
         mouseEventSource_.reset();
         FdGuard fd(mouse_socket_fd.exchange(-1, std::memory_order_acq_rel));
         if (fd.is_valid()) {
             shutdown(fd.get(), SHUT_RDWR);
         }
-        closeUinputClient();
+        // kb_socket fd is owned by VirtualKeyboard inside KeyPacer now.
         LOTUS_INFO("Engine destroyed.");
     }
 
@@ -443,6 +446,14 @@ namespace fcitx {
     void LotusEngine::populateConfig() {
         refreshEngine();
         refreshOption();
+        // Pre-warm the EIS transport for the configured mode: pays the
+        // connect + EI handshake up front (startup, GUI mode switch) so the
+        // first replacement does not stall waiting for RESUMED. Idempotent;
+        // a dead server fails instantly and the per-key lazy connect remains
+        // the fallback.
+        if (isUinputMode(config_.mode.value())) {
+            KeyPacer::instance().ensureConnected();
+        }
         updateCharsetAction(nullptr);
         updateAction(nullptr, *spellCheckAction_, config_.spellCheck, _("Spell Check"));
         updateAction(nullptr, *macroAction_, config_.enableMacro, _("Macro"));
@@ -514,6 +525,13 @@ namespace fcitx {
         const bool focusBounce        = uinputMode && state->lastDeactivateTime_ > 0 && now_ms() - state->lastDeactivateTime_ < 100;
         const bool resumeReplacement  = focusBounce && state->deletionInterruptedAt_ > 0 && is_deleting_.load();
         state->deletionInterruptedAt_ = 0;
+
+        // Pre-warm the EIS transport on focus-in so the first replacement in
+        // this app does not pay connect + handshake latency. Idempotent (a
+        // live connection or an in-flight handshake returns at once).
+        if (uinputMode) {
+            KeyPacer::instance().ensureConnected();
+        }
 
         if (!resumeReplacement) {
             is_deleting_.store(false);

@@ -8,10 +8,10 @@
 
 #include "lotus-abstract-socket.h"
 #include "lotus-server.h"
+#include "lotus-eis-server.h"
 #include "lotus-logger.h"
 #include "common-executable-path.h"
 #include "common-fd-guard.h"
-#include "common-protocol.h"
 #include "common-socket-name.h"
 
 #include <algorithm>
@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <format>
 #include <span>
 #include <thread>
 #include <utility>
@@ -120,6 +121,10 @@ void UinputDevice::send_left() {
     send_tap(KEY_LEFT);
 }
 
+void UinputDevice::send_key(uint16_t code, int value) {
+    send_mod(code, value);
+}
+
 LibinputContext::LibinputContext(const struct libinput_interface* interface) : udev_(udev_new()) {
     if (udev_ == nullptr) {
         return;
@@ -219,6 +224,28 @@ std::optional<pid_t> authorizePeer(int fd, uid_t expectedUid, std::string_view s
     return cred.pid;
 }
 
+namespace {
+
+    // Passes an EIS client fd over the authed socket (SCM_RIGHTS).
+    bool sendFd(int sock, int fd) {
+        char          dummy = 0;
+        struct iovec  iov{&dummy, 1};
+        char          cmsgbuf[CMSG_SPACE(sizeof(int))]{};
+        struct msghdr msg{};
+        msg.msg_iov        = &iov;
+        msg.msg_iovlen     = 1;
+        msg.msg_control    = cmsgbuf;
+        msg.msg_controllen = sizeof(cmsgbuf);
+        struct cmsghdr* c  = CMSG_FIRSTHDR(&msg);
+        c->cmsg_level      = SOL_SOCKET;
+        c->cmsg_type       = SCM_RIGHTS;
+        c->cmsg_len        = CMSG_LEN(sizeof(int));
+        memcpy(CMSG_DATA(c), &fd, sizeof(fd));
+        return sendmsg(sock, &msg, 0) > 0;
+    }
+
+} // namespace
+
 int main(int argc, char* argv[]) {
     const std::span<char* const> args(argv, static_cast<std::size_t>(argc));
     const std::string            target_user = args.size() == 3 && std::string_view(args[1]) == "-u" ? std::string(args[2]) : get_current_username();
@@ -237,14 +264,10 @@ int main(int argc, char* argv[]) {
     const AbstractSocket kb_socket        = makeAbstractSocket("lotussocket-" + socket_namespace + "-kb_socket");
     const AbstractSocket mouse_socket     = makeAbstractSocket("lotussocket-" + socket_namespace + "-mouse_socket");
 
-    // Setup Uinput
-    UinputDevice uinput;
-    if (!uinput.initialize()) {
-        LotusLogger::instance().error("Failed to initialize uinput device");
-        return 1;
-    }
+    // Setup Uinput: nodes are created per EIS seat bind now (see EisKeyboardServer),
+    // so there is no global device to initialize here.
 
-    FdGuard server_fd(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0));
+    FdGuard server_fd(socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0));
     FdGuard mouse_server_fd(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0));
 
     if (bind(server_fd.get(), kb_socket.asSockaddr(), kb_socket.length) != 0) {
@@ -266,26 +289,26 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    EisKeyboardServer eisServer;
+    if (!eisServer.initialize()) {
+        LotusLogger::instance().error("Failed to initialize EIS backend");
+        return 1;
+    }
+
     constexpr std::size_t        kKeyboardServerIndex = 0U; ///< Slot of the keyboard socket server fd
     constexpr std::size_t        kMouseServerIndex    = 2U; ///< Slot of the mouse socket server fd
-    constexpr std::size_t        kKbClientIndex       = 3U; ///< Slot of the connected keyboard socket client
+    constexpr std::size_t        kEisIndex            = 3U; ///< Slot of the EIS event fd
 
     std::array<struct pollfd, 4> fds{
         {
             {.fd = server_fd.get(), .events = POLLIN, .revents = 0},
             {.fd = li_ctx.get_fd(), .events = POLLIN, .revents = 0},
             {.fd = mouse_server_fd.get(), .events = POLLIN, .revents = 0},
-            {.fd = -1, .events = POLLIN, .revents = 0},
+            {.fd = eisServer.eventFd(), .events = POLLIN, .revents = 0},
         },
     };
 
     FdGuard          addon_fd;
-    FdGuard          kb_client_fd;
-    size_t           pending_backspaces = 0;
-    size_t           pending_selects    = 0;     ///< remaining Shift+Left events to pace out
-    bool             shift_held         = false; ///< Shift pressed for an in-flight selection
-    uint32_t         current_post_delay = 0;     ///< stores post_delay from KbMsg
-    uint32_t         current_interval   = 5;     ///< ms between injected keys within one request
 
     struct sigaction sa{};
     sa.sa_handler = signal_handler;
@@ -294,46 +317,16 @@ int main(int argc, char* argv[]) {
     sigaction(SIGTERM, &sa, nullptr);
     sigaction(SIGINT, &sa, nullptr);
 
+    // Dumb pipe: every EIS key event is emitted immediately. No pacing, no
+    // sleeps — timing lives in the client's KeyPacer. poll() blocks indefinitely.
     while (g_running.load(std::memory_order_acquire)) {
-        int poll_timeout = -1;
-        if (pending_backspaces > 0 || pending_selects > 0) {
-            poll_timeout = static_cast<int>(current_interval);
-        }
-        int ret = poll(fds.data(), fds.size(), poll_timeout);
+        int ret = poll(fds.data(), fds.size(), -1);
 
         if (ret < 0) {
             if (errno == EINTR) {
                 continue;
             }
             break;
-        }
-
-        if (ret == 0) {
-            if (pending_backspaces > 0) {
-                if (pending_backspaces == 1 && current_post_delay > 0) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(current_post_delay));
-                }
-                uinput.send_backspace();
-                --pending_backspaces;
-            } else if (pending_selects > 0) {
-                if (pending_selects > 1) {
-                    uinput.send_left();
-                    --pending_selects;
-                } else {
-                    if (shift_held) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                        uinput.send_shift_up();
-                        shift_held = false;
-                    } else {
-                        uinput.send_delete();
-                        if (current_post_delay > 0) {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(current_post_delay));
-                        }
-                        uinput.send_left();
-                        --pending_selects;
-                    }
-                }
-            }
         }
 
         libinput_dispatch(li_ctx.get_li());
@@ -345,63 +338,23 @@ int main(int argc, char* argv[]) {
                 const std::optional<pid_t> peer = authorizePeer(client_fd, *expected_uid, "keyboard socket");
 
                 if (peer.has_value()) {
-                    LotusLogger::instance().info("Fcitx5 connected to keyboard socket (PID: " + std::to_string(*peer) + ")");
-                    kb_client_fd.reset(client_fd);
-                    fds[kKbClientIndex].fd = kb_client_fd.get();
+                    LotusLogger::instance().info(std::format("Fcitx5 connected to keyboard socket (PID: {}), passing EIS fd", *peer));
+                    const int eisFd = eisServer.addClient();
+                    if (eisFd < 0 || !sendFd(client_fd, eisFd)) {
+                        LotusLogger::instance().warn("Failed to hand off EIS fd to keyboard client");
+                    }
+                    if (eisFd >= 0)
+                        close(eisFd);
+                    close(client_fd);
                 } else {
                     close(client_fd);
                 }
             }
         }
 
-        // handle connect from addon
-        if (fds[kKbClientIndex].fd >= 0 &&
-            (static_cast<unsigned>(fds[kKbClientIndex].revents) & (static_cast<unsigned>(POLLIN) | static_cast<unsigned>(POLLHUP) | static_cast<unsigned>(POLLERR))) != 0) {
-            KbMsg   msg{};
-            ssize_t n = recv(fds[kKbClientIndex].fd, &msg, sizeof(msg), 0);
-            if (n <= 0) {
-                LotusLogger::instance().warn("Keyboard client disconnected or connection error");
-                if (shift_held) {
-                    uinput.send_shift_up(); // never leave Shift stuck down
-                    shift_held = false;
-                }
-                pending_selects = 0;
-                kb_client_fd.reset(-1);
-                fds[kKbClientIndex].fd = -1;
-            } else if (std::cmp_not_equal(n, sizeof(KbMsg)) && std::cmp_not_equal(n, sizeof(int32_t))) {
-                LotusLogger::instance().warn("Malformed keyboard message (" + std::to_string(n) + " bytes)");
-            } else {
-                current_interval = msg.interval > 0 ? std::min<uint32_t>(msg.interval, 1000) : 5;
-                if (msg.count > 0 && msg.op == KbOp::Select) {
-                    if (msg.pre_delay > 0) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(msg.pre_delay));
-                    }
-                    current_post_delay = msg.post_delay;
-                    if (!shift_held) {
-                        uinput.send_shift_down();
-                        shift_held = true;
-                    }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(current_interval));
-                    uinput.send_left();
-                    pending_selects += msg.count - 1;
-
-                } else if (msg.count > 0 && msg.op == KbOp::Backspace) {
-                    if (msg.pre_delay > 0) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(msg.pre_delay));
-                    }
-                    current_post_delay = msg.post_delay;
-                    if (shift_held) {
-                        // A stale in-flight selection must not mix with backspaces.
-                        uinput.send_shift_up();
-                        shift_held      = false;
-                        pending_selects = 0;
-                    }
-                    pending_backspaces += msg.count - 1;
-                    uinput.send_backspace();
-                } else if (msg.count > 0) {
-                    LotusLogger::instance().warn("Unknown keyboard message op: " + std::to_string(static_cast<int>(msg.op)));
-                }
-            }
+        // handle EIS keyboard events from addons (dumb emit, no pacing)
+        if ((static_cast<unsigned>(fds[kEisIndex].revents) & static_cast<unsigned>(POLLIN)) != 0) {
+            eisServer.dispatch();
         }
 
         // connect to mouse socket

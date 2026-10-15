@@ -5,6 +5,7 @@ add_library(lotus_test_core SHARED
 target_include_directories(lotus_test_core PUBLIC
     ${PROJECT_BINARY_DIR}
     ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/common
 )
 target_link_libraries(lotus_test_core PUBLIC
     lotus_common_executable_path
@@ -13,6 +14,8 @@ target_link_libraries(lotus_test_core PUBLIC
     Fcitx5::Module::Emoji
     Lotus::Engine
     Pthread::Pthread
+    PkgConfig::LIBEI
+    PkgConfig::LIBEIS
 )
 
 # Helper to compile a standalone headless integration test linked with the
@@ -83,6 +86,8 @@ add_lotus_headless_test(uinput_device uinput-device.cpp "unit;server")
 target_link_libraries(uinput_device PRIVATE PkgConfig::LIBEVDEV)
 target_include_directories(uinput_device PRIVATE ${PROJECT_SOURCE_DIR}/server)
 add_lotus_headless_test(config_enum_names config-enum-names.cpp "unit;config")
+add_lotus_headless_test(key_job_builder key-job-builder.cpp "unit;uinput")
+add_lotus_headless_test(direct_eis_socket direct-eis-socket.cpp "integration;uinput")
 
 string(MD5 LOTUS_CTEST_SOCKET_NAMESPACE "${PROJECT_BINARY_DIR}")
 set_tests_properties(smooth_buffered_key_replay select_mode_replacement replacement_delays app_rule_delay_wire

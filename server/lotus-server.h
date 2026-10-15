@@ -48,6 +48,13 @@ class UinputDevice {
     void send_shift_down();
     void send_shift_up();
     void send_left();
+    /**
+     * @brief Emits one key event (press or release) with its SYN, for the
+     * EIS server's dumb per-event path.
+     * @param code Linux KEY_* code.
+     * @param value 1 = press, 0 = release.
+     */
+    void send_key(uint16_t code, int value);
 
   private:
     /**

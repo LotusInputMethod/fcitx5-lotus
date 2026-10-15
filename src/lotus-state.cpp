@@ -11,10 +11,13 @@
 #include "lotus-engine.h"
 #include "lotus-candidates.h"
 #include "lotus-fcitx-text.h"
+#include "lotus-key-pacer.h"
 #include "lotus-utils.h"
 
 #include "input_method.h"
 #include "utf8.h"
+
+#include <linux/input-event-codes.h>
 
 #include <cstddef>
 #include <fcitx-utils/keysym.h>
@@ -24,7 +27,9 @@
 #include <fcitx/userinterface.h>
 
 #include <algorithm>
+#include <format>
 #include <string>
+#include <thread>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -45,6 +50,10 @@ namespace fcitx {
 
     LotusState::LotusState(LotusEngine* engine, InputContext* ic) : engine_(*engine), ic_(*ic) {
         setEngine();
+    }
+
+    LotusState::~LotusState() {
+        KeyPacer::instance().clearBarrierOwner(this);
     }
 
     void LotusState::setEngine() {
@@ -87,56 +96,22 @@ namespace fcitx {
         lotusEngine_->setOptions(option);
     }
 
-    bool LotusState::connect_uinput_server() {
-        if (uinput_client_fd_ >= 0)
-            return true;
-        const std::string  current_path = buildSocketPath("kb_socket");
-        struct sockaddr_un addr{};
-        socklen_t          len = 0;
-        FdGuard            current_fd(makeAbstractUnixSocket(current_path, addr, len));
-        if (!current_fd.is_valid()) {
-            LOTUS_ERROR("Failed to create socket: " + std::string(strerror(errno)));
-            return false;
-        }
-
-        if (connect(current_fd.get(), reinterpret_cast<struct sockaddr*>(&addr), len) == 0) {
-            uinput_client_fd_ = current_fd.release();
-            return true;
-        }
-        LOTUS_ERROR("Failed to connect to socket: " + std::string(strerror(errno)));
-        closeUinputClient();
-        return false;
+    bool LotusState::ensureUinputConnected() {
+        return KeyPacer::instance().ensureConnected();
     }
 
-    int LotusState::setup_uinput() {
-        return connect_uinput_server() ? uinput_client_fd_.load(std::memory_order_acquire) : -1;
-    }
-
-    void LotusState::send_kb_msg(KbOp op, size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay) {
-        if (uinput_client_fd_ < 0 && !connect_uinput_server()) {
-            LOTUS_ERROR("Cannot send key request since cannot connect to uinput server");
+    void LotusState::enqueueBackspace(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay, std::string text) {
+        if (count == 0)
             return;
-        }
-
-        const KbMsg msg{.op = op, .count = count, .pre_delay = pre_delay, .interval = interval, .post_delay = post_delay};
-        ssize_t     n = send(uinput_client_fd_, &msg, sizeof(msg), MSG_NOSIGNAL);
-
-        if (n < 0) {
-            LOTUS_WARN("Failed to send key request: " + std::string(strerror(errno)));
-            FdGuard old_fd(uinput_client_fd_.exchange(-1));
-            if (connect_uinput_server()) {
-                LOTUS_INFO("Reconnected to uinput server successfully");
-                send(uinput_client_fd_, &msg, sizeof(msg), MSG_NOSIGNAL);
-            }
-        }
+        KeyPacer::instance().push(
+            buildBackspaceJob(count, std::chrono::milliseconds{pre_delay}, std::chrono::milliseconds{interval}, std::chrono::milliseconds{post_delay}, std::move(text)));
     }
 
-    void LotusState::send_backspace_uinput(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay) {
-        send_kb_msg(KbOp::Backspace, count, pre_delay, interval, post_delay);
-    }
-
-    void LotusState::send_select_uinput(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay) {
-        send_kb_msg(KbOp::Select, count, pre_delay, interval, post_delay);
+    void LotusState::enqueueSelect(size_t count, uint32_t pre_delay, uint32_t interval, uint32_t post_delay, std::string text) {
+        if (count == 0)
+            return;
+        KeyPacer::instance().push(
+            buildSelectJob(count, std::chrono::milliseconds{pre_delay}, std::chrono::milliseconds{interval}, std::chrono::milliseconds{post_delay}, std::move(text)));
     }
 
     bool LotusState::isAutofillCertain(const SurroundingText& s) {
@@ -424,14 +399,42 @@ namespace fcitx {
         ic_.updateUserInterface(UserInterfaceComponent::InputPanel);
     }
 
-    void LotusState::finishReplacement(KeyEvent& event) {
+    void LotusState::commitPendingReplacement() {
+        // Validate surr cursor pos should match realtextLen after all BS/Left applied
+        const auto& surr = ic_.surroundingText();
+        if (surr.isValid() && surr.cursor() == realtextLen.load(std::memory_order_acquire)) {
+            LOTUS_INFO("Skip retry");
+        } else {
+            // Retry x3 (2 ms each), khi can (chromium,electron,...)
+            for (int retry = 0; retry < 3; ++retry) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                const auto& surr2 = ic_.surroundingText();
+                if (surr2.isValid() && surr2.cursor() == realtextLen.load(std::memory_order_acquire)) {
+                    break;
+                }
+            }
+        }
         std::u32string commitText = std::move(pending_commit_string_);
         pending_commit_string_.clear();
 
-        lotus::fcitx_text::commit(&ic_, commitText, last_commit_time_);
+        if (!commitText.empty()) {
+            lotus::fcitx_text::commit(&ic_, commitText, last_commit_time_);
+            LOTUS_INFO("Commit: " + lotus::utf8::encode(commitText));
+        }
+    }
+
+    uint32_t LotusState::echoSequence() const {
+        return static_cast<uint32_t>(current_backspace_count_);
+    }
+
+    void LotusState::commitFromChain(const std::string& text) {
+        // The chain text is authoritative (same value performReplacement stored,
+        // re-stated here so aborts/concurrency can't substitute a stale string).
+        // The chain carries UTF-8 (fcitx boundary); the pending string is UTF-32.
+        pending_commit_string_ = lotus::utf8::decode(text);
+        commitPendingReplacement();
         expected_backspaces_     = 0;
         current_backspace_count_ = 0;
-        event.filterAndAccept();
         is_deleting_.store(false, std::memory_order_release);
         replayBufferedKeys();
     }
@@ -441,17 +444,33 @@ namespace fcitx {
             return false;
         }
         // In Select mode the uinput server emits Shift+Left, so the echoed Left
-        // presses are the selection signal. The final one is swallowed in
-        // finishReplacement so the app only sees the count it should select.
+        // presses are the selection signal. The last selection echo is
+        // swallowed here with the commit held for the chain barrier
+        // (AwaitEcho + CommitPending): the Delete branch below notifies the
+        // pacer, which resumes and fires the commit. The app only ever sees
+        // the count it should select.
         const bool isSelectEcho = realMode == LotusMode::Select && currentSym == FcitxKey_Left;
         if (!isBackspace(currentSym) && !isSelectEcho) {
             return false;
         }
         current_backspace_count_ += 1;
-        if (current_backspace_count_ < expected_backspaces_) {
+        // Decide swallowing BEFORE notifyEcho: the barrier may fire the
+        // commit synchronously, and the commit replays buffered keys into a
+        // nested replacement that resets these very counters for the NEW
+        // job. The echo must be judged against the job it belongs to, not
+        // the nested one.
+        const bool lastEcho = current_backspace_count_ >= expected_backspaces_;
+        KeyPacer::instance().notifyEcho(current_backspace_count_);
+        if (!lastEcho) {
             return false; // Allow intermediate backspaces/lefts to reach the app to clear autofill/old text / extend the selection.
         }
-        finishReplacement(event);
+        // Both tails end the same way: the last echo (selection Left in
+        // Select, backspace in Smooth) is swallowed — the app must not
+        // receive it. The commit has already fired synchronously inside
+        // notifyEcho() above through the parked chain barrier
+        // (AwaitEcho -> Commit -> commitFromChain), which also cleared
+        // is_deleting_ and replayed buffered keys.
+        event.filterAndAccept();
         return true;
     }
 
@@ -468,6 +487,11 @@ namespace fcitx {
             }
         }
         LOTUS_INFO("Perform replacement: " + lotus::utf8::encode(diffPart.deletedPart) + " -> " + lotus::utf8::encode(diffPart.addedPart)); //NOLINT
+        // A new job replaces any in-flight one: drop the old queue first, or
+        // its stale barrier/commit could fire after the overwrite. No-op when
+        // the queue already drained (the normal case).
+        KeyPacer::instance().clear();
+        KeyPacer::instance().setBarrierOwner(this);
         current_backspace_count_       = 0;
         pending_commit_string_         = diffPart.addedPart;
         expected_backspaces_           = diffPart.deletedPart.size();
@@ -493,11 +517,11 @@ namespace fcitx {
         // trigger-key compensation above still applies because the last echoed
         // Left is swallowed; autofill compensation does not, see above.
         if (realMode == LotusMode::Select && !isAutofillCertain_) {
-            send_select_uinput(expected_backspaces_, pre_delay, interval, post_delay);
+            enqueueSelect(expected_backspaces_, pre_delay, interval, post_delay, lotus::utf8::encode(diffPart.addedPart));
             LOTUS_INFO("Send select of " + std::to_string(expected_backspaces_) + " characters");
             return;
         }
-        send_backspace_uinput(expected_backspaces_, pre_delay, interval, post_delay);
+        enqueueBackspace(expected_backspaces_, pre_delay, interval, post_delay, lotus::utf8::encode(diffPart.addedPart));
         LOTUS_INFO("Send " + std::to_string(expected_backspaces_) + " backspaces");
     }
 
@@ -507,6 +531,7 @@ namespace fcitx {
             is_deleting_.store(false, std::memory_order_release);
             expected_backspaces_     = 0;
             current_backspace_count_ = 0;
+            KeyPacer::instance().clear();
             pending_commit_string_.clear();
             hasHistory_ = false;
             (*lotusEngine_).reset();
@@ -591,8 +616,8 @@ namespace fcitx {
         if (forwardSpecialKey(keyEvent, currentSym))
             return;
 
-        if (uinput_client_fd_ < 0) {
-            setup_uinput();
+        if (!ensureUinputConnected()) {
+            // Best effort only; guards below re-check before replacing.
         }
 
         if (isBackspace(currentSym) || currentSym == FcitxKey_Return) {
@@ -679,7 +704,7 @@ namespace fcitx {
                 keyEvent.forward();
             }
         } else {
-            if (uinput_client_fd_ < 0) {
+            if (!ensureUinputConnected()) {
                 LOTUS_ERROR("Cannot connect to uinput server, commit rawkey");
                 std::string rawKey = keyEvent.key().toString();
                 if (!rawKey.empty()) {
@@ -690,6 +715,7 @@ namespace fcitx {
 
             if (is_deleting_.load()) {
                 is_deleting_.store(false, std::memory_order_release);
+                KeyPacer::instance().clear();
             }
 
             keyEvent.filterAndAccept();
@@ -842,8 +868,8 @@ namespace fcitx {
         if (forwardSpecialKey(keyEvent, currentSym))
             return;
 
-        if (uinput_client_fd_ < 0) {
-            connect_uinput_server();
+        if (!ensureUinputConnected()) {
+            // Best effort only; macro path below falls back when offline.
         }
 
         if (isBackspace(currentSym)) {
@@ -881,7 +907,7 @@ namespace fcitx {
             if (isMacroExpansion) {
                 LOTUS_INFO("Macro expansion: '" + lotus::utf8::encode(oldPreBuffer_) + "' -> '" + lotus::utf8::encode(commitStr) + "'");
                 // Try uinput replacement first, fallback to deleteSurroundingText, then plain commit
-                if (uinput_client_fd_ >= 0 && !oldPreBuffer_.empty()) {
+                if (ensureUinputConnected() && !oldPreBuffer_.empty()) {
                     performReplacement({.deletedPart = oldPreBuffer_, .addedPart = commitStr});
                 } else if (ic_.capabilityFlags().test(CapabilityFlag::SurroundingText)) {
                     const auto& surrounding = ic_.surroundingText();
@@ -950,8 +976,26 @@ namespace fcitx {
     void LotusState::keyEvent(KeyEvent& keyEvent) {
         if (handleKeyEventGuards(keyEvent))
             return;
-        ensureUinputConnection();
-        completePendingReplacement();
+        if (!ensureUinputConnected()) {
+            LOTUS_WARN("Cannot connect to uinput server, replacements will fall back");
+        }
+        // A parked echo wait is legitimate in-flight state (commit held for
+        // echoes), not stale: only abort when nothing is awaited. A queued
+        // (not yet parked) barrier counts as awaited too: its echoes may
+        // already be arriving (e.g. the Delete echo landing during the
+        // post-Delete sleep), and clearing the queue here would drop the
+        // pending AwaitEcho+Commit so the commit never fires.
+        if (!KeyPacer::instance().isWaiting() && !KeyPacer::instance().hasPendingBarrierFor(this) && current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
+            LOTUS_WARN(std::format("Aborting in-flight replacement: count={} expected={} pending={}", current_backspace_count_, expected_backspaces_,
+                                   lotus::utf8::encode(pending_commit_string_)));
+            is_deleting_.store(false);
+            current_backspace_count_ = 0;
+            expected_backspaces_     = 0;
+            KeyPacer::instance().clear();
+            if (!buffered_keys_.empty()) {
+                replayBufferedKeys();
+            }
+        }
 
         if (g_mouse_clicked.load(std::memory_order_acquire) && !is_deleting_.load(std::memory_order_acquire)) {
             g_mouse_clicked.store(false, std::memory_order_release);
@@ -974,17 +1018,16 @@ namespace fcitx {
     }
 
     void LotusState::ensureUinputConnection() {
-        if (uinput_client_fd_ < 0) {
-            LOTUS_WARN("Cannot connect to uinput server, reconnecting....");
-            connect_uinput_server();
-        }
+        ensureUinputConnected();
     }
 
     void LotusState::completePendingReplacement() {
-        if (current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
+        // Same EIS-aware stale check as keyEvent: parked echo wait is in-flight.
+        if (!KeyPacer::instance().isWaiting() && current_backspace_count_ >= expected_backspaces_ && is_deleting_.load()) {
             is_deleting_.store(false);
             current_backspace_count_ = 0;
             expected_backspaces_     = 0;
+            KeyPacer::instance().clear();
             if (!buffered_keys_.empty()) {
                 replayBufferedKeys();
             }
@@ -1049,6 +1092,14 @@ namespace fcitx {
                         realtextLen.fetch_sub(1, std::memory_order_acq_rel);
                     handleUInputKeyPress(keyEvent, currentSym);
                 } else {
+                    // Delete echo while deleting: count it (the barrier target
+                    // spans the selection Lefts plus this Delete) and notify;
+                    // the chain commits once the barrier lifts. Forwarded so
+                    // the app deletes before the commit lands.
+                    if (is_deleting_.load(std::memory_order_acquire)) {
+                        current_backspace_count_ += 1;
+                        KeyPacer::instance().notifyEcho(current_backspace_count_);
+                    }
                     keyEvent.forward();
                 }
                 return true;
@@ -1313,7 +1364,7 @@ namespace fcitx {
                     oldPreBuffer_ = preeditStr;
                 }
             } else {
-                if (uinput_client_fd_ < 0) {
+                if (!ensureUinputConnected()) {
                     lotus::fcitx_text::commit(&ic_, keyText, last_commit_time_);
                     continue;
                 }
