@@ -13,6 +13,8 @@ BuildRequires:  glibc-devel
 BuildRequires:  fcitx5-devel
 BuildRequires:  libinput-devel
 BuildRequires:  libevdev-devel
+BuildRequires:  pkgconfig(libei-1.0)
+BuildRequires:  pkgconfig(libeis-1.0)
 BuildRequires:  systemd-devel
 
 BuildRequires:  sysuser-tools

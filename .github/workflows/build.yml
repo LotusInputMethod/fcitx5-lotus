@@ -44,7 +44,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          pacman -Syu --noconfirm base-devel clang cmake ninja extra-cmake-modules libuv git libinput libevdev systemd-libs python
+          pacman -Syu --noconfirm base-devel clang cmake ninja extra-cmake-modules libuv git libei libinput libevdev systemd-libs python
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5-lotus"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5"

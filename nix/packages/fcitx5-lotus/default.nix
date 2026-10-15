@@ -8,6 +8,7 @@
   gettext,
   hicolor-icon-theme,
   kdePackages,
+  libei,
   libevdev,
   libinput,
   nix-update-script,
@@ -54,6 +55,7 @@ stdenv.mkDerivation (finalAttrs: {
     acl
     fcitx5
     kdePackages.extra-cmake-modules
+    libei
     libevdev
     libinput
     pythonEnv
