@@ -5,26 +5,41 @@
  *        are released on every path.
  *
  * Covers the three lifetimes the pointer/RAII audit touched: the $TIME/$DATE local time (a stack
- * std::tm instead of a pointer into the shared libc buffer), the descriptors of the kb_socket
- * transport (FdGuard) and the pipe of the dark-mode probe (unique_ptr with pclose as deleter).
- * Word replacement in Smooth mode must not leak a descriptor, however many times it replaces.
+ * std::tm instead of a pointer into the shared libc buffer), the descriptors of the EIS transport
+ * (the ei/eis socketpair the addon keeps for its lifetime) and the pipe of the dark-mode probe
+ * (unique_ptr with pclose as deleter). Word replacement in Smooth mode must not leak a descriptor,
+ * however many times it replaces.
+ *
+ * The transport runs against a mini EIS server on a private socket name (setSocketPathForTest):
+ * a helper thread accepts the addon's connection and hands off the EIS fd, so the test is
+ * self-contained and never touches the kb_socket of the session.
  */
 
 #include "kb-socket-listener.h"
 #include "key_processor.h"
 #include "lotus-engine.h"
+#include "lotus-key-pacer.h"
 #include "test-input-context.h"
 
+#include <cstddef>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <system_error>
+#include <thread>
+
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 #include <fcitx/event.h>
 #include <fcitx/inputmethodentry.h>
 #include <fcitx-utils/key.h>
 #include <fcitx-utils/keysym.h>
+
+#include <libeis.h>
 
 namespace {
 
@@ -58,6 +73,25 @@ namespace {
         setenv("TZ", zone, 1);
         tzset();
         return lotus::KeyProcessor::formatTime("15");
+    }
+
+    // Sends one descriptor over a connected socket (SCM_RIGHTS), the handoff the real
+    // server performs for every authenticated client of the kb_socket.
+    bool sendFd(int sock, int fd) {
+        char          dummy = 0;
+        struct iovec  iov{&dummy, 1};
+        char          cmsgbuf[CMSG_SPACE(sizeof(int))]{};
+        struct msghdr msg{};
+        msg.msg_iov        = &iov;
+        msg.msg_iovlen     = 1;
+        msg.msg_control    = cmsgbuf;
+        msg.msg_controllen = sizeof(cmsgbuf);
+        struct cmsghdr* c  = CMSG_FIRSTHDR(&msg);
+        c->cmsg_level      = SOL_SOCKET;
+        c->cmsg_type       = SCM_RIGHTS;
+        c->cmsg_len        = CMSG_LEN(sizeof(int));
+        memcpy(CMSG_DATA(c), &fd, sizeof(fd));
+        return sendmsg(sock, &msg, 0) > 0;
     }
 
 } // namespace
@@ -94,16 +128,38 @@ int main() {
         return 1;
     }
 
-    // The listener owns the kb_socket name for the whole test: with a server of the session owning
-    // it, the test would drive real keystrokes, so nothing is sent in that case.
-    KbSocketListener listener;
-    if (!listener.valid()) {
-        reportFailure("bind kb_socket", "free abstract socket", "another process owns the replacement socket",
-                      "the test refuses to drive the uinput transport owned by the session");
+    // Mini EIS server on a private socket name: the addon under test connects here and the
+    // helper thread hands off the EIS fd, so the handshake completes without the session's
+    // kb_socket and the descriptor check covers the transport the addon keeps for life.
+    const std::string kPath("lotus-test-runtime-safety-kb");
+    fcitx::KeyPacer::instance().setImmediateDeliveryForTest(true);
+    fcitx::KeyPacer::instance().setSocketPathForTest(kPath);
+
+    struct eis* eis = eis_new(nullptr);
+    eis_setup_backend_fd(eis);
+    const int   eisFd = eis_backend_fd_add_client(eis);
+
+    const int   listenFd = socket(AF_UNIX, SOCK_STREAM, 0);
+    sockaddr_un addr{};
+    addr.sun_family  = AF_UNIX;
+    addr.sun_path[0] = '\0';
+    memcpy(&addr.sun_path[1], kPath.data(), kPath.size());
+    const auto len = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + kPath.size() + 1);
+    if (listenFd < 0 || bind(listenFd, reinterpret_cast<struct sockaddr*>(&addr), len) != 0 || listen(listenFd, 5) != 0) {
+        reportFailure("bind the private EIS socket", "bind/listen succeeds", "bind/listen failed", "the descriptor check needs the transport of the Smooth mode");
         return 1;
     }
+    // Helper thread: accept + hand off the EIS fd (unblocks ensureConnected).
+    std::thread helper([listenFd, eisFd] {
+        const int c = accept(listenFd, nullptr, nullptr);
+        if (c >= 0) {
+            sendFd(c, eisFd);
+            close(c);
+        }
+        close(listenFd);
+    });
 
-    auto context = std::make_unique<TestInputContext>(&testInstance.instance);
+    auto        context = std::make_unique<TestInputContext>(&testInstance.instance);
     context->setCapabilityFlags(fcitx::CapabilityFlag::Preedit);
     context->focusIn();
     fcitx::InputMethodEntry  entry("lotus", "Lotus", "vi", "lotus");
@@ -118,6 +174,7 @@ int main() {
         fcitx::KeyEvent event(context.get(), fcitx::Key(symbol), false);
         engine.keyEvent(entry, event);
     }
+    helper.join();
     const std::size_t before = openDescriptorCount();
     for (int word = 0; word < 25; ++word) {
         for (const fcitx::KeySym symbol : {FcitxKey_a, FcitxKey_s}) {
@@ -145,5 +202,6 @@ int main() {
     if (ok) {
         std::cout << "runtime safety: all checks passed (open descriptors " << before << ")\n";
     }
+    eis_unref(eis);
     return ok ? 0 : 1;
 }

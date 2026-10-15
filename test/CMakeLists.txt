@@ -88,6 +88,7 @@ target_include_directories(uinput_device PRIVATE ${PROJECT_SOURCE_DIR}/server)
 add_lotus_headless_test(config_enum_names config-enum-names.cpp "unit;config")
 add_lotus_headless_test(key_job_builder key-job-builder.cpp "unit;uinput")
 add_lotus_headless_test(direct_eis_socket direct-eis-socket.cpp "integration;uinput")
+add_lotus_headless_test(select_delete_echo_commit select-delete-echo-commit.cpp "integration;select")
 
 string(MD5 LOTUS_CTEST_SOCKET_NAMESPACE "${PROJECT_BINARY_DIR}")
 set_tests_properties(smooth_buffered_key_replay select_mode_replacement replacement_delays app_rule_delay_wire
