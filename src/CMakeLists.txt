@@ -22,7 +22,7 @@ target_link_libraries(lotus_core_objects PRIVATE
 
 # Parse the shared fcitx5 headers once instead of once per TU.
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
-    target_precompile_headers(lotus_core_objects PRIVATE
+    set(LOTUS_PCH_HEADERS
         <fcitx/instance.h>
         <fcitx/addonmanager.h>
         <fcitx/addonfactory.h>
@@ -41,6 +41,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
         <fcitx-utils/keysym.h>
         <fcitx-utils/utf8.h>
     )
+    target_precompile_headers(lotus_core_objects PRIVATE ${LOTUS_PCH_HEADERS})
+    # test/ reuses the same list for its own PCH host (sibling scope).
+    set(LOTUS_PCH_HEADERS "${LOTUS_PCH_HEADERS}" PARENT_SCOPE)
 endif()
 
 add_library(lotus MODULE lotus.cpp
@@ -60,9 +63,15 @@ target_link_libraries(lotus
 target_include_directories(lotus PRIVATE
     ${PROJECT_BINARY_DIR}
 )
+# Same flags as lotus_core_objects so its prebuilt PCH is reused, not rejected.
 target_compile_definitions(lotus PRIVATE
-    FCITX5_LOTUS_SETTINGS_PATH=\"${CMAKE_INSTALL_FULL_BINDIR}/fcitx5-lotus-settings\"
+    FCITX5_LOTUS_SETTINGS_PATH="${CMAKE_INSTALL_FULL_BINDIR}/fcitx5-lotus-settings"
+    LOTUS_SERVER_EXECUTABLE="${LOTUS_SERVER_EXECUTABLE}"
+    LOTUS_ALT_EXECUTABLE_PREFIX="${LOTUS_ALT_EXECUTABLE_PREFIX}"
 )
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
+    target_precompile_headers(lotus REUSE_FROM lotus_core_objects)
+endif()
 install(TARGETS lotus DESTINATION "${CMAKE_INSTALL_LIBDIR}/fcitx5")
 
 fcitx5_translate_desktop_file(lotus.conf.in lotus.conf)

@@ -15,6 +15,29 @@ target_link_libraries(lotus_test_core PUBLIC
     Pthread::Pthread
 )
 
+# The headless tests compile without PIC while lotus_core_objects builds with
+# -fPIC for the module, and clang rejects a reused PCH whose PIC setting
+# differs from the current file. Host the tests' PCH in an object library
+# whose flags match plain executables instead.
+add_library(lotus_test_pch OBJECT EXCLUDE_FROM_ALL lotus-test-pch.cpp)
+target_include_directories(lotus_test_pch PRIVATE
+    ${PROJECT_BINARY_DIR}
+    ${PROJECT_SOURCE_DIR}/src
+)
+target_link_libraries(lotus_test_pch PRIVATE
+    lotus_test_core
+    Fcitx5::Core
+    Fcitx5::Config
+    Fcitx5::Module::Emoji
+    Pthread::Pthread
+)
+target_compile_definitions(lotus_test_pch PRIVATE
+    FCITX5_LOTUS_SETTINGS_PATH="${CMAKE_INSTALL_FULL_BINDIR}/fcitx5-lotus-settings"
+    LOTUS_SERVER_EXECUTABLE="${LOTUS_SERVER_EXECUTABLE}"
+    LOTUS_ALT_EXECUTABLE_PREFIX="${LOTUS_ALT_EXECUTABLE_PREFIX}"
+)
+target_precompile_headers(lotus_test_pch PRIVATE ${LOTUS_PCH_HEADERS})
+
 # Helper to compile a standalone headless integration test linked with the
 # Lotus engine core.
 #
@@ -24,6 +47,14 @@ target_link_libraries(lotus_test_core PUBLIC
 #   add_lotus_headless_test(my_test my-test.cpp "integration;myfeature")
 function(add_lotus_headless_test target source labels)
     add_executable(${target} ${source})
+    # lotus_test_pch mirrors the executables' flags, so its prebuilt PCH is
+    # reused, not rejected.
+    target_compile_definitions(${target} PRIVATE
+        FCITX5_LOTUS_SETTINGS_PATH="${CMAKE_INSTALL_FULL_BINDIR}/fcitx5-lotus-settings"
+        LOTUS_SERVER_EXECUTABLE="${LOTUS_SERVER_EXECUTABLE}"
+        LOTUS_ALT_EXECUTABLE_PREFIX="${LOTUS_ALT_EXECUTABLE_PREFIX}"
+    )
+    target_precompile_headers(${target} REUSE_FROM lotus_test_pch)
     target_link_libraries(${target} PRIVATE
         lotus_test_core
         Fcitx5::Core
