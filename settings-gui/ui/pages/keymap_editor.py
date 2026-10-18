@@ -7,6 +7,8 @@ Implements custom keymap presets and TSV import/export.
 """
 
 from core.dbus_handler import LotusDBusHandler
+from core.keymap_presets import BAMBOO_ACTIONS, PRESETS
+from core.table_editor import collect_kv_pairs, search_hides_row
 from i18n import _
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import (
@@ -27,177 +29,6 @@ from qtpy.QtWidgets import (
 from ui.helpers import bool_to_str, config_bool, set_add_button_mode
 from ui.pages.base_editor import BaseEditorPage
 from ui.pages.dynamic_settings import CardWidget
-
-BAMBOO_ACTIONS = [
-    ("XoaDauThanh", "Xóa dấu thanh"),
-    ("DauSac", "Dấu sắc"),
-    ("DauHuyen", "Dấu huyền"),
-    ("DauHoi", "Dấu hỏi"),
-    ("DauNga", "Dấu ngã"),
-    ("DauNang", "Dấu nặng"),
-    ("A_Â", "a -> â"),
-    ("E_Ê", "e -> ê"),
-    ("O_Ô", "o -> ô"),
-    ("AEO_ÂÊÔ", "a/e/o -> â/ê/ô"),
-    ("UOA_ƯƠĂ", "u/o/a -> ư/ơ/ă"),
-    ("D_Đ", "d -> đ"),
-    ("UO_ƯƠ", "u/o -> ư/ơ"),
-    ("A_Ă", "a -> ă"),
-    ("__ă", "ă"),
-    ("_Ă", "Ă"),
-    ("__â", "â"),
-    ("_Â", "Â"),
-    ("__ê", "ê"),
-    ("_Ê", "Ê"),
-    ("__ô", "ô"),
-    ("_Ô", "Ô"),
-    ("__ư", "ư"),
-    ("_Ư", "Ư"),
-    ("__ơ", "ơ"),
-    ("_Ơ", "Ơ"),
-    ("__đ", "đ"),
-    ("_Đ", "Đ"),
-    ("UOA_ƯƠĂ__Ư", "u/o/a -> ư/ơ/ă, ư"),
-]
-
-PRESETS = {
-    "Telex": [
-        ("z", "XoaDauThanh"),
-        ("s", "DauSac"),
-        ("f", "DauHuyen"),
-        ("r", "DauHoi"),
-        ("x", "DauNga"),
-        ("j", "DauNang"),
-        ("a", "A_Â"),
-        ("e", "E_Ê"),
-        ("o", "O_Ô"),
-        ("w", "UOA_ƯƠĂ"),
-        ("d", "D_Đ"),
-    ],
-    "VNI": [
-        ("0", "XoaDauThanh"),
-        ("1", "DauSac"),
-        ("2", "DauHuyen"),
-        ("3", "DauHoi"),
-        ("4", "DauNga"),
-        ("5", "DauNang"),
-        ("6", "AEO_ÂÊÔ"),
-        ("7", "UO_ƯƠ"),
-        ("8", "A_Ă"),
-        ("9", "D_Đ"),
-    ],
-    "VIQR": [
-        ("0", "XoaDauThanh"),
-        ("'", "DauSac"),
-        ("`", "DauHuyen"),
-        ("?", "DauHoi"),
-        ("~", "DauNga"),
-        (".", "DauNang"),
-        ("^", "AEO_ÂÊÔ"),
-        ("+", "UO_ƯƠ"),
-        ("*", "UO_ƯƠ"),
-        ("(", "A_Ă"),
-        ("d", "D_Đ"),
-    ],
-    "Microsoft layout": [
-        ("8", "DauSac"),
-        ("5", "DauHuyen"),
-        ("6", "DauHoi"),
-        ("7", "DauNga"),
-        ("9", "DauNang"),
-        ("1", "__ă"),
-        ("!", "_Ă"),
-        ("2", "__â"),
-        ("@", "_Â"),
-        ("3", "__ê"),
-        ("#", "_Ê"),
-        ("4", "__ô"),
-        ("$", "_Ô"),
-        ("0", "__đ"),
-        (")", "_Đ"),
-    ],
-    "Telex + VNI": [
-        ("z", "XoaDauThanh"),
-        ("s", "DauSac"),
-        ("f", "DauHuyen"),
-        ("r", "DauHoi"),
-        ("x", "DauNga"),
-        ("j", "DauNang"),
-        ("a", "A_Â"),
-        ("e", "E_Ê"),
-        ("o", "O_Ô"),
-        ("w", "UOA_ƯƠĂ"),
-        ("d", "D_Đ"),
-        ("0", "XoaDauThanh"),
-        ("1", "DauSac"),
-        ("2", "DauHuyen"),
-        ("3", "DauHoi"),
-        ("4", "DauNga"),
-        ("5", "DauNang"),
-        ("6", "AEO_ÂÊÔ"),
-        ("7", "UO_ƯƠ"),
-        ("8", "A_Ă"),
-        ("9", "D_Đ"),
-    ],
-    "Telex + VNI + VIQR": [
-        ("z", "XoaDauThanh"),
-        ("s", "DauSac"),
-        ("f", "DauHuyen"),
-        ("r", "DauHoi"),
-        ("x", "DauNga"),
-        ("j", "DauNang"),
-        ("a", "A_Â"),
-        ("e", "E_Ê"),
-        ("o", "O_Ô"),
-        ("w", "UOA_ƯƠĂ"),
-        ("d", "D_Đ"),
-        ("0", "XoaDauThanh"),
-        ("1", "DauSac"),
-        ("2", "DauHuyen"),
-        ("3", "DauHoi"),
-        ("4", "DauNga"),
-        ("5", "DauNang"),
-        ("6", "AEO_ÂÊÔ"),
-        ("7", "UO_ƯƠ"),
-        ("8", "A_Ă"),
-        ("9", "D_Đ"),
-        ("'", "DauSac"),
-        ("`", "DauHuyen"),
-        ("?", "DauHoi"),
-        ("~", "DauNga"),
-        (".", "DauNang"),
-        ("^", "AEO_ÂÊÔ"),
-        ("+", "UO_ƯƠ"),
-        ("*", "UO_ƯƠ"),
-        ("(", "A_Ă"),
-        ("\\\\", "D_Đ"),
-    ],
-    "VNI Bàn phím tiếng Pháp": [
-        ("&", "XoaDauThanh"),
-        ("é", "DauSac"),
-        ('"', "DauHuyen"),
-        ("'", "DauHoi"),
-        ("(", "DauNga"),
-        ("-", "DauNang"),
-        ("è", "AEO_ÂÊÔ"),
-        ("_", "UO_ƯƠ"),
-        ("ç", "A_Ă"),
-        ("à", "D_Đ"),
-    ],
-    "Telex W": [
-        ("z", "XoaDauThanh"),
-        ("s", "DauSac"),
-        ("f", "DauHuyen"),
-        ("r", "DauHoi"),
-        ("x", "DauNga"),
-        ("j", "DauNang"),
-        ("a", "A_Â"),
-        ("e", "E_Ê"),
-        ("o", "O_Ô"),
-        ("w", "UOA_ƯƠĂ__Ư"),
-        ("d", "D_Đ"),
-    ],
-}
 
 
 class KeymapEditorPage(BaseEditorPage):
@@ -341,16 +172,22 @@ class KeymapEditorPage(BaseEditorPage):
 
     def _get_current_state(self):
         """Captures the current UI state for comparison."""
-        data = []
+        return {
+            "data": self._collect_table_rows(),
+            "EnableCustomKeymap": self.cb_enable.isChecked(),
+        }
+
+    def _collect_table_rows(self):
+        """Reads the table into config entries, keeping rows with widgets only."""
+        rows = []
         for row in range(self.table.rowCount()):
             key_item = self.table.item(row, 0)
             combo_widget = self.table.cellWidget(row, 1)
-            if key_item and combo_widget:
-                data.append({"Key": key_item.text(), "Value": combo_widget.currentData()})
-        return {
-            "data": data,
-            "EnableCustomKeymap": self.cb_enable.isChecked(),
-        }
+            if not key_item or not combo_widget:
+                rows.append((None, None))
+                continue
+            rows.append((key_item.text(), combo_widget.currentData()))
+        return collect_kv_pairs(rows, skip_empty_key=False)
 
     def save_data(self) -> bool:
         """Saves current table via DBus to C++ Engine."""
@@ -360,15 +197,9 @@ class KeymapEditorPage(BaseEditorPage):
         ):
             return False
 
-        data = []
-        for row in range(self.table.rowCount()):
-            key_item = self.table.item(row, 0)
-            combo_widget = self.table.cellWidget(row, 1)
-            if not key_item or not combo_widget:
-                continue
-            data.append({"Key": key_item.text(), "Value": combo_widget.currentData()})
-
-        if not self.dbus.set_sub_config_list("custom_keymap", "CustomKeymap", data):
+        if not self.dbus.set_sub_config_list(
+            "custom_keymap", "CustomKeymap", self._collect_table_rows()
+        ):
             return False
 
         self.initial_state = self._get_current_state()
@@ -385,14 +216,15 @@ class KeymapEditorPage(BaseEditorPage):
                 else self.table.item(row, 1)
             )
 
-            key = key_item.text().lower() if key_item else ""
-            action = ""
+            key = key_item.text() if key_item else ""
             if isinstance(action_item, QComboBox):
-                action = action_item.currentText().lower()
+                action = action_item.currentText()
             elif action_item:
-                action = action_item.text().lower()
+                action = action_item.text()
+            else:
+                action = ""
 
-            self.table.setRowHidden(row, search_text not in key and search_text not in action)
+            self.table.setRowHidden(row, search_hides_row(search_text, key, action))
 
     def on_add(self):
         """Adds or updates a keymap entry."""

@@ -5,6 +5,7 @@
 Base class for Table-based editors (Macros, Keymap).
 """
 
+from core.table_editor import compute_button_states, move_row_index, selected_rows
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QWidget,
@@ -76,13 +77,14 @@ class BaseEditorPage(QWidget):
         row = self.table.currentRow()
         count = self.table.rowCount()
         selected = len(self.table.selectedRanges()) > 0
+        up_enabled, down_enabled, remove_enabled = compute_button_states(row, count, selected)
 
         if hasattr(self, "btn_up"):
-            self.btn_up.setEnabled(row > 0)
+            self.btn_up.setEnabled(up_enabled)
         if hasattr(self, "btn_down"):
-            self.btn_down.setEnabled(0 <= row < count - 1)
+            self.btn_down.setEnabled(down_enabled)
         if hasattr(self, "btn_remove"):
-            self.btn_remove.setEnabled(selected)
+            self.btn_remove.setEnabled(remove_enabled)
 
     def _swap_rows(self, row1, row2):
         """Swaps two rows in the table, preserving widgets if any."""
@@ -109,33 +111,30 @@ class BaseEditorPage(QWidget):
 
     def on_move_up(self):
         row = self.table.currentRow()
-        if row <= 0:
+        target = move_row_index(row, self.table.rowCount(), -1)
+        if target is None:
             return
-        self._swap_rows(row, row - 1)
-        self.table.selectRow(row - 1)
+        self._swap_rows(row, target)
+        self.table.selectRow(target)
         self.update_button_states()
         self._on_item_changed()
 
     def on_move_down(self):
         row = self.table.currentRow()
-        if row < 0 or row >= self.table.rowCount() - 1:
+        target = move_row_index(row, self.table.rowCount(), 1)
+        if target is None:
             return
-        self._swap_rows(row, row + 1)
-        self.table.selectRow(row + 1)
+        self._swap_rows(row, target)
+        self.table.selectRow(target)
         self.update_button_states()
         self._on_item_changed()
 
     def on_remove(self):
-        selected_ranges = self.table.selectedRanges()
-        if not selected_ranges:
+        rows_to_delete = selected_rows(self.table.selectedRanges())
+        if not rows_to_delete:
             return
 
-        rows_to_delete = set()
-        for r in selected_ranges:
-            for i in range(r.topRow(), r.bottomRow() + 1):
-                rows_to_delete.add(i)
-
-        for row in sorted(list(rows_to_delete), reverse=True):
+        for row in reversed(rows_to_delete):
             self.table.removeRow(row)
 
         self.update_button_states()

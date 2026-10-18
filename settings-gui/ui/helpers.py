@@ -5,12 +5,24 @@
 Helper utilities and shared mappings for the Lotus settings GUI.
 """
 
-import os
-
+from core.config_values import as_bool, bool_to_str, config_bool
+from core.dict_store import local_dict_path
 from i18n import N_, _
 from qtpy.QtGui import QIcon
 
 from ui.components import HelpIcon
+
+# Re-exported pure helpers; the canonical implementations live in core.
+__all__ = [
+    "HELPERS",
+    "add_help_icon",
+    "as_bool",
+    "bool_to_str",
+    "config_bool",
+    "local_dict_path",
+    "notify_parent_changed",
+    "set_add_button_mode",
+]
 
 # Tooltip text for specific settings keys
 HELPERS = {
@@ -60,32 +72,11 @@ def add_help_icon(layout, key, clear_existing=False):
     return None
 
 
-def config_bool(values: dict, key: str, default: str = "True") -> bool:
-    """Reads a boolean flag stored as a string in the configuration."""
-    return str(values.get(key, default)).lower() == "true"
-
-
-def as_bool(value) -> bool:
-    """Converts a configuration value to a boolean."""
-    return str(value).lower() == "true"
-
-
-def bool_to_str(flag: bool) -> str:
-    """Encodes a boolean flag the way the configuration expects it."""
-    return "True" if flag else "False"
-
-
 def notify_parent_changed(widget) -> None:
     """Notifies the main window that the given widget changed a setting."""
     main_win = widget.window()
     if hasattr(main_win, "on_changed"):
         main_win.on_changed()
-
-
-def local_dict_path() -> str:
-    """Returns the path of the user dictionary edited by the settings GUI."""
-    xdg_data_home = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
-    return os.path.join(xdg_data_home, "fcitx5/lotus/vietnamese.cm.dict")
 
 
 def set_add_button_mode(

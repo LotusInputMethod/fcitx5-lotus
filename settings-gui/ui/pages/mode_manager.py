@@ -7,9 +7,35 @@ Mode Manager Page for per-application input mode configuration.
 
 import copy
 import os
-import re
 
+from core.app_catalog import (
+    desktop_search_paths,
+    resolve_icon_name,
+    scan_desktop_icons,
+)
+from core.app_rules import (
+    app_matches_filter,
+    apply_app_mode,
+    parse_app_rules,
+    rule_delay,
+    serialize_app_rules,
+)
+from core.config_values import coerce_int
 from core.dbus_handler import LotusDBusHandler
+from core.mode_types import (
+    DEFAULT_DELAY_KEYS,
+    MODE_DEFAULT,
+    MODE_EMOJI,
+    MODE_INFO,
+    MODE_MINECRAFT,
+    MODE_OFF,
+    MODE_PREEDIT,
+    MODE_SELECT,
+    MODE_SMOOTH,
+    MODE_SUPER_SMOOTH,
+    MODE_SURROUNDING,
+    SELECTABLE_MODES,
+)
 from i18n import _
 from qtpy.QtCore import QSize, Qt, Signal
 from qtpy.QtGui import QIcon
@@ -34,48 +60,23 @@ from ui.components import ScrollContent
 from ui.helpers import notify_parent_changed
 from ui.pages.dynamic_settings import CardWidget
 
-# Mode constants as defined in C++ LotusEngine
-MODE_OFF = 0
-MODE_SMOOTH = 1
-MODE_SUPER_SMOOTH = 3
-MODE_SURROUNDING = 4
-MODE_PREEDIT = 5
-MODE_EMOJI = 6
-MODE_MINECRAFT = 8
-MODE_SELECT = 7
-MODE_DEFAULT = -1  # UI special value for "Use Global Default"
-
-MODE_INFO = {
-    MODE_DEFAULT: {"title": "Default Typing", "icon": "preferences-system"},
-    MODE_OFF: {"title": "OFF", "icon": "input-keyboard"},
-    MODE_SMOOTH: {"title": "Uinput (Smooth)", "icon": "input-keyboard"},
-    MODE_SUPER_SMOOTH: {"title": "Uinput (Super Smooth)", "icon": "input-keyboard"},
-    MODE_SURROUNDING: {"title": "Surrounding Text", "icon": "text-field"},
-    MODE_PREEDIT: {"title": "Preedit", "icon": "text-field"},
-    MODE_EMOJI: {"title": "Emoji Picker", "icon": "face-smile"},
-    MODE_MINECRAFT: {"title": "Minecraft", "icon": "onboard"},
-    MODE_SELECT: {"title": "Uinput (Select)", "icon": "edit-select"},
-}
-
-# Modes offered as the global default and as per-app modes, in display order.
-SELECTABLE_MODES = [
-    MODE_SMOOTH,
-    MODE_SUPER_SMOOTH,
-    MODE_MINECRAFT,
-    MODE_SELECT,
-    MODE_SURROUNDING,
-    MODE_PREEDIT,
-    MODE_EMOJI,
-    MODE_OFF,
+# Re-exported mode definitions keep the page-level API stable.
+__all__ = [
+    "DEFAULT_DELAY_KEYS",
+    "MODE_DEFAULT",
+    "MODE_EMOJI",
+    "MODE_INFO",
+    "MODE_MINECRAFT",
+    "MODE_OFF",
+    "MODE_PREEDIT",
+    "MODE_SELECT",
+    "MODE_SMOOTH",
+    "MODE_SUPER_SMOOTH",
+    "MODE_SURROUNDING",
+    "ModeCard",
+    "ModeManagerPage",
+    "SELECTABLE_MODES",
 ]
-
-# Global default delays (config key -> factory default in ms); also the order
-# rendered in the "Default Delays" section. 0 in a per-app rule means "use this".
-DEFAULT_DELAY_KEYS = {
-    "DefaultCommitInterval": 20,
-    "DefaultBackspaceInterval": 5,
-    "DefaultPostDelay": 10,
-}
 
 
 class ModeCard(QFrame):
@@ -281,23 +282,7 @@ class ModeManagerPage(QWidget):
         self.app_rules = {}
         try:
             data = self.dbus.get_sub_config_list("app_rules", "Rules")
-            for item in data:
-                try:
-                    app = item.get("App", "")
-                    mode = int(item.get("Mode", 0))
-                    commit = int(item.get("CommitInterval", 0) or 0)
-                    backspace = int(item.get("BackspaceInterval", 0) or 0)
-                    post = int(item.get("PostDelay", 0) or 0)
-                except (ValueError, TypeError, AttributeError):
-                    print(f"Skipping malformed app rule: {item!r}")
-                    continue
-                if app:
-                    self.app_rules[app] = {
-                        "mode": mode,
-                        "commit": commit,
-                        "backspace": backspace,
-                        "post": post,
-                    }
+            self.app_rules = parse_app_rules(data)
         except Exception as e:
             print(f"Error loading app rules via DBus: {e}")
 
@@ -315,10 +300,9 @@ class ModeManagerPage(QWidget):
         # Sync Global Default Delays
         for key, spin in self.default_delay_spins.items():
             spin.blockSignals(True)
-            try:
-                spin.setValue(int(values.get(key, DEFAULT_DELAY_KEYS[key])))
-            except (ValueError, TypeError):
-                spin.setValue(DEFAULT_DELAY_KEYS[key])
+            spin.setValue(
+                coerce_int(values.get(key, DEFAULT_DELAY_KEYS[key]), DEFAULT_DELAY_KEYS[key])
+            )
             spin.blockSignals(False)
         self.original_default_delays = {
             key: str(spin.value()) for key, spin in self.default_delay_spins.items()
@@ -350,102 +334,21 @@ class ModeManagerPage(QWidget):
 
     def _scan_desktop_files(self):
         """Builds a robust map of app identifiers to icon names."""
-        search_paths = [
-            "/usr/share/applications",
-            os.path.expanduser("~/.local/share/applications"),
-            "/var/lib/flatpak/exports/share/applications",
-            os.path.expanduser("~/.local/share/flatpak/exports/share/applications"),
-            "/var/lib/snapd/desktop/applications",
-        ]
-
-        xdg_data_dirs = os.environ.get("XDG_DATA_DIRS", "").split(":")
-        for directory in xdg_data_dirs:
-            if directory:
-                xdg_applications_path = os.path.join(directory, "applications")
-                if xdg_applications_path not in search_paths:
-                    search_paths.append(xdg_applications_path)
-
-        # Priority 1: Direct binary names from Exec line
-        # Priority 2: Desktop filenames (e.g. com.discordapp.Discord -> Discord)
-        # Priority 3: Application Names
-
-        for p in search_paths:
-            if not os.path.isdir(p):
-                continue
-            for f in os.listdir(p):
-                if not f.endswith(".desktop"):
-                    continue
-                try:
-                    desktop_id = f[:-8]  # remove .desktop
-                    with open(os.path.join(p, f), "r", encoding="utf-8") as df:
-                        content = df.read()
-
-                        icon_match = re.search(r"^Icon=([^\n]+)", content, re.MULTILINE)
-                        if not icon_match:
-                            continue
-                        icon = icon_match.group(1).strip()
-
-                        # Map by desktop ID (e.g. discord)
-                        self._icon_cache[desktop_id.lower()] = icon
-                        if "." in desktop_id:  # handle com.discordapp.Discord
-                            self._icon_cache[desktop_id.split(".")[-1].lower()] = icon
-
-                        name_match = re.search(r"^Name=([^\n]+)", content, re.MULTILINE)
-                        if name_match:
-                            self._icon_cache[name_match.group(1).strip().lower()] = icon
-
-                        exec_match = re.search(r"^Exec=([^\n]+)", content, re.MULTILINE)
-                        if exec_match:
-                            exec_line = exec_match.group(1).strip()
-                            # Robustly extract binary name (handle quotes and arguments)
-                            if exec_line.startswith('"'):
-                                binary_path = exec_line[1:].split('"')[0]
-                            else:
-                                binary_path = exec_line.split(" ")[0]
-
-                            binary_name = os.path.basename(binary_path).lower()
-                            self._icon_cache[binary_name] = icon
-
-                            if binary_name == "flatpak" and " --command=" in exec_line:
-                                cmd_match = re.search(r"--command=([^ ]+)", exec_line)
-                                if cmd_match:
-                                    self._icon_cache[cmd_match.group(1).lower()] = icon
-                except (PermissionError, FileNotFoundError):
-                    continue
-                except Exception as e:
-                    # Only log truly unexpected errors
-                    if not isinstance(e, (UnicodeDecodeError, re.error)):
-                        print(f"Error parsing desktop file {f}: {e}")
-                    continue
-
-        # Manual Overrides for stubborn apps
-        manual_icons = {
-            "discord": "discord",
-            "upnote": "upnote",
-            "antigravity": "preferences-desktop-accessibility",
-        }
-        for k, v in manual_icons.items():
-            if k not in self._icon_cache:
-                self._icon_cache[k] = v
+        scan_desktop_icons(
+            desktop_search_paths(os.environ, os.path.expanduser("~")), self._icon_cache
+        )
 
     def _resolve_icon(self, app_name):
         """Resolves icon name for a given app handle."""
-        app_lower = app_name.lower()
-        icon_name = self._icon_cache.get(app_lower)
-
-        if not icon_name:
-            # Try removing extension or path if it's a full path
-            basename = os.path.basename(app_name).lower()
-            if "." in basename:
-                basename = basename.split(".")[0]
-            icon_name = self._icon_cache.get(basename, basename)
-
-        return QIcon.fromTheme(icon_name, QIcon.fromTheme("application-x-executable"))
+        return QIcon.fromTheme(
+            resolve_icon_name(app_name, self._icon_cache),
+            QIcon.fromTheme("application-x-executable"),
+        )
 
     def _filter_apps(self, text):
         for i in range(self.app_list.count()):
             item = self.app_list.item(i)
-            item.setHidden(text.lower() not in item.text().split("\n")[0].lower())
+            item.setHidden(not app_matches_filter(text, item.text()))
 
     def _on_app_selected(self, item):
         app_name, mode = item.data(Qt.UserRole)
@@ -467,13 +370,7 @@ class ModeManagerPage(QWidget):
 
     def _on_app_mode_changed(self, mode):
         self.current_app_mode = mode
-        if mode == MODE_DEFAULT:
-            self.app_rules.pop(self.selected_app, None)
-        else:
-            rule = self.app_rules.setdefault(
-                self.selected_app, {"mode": mode, "commit": 0, "backspace": 0, "post": 0}
-            )
-            rule["mode"] = mode
+        apply_app_mode(self.app_rules, self.selected_app, mode)
 
         self._sync_app_delay_spins()
         self._update_mode_cards()
@@ -503,7 +400,7 @@ class ModeManagerPage(QWidget):
             ("post", self.spin_app_post),
         ):
             spin.blockSignals(True)
-            spin.setValue(int(rule.get(field, 0)) if rule else 0)
+            spin.setValue(rule_delay(rule, field) if rule else 0)
             spin.blockSignals(False)
             spin.setEnabled(rule is not None)
 
@@ -573,19 +470,9 @@ class ModeManagerPage(QWidget):
                 if not self.dbus.save_values(updates):
                     return False
 
-            data = []
-            for app, rule in sorted(self.app_rules.items()):
-                data.append(
-                    {
-                        "App": app,
-                        "Mode": str(rule["mode"]),
-                        "CommitInterval": str(rule.get("commit", 0)),
-                        "BackspaceInterval": str(rule.get("backspace", 0)),
-                        "PostDelay": str(rule.get("post", 0)),
-                    }
-                )
-
-            if not self.dbus.set_sub_config_list("app_rules", "Rules", data):
+            if not self.dbus.set_sub_config_list(
+                "app_rules", "Rules", serialize_app_rules(self.app_rules)
+            ):
                 return False
 
             self.original_app_rules = copy.deepcopy(self.app_rules)

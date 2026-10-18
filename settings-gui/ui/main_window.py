@@ -6,6 +6,16 @@ Main window assembling all configuration tabs with a modern layout.
 """
 
 from core.dbus_handler import LotusDBusHandler
+from core.window_state import (
+    any_page_modified,
+    any_page_unsaved_changes,
+    collect_validation_messages,
+    compute_action_states,
+    discard_page_changes,
+    pages_have_validation_errors,
+    reset_pages_to_defaults,
+    save_all_pages,
+)
 from i18n import _
 from qtpy.QtCore import QSize, Qt
 from qtpy.QtGui import QIcon
@@ -39,19 +49,12 @@ class LotusSettingsWindow(QMainWindow):
         self._apply_global_styles()
         self.update_reset_button_state()
 
+    def _pages(self):
+        """Lists the currently instantiated pages of the content stack."""
+        return [self.content_stack.widget(i) for i in range(self.content_stack.count())]
+
     def update_reset_button_state(self):
-        any_modified_from_default = any(
-            (
-                hasattr(self.content_stack.widget(i), "is_modified_from_default")
-                and self.content_stack.widget(i).is_modified_from_default()
-            )
-            or (
-                hasattr(self.content_stack.widget(i), "is_modified")
-                and self.content_stack.widget(i).is_modified()
-            )
-            for i in range(self.content_stack.count())
-        )
-        self.btn_reset.setEnabled(any_modified_from_default)
+        self.btn_reset.setEnabled(any_page_unsaved_changes(self._pages()))
 
     def _apply_global_styles(self):
         self.setStyleSheet("""
@@ -240,42 +243,25 @@ class LotusSettingsWindow(QMainWindow):
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.Yes:
-            for i in range(self.content_stack.count()):
-                page = self.content_stack.widget(i)
-                if hasattr(page, "restore_defaults"):
-                    page.restore_defaults()
+            reset_pages_to_defaults(self._pages())
             # After reset, we definitely have "unsaved changes" relative to previous
             self.on_changed()
 
     def on_changed(self):
         """Enables/disables the apply and cancel buttons based on pending changes."""
-        any_modified = any(
-            hasattr(self.content_stack.widget(i), "is_modified")
-            and self.content_stack.widget(i).is_modified()
-            for i in range(self.content_stack.count())
-        )
+        any_modified = any_page_modified(self._pages())
         has_errors = self.has_validation_errors()
-        self.btn_apply.setEnabled(any_modified and not has_errors)
-        self.btn_cancel.setEnabled(any_modified)
-        self.btn_ok.setEnabled(not has_errors)
+        apply_enabled, cancel_enabled, ok_enabled = compute_action_states(any_modified, has_errors)
+        self.btn_apply.setEnabled(apply_enabled)
+        self.btn_cancel.setEnabled(cancel_enabled)
+        self.btn_ok.setEnabled(ok_enabled)
         self.update_reset_button_state()
 
     def has_validation_errors(self):
-        return any(
-            hasattr(self.content_stack.widget(i), "has_validation_errors")
-            and self.content_stack.widget(i).has_validation_errors()
-            for i in range(self.content_stack.count())
-        )
+        return pages_have_validation_errors(self._pages())
 
     def validation_message(self):
-        messages = []
-        for i in range(self.content_stack.count()):
-            page = self.content_stack.widget(i)
-            if hasattr(page, "validation_message"):
-                message = page.validation_message()
-                if message:
-                    messages.append(message)
-        return "\n".join(messages)
+        return "\n".join(collect_validation_messages(self._pages()))
 
     def on_save_all(self, quiet=False):
         """Triggers save on all pages that support it."""
@@ -289,16 +275,13 @@ class LotusSettingsWindow(QMainWindow):
             )
             return False
 
-        for i in range(self.content_stack.count()):
-            page = self.content_stack.widget(i)
-            if hasattr(page, "save_data"):
-                if page.save_data() is False:
-                    QMessageBox.critical(
-                        self,
-                        _("Error"),
-                        _("Failed to save settings. Please check if Fcitx5 is running."),
-                    )
-                    return False
+        if not save_all_pages(self._pages()):
+            QMessageBox.critical(
+                self,
+                _("Error"),
+                _("Failed to save settings. Please check if Fcitx5 is running."),
+            )
+            return False
 
         self.btn_apply.setEnabled(False)
         self.btn_cancel.setEnabled(False)
@@ -313,12 +296,7 @@ class LotusSettingsWindow(QMainWindow):
 
     def on_cancel(self):
         """Discards all unsaved changes by reloading data on all pages."""
-        for i in range(self.content_stack.count()):
-            page = self.content_stack.widget(i)
-            if hasattr(page, "load_data"):
-                page.load_data()
-            elif hasattr(page, "load_config"):
-                page.load_config()
+        discard_page_changes(self._pages())
 
         self.btn_apply.setEnabled(False)
         self.btn_cancel.setEnabled(False)

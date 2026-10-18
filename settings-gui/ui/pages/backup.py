@@ -10,6 +10,14 @@ import json
 import os
 from datetime import datetime
 
+from core.backup_logic import (
+    COMPONENT_LABELS,
+    backup_file_name,
+    build_backup_meta,
+    collect_backup,
+    present_component_keys,
+    restore_backup,
+)
 from core.dbus_handler import LotusDBusHandler
 from i18n import _
 from qtpy.QtGui import QIcon
@@ -67,13 +75,7 @@ class BackupPage(QWidget):
         self.main_card.content_layout.addWidget(self.import_desc)
 
         # Shared Checkboxes
-        self.checkboxes = {
-            "config": QCheckBox(_("Main Settings")),
-            "macros": QCheckBox(_("Macros")),
-            "keymaps": QCheckBox(_("Custom Keymaps")),
-            "rules": QCheckBox(_("Application Rules")),
-            "dictionary": QCheckBox(_("Custom Dictionary")),
-        }
+        self.checkboxes = {key: QCheckBox(_(label)) for key, label in COMPONENT_LABELS.items()}
         for cb in self.checkboxes.values():
             cb.setChecked(True)
             self.main_card.content_layout.addWidget(cb)
@@ -115,51 +117,23 @@ class BackupPage(QWidget):
 
     def do_export(self):
         """Creates a JSON backup of selected components."""
-        selected = {k: cb.isChecked() for k, cb in self.checkboxes.items()}
-        if not any(selected.values()):
+        selected_keys = [k for k, cb in self.checkboxes.items() if cb.isChecked()]
+        if not selected_keys:
             QMessageBox.warning(self, _("Warning"), _("Select at least one item to export."))
             return
 
-        default_filename = f"lotus-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
         path, _filter = QFileDialog.getSaveFileName(
             self,
             _("Export Backup"),
-            os.path.join(os.path.expanduser("~"), default_filename),
+            os.path.join(os.path.expanduser("~"), backup_file_name(datetime.now())),
             _("JSON Backup (*.json);;All Files (*)"),
         )
         if not path:
             return
 
         try:
-            backup = {
-                "meta": {
-                    "version": 1,
-                    "timestamp": datetime.now().isoformat(),
-                    "components": [k for k, v in selected.items() if v],
-                }
-            }
-
-            if selected["config"]:
-                config_data = self.dbus.get_config().get("values", {})
-                backup["config"] = config_data
-
-            if selected["macros"]:
-                macros = self.dbus.get_sub_config_list("lotus-macro", "Macro")
-                backup["macros"] = macros
-
-            if selected["keymaps"]:
-                keymaps = self.dbus.get_sub_config_list("custom_keymap", "CustomKeymap")
-                backup["keymaps"] = keymaps
-
-            if selected["rules"]:
-                rules = self.dbus.get_sub_config_list("app_rules", "Rules")
-                backup["rules"] = rules
-
-            if selected["dictionary"]:
-                dict_path = local_dict_path()
-                if os.path.exists(dict_path):
-                    with open(dict_path, "r", encoding="utf-8") as f:
-                        backup["dictionary"] = f.read()
+            backup = {"meta": build_backup_meta(selected_keys, datetime.now())}
+            backup.update(collect_backup(self.dbus, selected_keys, local_dict_path()))
 
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(backup, f, indent=2, ensure_ascii=False)
@@ -193,22 +167,13 @@ class BackupPage(QWidget):
             with open(path, "r", encoding="utf-8") as f:
                 backup = json.load(f)
 
-            options = [
-                ("config", _("Main Settings")),
-                ("macros", _("Macros")),
-                ("keymaps", _("Custom Keymaps")),
-                ("rules", _("Application Rules")),
-                ("dictionary", _("Custom Dictionary")),
-            ]
-
             found_any = False
-            for key, label in options:
-                if key in backup:
-                    cb = QCheckBox(label)
-                    cb.setChecked(True)
-                    self.restore_checkboxes[key] = cb
-                    self.restore_group_layout.addWidget(cb)
-                    found_any = True
+            for key in present_component_keys(backup):
+                cb = QCheckBox(_(COMPONENT_LABELS[key]))
+                cb.setChecked(True)
+                self.restore_checkboxes[key] = cb
+                self.restore_group_layout.addWidget(cb)
+                found_any = True
 
             if not found_any:
                 raise ValueError(_("Invalid backup file: No recognizable components found."))
@@ -244,42 +209,14 @@ class BackupPage(QWidget):
             with open(self.restore_data["json_path"], "r", encoding="utf-8") as f:
                 backup = json.load(f)
 
-            failed_components = []
-
-            if "config" in selected_keys and "config" in backup:
-                if not self.dbus.set_config(backup["config"]):
-                    failed_components.append(_("Main Settings"))
-
-            if "macros" in selected_keys and "macros" in backup:
-                if not self.dbus.set_sub_config_list("lotus-macro", "Macro", backup["macros"]):
-                    failed_components.append(_("Macros"))
-
-            if "keymaps" in selected_keys and "keymaps" in backup:
-                if not self.dbus.set_sub_config_list(
-                    "custom_keymap", "CustomKeymap", backup["keymaps"]
-                ):
-                    failed_components.append(_("Custom Keymaps"))
-
-            if "rules" in selected_keys and "rules" in backup:
-                if not self.dbus.set_sub_config_list("app_rules", "Rules", backup["rules"]):
-                    failed_components.append(_("Application Rules"))
-
-            if "dictionary" in selected_keys and "dictionary" in backup:
-                try:
-                    dict_path = local_dict_path()
-                    os.makedirs(os.path.dirname(dict_path), exist_ok=True)
-                    with open(dict_path, "w", encoding="utf-8") as f:
-                        f.write(backup["dictionary"])
-                except Exception as e:
-                    print(f"Failed to restore dictionary file: {e}")
-                    failed_components.append(_("Custom Dictionary"))
+            failed_components = restore_backup(self.dbus, backup, selected_keys, local_dict_path())
 
             if failed_components:
                 QMessageBox.critical(
                     self,
                     _("Error"),
                     _("Failed to restore the following components:\n- ")
-                    + "\n- ".join(failed_components),
+                    + "\n- ".join(_(COMPONENT_LABELS[key]) for key in failed_components),
                 )
                 return
 

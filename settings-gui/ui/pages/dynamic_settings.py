@@ -8,6 +8,22 @@ Dynamic Settings Page with Card-based Layout matching modern guidelines.
 from enum import Enum
 
 from core.dbus_handler import LotusDBusHandler
+from core.mode_types import (
+    DEFAULT_MODE_ORDER,
+    MODE_KEY_TO_INTERNAL_NAME,
+    MODE_SHORTCUT_KEYS,
+    MODE_SHORTCUT_TO_VISIBILITY,
+    enabled_mode_shortcuts,
+    is_shortcut_related,
+    normalize_mode_order,
+)
+from core.mode_validation import find_duplicate_shortcuts
+from core.settings_model import (
+    defaults_from_metadata,
+    flatten_metadata,
+    sorted_enum_keys,
+    values_match_defaults,
+)
 from i18n import _
 from qtpy.QtCore import QSize, Qt, QTimer
 from qtpy.QtGui import QIcon
@@ -90,33 +106,6 @@ GROUP_DESCRIPTIONS = {
         "Assign hotkeys to open the mode menu or quickly cycle through enabled modes."
     ),
 }
-
-
-MODE_SHORTCUT_TO_VISIBILITY = {
-    "ShortcutSmooth": "ShowModeSmooth",
-    "ShortcutSuperSmooth": "ShowModeSuperSmooth",
-    "ShortcutMinecraft": "ShowModeMinecraft",
-    "ShortcutSelect": "ShowModeSelect",
-    "ShortcutSurroundingText": "ShowModeSurroundingText",
-    "ShortcutPreedit": "ShowModePreedit",
-    "ShortcutEmoji": "ShowModeEmoji",
-    "ShortcutOff": "ShowModeOff",
-    "ShortcutDefault": "ShowModeDefault",
-}
-
-MODE_KEY_TO_INTERNAL_NAME = {
-    "ShortcutSmooth": "Smooth",
-    "ShortcutSuperSmooth": "SuperSmooth",
-    "ShortcutMinecraft": "Minecraft",
-    "ShortcutSelect": "Select",
-    "ShortcutSurroundingText": "SurroundingText",
-    "ShortcutPreedit": "Preedit",
-    "ShortcutEmoji": "Emoji",
-    "ShortcutOff": "Off",
-    "ShortcutDefault": "Default",
-}
-
-MODE_SHORTCUT_KEYS = list(MODE_SHORTCUT_TO_VISIBILITY.keys())
 
 
 class CardWidget(QFrame):
@@ -218,10 +207,7 @@ class DynamicSettingsPage(QWidget):
                 return
 
             # Flat map all items for easy lookup
-            self.all_metadata = {}
-            for group in metadata_list:
-                for item in group[1]:
-                    self.all_metadata[item[0]] = item
+            self.all_metadata = flatten_metadata(metadata_list)
 
             # Render based on SETTINGS_MAP
             title_text = self.category.name.capitalize()
@@ -292,17 +278,7 @@ class DynamicSettingsPage(QWidget):
     def is_modified_from_default(self):
         if not hasattr(self, "all_metadata"):
             return False
-        for key, val in self.current_values.items():
-            meta = self.all_metadata.get(key)
-            if meta:
-                default_val = meta[3]
-                # Handle cases where default_val might be a dict (like hotkeys)
-                if isinstance(default_val, dict) and isinstance(val, dict):
-                    if str(val.get("0")) != str(default_val.get("0")):
-                        return True
-                elif str(val) != str(default_val):
-                    return True
-        return False
+        return not values_match_defaults(self.current_values, self.all_metadata)
 
     def is_modified(self):
         """Returns True if the current values differ from the initial loaded values."""
@@ -341,9 +317,8 @@ class DynamicSettingsPage(QWidget):
         combo = QComboBox()
         combo.setFixedWidth(200)
         enum_dict = annotations.get("Enum", {})
-        sorted_keys = sorted(enum_dict.keys(), key=lambda x: int(x) if str(x).isdigit() else x)
 
-        for k in sorted_keys:
+        for k in sorted_enum_keys(enum_dict):
             rb_text = str(enum_dict[k])
             combo.addItem(_(rb_text), rb_text)
 
@@ -446,17 +421,8 @@ class DynamicSettingsPage(QWidget):
         )
 
         # Get current order from config
-        order_str = self.current_values.get(
-            "ModeOrder",
-            "Smooth,Uinput,Minecraft,Select,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default",
-        )
-        order = order_str.split(",")
-
-        # Ensure all modes are present
-        all_internal_names = list(MODE_KEY_TO_INTERNAL_NAME.values())
-        for name in all_internal_names:
-            if name not in order:
-                order.append(name)
+        order_str = self.current_values.get("ModeOrder", DEFAULT_MODE_ORDER)
+        order = normalize_mode_order(order_str, MODE_KEY_TO_INTERNAL_NAME.values())
 
         # Map internal name back to shortcut key
         internal_to_key = {v: k for k, v in MODE_KEY_TO_INTERNAL_NAME.items()}
@@ -535,46 +501,25 @@ class DynamicSettingsPage(QWidget):
             if key in self.shortcut_labels:
                 self.shortcut_labels[key].setStyleSheet("")
 
-        # Only check enabled modes
-        enabled_shortcuts = {}
-        for shortcut_key, visibility_key in MODE_SHORTCUT_TO_VISIBILITY.items():
-            default_visibility = "True"
-            vis_meta = (
-                self.all_metadata.get(visibility_key) if hasattr(self, "all_metadata") else None
-            )
-            if vis_meta:
-                default_visibility = vis_meta[3]
-
-            is_enabled = config_bool(self.current_values, visibility_key, default_visibility)
-            if is_enabled:
-                default_shortcut = ""
-                shortcut_meta = (
-                    self.all_metadata.get(shortcut_key) if hasattr(self, "all_metadata") else None
-                )
-                if shortcut_meta:
-                    default_shortcut = shortcut_meta[3]
-                val = self.current_values.get(shortcut_key, default_shortcut)
-                if val:
-                    if val in enabled_shortcuts:
-                        enabled_shortcuts[val].append(shortcut_key)
-                    else:
-                        enabled_shortcuts[val] = [shortcut_key]
+        # Only check enabled modes, then flag the values shared by several of them
+        enabled_values = enabled_mode_shortcuts(
+            self.current_values, getattr(self, "all_metadata", {}), config_bool
+        )
 
         # Flag duplicates
-        for shortcut, keys in enabled_shortcuts.items():
-            if len(keys) > 1:
-                error_msg = _("Duplicate shortcut '{}' used for multiple enabled modes.").format(
-                    shortcut
-                )
-                self.validation_errors.append(error_msg)
-                for key in keys:
-                    if key in self.shortcut_warning_labels:
-                        self.shortcut_warning_labels[key].setText(error_msg)
-                        self.shortcut_warning_labels[key].show()
-                    if key in self.shortcut_labels:
-                        self.shortcut_labels[key].setStyleSheet(
-                            "color: palette(highlight); font-weight: bold;"
-                        )
+        for shortcut, keys in find_duplicate_shortcuts(enabled_values).items():
+            error_msg = _("Duplicate shortcut '{}' used for multiple enabled modes.").format(
+                shortcut
+            )
+            self.validation_errors.append(error_msg)
+            for key in keys:
+                if key in self.shortcut_warning_labels:
+                    self.shortcut_warning_labels[key].setText(error_msg)
+                    self.shortcut_warning_labels[key].show()
+                if key in self.shortcut_labels:
+                    self.shortcut_labels[key].setStyleSheet(
+                        "color: palette(highlight); font-weight: bold;"
+                    )
 
     def load_data(self):
         """Standardized reload method (alias for load_config)."""
@@ -589,11 +534,7 @@ class DynamicSettingsPage(QWidget):
                 return
 
             metadata_list = config_data.get("metadata", [])
-            new_values = {}
-            for group in metadata_list:
-                for item in group[1]:
-                    key, type_str, label, default, annotations = item
-                    new_values[key] = default
+            new_values = defaults_from_metadata(metadata_list)
             self.modified_values = new_values.copy()
             self.current_values = new_values
             self.load_config()
@@ -634,7 +575,7 @@ class DynamicSettingsPage(QWidget):
         self.current_values[key] = new_value
 
         # Real-time validation if it's a shortcut
-        if key in MODE_SHORTCUT_KEYS or key in MODE_SHORTCUT_TO_VISIBILITY.values():
+        if is_shortcut_related(key):
             self._validate_mode_shortcuts()
 
         # Notify the parent window (LotusSettingsWindow) if it exists

@@ -6,7 +6,10 @@ Macro Editor Page. Edits lotus-macro-table.conf.
 Implements UI with row reordering and TSV import/export.
 """
 
+from core.config_values import pick_supported_value
 from core.dbus_handler import LotusDBusHandler
+from core.editor_rules import is_invalid_macro_key, macro_add_enabled, macro_defaults_changed
+from core.table_editor import collect_kv_pairs, search_hides_row
 from i18n import _
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QColor, QIcon
@@ -261,24 +264,28 @@ class MacroEditorPage(BaseEditorPage):
                 if skip_idx >= 0:
                     self.cb_skip_modifier.setCurrentIndex(skip_idx)
 
-                # Set time format (default %H:%M)
-                time_fmt = values.get("TimeFormat", "%H:%M")
-                index = self.input_time_format.findData(time_fmt)
-                if index >= 0:
-                    self.input_time_format.setCurrentIndex(index)
-                else:
-                    # Fallback to default if not in list (since it's not editable anymore)
-                    self.input_time_format.setCurrentIndex(self.input_time_format.findData("%H:%M"))
+                # Set time format (default %H:%M, non-editable combo)
+                time_fmt = pick_supported_value(
+                    values.get("TimeFormat", "%H:%M"),
+                    ("%H:%M", "%H:%M:%S", "%I:%M %p", "%I:%M:%S %p", ""),
+                    "%H:%M",
+                )
+                self.input_time_format.setCurrentIndex(self.input_time_format.findData(time_fmt))
 
-                # Set date format
-                date_fmt = values.get("DateFormat", "%d/%m/%Y")
-                index = self.input_date_format.findData(date_fmt)
-                if index >= 0:
-                    self.input_date_format.setCurrentIndex(index)
-                else:
-                    self.input_date_format.setCurrentIndex(
-                        self.input_date_format.findData("%d/%m/%Y")
-                    )
+                # Set date format (default %d/%m/%Y, non-editable combo)
+                date_fmt = pick_supported_value(
+                    values.get("DateFormat", "%d/%m/%Y"),
+                    (
+                        "%d/%m/%Y",
+                        "%d/%m/%y",
+                        "%m/%d/%Y",
+                        "%Y-%m-%d",
+                        "%y-%m-%d",
+                        "",
+                    ),
+                    "%d/%m/%Y",
+                )
+                self.input_date_format.setCurrentIndex(self.input_date_format.findData(date_fmt))
 
             self.table.setRowCount(0)
             data = self.dbus.get_sub_config_list("lotus-macro", "Macro")
@@ -306,34 +313,36 @@ class MacroEditorPage(BaseEditorPage):
 
     def is_modified_from_default(self):
         """Returns True if the macro table has entries or checkboxes are changed from default."""
-        # Default state: table is empty, both checkboxes are True.
-        return (
-            self.table.rowCount() > 0
-            or not self.cb_enable.isChecked()
-            or not self.cb_capitalize.isChecked()
-            or self.cb_enable_off_mode.isChecked()
-            or self.cb_skip_modifier.currentData() != "Disabled"
+        return macro_defaults_changed(
+            self.table.rowCount(),
+            self.cb_enable.isChecked(),
+            self.cb_capitalize.isChecked(),
+            self.cb_enable_off_mode.isChecked(),
+            self.cb_skip_modifier.currentData(),
         )
 
     def is_modified(self):
         """Returns True if the current state differs from the initial loaded state."""
         return self._get_current_state() != self.initial_state
 
-    def _get_current_state(self):
-        """Captures the current UI state for comparison."""
-        data = []
+    def _collect_table_rows(self):
+        """Reads the table into config entries, dropping rows without a key."""
+        rows = []
         for row in range(self.table.rowCount()):
             key_item = self.table.item(row, 0)
             val_item = self.table.item(row, 1)
-            if key_item and key_item.text():
-                data.append(
-                    {
-                        "Key": key_item.text(),
-                        "Value": val_item.text() if val_item else "",
-                    }
+            rows.append(
+                (
+                    key_item.text() if key_item else None,
+                    val_item.text() if val_item else None,
                 )
+            )
+        return collect_kv_pairs(rows)
+
+    def _get_current_state(self):
+        """Captures the current UI state for comparison."""
         return {
-            "data": data,
+            "data": self._collect_table_rows(),
             "EnableMacro": self.cb_enable.isChecked(),
             "CapitalizeMacro": self.cb_capitalize.isChecked(),
             "EnableMacroInOffMode": self.cb_enable_off_mode.isChecked(),
@@ -355,15 +364,7 @@ class MacroEditorPage(BaseEditorPage):
         if not self.dbus.save_values(updates):
             return False
 
-        data = []
-        for row in range(self.table.rowCount()):
-            key_item = self.table.item(row, 0)
-            val_item = self.table.item(row, 1)
-            if not key_item or not key_item.text():
-                continue
-            data.append({"Key": key_item.text(), "Value": val_item.text() if val_item else ""})
-
-        if not self.dbus.set_sub_config_list("lotus-macro", "Macro", data):
+        if not self.dbus.set_sub_config_list("lotus-macro", "Macro", self._collect_table_rows()):
             return False
 
         self.initial_state = self._get_current_state()
@@ -395,10 +396,7 @@ class MacroEditorPage(BaseEditorPage):
 
     def _is_invalid_macro(self, key: str) -> bool:
         """Checks if macro key contains spaces or non-letter characters."""
-        if not key:
-            return False
-        # Allow alphanumeric characters (including Unicode letters)
-        return not key.isalnum()
+        return is_invalid_macro_key(key)
 
     def _apply_row_highlight(self, row: int, key: str):
         """Applies red background and warning icon to rows with invalid keys."""
@@ -430,11 +428,11 @@ class MacroEditorPage(BaseEditorPage):
         for row in range(self.table.rowCount()):
             key_item = self.table.item(row, 0)
             val_item = self.table.item(row, 1)
-            key = key_item.text().lower() if key_item else ""
-            val = val_item.text().lower() if val_item else ""
+            key = key_item.text() if key_item else ""
+            val = val_item.text() if val_item else ""
 
             # Show row if either key or value matches search text
-            self.table.setRowHidden(row, search_text not in key and search_text not in val)
+            self.table.setRowHidden(row, search_hides_row(search_text, key, val))
 
     def on_add(self):
         key = self.input_key.text().strip()
@@ -462,7 +460,7 @@ class MacroEditorPage(BaseEditorPage):
             self.input_key.setToolTip("")
 
         # Disable button if key is invalid, empty, or value is empty
-        self.btn_add.setEnabled(not is_invalid and bool(key) and bool(val))
+        self.btn_add.setEnabled(macro_add_enabled(key, val, is_invalid))
 
         found = self.find_row_by_key(key) is not None
         set_add_button_mode(self.btn_add, found, _("Update"), _("Add"))

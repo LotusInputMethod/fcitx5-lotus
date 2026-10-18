@@ -10,6 +10,19 @@ import os
 import tempfile
 
 from core.dbus_handler import LotusDBusHandler
+from core.dict_store import (
+    dict_add_button_state,
+    filter_words,
+    global_dict_paths,
+    grid_position,
+    grid_rows,
+    local_dict_path,
+    pick_dict_path,
+    remove_words,
+    resolve_global_dict_path,
+    upsert_word,
+)
+from core.editor_rules import is_invalid_dict_word, parse_word_list
 from i18n import _
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QColor, QIcon
@@ -27,7 +40,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
 )
 
-from ui.helpers import bool_to_str, config_bool, local_dict_path
+from ui.helpers import bool_to_str, config_bool
 from ui.pages.base_editor import BaseEditorPage
 
 try:
@@ -55,15 +68,7 @@ class DictEditorPage(BaseEditorPage):
 
     def _get_global_dict_path(self) -> str:
         # Common locations for fcitx5 pkgdata
-        paths = [
-            DICTIONARY_PATH,
-            "/usr/share/fcitx5/lotus/vietnamese.cm.dict",
-            "/usr/local/share/fcitx5/lotus/vietnamese.cm.dict",
-        ]
-        for p in paths:
-            if os.path.exists(p):
-                return p
-        return paths[0]
+        return resolve_global_dict_path(global_dict_paths(DICTIONARY_PATH))
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -169,15 +174,12 @@ class DictEditorPage(BaseEditorPage):
             self.words = []
             local_path = local_dict_path()
             global_path = self._get_global_dict_path()
-            path_to_read = local_path if os.path.exists(local_path) else global_path
+            path_to_read = pick_dict_path(local_path, global_path)
 
             if os.path.exists(path_to_read):
                 try:
                     with open(path_to_read, "r", encoding="utf-8") as f:
-                        for line in f:
-                            word = line.strip()
-                            if word and not word.startswith("#"):
-                                self.words.append(word)
+                        self.words = parse_word_list(f)
                 except Exception as e:
                     self._load_failed = True
                     print(f"Failed to read dictionary {path_to_read}: {e}")
@@ -200,21 +202,18 @@ class DictEditorPage(BaseEditorPage):
         """Rebuilds the table based on self.words or filtered_words."""
         display_words = filtered_words if filtered_words is not None else self.words
 
-        num_cols = 3
-        num_rows = (len(display_words) + num_cols - 1) // num_cols
+        num_rows = grid_rows(len(display_words))
         self.table.setRowCount(num_rows)
 
         for i, word in enumerate(display_words):
-            row = i // num_cols
-            col = i % num_cols
+            row, col = grid_position(i)
             item = QTableWidgetItem(word)
             self.table.setItem(row, col, item)
             self._apply_cell_highlight(item, word)
 
         # Clear remaining cells in the last row
-        for i in range(len(display_words), num_rows * num_cols):
-            row = i // num_cols
-            col = i % num_cols
+        for i in range(len(display_words), num_rows * 3):
+            row, col = grid_position(i)
             self.table.setItem(row, col, QTableWidgetItem(""))
 
     def restore_defaults(self):
@@ -292,17 +291,13 @@ class DictEditorPage(BaseEditorPage):
     def upsert_row(self, word: str, sort: bool = True):
         if word in self.words:
             return
-        self.words.append(word)
-        if sort:
-            self.words.sort()
+        self.words = upsert_word(self.words, word, sort)
         self.on_search_changed()
         self._on_item_changed()
 
     def _is_invalid_word(self, word: str) -> bool:
         """Checks if word contains spaces."""
-        if not word:
-            return False
-        return " " in word
+        return is_invalid_dict_word(word)
 
     def _apply_cell_highlight(self, item: QTableWidgetItem, word: str):
         """Applies red background and warning icon to items with invalid words."""
@@ -327,8 +322,7 @@ class DictEditorPage(BaseEditorPage):
             self._rebuild_table()
             return
 
-        filtered = [w for w in self.words if search_text in w.lower()]
-        self._rebuild_table(filtered)
+        self._rebuild_table(filter_words(self.words, search_text))
 
     def on_add(self):
         word = self.input_word.text().strip()
@@ -351,9 +345,10 @@ class DictEditorPage(BaseEditorPage):
             self.input_word.setStyleSheet("")
             self.input_word.setToolTip("")
 
-        self.btn_add.setEnabled(not is_invalid and bool(word))
+        enabled, exists = dict_add_button_state(word, self.words, is_invalid)
+        self.btn_add.setEnabled(enabled)
 
-        if word in self.words:
+        if exists:
             self.btn_add.setIcon(QIcon.fromTheme("document-save"))
             self.btn_add.setText(_("Exists"))
             self.btn_add.setEnabled(False)
@@ -372,10 +367,7 @@ class DictEditorPage(BaseEditorPage):
         if not selected_items:
             return
 
-        for item in selected_items:
-            word = item.text()
-            if word in self.words:
-                self.words.remove(word)
+        self.words = remove_words(self.words, (item.text() for item in selected_items))
 
         self.on_search_changed()
         self.update_button_states()
