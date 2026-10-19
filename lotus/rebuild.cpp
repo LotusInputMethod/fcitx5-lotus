@@ -116,7 +116,6 @@ namespace lotus {
             }
         }
 
-        // Apply tones.
         Tone lastTone = Tone::None;
         for (const char32_t ch : word) {
             const Tone tone = utils::findToneFromChar(case_map::toLower(ch));
