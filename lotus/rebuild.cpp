@@ -86,8 +86,7 @@ namespace lotus {
             const std::optional<Mark> mark    = utils::findMarkFromChar(lowerCh);
             const bool                hasMark = mark.has_value() && *mark != Mark::None;
 
-            // Get the root character (no tone, no mark).
-            char32_t rootChar = lowerCh;
+            char32_t                  rootChar = lowerCh;
             if (tone != Tone::None) {
                 rootChar = utils::addToneToChar(rootChar, Tone::None);
             }
