@@ -95,7 +95,6 @@ namespace lotus {
                 rootChar = utils::addMarkToChar(rootChar, Mark::None);
             }
 
-            // Create the base Appending transformation for the root character.
             auto appendTrans             = std::make_shared<Transformation>();
             appendTrans->isUpperCase     = isUpperCase;
             appendTrans->rule.key        = rootChar;
