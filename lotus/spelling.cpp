@@ -86,7 +86,6 @@ namespace lotus {
             return !firstConsonantIndexes.empty();
         }
         if (!lastConsonantIndexes.empty()) {
-            // Vowel + last consonant.
             return isValidVC(vowelIndexes, lastConsonantIndexes);
         }
         return true;
