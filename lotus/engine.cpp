@@ -200,7 +200,6 @@ namespace lotus {
         const Composition produced = generateTransformations(syllable, key, isUpperCase);
         syllable.insert(syllable.end(), produced.begin(), produced.end());
 
-        // Put these transformations back to the composition.
         Composition result = split.previous;
         result.insert(result.end(), syllable.begin(), syllable.end());
         return result;
