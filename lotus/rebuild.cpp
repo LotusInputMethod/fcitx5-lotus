@@ -24,9 +24,8 @@
 namespace lotus {
 
     Composition rebuildCompositionFromText(std::u32string_view text, bool stdStyle) {
-        Composition composition;
+        Composition                       composition;
 
-        // Split text into words by word break symbols (punctuation, spaces, etc.).
         const std::vector<std::u32string> words = splitTextIntoWords(text);
 
         for (const std::u32string& word : words) {
