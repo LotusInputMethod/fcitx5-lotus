@@ -78,10 +78,9 @@ namespace lotus {
         }
 
         for (const char32_t ch : word) {
-            const char32_t lowerCh     = case_map::toLower(ch);
-            const bool     isUpperCase = case_map::isUpper(ch);
+            const char32_t            lowerCh     = case_map::toLower(ch);
+            const bool                isUpperCase = case_map::isUpper(ch);
 
-            // Decompose the character into root + mark + tone.
             const Tone                tone    = utils::findToneFromChar(lowerCh);
             const std::optional<Mark> mark    = utils::findMarkFromChar(lowerCh);
             const bool                hasMark = mark.has_value() && *mark != Mark::None;
