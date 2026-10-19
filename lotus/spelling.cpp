@@ -82,7 +82,6 @@ namespace lotus {
             }
         }
         if (vowelIndexes.empty()) {
-            // First consonant only.
             return !firstConsonantIndexes.empty();
         }
         if (!lastConsonantIndexes.empty()) {
