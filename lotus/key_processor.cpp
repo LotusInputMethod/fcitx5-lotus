@@ -222,7 +222,6 @@ namespace lotus {
             return {getPreeditString(), false};
         }
         if (utils::isWordBreakSymbol(keyRune)) {
-            // macro processing
             if (options_.macroEnabled && macroTable_ != nullptr) {
                 if (const auto macroVal = macroTable_->get(oldText)) {
                     engine_.reset();
