@@ -89,7 +89,6 @@ namespace lotus {
             // Vowel + last consonant.
             return isValidVC(vowelIndexes, lastConsonantIndexes);
         }
-        // Vowel only.
         return true;
     }
 
