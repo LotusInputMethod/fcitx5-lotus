@@ -264,7 +264,8 @@ class SaveValuesTests(unittest.TestCase):
         iface = FakeController(error=RuntimeError("boom"))
         handler = _handler(iface)
 
-        self.assertTrue(handler.save_values({"A": "1"}))
+        # fetch failure -> report error, send nothing
+        self.assertFalse(handler.save_values({"A": "1"}))
         self.assertEqual(iface.set_calls, [])
 
     def test_without_interface_returns_false(self):
