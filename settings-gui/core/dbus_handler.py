@@ -51,13 +51,11 @@ class LotusDBusHandler:
         Returns True on success, False otherwise.
         """
         config_data = self.get_config()
-        if config_data:
-            values = config_data.get("values", {})
-            values.update(updates)
-            return self.set_config(values)
-        if not self.iface:
+        if not config_data:
             return False
-        return True
+        values = config_data.get("values", {})
+        values.update(updates)
+        return self.set_config(values)
 
     def get_sub_config_list(self, path: str, root_key: str) -> list:
         """Get sub config list from Fcitx5 and convert to Python list."""
