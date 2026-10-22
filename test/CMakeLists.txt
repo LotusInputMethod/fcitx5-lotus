@@ -161,6 +161,7 @@ add_lotus_headless_test(TARGET status_icon SOURCES status-icon.cpp LABELS "integ
 add_test(NAME status_icon_gnome COMMAND status_icon gnome)
 set_tests_properties(status_icon_gnome PROPERTIES LABELS "integration;icons" TIMEOUT 20)
 add_lotus_headless_test(TARGET key_buffer SOURCES key-buffer.cpp LABELS "unit;buffer")
+add_lotus_headless_test(TARGET auto_capitalize_shortcut SOURCES auto-capitalize-shortcut.cpp LABELS "integration;capitalize")
 add_lotus_headless_test(TARGET auto_capitalize_reset SOURCES auto-capitalize-reset.cpp LABELS "integration;capitalize")
 add_lotus_headless_test(TARGET dbus_deferred_commit SOURCES dbus-deferred-commit.cpp LABELS "integration;dbus")
 add_lotus_headless_test(TARGET modifier_key_bypasses_surrounding_text SOURCES modifier-key-bypasses-surrounding-text.cpp LABELS "integration;surrounding")
