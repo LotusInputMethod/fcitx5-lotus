@@ -645,8 +645,13 @@ namespace fcitx {
 
     void LotusState::commitOrReplace(DiffPart diffPart, const std::string& logMsg) {
         if (currentMode() == LotusMode::SurroundingText) {
-            ic_.deleteSurroundingText(-1, 1);
-            lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
+            const auto delSize = diffPart.deletedPart.size();
+            if (delSize > 0) {
+                ic_.deleteSurroundingText(-static_cast<int>(delSize), static_cast<unsigned int>(delSize));
+            }
+            if (!diffPart.addedPart.empty()) {
+                lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
+            }
         } else { // Uinput, Smooth, Preedit, etc.
             performReplacement(diffPart);
         }
