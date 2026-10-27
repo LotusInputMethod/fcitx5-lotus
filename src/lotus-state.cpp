@@ -1185,6 +1185,12 @@ namespace fcitx {
                 }
                 return true;
             } else {
+                // Buffer incoming keys during the short uinput replacement
+                // burst to prevent them from interfering with backspaces
+                // and the pending commit. Some non-text keys may be consumed
+                // during this window. Forwarding them immediately could change
+                // the cursor before replacement completes. This is a known
+                // limitation of the fast-typing buffer.
                 // The modifier is not decided here: at press time the echo counter
                 // is a racy proxy for the uinput server's Shift hold in Select
                 // mode. The raw event is buffered and the modifier is chosen when
