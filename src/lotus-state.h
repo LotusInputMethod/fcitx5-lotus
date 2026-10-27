@@ -51,7 +51,7 @@ namespace fcitx {
      *
      * Manages the input state, buffers, and mode-specific handling for each input context.
      */
-    class LotusState final : public InputContextProperty {
+    class LOTUS_EXPORT LotusState final : public InputContextProperty {
       public:
         /**
          * @brief Constructs a new state instance.
@@ -115,6 +115,7 @@ namespace fcitx {
         [[nodiscard]] bool isEmptyHistory() const;
         friend class EmojiCandidateWord;
         friend class LotusEngine;
+        friend class SurroundingCommitReplacePeer;
 
       private:
         LotusEngine&                          engine_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)

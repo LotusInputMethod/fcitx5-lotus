@@ -142,6 +142,7 @@ add_lotus_headless_test(TARGET select_cancel_reconcile SOURCES select-cancel-rec
 add_lotus_headless_test(TARGET select_word_break SOURCES select-word-break.cpp LABELS "integration;select")
 add_lotus_headless_test(TARGET replacement_delays SOURCES replacement-delays.cpp LABELS "integration;smooth")
 add_lotus_headless_test(TARGET merged_replacement_commit SOURCES merged-replacement-commit.cpp LABELS "integration;smooth")
+add_lotus_headless_test(TARGET surrounding_commit_replace SOURCES surrounding-commit-replace.cpp LABELS "integration;surrounding")
 add_lotus_headless_test(TARGET dict_reload SOURCES dict-reload.cpp LABELS "integration;dictionary")
 add_lotus_headless_test(TARGET config_enum_names SOURCES config-enum-names.cpp LABELS "unit;config")
 add_lotus_headless_test(
