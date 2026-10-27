@@ -1474,6 +1474,9 @@ namespace fcitx {
             // from key events), which means the user is holding it for a
             // genuine capital letter. Backspace-driven modes never touch
             // Shift, so their state is replayed untouched.
+            // Known limitation: Shift is sampled at replay time, not press
+            // time. A capital typed with Shift during the burst is replayed
+            // as lowercase if Shift was released before the replay runs.
             if (stripSelectShift && state.test(KeyState::Shift) && !isShiftHeld()) {
                 sym   = unshiftKeySym(sym);
                 state = state.unset(KeyState::Shift);
@@ -1599,6 +1602,9 @@ namespace fcitx {
         trackingModifierTap_ = false;
     }
 
+    // Known limitation: a single boolean tracks both Shift_L and
+    // Shift_R. Releasing either key clears shiftHeld_ even if the
+    // other Shift key is still physically held.
     void LotusState::trackShiftModifier(const KeyEvent& keyEvent) {
         const KeySym sym = keyEvent.rawKey().sym();
         if (sym == FcitxKey_Shift_L || sym == FcitxKey_Shift_R) {
