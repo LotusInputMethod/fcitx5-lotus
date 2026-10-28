@@ -5,27 +5,25 @@ if [ "$1" = "configure" ]; then
     if command -v systemd-sysusers >/dev/null 2>&1; then
         systemd-sysusers lotus.conf
     fi
-    
-    if [ -z "$2" ]; then
+
+if [ -z "$2" ]; then
         echo "--- Cấu hình Lotus ---"
         echo "Hướng dẫn sau cài đặt:"
-        echo "1. Kích hoạt Server cho user của bạn:"
-        echo "   sudo systemctl enable --now fcitx5-lotus-server@\$(whoami).service"
+        echo "1. Cấu hình Fcitx5:"
+        echo "   - Mở 'Fcitx5 Configuration', thêm bộ gõ Lotus."
         echo ""
-        echo "2. Cấu hình Fcitx5:"
-        echo "   - Mở 'Fcitx5 Configuration', thêm bộ gõ Lotus"
-        echo ""
-        echo "3. Lưu ý cho Wayland (KDE):"
+        echo "2. Lưu ý cho Wayland (KDE):"
         echo "   - Hãy chọn 'Fcitx 5' trong phần Virtual Keyboard của hệ thống."
         echo "------------------------------------------------"
     else
         echo "--- Cấu hình Lotus ---"
         echo "Hướng dẫn sau cập nhật:"
-        echo "1. Khởi động lại Server cho user của bạn:"
-        echo "   sudo systemctl restart fcitx5-lotus-server@\$(whoami).service"
+        echo "1. Khởi động lại Server:"
+        echo "   sudo systemctl restart fcitx5-lotus-server.service"
         echo ""
         echo "2. Cấu hình Fcitx5:"
         echo "   - Mở 'Fcitx5 Configuration', nhấn restart để khởi động lại."
+        echo "------------------------------------------------"
     fi
 fi
 
