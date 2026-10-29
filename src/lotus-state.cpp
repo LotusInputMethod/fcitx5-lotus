@@ -852,7 +852,9 @@ namespace fcitx {
             newWord += pullPreeditString();
 
             DiffPart diffPart = compareAndSplitU32(oldWord, newWord);
-            if ((diffPart.deletedPart.empty() || diffPart.deletedPart == oldWord) && diffPart.addedPart == lotus::utf8::decode(keyEvent.key().toString())) {
+            // Only a pure append of the typed key can go straight to the client. When the whole old
+            // word is replaced by the key ("ư" + "w" -> "w"), the old word must still be deleted.
+            if (diffPart.deletedPart.empty() && diffPart.addedPart == lotus::utf8::decode(keyEvent.key().toString())) {
                 (*lotusEngine_).reset();
                 keyEvent.forward();
                 return;
