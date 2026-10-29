@@ -30,7 +30,7 @@ namespace fcitx {
             dbus_error_init(&error);
             DBusMessage* reply = dbus_connection_send_with_reply_and_block(bus, message, timeoutMs, &error);
             dbus_message_unref(message);
-            if (dbus_error_is_set(&error)) {
+            if (dbus_error_is_set(&error) != FALSE) {
                 if (reply != nullptr) {
                     dbus_message_unref(reply);
                     reply = nullptr;
@@ -43,7 +43,7 @@ namespace fcitx {
         DBusMessage* callMethodWithString(DBusConnection* bus, const char* destination, const char* path, const char* interface, const char* method, const char* argument,
                                           int timeoutMs = 500) {
             DBusMessage* message = dbus_message_new_method_call(destination, path, interface, method);
-            if (message == nullptr || !dbus_message_append_args(message, DBUS_TYPE_STRING, &argument, DBUS_TYPE_INVALID)) {
+            if (message == nullptr || dbus_message_append_args(message, DBUS_TYPE_STRING, &argument, DBUS_TYPE_INVALID) == FALSE) {
                 if (message != nullptr) {
                     dbus_message_unref(message);
                 }
@@ -53,7 +53,7 @@ namespace fcitx {
             dbus_error_init(&error);
             DBusMessage* reply = dbus_connection_send_with_reply_and_block(bus, message, timeoutMs, &error);
             dbus_message_unref(message);
-            if (dbus_error_is_set(&error)) {
+            if (dbus_error_is_set(&error) != FALSE) {
                 if (reply != nullptr) {
                     dbus_message_unref(reply);
                     reply = nullptr;
@@ -64,10 +64,10 @@ namespace fcitx {
         }
 
         std::string getAtspiBusAddress() {
-            if (const char* address = std::getenv("AT_SPI_BUS_ADDRESS"); address != nullptr && address[0] != '\0') {
+            if (const char* address = std::getenv("AT_SPI_BUS_ADDRESS"); address != nullptr && !std::string_view(address).empty()) {
                 return address;
             }
-            if (const char* runtimeDir = std::getenv("XDG_RUNTIME_DIR"); runtimeDir != nullptr && runtimeDir[0] != '\0') {
+            if (const char* runtimeDir = std::getenv("XDG_RUNTIME_DIR"); runtimeDir != nullptr && !std::string_view(runtimeDir).empty()) {
                 const std::string socketPath = std::string(runtimeDir) + "/at-spi/bus_0";
                 if (access(socketPath.c_str(), F_OK) == 0) {
                     return "unix:path=" + socketPath;
@@ -77,7 +77,7 @@ namespace fcitx {
             DBusError error;
             dbus_error_init(&error);
             DBusConnection* session = dbus_bus_get(DBUS_BUS_SESSION, &error);
-            if (session == nullptr || dbus_error_is_set(&error)) {
+            if (session == nullptr || dbus_error_is_set(&error) != FALSE) {
                 dbus_error_free(&error);
                 return {};
             }
@@ -86,7 +86,7 @@ namespace fcitx {
             if (reply != nullptr) {
                 const char* value = nullptr;
                 dbus_error_init(&error);
-                if (dbus_message_get_args(reply, &error, DBUS_TYPE_STRING, &value, DBUS_TYPE_INVALID) && value != nullptr) {
+                if (dbus_message_get_args(reply, &error, DBUS_TYPE_STRING, &value, DBUS_TYPE_INVALID) != FALSE && value != nullptr) {
                     address = value;
                 }
                 dbus_error_free(&error);
@@ -111,7 +111,7 @@ namespace fcitx {
                 DBusError error;
                 dbus_error_init(&error);
                 DBusConnection* bus = dbus_connection_open(address.c_str(), &error);
-                if (bus != nullptr && !dbus_error_is_set(&error) && dbus_bus_register(bus, &error) && !dbus_error_is_set(&error) && pingRegistry(bus)) {
+                if (bus != nullptr && dbus_error_is_set(&error) == FALSE && dbus_bus_register(bus, &error) != FALSE && dbus_error_is_set(&error) == FALSE && pingRegistry(bus)) {
                     dbus_connection_set_exit_on_disconnect(bus, FALSE);
                     dbus_error_free(&error);
                     return bus;
@@ -125,7 +125,7 @@ namespace fcitx {
             DBusError error;
             dbus_error_init(&error);
             DBusConnection* bus = dbus_bus_get_private(DBUS_BUS_SESSION, &error);
-            if (bus != nullptr && !dbus_error_is_set(&error) && pingRegistry(bus)) {
+            if (bus != nullptr && dbus_error_is_set(&error) == FALSE && pingRegistry(bus)) {
                 dbus_connection_set_exit_on_disconnect(bus, FALSE);
                 dbus_error_free(&error);
                 return bus;
@@ -145,7 +145,7 @@ namespace fcitx {
             dbus_uint32_t role = 0;
             DBusError     error;
             dbus_error_init(&error);
-            const bool ok = dbus_message_get_args(reply, &error, DBUS_TYPE_UINT32, &role, DBUS_TYPE_INVALID);
+            const bool ok = dbus_message_get_args(reply, &error, DBUS_TYPE_UINT32, &role, DBUS_TYPE_INVALID) != FALSE;
             dbus_error_free(&error);
             dbus_message_unref(reply);
             return ok ? static_cast<int>(role) : -1;
@@ -155,7 +155,7 @@ namespace fcitx {
             constexpr const char* accessibleInterface = "org.a11y.atspi.Accessible";
             DBusMessage*          message             = dbus_message_new_method_call(sender, path, "org.freedesktop.DBus.Properties", "Get");
             constexpr const char* property            = "Parent";
-            if (message == nullptr || !dbus_message_append_args(message, DBUS_TYPE_STRING, &accessibleInterface, DBUS_TYPE_STRING, &property, DBUS_TYPE_INVALID)) {
+            if (message == nullptr || dbus_message_append_args(message, DBUS_TYPE_STRING, &accessibleInterface, DBUS_TYPE_STRING, &property, DBUS_TYPE_INVALID) == FALSE) {
                 if (message != nullptr) {
                     dbus_message_unref(message);
                 }
@@ -174,20 +174,20 @@ namespace fcitx {
             DBusMessageIter variant{};
             DBusMessageIter structure{};
             bool            ok = false;
-            if (dbus_message_iter_init(reply, &iter) && dbus_message_iter_get_arg_type(&iter) == DBUS_TYPE_VARIANT) {
+            if (dbus_message_iter_init(reply, &iter) != FALSE && dbus_message_iter_get_arg_type(&iter) == DBUS_TYPE_VARIANT) {
                 dbus_message_iter_recurse(&iter, &variant);
                 if (dbus_message_iter_get_arg_type(&variant) == DBUS_TYPE_STRUCT) {
                     dbus_message_iter_recurse(&variant, &structure);
                     const char* busName    = nullptr;
                     const char* objectPath = nullptr;
                     if (dbus_message_iter_get_arg_type(&structure) == DBUS_TYPE_STRING) {
-                        dbus_message_iter_get_basic(&structure, &busName);
+                        dbus_message_iter_get_basic(&structure, static_cast<void*>(&busName));
                         dbus_message_iter_next(&structure);
                         if (dbus_message_iter_get_arg_type(&structure) == DBUS_TYPE_OBJECT_PATH) {
-                            dbus_message_iter_get_basic(&structure, &objectPath);
+                            dbus_message_iter_get_basic(&structure, static_cast<void*>(&objectPath));
                         }
                     }
-                    if (busName != nullptr && objectPath != nullptr && objectPath[0] == '/') {
+                    if (busName != nullptr && objectPath != nullptr && std::string_view(objectPath).starts_with('/')) {
                         parentSender = busName;
                         parentPath   = objectPath;
                         ok           = true;
@@ -224,7 +224,7 @@ namespace fcitx {
                 return;
             }
             DBusMessageIter iter{};
-            if (!dbus_message_iter_init(reply, &iter) || dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY) {
+            if (dbus_message_iter_init(reply, &iter) == FALSE || dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY) {
                 dbus_message_unref(reply);
                 return;
             }
@@ -236,13 +236,13 @@ namespace fcitx {
                 const char* appBus  = nullptr;
                 const char* appPath = nullptr;
                 if (dbus_message_iter_get_arg_type(&child) == DBUS_TYPE_STRING) {
-                    dbus_message_iter_get_basic(&child, &appBus);
+                    dbus_message_iter_get_basic(&child, static_cast<void*>(&appBus));
                     dbus_message_iter_next(&child);
                     if (dbus_message_iter_get_arg_type(&child) == DBUS_TYPE_OBJECT_PATH) {
-                        dbus_message_iter_get_basic(&child, &appPath);
+                        dbus_message_iter_get_basic(&child, static_cast<void*>(&appPath));
                     }
                 }
-                if (appBus != nullptr && appPath != nullptr && appPath[0] == '/') {
+                if (appBus != nullptr && appPath != nullptr && std::string_view(appPath).starts_with('/')) {
                     if (DBusMessage* poke = callMethod(bus, appBus, appPath, "org.a11y.atspi.Accessible", "GetRelationSet", 500); poke != nullptr) {
                         dbus_message_unref(poke);
                     }
@@ -265,7 +265,7 @@ namespace fcitx {
             DBusError error;
             dbus_error_init(&error);
             dbus_bus_add_match(bus, rule, &error);
-            const bool ok = !dbus_error_is_set(&error);
+            const bool ok = dbus_error_is_set(&error) == FALSE;
             dbus_error_free(&error);
             return ok;
         }
@@ -290,11 +290,11 @@ namespace fcitx {
                 return false;
             }
             DBusMessageIter iter{};
-            if (!dbus_message_iter_init(message, &iter) || dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING) {
+            if (dbus_message_iter_init(message, &iter) == FALSE || dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING) {
                 return false;
             }
             const char* state = nullptr;
-            dbus_message_iter_get_basic(&iter, &state);
+            dbus_message_iter_get_basic(&iter, static_cast<void*>(&state));
             if (state == nullptr || std::string_view(state) != "focused") {
                 return false;
             }
@@ -326,8 +326,6 @@ namespace fcitx {
         stopRequested_.store(true, std::memory_order_release);
         valid_.store(false, std::memory_order_relaxed);
         browserUIFocused_.store(false, std::memory_order_relaxed);
-        focusBus_.clear();
-        focusPath_.clear();
         if (thread_.joinable()) {
             thread_.join();
         }
@@ -350,7 +348,7 @@ namespace fcitx {
             valid_.store(true, std::memory_order_relaxed);
             pokeAccessibleApps(bus);
             auto nextAccessibilityPoke = std::chrono::steady_clock::now() + std::chrono::seconds(15);
-            while (!stopRequested_.load(std::memory_order_acquire) && dbus_connection_read_write(bus, 50)) {
+            while (!stopRequested_.load(std::memory_order_acquire) && dbus_connection_read_write(bus, 50) != FALSE) {
                 DBusMessage* message = nullptr;
                 while ((message = dbus_connection_pop_message(bus)) != nullptr) {
                     bool focused = false;

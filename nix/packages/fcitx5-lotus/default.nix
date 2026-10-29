@@ -3,6 +3,7 @@
   stdenv,
   acl,
   cmake,
+  dbus,
   fcitx5,
   fetchFromGitHub,
   gettext,
@@ -53,6 +54,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   buildInputs = [
     acl
+    dbus
     fcitx5
     kdePackages.extra-cmake-modules
     libevdev

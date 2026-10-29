@@ -18,6 +18,8 @@ namespace fcitx {
 
         WindowFocusTracker(const WindowFocusTracker&)            = delete;
         WindowFocusTracker& operator=(const WindowFocusTracker&) = delete;
+        WindowFocusTracker(WindowFocusTracker&&)                 = delete;
+        WindowFocusTracker& operator=(WindowFocusTracker&&)      = delete;
 
         bool                start();
         void                stop();
