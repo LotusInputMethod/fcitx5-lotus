@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: 2022-2022 CSSlayer <wengxt@gmail.com>
  * SPDX-FileCopyrightText: 2025 Võ Ngô Hoàng Thành <thanhpy2009@gmail.com>
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
+ * SPDX-FileCopyrightText: 2026 kimxuanhong <kimxuanhong@outlook.com>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -18,6 +19,7 @@
 #include "lotus-notify.h"
 #include "lotus-utils.h"
 #include "lotus-plasma-theme.h"
+#include "window_focus_tracker.h"
 
 #include "dictionary.h"
 #include "emoji.h"
@@ -167,8 +169,14 @@ namespace fcitx {
         return dictionary_;
     }
 
+    bool LotusEngine::isLikeAddressBarChromium() const {
+        return windowFocusTracker_ != nullptr && windowFocusTracker_->isValid() && windowFocusTracker_->isLikeAddressBarChromium();
+    }
+
     LotusEngine::LotusEngine(Instance* instance) :
         instance_(*instance), kbSender_(buildSocketPath("kbSocket")), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
+        windowFocusTracker_ = std::make_unique<WindowFocusTracker>();
+        windowFocusTracker_->start();
         std::string desktop = getEnv("XDG_CURRENT_DESKTOP");
         isGnome_            = (!desktop.empty()) && desktop.find("GNOME") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
@@ -260,6 +268,9 @@ namespace fcitx {
     }
 
     LotusEngine::~LotusEngine() {
+        if (windowFocusTracker_ != nullptr) {
+            windowFocusTracker_->stop();
+        }
         g_stopFlagMonitor.store(true, std::memory_order_release);
         mouseEventSource_.reset();
         FdGuard fd(g_mouseSocketFd.exchange(-1, std::memory_order_acq_rel));

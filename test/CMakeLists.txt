@@ -13,6 +13,7 @@ target_link_libraries(lotus_test_core PUBLIC
     Fcitx5::Module::Emoji
     Lotus::Engine
     PkgConfig::LIBNOTIFY
+    PkgConfig::DBUS
     Pthread::Pthread
 )
 
