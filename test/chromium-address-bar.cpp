@@ -46,7 +46,7 @@ namespace {
 
         if (!send(engine, entry, *context, fcitx::Key(FcitxKey_d), false))
             return false;
-        context->surroundingText().setText("docs.google.com", 1, 16);
+        context->surroundingText().setText("d", 1, 1);
         context->updateSurroundingText();
         if (!send(engine, entry, *context, fcitx::Key(FcitxKey_d), true))
             return false;
@@ -83,6 +83,52 @@ namespace {
         return true;
     }
 
+    // When Chromium's address bar displays an inline autocomplete suggestion (cursor != anchor),
+    // Shift+Left would shrink the suggestion rather than selecting the typed character.
+    // In this case, Lotus falls back to Backspace with an extra count to collapse the suggestion.
+    bool runAddressBarAutofillReplacement(fcitx::Instance* instance, fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, KbSocketListener& listener) {
+        auto context = std::make_unique<TestInputContext>(instance, "chromium");
+        context->setCapabilityFlags(fcitx::CapabilityFlag::Url);
+        context->focusIn();
+        fcitx::InputContextEvent focus(context.get(), fcitx::EventType::InputContextFocusIn);
+        engine.activate(entry, focus);
+
+        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_d), false))
+            return false;
+        // Simulates inline autocomplete: "docs.google.com" with "ocs.google.com" selected (cursor 1, anchor 15).
+        context->surroundingText().setText("docs.google.com", 1, 15);
+        context->updateSurroundingText();
+        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_d), true))
+            return false;
+
+        KbMsg msg{};
+        if (!listener.receive(msg, "the address bar autofill replacement did not start"))
+            return false;
+        if (msg.op != KbOp::Backspace) {
+            reportFailure("address bar autofill burst", "op=backspace", "op=" + std::to_string(static_cast<int>(msg.op)),
+                          "the address bar with autofill must fall back to backspace");
+            return false;
+        }
+        if (msg.count != 2) {
+            reportFailure("address bar autofill burst count", "count=2", "count=" + std::to_string(msg.count),
+                          "autofill compensation must add one backspace to collapse the suggestion");
+            return false;
+        }
+        for (size_t i = 0; i < msg.count; ++i) {
+            if (!send(engine, entry, *context, fcitx::Key(FcitxKey_BackSpace), false))
+                return false;
+        }
+        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_Pause), true))
+            return false;
+
+        const std::string expected = "đ";
+        if (commitText(*context) != expected) {
+            reportFailure("commit after the address bar autofill replacement", expected, commitText(*context), "the address bar replacement produced the wrong text");
+            return false;
+        }
+        return true;
+    }
+
 } // namespace
 
 int main() {
@@ -104,6 +150,9 @@ int main() {
         return 1;
     // A key typed during the burst is replayed with the synthetic Shift stripped.
     if (!runAddressBarReplacement(&testInstance.instance, engine, entry, listener, fcitx::Key(FcitxKey_N, fcitx::KeyState::Shift)))
+        return 1;
+    // When inline autocomplete is present, address bar falls back to Backspace with compensation.
+    if (!runAddressBarAutofillReplacement(&testInstance.instance, engine, entry, listener))
         return 1;
 
     std::printf("lotus chromium address bar: all checks passed\n");

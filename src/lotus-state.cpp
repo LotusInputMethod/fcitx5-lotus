@@ -184,7 +184,7 @@ namespace fcitx {
     }
 
     bool LotusState::isAutofillCertain(const SurroundingText& s) {
-        if (!s.isValid() || oldPreBuffer_.empty() || isChromium_) {
+        if (!s.isValid() || oldPreBuffer_.empty()) {
             return false;
         }
         auto               textRange = fcitx::utf8::MakeUTF8CharRange(s.text());
@@ -540,7 +540,7 @@ namespace fcitx {
             ++expectedBackspaces_;
         }
         const bool addressBar = isChromium_ && ic_.capabilityFlags().test(CapabilityFlag::Url);
-        realSelect_           = (currentMode() == LotusMode::Select && !isAutofillCertain_) || (isUinputMode(currentMode()) && addressBar);
+        realSelect_           = ((currentMode() == LotusMode::Select) || (isUinputMode(currentMode()) && addressBar)) && !isAutofillCertain_;
         lastSelect_           = realSelect_;
         g_isDeleting.store(true, std::memory_order_release);
         const auto    postDelay = static_cast<uint32_t>(clampDelay(appRuleSetting_.postDelay > 0 ? appRuleSetting_.postDelay : *engine_.config().defaultPostDelay));
