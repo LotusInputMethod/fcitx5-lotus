@@ -138,6 +138,38 @@ namespace lotus {
     void Engine::rebuildFromText(std::u32string_view text) {
         reset();
         composition_ = rebuildCompositionFromText(text, flags_.has(EngineFlag::StdToneStyle));
+        rebuildW2uFromHornU();
+    }
+
+    // The text only says "ư", not whether it was typed "uw" or a lone "w" (W2U). The plain rebuild
+    // always assumes "uw", so a following "w" undoes only the horn and yields "uw" ("tư" + "w" ->
+    // "tuw") where live typing gives "w" ("tww" -> "tw"). When W2U could have produced the "ư",
+    // rebuild it the way generateTransformations does: one "w" appending whose result is "ư".
+    void Engine::rebuildW2uFromHornU() {
+        const bool w2uEnabled = !w2uMode_.has_value() ? flags_.has(EngineFlag::W2uEnabled) : *w2uMode_ != W2uMode::Disabled;
+        if (!w2uEnabled) {
+            return;
+        }
+        for (size_t i = 0; i < composition_.size(); ++i) {
+            const TransformationPtr& markTrans = composition_[i];
+            if (markTrans->rule.effectType != EffectType::MarkTransformation || markTrans->rule.mark() != Mark::Horn || markTrans->target == nullptr ||
+                markTrans->target->rule.effectOn != U'u' || i == 0U || !isSame(composition_[i - 1U], markTrans->target)) {
+                continue;
+            }
+            // "ươ" comes from "uow"/"uwow", never from a lone "w".
+            const bool beforeO = i + 1U < composition_.size() && composition_[i + 1U]->rule.effectType == EffectType::Appending && composition_[i + 1U]->rule.effectOn == U'o';
+            // Non-Start never turns a word initial "w" into "ư".
+            const bool wordStart = i == 1U || utils::isWordBreakSymbol(composition_[i - 2U]->rule.result);
+            if (beforeO || (w2uMode_ == W2uMode::NonStart && wordStart)) {
+                continue;
+            }
+            const TransformationPtr& target = markTrans->target;
+            target->rule.key                = U'w';
+            target->rule.effectOn           = U'ư';
+            target->rule.result             = U'ư';
+            composition_.erase(composition_.begin() + static_cast<std::ptrdiff_t>(i));
+            --i;
+        }
     }
 
 } // namespace lotus

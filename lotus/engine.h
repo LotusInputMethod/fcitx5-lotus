@@ -130,6 +130,9 @@ namespace lotus {
          */
         void rebuildFromText(std::u32string_view text);
 
+        /** @brief Turns a rebuilt "u" + horn into a W2U "w" appending, so a next "w" undoes it to "w". */
+        void rebuildW2uFromHornU();
+
         /**
          * @brief Nodes of the composition, in key stroke order.
          * @return Composition.
