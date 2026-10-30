@@ -112,6 +112,28 @@ namespace {
         }
     }
 
+    // Surrounding Text rebuilds every key from the committed text: a W2U "ư" followed by "w" must
+    // undo to "w" like live typing ("tww" -> "tw"), not to "uw".
+    void case_rebuild_w2u_then_w() {
+        Engine engine = newTelexEngine();
+        engine.rebuildFromText(U"tư");
+        engine.processKey(U'w', kVietnamese);
+        checkU32("After rebuild 'tư' + ProcessKey('w')", engine.processedString(kVietnamese), U"tw");
+
+        engine.rebuildFromText(U"tư");
+        engine.processKey(U'f', kVietnamese);
+        checkU32("After rebuild 'tư' + ProcessKey('f')", engine.processedString(kVietnamese), U"từ");
+
+        engine.rebuildFromText(U"dươ");
+        engine.processKey(U'w', kVietnamese);
+        checkU32("After rebuild 'dươ' + ProcessKey('w') keeps the uow cluster", engine.processedString(kVietnamese), U"duow");
+
+        engine.setW2uMode(lotus::W2uMode::NonStart);
+        engine.rebuildFromText(U"ư");
+        engine.processKey(U'w', kVietnamese);
+        checkU32("Non-Start: word initial 'ư' came from 'uw'", engine.processedString(kVietnamese), U"uw");
+    }
+
     void case_rebuild_from_text_then_process_key() {
         Engine engine = newTelexEngine();
 
@@ -199,6 +221,7 @@ int run_rebuild() {
     case_rebuild_from_text_simple_vietnamese();
     case_rebuild_from_text_upper_case();
     case_rebuild_from_text_then_process_key();
+    case_rebuild_w2u_then_w();
     case_rebuild_from_text_compare_with_process_string();
     case_rebuild_from_text_with_punctuation_and_space();
     case_rebuild_engine_from_text_with_punctuation_and_space();

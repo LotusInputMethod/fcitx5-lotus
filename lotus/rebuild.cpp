@@ -135,9 +135,42 @@ namespace lotus {
         return composition;
     }
 
+    void rewriteHornUAsW2u(Composition& composition, W2uMode w2uMode) {
+        if (w2uMode == W2uMode::Disabled) {
+            return;
+        }
+        for (size_t i = 0; i < composition.size(); ++i) {
+            const TransformationPtr& markTrans = composition[i];
+            if (markTrans->rule.effectType != EffectType::MarkTransformation || markTrans->rule.mark() != Mark::Horn || markTrans->rule.key != 0 || markTrans->target == nullptr ||
+                markTrans->target->rule.effectOn != U'u' || i == 0U || !isSame(composition[i - 1U], markTrans->target)) {
+                continue;
+            }
+            // "ươ" comes from "uow"/"uwow", never from a lone "w".
+            const bool beforeO = i + 1U < composition.size() && composition[i + 1U]->rule.effectType == EffectType::Appending && composition[i + 1U]->rule.effectOn == U'o';
+            // Non-Start never turns a word initial "w" into "ư".
+            const bool wordStart = i == 1U || utils::isWordBreakSymbol(composition[i - 2U]->rule.result);
+            if (beforeO || (w2uMode == W2uMode::NonStart && wordStart)) {
+                continue;
+            }
+            const TransformationPtr& target = markTrans->target;
+            target->rule.key                = U'w';
+            target->rule.effectOn           = U'ư';
+            target->rule.result             = U'ư';
+            composition.erase(composition.begin() + static_cast<std::ptrdiff_t>(i));
+            --i;
+        }
+    }
+
     void Engine::rebuildFromText(std::u32string_view text) {
         reset();
-        composition_ = rebuildCompositionFromText(text, flags_.has(EngineFlag::StdToneStyle));
+        composition_     = rebuildCompositionFromText(text, flags_.has(EngineFlag::StdToneStyle));
+        W2uMode resolved = W2uMode::Disabled;
+        if (w2uMode_.has_value()) {
+            resolved = *w2uMode_;
+        } else if (flags_.has(EngineFlag::W2uEnabled)) {
+            resolved = W2uMode::Everywhere;
+        }
+        rewriteHornUAsW2u(composition_, resolved);
     }
 
 } // namespace lotus
