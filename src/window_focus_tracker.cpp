@@ -5,10 +5,14 @@
 
 #include "window_focus_tracker.h"
 
+#include <array>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <string_view>
+#include <ranges>
 #include <thread>
 
 #include <dbus/dbus.h>
@@ -16,12 +20,14 @@
 
 namespace fcitx {
     namespace {
-        constexpr int kDocumentWebRole    = 95;
-        constexpr int kDocumentFrameRole  = 82;
-        constexpr int kMaxAncestorDepth   = 64;
         constexpr int kMaxAccessibleNodes = 256;
 
-        DBusMessage*  callMethod(DBusConnection* bus, const char* destination, const char* path, const char* interface, const char* method, int timeoutMs = 500) {
+        bool          isChromiumProgram(const std::string& program) {
+            constexpr std::array<std::string_view, 11> names = {"chrome", "chromium", "brave", "edge", "vivaldi", "opera", "cromite", "helium", "thorium", "slimjet", "yandex"};
+            return std::ranges::any_of(names, [&program](std::string_view name) { return program.find(name) != std::string::npos; });
+        }
+
+        DBusMessage* callMethod(DBusConnection* bus, const char* destination, const char* path, const char* interface, const char* method, int timeoutMs = 500) {
             DBusMessage* message = dbus_message_new_method_call(destination, path, interface, method);
             if (message == nullptr) {
                 return nullptr;
@@ -137,85 +143,69 @@ namespace fcitx {
             return nullptr;
         }
 
-        int queryRole(DBusConnection* bus, const char* sender, const char* path) {
-            DBusMessage* reply = callMethod(bus, sender, path, "org.a11y.atspi.Accessible", "GetRole");
+        int queryConnectionPid(DBusConnection* bus, const char* sender) {
+            DBusMessage* reply = callMethodWithString(bus, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "GetConnectionUnixProcessID", sender);
             if (reply == nullptr) {
                 return -1;
             }
-            dbus_uint32_t role = 0;
+            dbus_uint32_t pid = 0;
             DBusError     error;
             dbus_error_init(&error);
-            const bool ok = dbus_message_get_args(reply, &error, DBUS_TYPE_UINT32, &role, DBUS_TYPE_INVALID) != FALSE;
+            const bool ok = dbus_message_get_args(reply, &error, DBUS_TYPE_UINT32, &pid, DBUS_TYPE_INVALID) != FALSE;
             dbus_error_free(&error);
             dbus_message_unref(reply);
-            return ok ? static_cast<int>(role) : -1;
+            return ok ? static_cast<int>(pid) : -1;
         }
 
-        bool queryParent(DBusConnection* bus, const char* sender, const char* path, std::string& parentSender, std::string& parentPath) {
-            constexpr const char* accessibleInterface = "org.a11y.atspi.Accessible";
-            DBusMessage*          message             = dbus_message_new_method_call(sender, path, "org.freedesktop.DBus.Properties", "Get");
-            constexpr const char* property            = "Parent";
-            if (message == nullptr || dbus_message_append_args(message, DBUS_TYPE_STRING, &accessibleInterface, DBUS_TYPE_STRING, &property, DBUS_TYPE_INVALID) == FALSE) {
-                if (message != nullptr) {
-                    dbus_message_unref(message);
-                }
-                return false;
+        std::string programForPid(int pid) {
+            if (pid <= 0) {
+                return {};
             }
-            DBusError error;
-            dbus_error_init(&error);
-            DBusMessage* reply = dbus_connection_send_with_reply_and_block(bus, message, 500, &error);
-            dbus_message_unref(message);
-            dbus_error_free(&error);
-            if (reply == nullptr) {
-                return false;
+            char path[64]{};
+            char name[64]{};
+            std::snprintf(path, sizeof(path), "/proc/%d/comm", pid);
+            FILE* file = std::fopen(path, "r");
+            if (file == nullptr) {
+                return {};
             }
+            const bool read = std::fgets(name, sizeof(name), file) != nullptr;
+            std::fclose(file);
+            if (!read) {
+                return {};
+            }
+            name[std::strcspn(name, "\r\n")] = '\0';
+            return name;
+        }
 
+        std::string queryFocusClass(DBusConnection* bus, const char* sender, const char* path) {
+            DBusMessage* reply = callMethod(bus, sender, path, "org.a11y.atspi.Accessible", "GetAttributes");
+            if (reply == nullptr || dbus_message_has_signature(reply, "a{ss}") == FALSE) {
+                if (reply != nullptr) {
+                    dbus_message_unref(reply);
+                }
+                return {};
+            }
+            std::string     className;
             DBusMessageIter iter{};
-            DBusMessageIter variant{};
-            DBusMessageIter structure{};
-            bool            ok = false;
-            if (dbus_message_iter_init(reply, &iter) != FALSE && dbus_message_iter_get_arg_type(&iter) == DBUS_TYPE_VARIANT) {
-                dbus_message_iter_recurse(&iter, &variant);
-                if (dbus_message_iter_get_arg_type(&variant) == DBUS_TYPE_STRUCT) {
-                    dbus_message_iter_recurse(&variant, &structure);
-                    const char* busName    = nullptr;
-                    const char* objectPath = nullptr;
-                    if (dbus_message_iter_get_arg_type(&structure) == DBUS_TYPE_STRING) {
-                        dbus_message_iter_get_basic(&structure, static_cast<void*>(&busName));
-                        dbus_message_iter_next(&structure);
-                        if (dbus_message_iter_get_arg_type(&structure) == DBUS_TYPE_OBJECT_PATH) {
-                            dbus_message_iter_get_basic(&structure, static_cast<void*>(&objectPath));
-                        }
-                    }
-                    if (busName != nullptr && objectPath != nullptr && std::string_view(objectPath).starts_with('/')) {
-                        parentSender = busName;
-                        parentPath   = objectPath;
-                        ok           = true;
-                    }
-                }
-            }
-            dbus_message_unref(reply);
-            return ok;
-        }
-
-        bool hasDocumentAncestor(DBusConnection* bus, const char* sender, const char* path) {
-            std::string currentSender = sender;
-            std::string currentPath   = path;
-            for (int depth = 0; depth < kMaxAncestorDepth; ++depth) {
-                std::string parentSender;
-                std::string parentPath;
-                if (!queryParent(bus, currentSender.c_str(), currentPath.c_str(), parentSender, parentPath) || parentPath == "/org/a11y/atspi/null" ||
-                    parentPath == "/org/a11y/atspi/accessible/root") {
+            DBusMessageIter entries{};
+            dbus_message_iter_init(reply, &iter);
+            dbus_message_iter_recurse(&iter, &entries);
+            while (dbus_message_iter_get_arg_type(&entries) == DBUS_TYPE_DICT_ENTRY) {
+                DBusMessageIter entry{};
+                dbus_message_iter_recurse(&entries, &entry);
+                const char* key   = nullptr;
+                const char* value = nullptr;
+                dbus_message_iter_get_basic(&entry, &key);
+                dbus_message_iter_next(&entry);
+                dbus_message_iter_get_basic(&entry, &value);
+                if (key != nullptr && value != nullptr && std::strcmp(key, "class") == 0) {
+                    className = value;
                     break;
                 }
-                const int role = queryRole(bus, parentSender.c_str(), parentPath.c_str());
-                if (role == kDocumentWebRole || role == kDocumentFrameRole) {
-                    return true;
-                }
-                currentSender = std::move(parentSender);
-                currentPath   = std::move(parentPath);
+                dbus_message_iter_next(&entries);
             }
-            return false;
+            dbus_message_unref(reply);
+            return className;
         }
 
         void pokeAccessibleApps(DBusConnection* bus) {
@@ -362,9 +352,11 @@ namespace fcitx {
                                 focusPath_.clear();
                             }
                         } else if (sender != nullptr && path != nullptr) {
-                            focusBus_  = sender;
-                            focusPath_ = path;
-                            browserUIFocused_.store(!hasDocumentAncestor(bus, sender, path), std::memory_order_relaxed);
+                            focusBus_                   = sender;
+                            focusPath_                  = path;
+                            const std::string program   = programForPid(queryConnectionPid(bus, sender));
+                            const std::string className = isChromiumProgram(program) ? queryFocusClass(bus, sender, path) : std::string{};
+                            browserUIFocused_.store(className.find("Omnibox") != std::string::npos, std::memory_order_relaxed);
                         }
                     }
                     dbus_message_unref(message);
