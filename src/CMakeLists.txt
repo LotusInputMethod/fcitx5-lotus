@@ -18,6 +18,7 @@ target_link_libraries(lotus_core_objects PRIVATE
     Fcitx5::Module::Emoji
     Lotus::Engine
     PkgConfig::LIBNOTIFY
+    PkgConfig::DBUS
     Pthread::Pthread
 )
 
@@ -59,6 +60,7 @@ target_link_libraries(lotus
         Fcitx5::Module::Emoji
         Lotus::Engine
         PkgConfig::LIBNOTIFY
+        PkgConfig::DBUS
         Pthread::Pthread
 )
 

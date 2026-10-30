@@ -212,6 +212,17 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "kimxuanhong",
+      "name": "Kim Xuân Hồng",
+      "avatar_url": "https://avatars.githubusercontent.com/u/40137730?v=4",
+      "profile": "https://kimxuanhong.github.io/",
+      "contributions": [
+        "code",
+        "bug",
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 4,

@@ -110,6 +110,23 @@ bool isUinputMode(fcitx::LotusMode mode) {
     return std::ranges::find(modes, mode) != modes.end();
 }
 
+bool isChromiumProgram(std::string_view program) {
+    static const auto names = std::to_array<std::string_view>({
+        "chrome",
+        "chromium",
+        "brave",
+        "edge",
+        "vivaldi",
+        "opera",
+        "cromite",
+        "helium",
+        "thorium",
+        "slimjet",
+        "yandex",
+    });
+    return std::ranges::any_of(names, [program](std::string_view name) { return program.find(name) != std::string_view::npos; });
+}
+
 DiffPart compareAndSplitU32(std::u32string_view oldText, std::u32string_view newText) {
     auto [itA, itB] = std::ranges::mismatch(oldText, newText);
     size_t offset   = std::distance(oldText.begin(), itA);

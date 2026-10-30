@@ -14,6 +14,7 @@ BuildRequires:  cmake(Fcitx5Core)
 BuildRequires:  libinput-devel
 BuildRequires:  libevdev-devel
 BuildRequires:  libnotify-devel
+BuildRequires:  dbus-devel
 BuildRequires:  pkgconfig(libudev)
 
 BuildRequires:  python3-devel

@@ -34,7 +34,7 @@
       <img src="https://img.shields.io/github/issues/LotusInputMethod/fcitx5-lotus?style=flat&color=red" alt="Issues">
     </a>
     <a href="#contributors-">
-      <img src="https://img.shields.io/badge/all_contributors-21-orange.svg?style=flat-square" alt="All Contributors">
+      <img src="https://img.shields.io/badge/all_contributors-22-orange.svg?style=flat-square" alt="All Contributors">
     </a>
     <a href="https://deepwiki.com/LotusInputMethod/fcitx5-lotus"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   </p>
@@ -137,6 +137,7 @@ Cảm ơn những con người tuyệt vời ([chú thích emoji](https://allcon
     </tr>
     <tr>
       <td align="center" valign="top" width="25%"><a href="https://github.com/ducvd89"><img src="https://avatars.githubusercontent.com/u/79311308?v=4&size=100" width="100px" height="100px" alt="Cid"/><br /><sub><b>Cid</b></sub></a><br /><a href="https://github.com/LotusInputMethod/fcitx5-lotus/commits?author=ducvd89" title="Code">💻</a></td>
+      <td align="center" valign="top" width="25%"><a href="https://kimxuanhong.github.io/"><img src="https://avatars.githubusercontent.com/u/40137730?v=4&size=100" width="100px" height="100px" alt="Kim Xuân Hồng"/><br /><sub><b>Kim Xuân Hồng</b></sub></a><br /><a href="https://github.com/LotusInputMethod/fcitx5-lotus/commits?author=kimxuanhong" title="Code">💻</a> <a href="https://github.com/LotusInputMethod/fcitx5-lotus/issues?q=author%3Akimxuanhong" title="Bug reports">🐛</a> <a href="#ideas-kimxuanhong" title="Ideas, Planning, & Feedback">🤔</a></td>
     </tr>
   </tbody>
   <tfoot>

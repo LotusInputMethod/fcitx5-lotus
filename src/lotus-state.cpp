@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: 2022-2022 CSSlayer <wengxt@gmail.com>
  * SPDX-FileCopyrightText: 2025 Võ Ngô Hoàng Thành <thanhpy2009@gmail.com>
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
+ * SPDX-FileCopyrightText: 2026 kimxuanhong <kimxuanhong@outlook.com>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -539,7 +540,7 @@ namespace fcitx {
         if (currentMode() != LotusMode::SuperSmooth && isAutofillCertain_) {
             ++expectedBackspaces_;
         }
-        const bool addressBar = isChromium_ && ic_.capabilityFlags().test(CapabilityFlag::Url);
+        const bool addressBar = isChromium_ && (ic_.capabilityFlags().test(CapabilityFlag::Url) || engine_.isLikeAddressBarChromium());
         realSelect_           = (currentMode() == LotusMode::Select && !isAutofillCertain_) || (isUinputMode(currentMode()) && addressBar);
         lastSelect_           = realSelect_;
         g_isDeleting.store(true, std::memory_order_release);
