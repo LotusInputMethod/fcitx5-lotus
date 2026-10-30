@@ -119,6 +119,13 @@ uint32_t engineKeyValue(uint32_t sym);
 bool isUinputMode(fcitx::LotusMode mode);
 
 /**
+ * @brief Reports whether a program name belongs to a Chromium based browser.
+ * @param program Program name reported by fcitx
+ * @return True for Chromium-based
+ */
+bool isChromiumProgram(std::string_view program);
+
+/**
  * @brief Compares two texts and computes diff.
  * @param A First text.
  * @param B Second text.

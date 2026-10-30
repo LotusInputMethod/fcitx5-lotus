@@ -213,8 +213,12 @@ namespace fcitx {
          * @brief Gets the emoji loader.
          * @return Reference to emoji loader instance.
          */
-        EmojiLoader&       emojiLoader();
+        EmojiLoader& emojiLoader();
 
+        /**
+         * @brief Reports whether the AT-SPI focus is a Chromium address bar.
+         * @return True when the focused accessibility node is the Omnibox of a Chromium browser.
+         */
         [[nodiscard]] bool isLikeAddressBarChromium() const;
 
       private:

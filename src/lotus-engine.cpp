@@ -54,19 +54,6 @@ namespace fcitx {
     constexpr const char* CharsetActionPrefix = "lotus-charset-";
     constexpr const char* CustomKeymapFile    = "conf/lotus-custom-keymap.conf";
     constexpr const char* MacroTableFile      = "conf/lotus-macro-table.conf";
-    constexpr auto        chromiumList        = std::to_array<std::string_view>({
-        "chrome",
-        "chromium",
-        "brave",
-        "edge",
-        "vivaldi",
-        "opera",
-        "cromite",
-        "helium",
-        "thorium",
-        "slimjet",
-        "yandex",
-    });
 
     EmojiLoader&          LotusEngine::emojiLoader() {
         if (!emojiLoader_) {
@@ -170,7 +157,7 @@ namespace fcitx {
     }
 
     bool LotusEngine::isLikeAddressBarChromium() const {
-        return windowFocusTracker_ != nullptr && windowFocusTracker_->isValid() && windowFocusTracker_->isLikeAddressBarChromium();
+        return windowFocusTracker_->isLikeAddressBarChromium();
     }
 
     LotusEngine::LotusEngine(Instance* instance) :
@@ -268,9 +255,6 @@ namespace fcitx {
     }
 
     LotusEngine::~LotusEngine() {
-        if (windowFocusTracker_ != nullptr) {
-            windowFocusTracker_->stop();
-        }
         g_stopFlagMonitor.store(true, std::memory_order_release);
         mouseEventSource_.reset();
         FdGuard fd(g_mouseSocketFd.exchange(-1, std::memory_order_acq_rel));
@@ -434,7 +418,7 @@ namespace fcitx {
 
         auto* state           = ic->propertyFor(&factory_);
         state->isLibreoffice_ = (appName == "soffice");
-        state->isChromium_    = std::ranges::any_of(chromiumList, [&appName](std::string_view app) { return appName.find(app) != std::string::npos; });
+        state->isChromium_    = isChromiumProgram(appName);
         state->finishOverdueReplacement();
 
         const bool uinputMode         = isUinputMode(targetMode);
