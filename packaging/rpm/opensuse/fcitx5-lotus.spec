@@ -1,5 +1,5 @@
 Name:           fcitx5-lotus
-Version:        6.0.3
+Version:        6.0.4
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -122,6 +122,7 @@ fi
 %service_del_postun fcitx5-lotus-server@.service
 
 %changelog
-* Wed Oct 28 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.3-1
-- Fix bug where menu mode is displayed repeatedly
-- Fix bug cannot type in Chromium incognito
+* Sat Oct 31 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.4-1
+- Add detection of the address bar in Chromium-based browsers on X11.
+- Fix bug w2u in surrounding text mode
+- Fix bug cannot restore invalid word on uinput mode

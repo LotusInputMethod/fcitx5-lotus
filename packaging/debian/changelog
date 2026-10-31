@@ -1,6 +1,7 @@
-fcitx5-lotus (6.0.3-1) unstable; urgency=medium
+fcitx5-lotus (6.0.4-1) unstable; urgency=medium
 
-  * Fix bug where menu mode is displayed repeatedly
-  * Fix bug cannot type in Chromium incognito
+  * Add detection of the address bar in Chromium-based browsers on X11.
+  * Fix bug w2u in surrounding text mode
+  * Fix bug cannot restore invalid word on uinput mode
 
- -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Wed, 28 Oct 2026 16:20:00 +0700
+ -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Sat, 31 Oct 2026 15:51:00 +0700
