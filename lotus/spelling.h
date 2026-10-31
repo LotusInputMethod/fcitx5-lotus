@@ -12,6 +12,7 @@
 #ifndef _LOTUS_SPELLING_H_
 #define _LOTUS_SPELLING_H_
 
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -25,7 +26,7 @@ namespace lotus {
      * @param inputIsComplete Compare the token as-is, without stripping its marks.
      * @return Matching row indexes; empty when nothing matches (Go returns a nil slice there).
      */
-    std::vector<int> lookup(const std::vector<std::vector<std::u32string_view>>& sequences, std::u32string_view input, bool inputIsFull, bool inputIsComplete);
+    std::vector<int> lookup(std::span<const std::span<const std::u32string_view>> sequences, std::u32string_view input, bool inputIsFull, bool inputIsComplete);
 
     /**
      * @brief Reports whether a vowel row and a last consonant row are allowed together, like Go's

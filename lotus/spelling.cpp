@@ -17,7 +17,7 @@
 
 namespace lotus {
 
-    std::vector<int> lookup(const std::vector<std::vector<std::u32string_view>>& sequences, std::u32string_view input, bool inputIsFull, bool inputIsComplete) {
+    std::vector<int> lookup(std::span<const std::span<const std::u32string_view>> sequences, std::u32string_view input, bool inputIsFull, bool inputIsComplete) {
         std::vector<int>  result;
         const std::size_t inputLength = input.size();
         for (std::size_t index = 0; index < sequences.size(); ++index) {
@@ -42,7 +42,7 @@ namespace lotus {
     }
 
     bool isValidVC(const std::vector<int>& vowelIndexes, const std::vector<int>& lastConsonantIndexes) {
-        const std::vector<std::vector<int>>& matrix = data::vcMatrix();
+        const std::span<const std::span<const int>> matrix = data::kVcMatrix;
         for (int vowel : vowelIndexes) {
             if (vowel < 0 || static_cast<std::size_t>(vowel) >= matrix.size()) {
                 continue;
@@ -64,19 +64,19 @@ namespace lotus {
         std::vector<int> lastConsonantIndexes;
 
         if (!firstConsonant.empty()) {
-            firstConsonantIndexes = lookup(data::firstConsonantSeqs(), firstConsonant, inputIsFullComplete || !vowel.empty(), true);
+            firstConsonantIndexes = lookup(data::kFirstConsonantSeqs, firstConsonant, inputIsFullComplete || !vowel.empty(), true);
             if (firstConsonantIndexes.empty()) {
                 return false;
             }
         }
         if (!vowel.empty()) {
-            vowelIndexes = lookup(data::vowelSeqs(), vowel, inputIsFullComplete || !lastConsonant.empty(), inputIsFullComplete);
+            vowelIndexes = lookup(data::kVowelSeqs, vowel, inputIsFullComplete || !lastConsonant.empty(), inputIsFullComplete);
             if (vowelIndexes.empty()) {
                 return false;
             }
         }
         if (!lastConsonant.empty()) {
-            lastConsonantIndexes = lookup(data::lastConsonantSeqs(), lastConsonant, inputIsFullComplete, true);
+            lastConsonantIndexes = lookup(data::kLastConsonantSeqs, lastConsonant, inputIsFullComplete, true);
             if (lastConsonantIndexes.empty()) {
                 return false;
             }

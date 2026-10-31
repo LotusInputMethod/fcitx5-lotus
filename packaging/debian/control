@@ -15,6 +15,7 @@ Build-Depends: debhelper-compat (= 13),
                libinput-dev,
                libevdev-dev,
                libnotify-dev,
+               libdbus-1-dev,
                libudev-dev,
                pkg-config,
                python3

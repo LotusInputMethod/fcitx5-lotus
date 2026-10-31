@@ -166,9 +166,9 @@ namespace fcitx {
 
         /**
          * @brief Sets up uinput device.
-         * @return File descriptor or -1 on error.
+         * @return True when a usable keyboard socket is held.
          */
-        static int setupUinput();
+        bool setupUinput();
 
         /**
          * @brief Sends a keyboard request to the uinput server (reconnect on failure).
@@ -178,7 +178,7 @@ namespace fcitx {
          * @param interval Delay in milliseconds between consecutive injected keys.
          * @param postDelay Delay in milliseconds after completing the keyboard operation.
          */
-        static void sendKbMsg(KbOp op, size_t count, uint32_t preDelay, uint32_t interval, uint32_t postDelay);
+        void sendKbMsg(KbOp op, size_t count, uint32_t preDelay, uint32_t interval, uint32_t postDelay);
 
         /**
          * @brief Sends backspace key events via uinput.
@@ -187,7 +187,7 @@ namespace fcitx {
          * @param interval Delay in milliseconds between consecutive injected keys.
          * @param postDelay Delay in milliseconds after completing the keyboard operation.
          */
-        static void sendBackspaceUinput(size_t count, uint32_t preDelay, uint32_t interval, uint32_t postDelay);
+        void sendBackspaceUinput(size_t count, uint32_t preDelay, uint32_t interval, uint32_t postDelay);
 
         /**
          * @brief Asks the uinput server to select count characters with Shift+Left.
@@ -196,12 +196,12 @@ namespace fcitx {
          * @param interval Delay in milliseconds between consecutive injected keys.
          * @param postDelay Delay in milliseconds after completing the keyboard operation.
          */
-        static void sendSelectUinput(size_t count, uint32_t preDelay, uint32_t interval, uint32_t postDelay);
+        void sendSelectUinput(size_t count, uint32_t preDelay, uint32_t interval, uint32_t postDelay);
 
         /**
          * @brief Sends Cancel to drop the keys still pending from the in-flight replacement.
          */
-        static void cancelPendingUinput();
+        void cancelPendingUinput();
 
         /**
          * @brief Cancels the in-flight burst and stashes the replacement text for the refocus commit.
@@ -229,7 +229,7 @@ namespace fcitx {
         /**
          * @brief Reconnects to the uinput server when the client socket is not open.
          */
-        static void ensureUinputConnection();
+        void ensureUinputConnection();
 
         /**
          * @brief Finishes an in-flight replacement once every echoed backspace arrived.

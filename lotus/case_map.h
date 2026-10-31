@@ -16,10 +16,10 @@
 #ifndef _LOTUS_CASE_MAP_H_
 #define _LOTUS_CASE_MAP_H_
 
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 namespace lotus::case_map {
 
@@ -29,7 +29,7 @@ namespace lotus::case_map {
      * @param key Code point to look up.
      * @return The mapped code point, or key itself when it is absent from the table.
      */
-    char32_t lookupCase(const std::vector<std::pair<char32_t, char32_t>>& table, char32_t key);
+    char32_t lookupCase(std::span<const std::pair<char32_t, char32_t>> table, char32_t key);
 
     /**
      * @brief Lowercases a code point (identity when it has no lowercase mapping, like Go).

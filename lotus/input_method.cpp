@@ -61,7 +61,7 @@ namespace lotus {
     const InputMethod& cachedInputMethod(InputMethodId id) {
         static const std::array<InputMethod, kInputMethodCount> kCache = [] {
             std::array<InputMethod, kInputMethodCount> cache;
-            const auto&                                definitions = data::inputMethodDefinitions();
+            const auto&                                definitions = data::kInputMethodDefinitions;
             for (std::size_t i = 0; i < kInputMethodCount; ++i) {
                 cache.at(i) = parseInputMethod(definitions.at(i));
             }

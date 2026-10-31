@@ -44,6 +44,14 @@ namespace lotus {
      */
     Composition rebuildCompositionFromText(std::u32string_view text, bool stdStyle);
 
+    /**
+     * @brief Rewrites a rebuilt "u" + horn pair into the W2U "w" appending, mirroring
+     *        Engine::generateTransformations.
+     * @param composition Rebuilt composition, modified in place.
+     * @param w2uMode Resolved W2U mode; Disabled leaves the composition untouched.
+     */
+    void rewriteHornUAsW2u(Composition& composition, W2uMode w2uMode);
+
 } // namespace lotus
 
 #endif // _LOTUS_REBUILD_H_

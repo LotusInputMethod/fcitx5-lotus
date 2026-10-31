@@ -11,18 +11,18 @@
 #ifndef _LOTUS_GENERATED_SPELLING_DATA_H_
 #define _LOTUS_GENERATED_SPELLING_DATA_H_
 
+#include <span>
 #include <string_view>
-#include <vector>
 
 namespace lotus::data {
     /** @brief First consonant sequences (spelling rows). */
-    const std::vector<std::vector<std::u32string_view>>& firstConsonantSeqs();
+    extern const std::span<const std::span<const std::u32string_view>> kFirstConsonantSeqs;
     /** @brief Vowel sequences (row i pairs with vcMatrix()[i]). */
-    const std::vector<std::vector<std::u32string_view>>& vowelSeqs();
+    extern const std::span<const std::span<const std::u32string_view>> kVowelSeqs;
     /** @brief Last consonant sequences (spelling rows). */
-    const std::vector<std::vector<std::u32string_view>>& lastConsonantSeqs();
+    extern const std::span<const std::span<const std::u32string_view>> kLastConsonantSeqs;
     /** @brief Vowel row -> allowed last consonant rows. */
-    const std::vector<std::vector<int>>& vcMatrix();
+    extern const std::span<const std::span<const int>> kVcMatrix;
 } // namespace lotus::data
 
 #endif // _LOTUS_GENERATED_SPELLING_DATA_H_

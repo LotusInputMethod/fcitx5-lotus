@@ -15,90 +15,47 @@
 
 #include <algorithm>
 #include <array>
-#include <bitset>
 #include <optional>
 #include <utility>
 
 namespace lotus::utils {
     namespace {
-        constexpr char32_t                     kAsciiLimit = 128;
+        constexpr char32_t kAsciiLimit = 128;
 
-        const std::array<int8_t, kAsciiLimit>& asciiVowelPositions() {
-            static const auto kTable = [] {
-                std::array<int8_t, kAsciiLimit> table{};
-                table.fill(-1);
-                const auto vowels = data::vowels();
-                for (std::size_t i = 0; i < vowels.size(); ++i) {
-                    if (vowels[i] < kAsciiLimit) {
-                        table.at(vowels[i]) = static_cast<int8_t>(i);
-                    }
-                }
-                return table;
-            }();
-            return kTable;
+        int                lookupVowelPosition(char32_t codePoint) {
+            const auto&       index = data::kVowelIndex;
+            const auto* const it    = std::ranges::lower_bound(index, codePoint, {}, &std::pair<char32_t, std::int8_t>::first);
+            return (it != index.end() && it->first == codePoint) ? it->second : -1;
         }
 
-        const std::array<int8_t, kAsciiLimit>& asciiMarkFamilyIndices() {
-            static const auto kTable = [] {
-                std::array<int8_t, kAsciiLimit> table{};
-                table.fill(-1);
-                const auto& families = data::markFamilies();
-                for (std::size_t i = 0; i < families.size(); ++i) {
-                    if (families[i].first < kAsciiLimit) {
-                        table.at(families[i].first) = static_cast<int8_t>(i);
-                    }
-                }
-                return table;
-            }();
-            return kTable;
-        }
-
-        const std::bitset<kAsciiLimit>& asciiPunctuationMarks() {
-            static const auto kBits = [] {
-                std::bitset<kAsciiLimit> bits{};
-                for (char32_t mark : data::punctuationMarks()) {
-                    if (mark < kAsciiLimit) {
-                        bits.set(mark);
-                    }
-                }
-                return bits;
-            }();
-            return kBits;
+        std::u32string_view lookupMarkFamily(char32_t codePoint) {
+            const auto&       index = data::kMarkFamilyIndex;
+            const auto* const it    = std::ranges::lower_bound(index, codePoint, {}, &std::pair<char32_t, std::u32string_view>::first);
+            return (it != index.end() && it->first == codePoint) ? it->second : std::u32string_view{};
         }
     } // namespace
 
     std::u32string_view vowels() {
-        return data::vowels();
+        return data::kVowels;
     }
 
     bool isVowel(char32_t codePoint) {
         if (codePoint < kAsciiLimit) {
-            return asciiVowelPositions().at(codePoint) >= 0;
+            return data::kAsciiVowelPositions.at(codePoint) >= 0;
         }
-        const std::u32string_view table = data::vowels();
-        return std::ranges::find(table, codePoint) != table.end();
+        return lookupVowelPosition(codePoint) >= 0;
     }
 
     int findVowelPosition(char32_t codePoint) {
         if (codePoint < kAsciiLimit) {
-            return asciiVowelPositions().at(codePoint);
+            return data::kAsciiVowelPositions.at(codePoint);
         }
-        const std::u32string_view table = data::vowels();
-        const auto* const         it    = std::ranges::find(table, codePoint);
-        return it == table.end() ? -1 : static_cast<int>(std::distance(table.begin(), it));
+        return lookupVowelPosition(codePoint);
     }
 
     std::optional<std::u32string_view> findMarkFamily(char32_t codePoint) {
-        if (codePoint < kAsciiLimit) {
-            const auto index = asciiMarkFamilyIndices().at(codePoint);
-            return index >= 0 ? std::optional<std::u32string_view>{data::markFamilies().at(static_cast<std::size_t>(index)).second} : std::nullopt;
-        }
-        for (const auto& [baseChar, family] : data::markFamilies()) {
-            if (baseChar == codePoint) {
-                return family;
-            }
-        }
-        return std::nullopt;
+        const std::u32string_view family = codePoint < kAsciiLimit ? data::kAsciiMarkFamilies.at(codePoint) : lookupMarkFamily(codePoint);
+        return family.empty() ? std::nullopt : std::optional<std::u32string_view>{family};
     }
 
     std::u32string getMarkFamily(char32_t codePoint) {
@@ -147,7 +104,7 @@ namespace lotus::utils {
             return codePoint;
         }
         const int                 target = position + static_cast<int>(tone) - (position % 6);
-        const std::u32string_view table  = data::vowels();
+        const std::u32string_view table  = data::kVowels;
         if (target < 0 || static_cast<std::size_t>(target) >= table.size()) {
             // Go indexes the vowel table without a bound check here; stay inside the table instead
             // of reading out of bounds.
@@ -172,11 +129,7 @@ namespace lotus::utils {
     }
 
     bool isPunctuationMark(char32_t codePoint) {
-        if (codePoint < kAsciiLimit) {
-            return asciiPunctuationMarks().test(codePoint);
-        }
-        const std::vector<char32_t>& marks = data::punctuationMarks();
-        return std::ranges::find(marks, codePoint) != marks.end();
+        return codePoint < kAsciiLimit && data::kAsciiPunctuation.at(codePoint);
     }
 
     bool isWordBreakSymbol(char32_t codePoint) {

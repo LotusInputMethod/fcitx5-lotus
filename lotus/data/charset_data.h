@@ -42,7 +42,7 @@ namespace lotus::data {
     inline constexpr std::size_t kCharsetCount = 17U;
 
     /** @brief charset -> (code point -> encoded bytes), indexed by Charset; the Unicode entry is empty. */
-    const std::array<std::unordered_map<char32_t, std::string_view>, kCharsetCount>& charsetDefinitions();
+    extern const std::array<std::unordered_map<char32_t, std::string_view>, kCharsetCount> kCharsetTables;
 } // namespace lotus::data
 
 #endif // _LOTUS_GENERATED_CHARSET_DATA_H_

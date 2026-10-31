@@ -140,7 +140,7 @@ int run_rules_parser() {
 
     // parseInputMethod: the definition of an input method is parsed from its generated table entry.
     {
-        const lotus::InputMethod telex = lotus::parseInputMethod(lotus::data::inputMethodDefinitions().at(static_cast<std::size_t>(lotus::InputMethodId::Telex)));
+        const lotus::InputMethod telex = lotus::parseInputMethod(lotus::data::kInputMethodDefinitions.at(static_cast<std::size_t>(lotus::InputMethodId::Telex)));
         check("telex keys", telex.keys.size() == 11U);
         check("telex rules", !telex.rules.empty());
     }
@@ -153,7 +153,7 @@ int run_rules_parser() {
         const lotus::InputMethod& second = lotus::cachedInputMethod(lotus::InputMethodId::Telex);
         check("cachedInputMethod reuses one object", &first == &second);
 
-        const lotus::InputMethod parsed = lotus::parseInputMethod(lotus::data::inputMethodDefinitions().at(static_cast<std::size_t>(lotus::InputMethodId::Telex)));
+        const lotus::InputMethod parsed = lotus::parseInputMethod(lotus::data::kInputMethodDefinitions.at(static_cast<std::size_t>(lotus::InputMethodId::Telex)));
         bool same = first.keys == parsed.keys && first.superKeys == parsed.superKeys && first.toneKeys == parsed.toneKeys && first.appendingKeys == parsed.appendingKeys &&
             first.rules.size() == parsed.rules.size();
         for (std::size_t i = 0; same && i < parsed.rules.size(); ++i) {

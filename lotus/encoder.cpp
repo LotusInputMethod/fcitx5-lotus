@@ -20,7 +20,7 @@ namespace lotus {
         if (charset == Charset::Unicode) {
             return utf8::encode(text);
         }
-        const auto& table = data::charsetDefinitions().at(static_cast<std::size_t>(charset));
+        const auto& table = data::kCharsetTables.at(static_cast<std::size_t>(charset));
         std::string output;
         for (char32_t codePoint : text) {
             const auto entry = table.find(codePoint);

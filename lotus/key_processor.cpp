@@ -279,10 +279,6 @@ namespace lotus {
         return getProcessedString(toMask(Mode::PunctuationMode) | toMask(Mode::FullText));
     }
 
-    bool KeyProcessor::isNonVnRestore() const {
-        return shouldFallbackToEnglish(true);
-    }
-
     std::u32string KeyProcessor::getComposedString(std::u32string_view oldText) const {
         if (utils::hasAnyVietnameseRune(oldText) && mustFallbackToEnglish()) {
             return getProcessedString(toMask(Mode::EnglishMode) | toMask(Mode::FullText));

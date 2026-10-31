@@ -43,10 +43,10 @@ int run_encoder() {
     for (std::size_t i = 0; i < lotus::kCharsetCount; ++i) {
         const auto charset = static_cast<lotus::Charset>(i);
         if (charset == lotus::Charset::Unicode) {
-            check("unicode table is empty", lotus::data::charsetDefinitions().at(i).empty());
+            check("unicode table is empty", lotus::data::kCharsetTables.at(i).empty());
             continue;
         }
-        check("charset table exists", !lotus::data::charsetDefinitions().at(i).empty());
+        check("charset table exists", !lotus::data::kCharsetTables.at(i).empty());
         check("encode charset non-empty", !lotus::encode(charset, input).empty());
     }
 

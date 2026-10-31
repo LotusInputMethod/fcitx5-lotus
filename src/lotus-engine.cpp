@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: 2022-2022 CSSlayer <wengxt@gmail.com>
  * SPDX-FileCopyrightText: 2025 Võ Ngô Hoàng Thành <thanhpy2009@gmail.com>
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
+ * SPDX-FileCopyrightText: 2026 kimxuanhong <kimxuanhong@outlook.com>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -18,6 +19,7 @@
 #include "lotus-notify.h"
 #include "lotus-utils.h"
 #include "lotus-plasma-theme.h"
+#include "window_focus_tracker.h"
 
 #include "dictionary.h"
 #include "emoji.h"
@@ -52,19 +54,6 @@ namespace fcitx {
     constexpr const char* CharsetActionPrefix = "lotus-charset-";
     constexpr const char* CustomKeymapFile    = "conf/lotus-custom-keymap.conf";
     constexpr const char* MacroTableFile      = "conf/lotus-macro-table.conf";
-    constexpr auto        chromiumList        = std::to_array<std::string_view>({
-        "chrome",
-        "chromium",
-        "brave",
-        "edge",
-        "vivaldi",
-        "opera",
-        "cromite",
-        "helium",
-        "thorium",
-        "slimjet",
-        "yandex",
-    });
 
     EmojiLoader&          LotusEngine::emojiLoader() {
         if (!emojiLoader_) {
@@ -167,7 +156,14 @@ namespace fcitx {
         return dictionary_;
     }
 
-    LotusEngine::LotusEngine(Instance* instance) : instance_(*instance), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
+    bool LotusEngine::isLikeAddressBarChromium() const {
+        return windowFocusTracker_->isLikeAddressBarChromium();
+    }
+
+    LotusEngine::LotusEngine(Instance* instance) :
+        instance_(*instance), kbSender_(buildSocketPath("kbSocket")), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
+        windowFocusTracker_ = std::make_unique<WindowFocusTracker>();
+        windowFocusTracker_->start();
         std::string desktop = getEnv("XDG_CURRENT_DESKTOP");
         isGnome_            = (!desktop.empty()) && desktop.find("GNOME") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
@@ -265,7 +261,6 @@ namespace fcitx {
         if (fd.isValid()) {
             shutdown(fd.get(), SHUT_RDWR);
         }
-        closeUinputClient();
         LOTUS_INFO("Engine destroyed.");
     }
 
@@ -423,7 +418,7 @@ namespace fcitx {
 
         auto* state           = ic->propertyFor(&factory_);
         state->isLibreoffice_ = (appName == "soffice");
-        state->isChromium_    = std::ranges::any_of(chromiumList, [&appName](std::string_view app) { return appName.find(app) != std::string::npos; });
+        state->isChromium_    = isChromiumProgram(appName);
         state->finishOverdueReplacement();
 
         const bool uinputMode         = isUinputMode(targetMode);
@@ -432,7 +427,7 @@ namespace fcitx {
         state->deletionInterruptedAt_ = 0;
 
         if (!resumeReplacement) {
-            LotusState::cancelPendingUinput();
+            state->cancelPendingUinput();
             g_isDeleting.store(false, std::memory_order_release);
         }
 
@@ -1109,7 +1104,7 @@ namespace fcitx {
     }
 
     void LotusEngine::checkServerForMode(LotusMode mode) {
-        if (isUinputMode(mode) && !ensureUinputServerConnected()) {
+        if (isUinputMode(mode) && !kbSender_.ensureConnected()) {
             notifyMissingUinputServer();
         }
     }

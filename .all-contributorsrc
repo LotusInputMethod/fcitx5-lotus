@@ -203,6 +203,26 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "ducvd89",
+      "name": "Cid",
+      "avatar_url": "https://avatars.githubusercontent.com/u/79311308?v=4",
+      "profile": "https://github.com/ducvd89",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "kimxuanhong",
+      "name": "Kim Xuân Hồng",
+      "avatar_url": "https://avatars.githubusercontent.com/u/40137730?v=4",
+      "profile": "https://kimxuanhong.github.io/",
+      "contributions": [
+        "code",
+        "bug",
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 4,

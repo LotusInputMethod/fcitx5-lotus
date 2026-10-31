@@ -49,17 +49,17 @@ int run_spelling() {
     // lookup(): a row matches when its token is no longer than the input (or exactly as long, with
     // inputIsFull), comparing tone-less characters unless inputIsComplete is set. Every matching row
     // is reported, so two rows can be valid for the same input ("c" hits the "ch"/"c" rows).
-    checkContains("lookup first consonant ng exact", lotus::lookup(lotus::data::firstConsonantSeqs(), U"ng", true, true), 0);
-    checkContains("lookup vowel a", lotus::lookup(lotus::data::vowelSeqs(), U"a", false, true), 1);
-    checkContains("lookup vowel uyê exact", lotus::lookup(lotus::data::vowelSeqs(), U"uyê", true, true), 1);
-    checkContains("lookup vowel oă exact", lotus::lookup(lotus::data::vowelSeqs(), U"oă", true, true), 3);
-    checkContains("lookup vowel uơ exact", lotus::lookup(lotus::data::vowelSeqs(), U"uơ", true, true), 4);
-    checkContains("lookup last consonant c prefix", lotus::lookup(lotus::data::lastConsonantSeqs(), U"c", false, true), 0);
-    checkContains("lookup last consonant c exact", lotus::lookup(lotus::data::lastConsonantSeqs(), U"c", true, true), 1);
-    checkContains("lookup last consonant ch exact", lotus::lookup(lotus::data::lastConsonantSeqs(), U"ch", true, true), 0);
-    check("lookup no match", lotus::lookup(lotus::data::firstConsonantSeqs(), U"zzz", true, true).empty());
+    checkContains("lookup first consonant ng exact", lotus::lookup(lotus::data::kFirstConsonantSeqs, U"ng", true, true), 0);
+    checkContains("lookup vowel a", lotus::lookup(lotus::data::kVowelSeqs, U"a", false, true), 1);
+    checkContains("lookup vowel uyê exact", lotus::lookup(lotus::data::kVowelSeqs, U"uyê", true, true), 1);
+    checkContains("lookup vowel oă exact", lotus::lookup(lotus::data::kVowelSeqs, U"oă", true, true), 3);
+    checkContains("lookup vowel uơ exact", lotus::lookup(lotus::data::kVowelSeqs, U"uơ", true, true), 4);
+    checkContains("lookup last consonant c prefix", lotus::lookup(lotus::data::kLastConsonantSeqs, U"c", false, true), 0);
+    checkContains("lookup last consonant c exact", lotus::lookup(lotus::data::kLastConsonantSeqs, U"c", true, true), 1);
+    checkContains("lookup last consonant ch exact", lotus::lookup(lotus::data::kLastConsonantSeqs, U"ch", true, true), 0);
+    check("lookup no match", lotus::lookup(lotus::data::kFirstConsonantSeqs, U"zzz", true, true).empty());
     // Without inputIsComplete the token is also matched without its marks ("a" matches "â").
-    checkContains("lookup tone less match", lotus::lookup(lotus::data::vowelSeqs(), U"a", true, false), 2);
+    checkContains("lookup tone less match", lotus::lookup(lotus::data::kVowelSeqs, U"a", true, false), 2);
 
     // isValidVC(): the allowed vowel/last consonant pairs of vcMatrix.
     check("vc allows acute coda", lotus::isValidVC({1}, {1}));

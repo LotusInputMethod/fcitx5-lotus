@@ -24,7 +24,8 @@ Checks: >
   -bugprone-reserved-identifier,
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -bugprone-derived-method-shadowing-base-method,
-  -bugprone-command-processor
+  -bugprone-command-processor,
+  -bugprone-throwing-static-initialization
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '(src|server|common|lotus|test)/.*'

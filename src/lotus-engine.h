@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: 2022-2022 CSSlayer <wengxt@gmail.com>
  * SPDX-FileCopyrightText: 2025 Võ Ngô Hoàng Thành <thanhpy2009@gmail.com>
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
+ * SPDX-FileCopyrightText: 2026 kimxuanhong <kimxuanhong@outlook.com>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -28,6 +29,7 @@
 #include <fcitx-utils/event.h>
 #include <fcitx-utils/keysym.h>
 #include "common-export.h"
+#include "lotus-kb-sender.h"
 
 // Owned through shared/unique pointers, so the full types stay in the .cpp files.
 namespace lotus {
@@ -39,6 +41,7 @@ class EmojiLoader;
 namespace fcitx {
 
     class LotusState;
+    class WindowFocusTracker;
 
     /**
      * @brief Builds the macro table of the engine from the macro table configuration.
@@ -61,6 +64,14 @@ namespace fcitx {
          */
         Instance* instance() const {
             return &instance_;
+        }
+
+        /**
+         * @brief Gets the keyboard request sender that owns the uinput keyboard socket.
+         * @return Sender used by every burst.
+         */
+        KbSender& kbSender() {
+            return kbSender_;
         }
 
         /**
@@ -204,6 +215,12 @@ namespace fcitx {
          */
         EmojiLoader& emojiLoader();
 
+        /**
+         * @brief Reports whether the AT-SPI focus is a Chromium address bar.
+         * @return True when the focused accessibility node is the Omnibox of a Chromium browser.
+         */
+        [[nodiscard]] bool isLikeAddressBarChromium() const;
+
       private:
         Instance&                                            instance_;
         lotusConfig                                          config_;
@@ -214,6 +231,7 @@ namespace fcitx {
         std::shared_ptr<const lotus::MacroTable>             macroTable_;
         lotusAppRules                                        appRulesTables_;
 
+        KbSender                                             kbSender_;
         FactoryFor<LotusState>                               factory_;
 
         std::unique_ptr<SimpleAction>                        charsetAction_;
@@ -237,6 +255,7 @@ namespace fcitx {
         static constexpr uint64_t                            kCycleModeNotificationTimeoutUsec = 800000; // 800ms in microseconds
         FCITX_ADDON_DEPENDENCY_LOADER(emoji, instance_.addonManager());
         std::unique_ptr<EmojiLoader>          emojiLoader_;
+        std::unique_ptr<WindowFocusTracker>   windowFocusTracker_;
         bool                                  isGnome_ = false;
         mutable std::mutex                    appRulesMutex_;
         std::unordered_map<KeySym, LotusMode> modeMenuMapping_;
@@ -386,7 +405,7 @@ namespace fcitx {
          * @brief Warns through the desktop when a uinput mode is selected but the server is down.
          * @param mode Mode that was just selected.
          */
-        static void checkServerForMode(LotusMode mode);
+        void checkServerForMode(LotusMode mode);
 
         /**
          * @brief Get name of current program

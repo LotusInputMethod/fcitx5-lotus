@@ -33,7 +33,7 @@ namespace lotus::data {
     inline constexpr std::size_t kInputMethodCount = 8U;
 
     /** @brief input method -> (key -> dsl line), indexed by InputMethodId; the Custom entry is empty. */
-    const std::array<std::unordered_map<std::string, std::string>, kInputMethodCount>& inputMethodDefinitions();
+    extern const std::array<std::unordered_map<std::string, std::string>, kInputMethodCount> kInputMethodDefinitions;
 } // namespace lotus::data
 
 #endif // _LOTUS_GENERATED_INPUT_METHOD_DATA_H_

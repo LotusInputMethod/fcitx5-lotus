@@ -3,6 +3,7 @@
 // Switching to a uinput mode must know whether the uinput server is running. The probe reuses the
 // keyboard socket: no listener means no server, a listening socket means the server is up.
 #include "kb-socket-listener.h"
+#include "lotus-kb-sender.h"
 #include "lotus-utils.h"
 #include "test-input-context.h"
 
@@ -21,16 +22,17 @@ namespace {
 
 int main() {
     configureTestPaths("fcitx5-lotus-uinput-server-probe");
+    KbSender sender(buildSocketPath("kbSocket"));
 
-    check("no server is detected before the socket exists", !ensureUinputServerConnected());
+    check("no server is detected before the socket exists", !sender.ensureConnected());
 
     KbSocketListener listener;
     if (!listener.valid())
         return 1;
-    check("a listening keyboard socket is detected as a running server", ensureUinputServerConnected());
+    check("a listening keyboard socket is detected as a running server", sender.ensureConnected());
 
-    closeUinputClient();
-    check("a dropped connection is re-established", ensureUinputServerConnected());
+    sender.close();
+    check("a dropped connection is re-established", sender.ensureConnected());
 
     if (failures != 0) {
         std::printf("%d failure(s)\n", failures);

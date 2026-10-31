@@ -40,7 +40,6 @@ extern LOTUS_EXPORT std::atomic<fcitx::LotusMode> g_realMode;        ///< Curren
 extern std::atomic<bool>                          g_mouseClicked;    ///< Mouse click detection flag
 extern std::atomic<bool>                          g_isDeleting;      ///< Deletion in progress flag
 extern std::atomic<bool>                          g_stopFlagMonitor; ///< Signal to stop monitor threads
-extern std::atomic<int>                           g_uinputClientFd;  ///< Uinput client file descriptor
 extern std::atomic<unsigned int>                  g_realTextLen;     ///< Current text length
 extern std::atomic<int>                           g_mouseSocketFd;   ///< Mouse socket file descriptor
 
@@ -84,11 +83,6 @@ std::string LOTUS_EXPORT buildSocketPath(std::string_view base_path_suffix);
 int makeAbstractUnixSocket(std::string_view name, struct sockaddr_un& addr, socklen_t& len);
 
 /**
- * @brief Closes the uinput client socket and marks the client as disconnected.
- */
-void LOTUS_EXPORT closeUinputClient();
-
-/**
  * @brief Returns the fcitx5 configuration directory of the current user.
  * @return Path of the fcitx5 configuration directory.
  */
@@ -125,10 +119,11 @@ uint32_t engineKeyValue(uint32_t sym);
 bool isUinputMode(fcitx::LotusMode mode);
 
 /**
- * @brief Connects to the uinput server when the addon has no live connection yet.
- * @return True when a connection to the server is available.
+ * @brief Reports whether a program name belongs to a Chromium based browser.
+ * @param program Program name reported by fcitx
+ * @return True for Chromium-based
  */
-bool LOTUS_EXPORT ensureUinputServerConnected();
+bool isChromiumProgram(std::string_view program);
 
 /**
  * @brief Compares two texts and computes diff.

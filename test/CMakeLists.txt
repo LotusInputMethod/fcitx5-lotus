@@ -13,6 +13,7 @@ target_link_libraries(lotus_test_core PUBLIC
     Fcitx5::Module::Emoji
     Lotus::Engine
     PkgConfig::LIBNOTIFY
+    PkgConfig::DBUS
     Pthread::Pthread
 )
 
@@ -131,6 +132,7 @@ add_lotus_headless_test(TARGET app_rule_delay_wire SOURCES app-rule-delay-wire.c
 add_lotus_headless_test(TARGET smooth_buffered_key_replay SOURCES smooth-buffered-key-replay.cpp LABELS "integration;smooth")
 add_lotus_headless_test(TARGET focus_bounce_word_survival SOURCES focus-bounce-word-survival.cpp LABELS "integration;smooth")
 add_lotus_headless_test(TARGET focus_out_mid_replacement SOURCES focus-out-mid-replacement.cpp LABELS "integration;smooth")
+add_lotus_headless_test(TARGET uinput_auto_restore SOURCES uinput-auto-restore.cpp LABELS "integration;uinput")
 add_lotus_headless_test(TARGET anchor_key_protocol SOURCES anchor-key-protocol.cpp LABELS "integration;smooth")
 add_lotus_headless_test(TARGET uinput_server_probe SOURCES uinput-server-probe.cpp LABELS "unit;server")
 add_lotus_headless_test(TARGET preedit_backspace SOURCES preedit-backspace.cpp LABELS "integration;preedit")
@@ -182,13 +184,18 @@ add_lotus_headless_test(TARGET auto_capitalize_reset SOURCES auto-capitalize-res
 add_lotus_headless_test(TARGET auto_capitalize_shortcut SOURCES auto-capitalize-shortcut.cpp LABELS "integration;capitalize")
 add_lotus_headless_test(TARGET dbus_deferred_commit SOURCES dbus-deferred-commit.cpp LABELS "integration;dbus")
 add_lotus_headless_test(TARGET modifier_key_bypasses_surrounding_text SOURCES modifier-key-bypasses-surrounding-text.cpp LABELS "integration;surrounding")
+add_lotus_headless_test(TARGET surrounding_text_typing SOURCES surrounding-text-typing.cpp LABELS "integration;surrounding")
 add_lotus_headless_test(TARGET runtime_safety SOURCES runtime-safety.cpp LABELS "integration;raii")
 add_lotus_headless_test(TARGET emoji_history_page_navigation SOURCES emoji-history-page-navigation.cpp LABELS "integration;emoji")
 add_lotus_headless_test(TARGET emoji_search_history SOURCES emoji-search-history.cpp LABELS "unit;emoji")
 add_lotus_headless_test(TARGET emoji_history_unit SOURCES emoji-history-unit.cpp LABELS "unit;emoji")
+add_lotus_headless_test(TARGET kb_sender SOURCES kb-sender.cpp LABELS "unit;socket")
+set_tests_properties(kb_sender PROPERTIES
+    RESOURCE_LOCK lotus_kb_socket
+    ENVIRONMENT "LOTUS_SOCKET_NAMESPACE=ctest-${LOTUS_CTEST_SOCKET_NAMESPACE}")
 
 string(MD5 LOTUS_CTEST_SOCKET_NAMESPACE "${PROJECT_BINARY_DIR}")
-set_tests_properties(smooth_buffered_key_replay focus_bounce_word_survival focus_out_mid_replacement anchor_key_protocol uinput_server_probe select_mode_replacement select_modifier_replay chromium_address_bar select_anchor_completion select_cancel select_cancel_reconcile select_word_break replacement_delays app_rule_delay_wire dbus_deferred_commit merged_replacement_commit runtime_safety
+set_tests_properties(smooth_buffered_key_replay focus_bounce_word_survival focus_out_mid_replacement uinput_auto_restore anchor_key_protocol uinput_server_probe select_mode_replacement select_modifier_replay chromium_address_bar select_anchor_completion select_cancel select_cancel_reconcile select_word_break replacement_delays app_rule_delay_wire dbus_deferred_commit merged_replacement_commit runtime_safety
     PROPERTIES RESOURCE_LOCK lotus_kb_socket
     ENVIRONMENT "LOTUS_SOCKET_NAMESPACE=ctest-${LOTUS_CTEST_SOCKET_NAMESPACE}")
 
