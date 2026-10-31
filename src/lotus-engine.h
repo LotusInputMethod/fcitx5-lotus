@@ -408,11 +408,11 @@ namespace fcitx {
         void checkServerForMode(LotusMode mode);
 
         /**
-         * @brief Get name of current program
-         * @param ic Current input context.
-         * @return Name of current program
+         * @brief Resolves the app-rule name of an input context, caching it per input context.
+         * @param ic Input context to resolve.
+         * @return Application name, or a stable "ctx_<address>" key when nothing usable is known.
          */
-        static std::string getProgramName(InputContext* ic);
+        std::string programNameFor(InputContext* ic);
 
         /**
          * @brief Detects if the system is in dark mode.

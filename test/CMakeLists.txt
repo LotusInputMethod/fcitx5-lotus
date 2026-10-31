@@ -190,6 +190,7 @@ add_lotus_headless_test(TARGET emoji_history_page_navigation SOURCES emoji-histo
 add_lotus_headless_test(TARGET emoji_search_history SOURCES emoji-search-history.cpp LABELS "unit;emoji")
 add_lotus_headless_test(TARGET emoji_history_unit SOURCES emoji-history-unit.cpp LABELS "unit;emoji")
 add_lotus_headless_test(TARGET kb_sender SOURCES kb-sender.cpp LABELS "unit;socket")
+add_lotus_headless_test(TARGET program_name SOURCES program-name.cpp LABELS "unit;apprule")
 set_tests_properties(kb_sender PROPERTIES
     RESOURCE_LOCK lotus_kb_socket
     ENVIRONMENT "LOTUS_SOCKET_NAMESPACE=ctest-${LOTUS_CTEST_SOCKET_NAMESPACE}")

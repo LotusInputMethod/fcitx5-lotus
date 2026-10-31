@@ -7,6 +7,7 @@
  */
 #include "lotus-utils.h"
 #include "common-socket-name.h"
+#include "lotus-dbus.h"
 #include "lotus-log.h"
 
 #include <cstddef>
@@ -24,6 +25,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <mutex>
 
 std::atomic<fcitx::LotusMode> g_realMode{fcitx::LotusMode::Smooth};
 std::atomic<bool>             g_mouseClicked{false};
@@ -125,6 +127,50 @@ bool isChromiumProgram(std::string_view program) {
         "yandex",
     });
     return std::ranges::any_of(names, [program](std::string_view name) { return program.find(name) != std::string_view::npos; });
+}
+
+std::string programForPid(int pid) {
+    if (pid <= 0) {
+        return {};
+    }
+    std::array<char, 64> path{};
+    std::array<char, 64> name{};
+    std::snprintf(path.data(), path.size(), "/proc/%d/comm", pid);
+    std::unique_ptr<FILE, decltype(&std::fclose)> file(std::fopen(path.data(), "r"), &std::fclose);
+    if (!file || std::fgets(name.data(), static_cast<int>(name.size()), file.get()) == nullptr) {
+        return {};
+    }
+    name.at(std::strcspn(name.data(), "\r\n")) = '\0';
+    return name.data();
+}
+
+std::string programNameForBusName(std::string_view busName) {
+    if (busName.empty()) {
+        return {};
+    }
+    static std::mutex        connectionMutex;
+    static DbusConnectionPtr connection;
+    int                      pid = -1;
+    {
+        std::scoped_lock lock(connectionMutex);
+        if (!connection) {
+            dbusEnsureThreadsInitialised();
+            connection = dbusConnectAtspiBus();
+        }
+        if (!connection) {
+            return {};
+        }
+        const std::string name{busName};
+        pid = dbusConnectionPid(connection.get(), name.c_str());
+    }
+    return programForPid(pid);
+}
+
+std::string resolveProgramName(std::string_view icProgram, std::string_view focusedProgram) {
+    if (!icProgram.empty() && icProgram != "wayland" && icProgram != "x11" && icProgram != "gnome-shell") {
+        return std::string(icProgram);
+    }
+    return std::string(focusedProgram);
 }
 
 DiffPart compareAndSplitU32(std::u32string_view oldText, std::u32string_view newText) {

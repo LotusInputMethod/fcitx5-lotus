@@ -133,6 +133,7 @@ namespace fcitx {
         bool                                  deferredCommitPending_ = false; ///< Timer armed and not fired yet
         bool                                  deferCommits_          = false; ///< Route the batch through the deferred timer
         LotusAppRuleSetting                   appRuleSetting_;                ///< Per-app rule (mode + delay overrides) pushed by the engine
+        std::string                           programName_;                   ///< Resolved application name (app-rule key) for this input context
         std::u32string                        emojiBuffer_;
         std::vector<EmojiEntry>               emojiCandidates_;
         KeyBuffer                             bufferedKeys_; ///< Keystrokes buffered during replacement

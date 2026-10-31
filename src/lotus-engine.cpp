@@ -51,9 +51,10 @@
 #include <sstream>
 
 namespace fcitx {
-    constexpr const char* CharsetActionPrefix = "lotus-charset-";
-    constexpr const char* CustomKeymapFile    = "conf/lotus-custom-keymap.conf";
-    constexpr const char* MacroTableFile      = "conf/lotus-macro-table.conf";
+    constexpr const char* CharsetActionPrefix    = "lotus-charset-";
+    constexpr const char* CustomKeymapFile       = "conf/lotus-custom-keymap.conf";
+    constexpr const char* MacroTableFile         = "conf/lotus-macro-table.conf";
+    constexpr uint64_t    kFocusedProgramFreshMs = 1000;
 
     EmojiLoader&          LotusEngine::emojiLoader() {
         if (!emojiLoader_) {
@@ -408,7 +409,8 @@ namespace fcitx {
         if (ic->capabilityFlags().test(CapabilityFlag::Preedit))
             instance_.inputContextManager().setPreeditEnabledByDefault(true);
 
-        std::string appName = getProgramName(ic);
+        auto*       state   = ic->propertyFor(&factory_);
+        std::string appName = programNameFor(ic);
         LOTUS_INFO("App name: " + appName);
 
         const LotusMode targetMode = getAppRule(appName);
@@ -416,7 +418,6 @@ namespace fcitx {
 
         updateCharsetAction(event.inputContext());
 
-        auto* state           = ic->propertyFor(&factory_);
         state->isLibreoffice_ = (appName == "soffice");
         state->isChromium_    = isChromiumProgram(appName);
         state->finishOverdueReplacement();
@@ -646,9 +647,9 @@ namespace fcitx {
                 state->commitBuffer();
                 state->reset();
             }
-            currentConfigureApp_ = getProgramName(ic);
+            currentConfigureApp_ = programNameFor(ic);
             g_mouseClicked.store(false, std::memory_order_release);
-            std::string appName = getProgramName(ic);
+            std::string appName = programNameFor(ic);
             setMode(getAppRule(appName), ic);
             showAppModeMenu(ic);
             keyEvent.filterAndAccept();
@@ -669,7 +670,7 @@ namespace fcitx {
     bool LotusEngine::handleCycleModeHotkey(InputContext* ic, KeyEvent& keyEvent) {
         if (!keyEvent.isRelease() && !config_.cycleModeKey->empty() && keyEvent.key().checkKeyList(*config_.cycleModeKey)) {
             LOTUS_INFO("Cycle mode key pressed");
-            std::string            appName = getProgramName(ic);
+            std::string            appName = programNameFor(ic);
             const LotusMode        appMode = getAppRule(appName);
 
             std::vector<LotusMode> enabledModes = enabledModesInOrder();
@@ -783,7 +784,7 @@ namespace fcitx {
             if (ic->hasFocus()) {
                 // Re-resolve the focused window's rule; setEngine() must not
                 // reset it to the global mode.
-                setMode(getAppRule(getProgramName(ic)), ic);
+                setMode(getAppRule(programNameFor(ic)), ic);
                 state->reset();
             }
             return true;
@@ -1114,7 +1115,7 @@ namespace fcitx {
         setRealMode(mode);
         if (ic != nullptr) {
             if (auto* state = ic->propertyFor(&factory_)) {
-                state->appRuleSetting_ = getAppRuleSetting(getProgramName(ic));
+                state->appRuleSetting_ = getAppRuleSetting(programNameFor(ic));
                 state->clearAllBuffers();
             }
             ic->updateUserInterface(UserInterfaceComponent::StatusArea);
@@ -1161,17 +1162,26 @@ namespace fcitx {
         }
     }
 
-    std::string LotusEngine::getProgramName(InputContext* ic) {
+    std::string LotusEngine::programNameFor(InputContext* ic) {
         if (ic == nullptr) {
             return "unknown-app";
         }
-        std::string programName = ic->program();
-        if (programName.empty() || programName == "wayland" || programName == "x11") {
-            // Fallback: InputContext address-based resolution
-            // This ensures at least per-window separation.
+        auto* state = ic->propertyFor(&factory_);
+        if (state != nullptr && !state->programName_.empty()) {
+            return state->programName_;
+        }
+        std::string focusedProgram;
+        if (const auto fresh = windowFocusTracker_->focusedProgramIfFresh(kFocusedProgramFreshMs)) {
+            focusedProgram = *fresh;
+        }
+        std::string programName = resolveProgramName(ic->program(), focusedProgram);
+        if (programName.empty()) {
             std::ostringstream oss;
             oss << "ctx_" << static_cast<const void*>(ic);
-            programName = oss.str();
+            return oss.str();
+        }
+        if (state != nullptr) {
+            state->programName_ = programName;
         }
         return programName;
     }
