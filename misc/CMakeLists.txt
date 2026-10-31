@@ -5,7 +5,7 @@ option(INSTALL_OPENRC "Install OpenRC script" OFF)
 option(INSTALL_RUNIT "Install Runit script" OFF)
 
 configure_file(99-lotus.rules.in ${CMAKE_CURRENT_BINARY_DIR}/99-lotus.rules @ONLY)
-configure_file(fcitx5-lotus-server@.service.in ${CMAKE_CURRENT_BINARY_DIR}/fcitx5-lotus-server@.service @ONLY)
+configure_file(fcitx5-lotus-server.service.in ${CMAKE_CURRENT_BINARY_DIR}/fcitx5-lotus-server.service @ONLY)
 configure_file(user-lotus.conf.in ${CMAKE_CURRENT_BINARY_DIR}/user-lotus.conf @ONLY)
 
 if(INSTALL_OPENRC)
@@ -16,7 +16,7 @@ if(INSTALL_RUNIT)
     configure_file(fcitx5-lotus.runit.in ${CMAKE_CURRENT_BINARY_DIR}/fcitx5-lotus.runit @ONLY)
 endif(INSTALL_RUNIT)
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/fcitx5-lotus-server@.service"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/fcitx5-lotus-server.service"
     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
 
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/99-lotus.rules"

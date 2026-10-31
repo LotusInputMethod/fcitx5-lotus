@@ -60,7 +60,7 @@ cd %{_builddir}/%{name}-%{version}
 %{_libdir}/fcitx5/liblotus.so
 
 %{_modulesloaddir}/fcitx5-lotus.conf
-%{_unitdir}/fcitx5-lotus-server@.service
+%{_unitdir}/fcitx5-lotus-server.service
 %{_sysusersdir}/lotus.conf
 %{_udevrulesdir}/99-lotus.rules
 
@@ -91,13 +91,13 @@ cd %{_builddir}/%{name}-%{version}
 %pre -f lotus.pre
 
 %post
-%service_add_post fcitx5-lotus-server@.service
+%service_add_post fcitx5-lotus-server.service
 
 if [ $1 -eq 1 ]; then
     echo "--- Cấu hình Lotus ---"
     echo "Hướng dẫn sau cài đặt:"
-    echo "1. Kích hoạt Server cho user của bạn:"
-    echo "   sudo systemctl enable --now fcitx5-lotus-server@\$(whoami).service"
+    echo "1. Kích hoạt Server:"
+    echo "   sudo systemctl enable --now fcitx5-lotus-server.service"
     echo ""
     echo "2. Cấu hình Fcitx5:"
     echo "   - Mở 'Fcitx5 Configuration', thêm bộ gõ Lotus"
@@ -108,18 +108,18 @@ if [ $1 -eq 1 ]; then
 elif [ $1 -eq 2 ]; then
     echo "--- Cấu hình Lotus ---"
     echo "Hướng dẫn sau cập nhật:"
-    echo "1. Khởi động lại Server cho user của bạn:"
-    echo "   sudo systemctl restart fcitx5-lotus-server@\$(whoami).service"
+    echo "1. Khởi động lại Server:"
+    echo "   sudo systemctl restart fcitx5-lotus-server.service"
     echo ""
     echo "2. Cấu hình Fcitx5:"
     echo "   - Mở 'Fcitx5 Configuration', nhấn restart để khởi động lại."
 fi
 
 %preun
-%service_del_preun fcitx5-lotus-server@.service
+%service_del_preun fcitx5-lotus-server.service
 
 %postun
-%service_del_postun fcitx5-lotus-server@.service
+%service_del_postun fcitx5-lotus-server.service
 
 %changelog
 * Sat Oct 31 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.4-1

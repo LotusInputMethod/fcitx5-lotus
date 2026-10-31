@@ -2,17 +2,6 @@
 # Copyright (c) 2026 Contributors to the LotusInputMethod project
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-svc="$(basename "$(pwd)")"
-svc=$(tr '\0' ' ' < /proc/$PPID/cmdline | awk '{print $NF}')
-svc=$(basename "$svc")
-
-user="${svc#*.}"
-if [ "$user" = "$svc" ]; then
-    echo "fcitx5-lotus cannot be started directly." >&2
-    echo "Use symlink like: fcitx5-lotus.<user>" >&2
-    exit 1
-fi
-
 exec setpriv \
     --reuid=@LOTUS_UINPUT_PROXY_USER@ \
     --regid=input \
@@ -20,4 +9,4 @@ exec setpriv \
     --bounding-set -all,+sys_nice,+sys_ptrace \
     --inh-caps +sys_nice,+sys_ptrace \
     --ambient-caps +sys_nice,+sys_ptrace \
-    @CMAKE_INSTALL_FULL_BINDIR@/fcitx5-lotus-server -u "$user" 2>&1
+    @CMAKE_INSTALL_FULL_BINDIR@/fcitx5-lotus-server 2>&1

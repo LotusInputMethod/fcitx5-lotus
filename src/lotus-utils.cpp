@@ -17,9 +17,7 @@
 #include <fcitx-utils/standardpath.h>
 #include <fcitx-utils/utf8.h>
 #include <fcitx/inputcontext.h>
-#include <pwd.h>
 #include <sys/socket.h>
-#include <unistd.h>
 
 #include <algorithm>
 #include <array>
@@ -40,29 +38,9 @@ void setRealMode(fcitx::LotusMode mode) {
     g_realMode.store(mode, std::memory_order_release);
 }
 
-std::string buildSocketPath(std::string_view base_path_suffix) {
-    struct passwd  pwd{};
-    struct passwd* result  = nullptr;
-    long           bufSize = sysconf(_SC_GETPW_R_SIZE_MAX);
-    if (bufSize == -1) {
-        bufSize = 16384;
-    }
-    std::vector<char> buf(bufSize);
-    std::string       username;
-    int               res = getpwuid_r(getuid(), &pwd, buf.data(), bufSize, &result);
-    if (res == 0 && result != nullptr) {
-        username = result->pw_name;
-    } else {
-        username = "unknown";
-    }
-    std::string path;
-    path.reserve(32);
-    path += "lotussocket-";
-    path += lotusSocketNamespace(username);
-    path += '-';
-    path += base_path_suffix;
-    const size_t maxSocketPathLength = UNIX_PATH_MAX - 1;
-    path.resize(std::min(path.length(), maxSocketPathLength));
+std::string buildSocketPath(std::string_view suffix) {
+    std::string path = lotusSocketName(suffix);
+    path.resize(std::min(path.length(), UNIX_PATH_MAX - 1));
     return path;
 }
 

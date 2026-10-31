@@ -62,11 +62,11 @@ struct DiffPart {
 };
 
 /**
- * @brief Builds socket path from base suffix.
- * @param base_path_suffix Suffix to append to base path.
- * @return Full socket path.
+ * @brief Builds the socket name of a socket role.
+ * @param suffix Socket role, e.g. "kbSocket" or "mouseSocket".
+ * @return Socket name truncated to the abstract address limit.
  */
-std::string LOTUS_EXPORT buildSocketPath(std::string_view base_path_suffix);
+std::string LOTUS_EXPORT buildSocketPath(std::string_view suffix);
 
 /**
  * @brief Creates a non-blocking abstract-namespace UNIX socket.
