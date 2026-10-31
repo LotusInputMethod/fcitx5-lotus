@@ -53,15 +53,6 @@ namespace {
         return press(engine, entry, context, FcitxKey_Delete, false) && press(engine, entry, context, FcitxKey_Pause, true);
     }
 
-    bool expectNoRequest(KbSocketListener& listener, const char* meaning) {
-        KbMsg msg{};
-        if (!listener.tryReceive(msg))
-            return true;
-        reportFailure("wait after the invalid continuation", "no replacement request", "op=" + std::to_string(static_cast<int>(msg.op)) + ", count=" + std::to_string(msg.count),
-                      meaning);
-        return false;
-    }
-
 } // namespace
 
 int main() {
@@ -83,9 +74,8 @@ int main() {
     fcitx::InputContextEvent focus(context.get(), fcitx::EventType::InputContextFocusIn);
     engine.activate(entry, focus);
 
-    // Scenario 1: the 't' typed after the committed "át" makes the syllable
-    // invalid and the fallback restores the raw key strokes. The committed word
-    // must stay and 't' must start a new word instead of a rewrite.
+    // Scenario 1: the 't' typed after the committed "át" makes the syllable invalid, so the fallback
+    // restores the raw key strokes: "át" is selected and replaced by "atst".
     if (!startAtSacReplacement(engine, entry, *context, listener, "scenario 1: the select request did not arrive"))
         return 1;
     if (!completeBurst(engine, entry, *context, 2))
@@ -95,33 +85,47 @@ int main() {
         reportFailure("verify commit of the replacement", "commits=['át']", commitList(*context), "scenario 1: the replacement did not commit once");
         return 1;
     }
-    if (!press(engine, entry, *context, FcitxKey_t, false))
+    if (!press(engine, entry, *context, FcitxKey_t, true))
         return 1;
-    if (!expectNoRequest(listener, "scenario 1: the invalid continuation must not rewrite the committed word"))
+    KbMsg restoreMsg{};
+    if (!listener.receive(restoreMsg, "scenario 1: the invalid continuation must request the restore rewrite"))
         return 1;
-    if (context->commits() != committed) {
-        reportFailure("verify the committed word survived", "commits=['át']", commitList(*context), "scenario 1: the committed word was rewritten by the invalid continuation");
+    if (restoreMsg.op != KbOp::Select || restoreMsg.count != 2) {
+        reportFailure("receive the restore request", "op=select, count=2", "op=" + std::to_string(static_cast<int>(restoreMsg.op)) + ", count=" + std::to_string(restoreMsg.count),
+                      "scenario 1: the invalid continuation must rewrite the committed syllable");
+        return 1;
+    }
+    if (!completeBurst(engine, entry, *context, 2))
+        return 1;
+    const std::vector<std::string> restored{"át", "atst"};
+    if (context->commits() != restored) {
+        reportFailure("verify the committed word was restored", "commits=['át']['atst']", commitList(*context),
+                      "scenario 1: the invalid continuation did not restore the raw key strokes");
         return 1;
     }
 
-    // Scenario 2: the same continuation typed while the burst is still running
-    // is buffered and replayed after the commit; the replay must restart the
-    // word the same way.
+    // Scenario 2: the same continuation typed while the burst is still running is buffered and replayed
+    // after the commit; the replay must request the same restore rewrite.
+    context = std::make_unique<TestInputContext>(&testInstance.instance);
+    context->focusIn();
+    fcitx::InputContextEvent refocus(context.get(), fcitx::EventType::InputContextFocusIn);
+    engine.activate(entry, refocus);
     if (!startAtSacReplacement(engine, entry, *context, listener, "scenario 2: the select request did not arrive"))
         return 1;
     if (!press(engine, entry, *context, FcitxKey_t, true))
         return 1;
     if (!completeBurst(engine, entry, *context, 2))
         return 1;
-    // The replayed continuation is appended to the pending commit batch, so the
-    // second "át" and the new word start arrive as one merged commit.
-    const std::vector<std::string> replayed{"át", "átt"};
-    if (context->commits() != replayed) {
-        reportFailure("verify commits after the replay", "commits=['át']['átt']", commitList(*context),
-                      "scenario 2: the replayed continuation must commit the new word start, not a raw rewrite");
+    KbMsg replayMsg{};
+    if (!listener.receive(replayMsg, "scenario 2: the replayed continuation must request the restore rewrite"))
+        return 1;
+    if (replayMsg.op != KbOp::Select || replayMsg.count != 2) {
+        reportFailure("receive the replayed restore request", "op=select, count=2",
+                      "op=" + std::to_string(static_cast<int>(replayMsg.op)) + ", count=" + std::to_string(replayMsg.count),
+                      "scenario 2: the replayed continuation must rewrite the committed syllable");
         return 1;
     }
-    if (!expectNoRequest(listener, "scenario 2: the replayed continuation must not start a rewrite"))
+    if (!completeBurst(engine, entry, *context, 2))
         return 1;
 
     std::printf("lotus select word break: all checks passed\n");

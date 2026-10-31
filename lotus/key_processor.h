@@ -195,12 +195,6 @@ namespace lotus {
         [[nodiscard]] const std::u32string& preedit() const;
 
         /**
-         * @brief Reports whether the preedit currently shows the raw key strokes restored by the
-         * automatic non-Vietnamese fallback, like Go's shouldFallbackToEnglish.
-         */
-        [[nodiscard]] bool isNonVnRestore() const;
-
-        /**
          * @brief Takes the text to commit and clears it, like Go's EnginePullCommit.
          * @return Charset encoded text to commit, empty when there is nothing to commit.
          */
