@@ -400,7 +400,8 @@ namespace fcitx {
     }
 
     void LotusEngine::activate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
-        auto*      ic        = event.inputContext();
+        auto* ic = event.inputContext();
+        windowFocusTracker_->requestAccessibilityPoke();
         const bool surrvalid = ic->surroundingText().isValid();
         const bool isDbus    = getFrontendName(ic) == "dbus";
         setupMouseWatcher();

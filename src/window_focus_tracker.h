@@ -44,6 +44,13 @@ namespace fcitx {
         void start();
 
         /**
+         * @brief Requests an accessibility-tree poke on the tracker thread.
+         */
+        void requestAccessibilityPoke() {
+            pokeRequested_.store(true, std::memory_order_relaxed);
+        }
+
+        /**
          * @brief Stops the tracker thread and clears the reported focus state.
          */
         void stop();
@@ -116,6 +123,7 @@ namespace fcitx {
 
         std::thread        thread_;                  ///< Thread following the accessibility focus
         std::atomic<bool>  stopRequested_{false};    ///< Set by stop() to end the thread
+        std::atomic<bool>  pokeRequested_{false};    ///< Activation requested a tree poke
         std::atomic<bool>  browserUIFocused_{false}; ///< True while a Chromium Omnibox holds the focus
         mutable std::mutex programMutex_;            ///< Guards focusedProgram_ and lastFocusEventMs_
         std::string        focusedProgram_;          ///< Program behind the focused accessibility window

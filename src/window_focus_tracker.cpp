@@ -13,15 +13,14 @@
 
 namespace fcitx {
     namespace {
-        constexpr int                       kMaxAccessibleNodes = 256;  ///< Children walked while priming the tree
-        constexpr int                       kPokeTimeoutMs      = 2000; ///< Registry GetChildren / RegisterEvent
-        constexpr int                       kReadWriteTimeoutMs = 50;   ///< Signal poll interval
-        constexpr int                       kReconnectDelayMs   = 100;  ///< Delay between reconnect attempts
-        constexpr int                       kReconnectAttempts  = 20;   ///< Attempts before the bus is retried
-        constexpr int                       kRedialAttempts     = 10;   ///< Attempts after a bus loss
-        constexpr std::chrono::seconds      kPokeInterval{15};          ///< Accessibility tree priming period
-        constexpr int                       kChromiumPokeAttempts = 3;  ///< Fast pokes after focusing a Chromium window
-        constexpr std::chrono::milliseconds kChromiumPokeDelay{200};    ///< Spacing of the fast pokes
+        constexpr int                       kMaxAccessibleNodes   = 256;  ///< Children walked while priming the tree
+        constexpr int                       kPokeTimeoutMs        = 2000; ///< Registry GetChildren / RegisterEvent
+        constexpr int                       kReadWriteTimeoutMs   = 50;   ///< Signal poll interval
+        constexpr int                       kReconnectDelayMs     = 100;  ///< Delay between reconnect attempts
+        constexpr int                       kReconnectAttempts    = 20;   ///< Attempts before the bus is retried
+        constexpr int                       kRedialAttempts       = 10;   ///< Attempts after a bus loss
+        constexpr int                       kChromiumPokeAttempts = 3;    ///< Fast pokes after focusing a Chromium window
+        constexpr std::chrono::milliseconds kChromiumPokeDelay{200};      ///< Spacing of the fast pokes
     } // namespace
 
     std::string WindowFocusTracker::queryFocusClass(const DbusConnectionPtr& bus, const char* sender, const char* path) {
@@ -182,7 +181,7 @@ namespace fcitx {
             std::string focusPath;
             int         chromiumPokesLeft = 0;
             pokeAccessibleApps(bus);
-            auto nextAccessibilityPoke = std::chrono::steady_clock::now() + kPokeInterval;
+            auto nextAccessibilityPoke = std::chrono::steady_clock::time_point::max();
             while (!stopRequested_.load(std::memory_order_acquire) && dbus_connection_read_write(bus.get(), kReadWriteTimeoutMs) != FALSE) {
                 while (DbusMessagePtr message{dbus_connection_pop_message(bus.get())}) {
                     if (const std::optional<bool> focused = focusedState(message)) {
@@ -217,13 +216,14 @@ namespace fcitx {
                         }
                     }
                 }
+                if (pokeRequested_.exchange(false, std::memory_order_relaxed)) {
+                    pokeAccessibleApps(bus);
+                }
                 if (std::chrono::steady_clock::now() >= nextAccessibilityPoke) {
                     pokeAccessibleApps(bus);
                     if (chromiumPokesLeft > 0) {
                         --chromiumPokesLeft;
-                        nextAccessibilityPoke = std::chrono::steady_clock::now() + kChromiumPokeDelay;
-                    } else {
-                        nextAccessibilityPoke = std::chrono::steady_clock::now() + kPokeInterval;
+                        nextAccessibilityPoke = chromiumPokesLeft > 0 ? std::chrono::steady_clock::now() + kChromiumPokeDelay : std::chrono::steady_clock::time_point::max();
                     }
                 }
             }
