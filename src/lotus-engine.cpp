@@ -18,6 +18,7 @@
 #include "lotus-monitor.h"
 #include "lotus-notify.h"
 #include "lotus-utils.h"
+#include "lotus-x11.h"
 #include "lotus-plasma-theme.h"
 #include "window_focus_tracker.h"
 
@@ -1166,22 +1167,18 @@ namespace fcitx {
         if (ic == nullptr) {
             return "unknown-app";
         }
-        auto* state = ic->propertyFor(&factory_);
-        if (state != nullptr && !state->programName_.empty()) {
-            return state->programName_;
+        std::string programName = resolveProgramName(ic->program(), {});
+        if (programName.empty()) {
+            if (getEnv("WAYLAND_DISPLAY").empty()) {
+                programName = activeWindowProgram();
+            } else if (const auto fresh = windowFocusTracker_->focusedProgramIfFresh(kFocusedProgramFreshMs)) {
+                programName = *fresh;
+            }
         }
-        std::string focusedProgram;
-        if (const auto fresh = windowFocusTracker_->focusedProgramIfFresh(kFocusedProgramFreshMs)) {
-            focusedProgram = *fresh;
-        }
-        std::string programName = resolveProgramName(ic->program(), focusedProgram);
         if (programName.empty()) {
             std::ostringstream oss;
             oss << "ctx_" << static_cast<const void*>(ic);
             return oss.str();
-        }
-        if (state != nullptr) {
-            state->programName_ = programName;
         }
         return programName;
     }

@@ -14,6 +14,7 @@ target_link_libraries(lotus_test_core PUBLIC
     Lotus::Engine
     PkgConfig::LIBNOTIFY
     PkgConfig::DBUS
+    PkgConfig::XCB
     Pthread::Pthread
 )
 

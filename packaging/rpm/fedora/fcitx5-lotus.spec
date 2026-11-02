@@ -15,6 +15,7 @@ BuildRequires:  libinput-devel
 BuildRequires:  libevdev-devel
 BuildRequires:  libnotify-devel
 BuildRequires:  dbus-devel
+BuildRequires:  libxcb-devel
 BuildRequires:  pkgconfig(libudev)
 
 BuildRequires:  python3-devel

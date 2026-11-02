@@ -17,6 +17,7 @@ Build-Depends: debhelper-compat (= 13),
                libnotify-dev,
                libdbus-1-dev,
                libudev-dev,
+               libxcb1-dev,
                pkg-config,
                python3
 Standards-Version: 4.6.0

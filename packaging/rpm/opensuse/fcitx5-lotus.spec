@@ -15,6 +15,7 @@ BuildRequires:  libinput-devel
 BuildRequires:  libevdev-devel
 BuildRequires:  libnotify-devel
 BuildRequires:  dbus-1-devel
+BuildRequires:  libxcb-devel
 BuildRequires:  systemd-devel
 
 BuildRequires:  sysuser-tools
