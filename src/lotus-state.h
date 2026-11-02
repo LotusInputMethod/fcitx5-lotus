@@ -129,6 +129,8 @@ namespace fcitx {
         std::u32string                        pendingCommitString_;
         std::u32string                        commitBatch_;                   ///< Text of the replacement batch, sent as one commitString
         std::unique_ptr<EventSourceTime>      deferredCommitTimer_;           ///< Pending dbus commit timer
+        bool                                  selectAbortDeferred_ = false;   ///< Select burst kept alive across a focus bounce
+        uint32_t                              burstIntervalMs_     = 0;       ///< Pacing of the in-flight uinput burst, used to re-arm its deadline
         std::u32string                        deferredCommitText_;            ///< Text waiting for the deferred commit
         bool                                  deferredCommitPending_ = false; ///< Timer armed and not fired yet
         bool                                  deferCommits_          = false; ///< Route the batch through the deferred timer
@@ -207,6 +209,26 @@ namespace fcitx {
          * @brief Cancels the in-flight burst and stashes the replacement text for the refocus commit.
          */
         void abortPendingUinputReplacement();
+
+        /**
+         * @brief Keeps a Select burst alive across a focus out.
+         */
+        void deferSelectAbort();
+
+        /**
+         * @brief Drops a deferred Select abort, keeping the in-flight burst alive across a focus bounce.
+         */
+        void cancelSelectAbort();
+
+        /**
+         * @brief Abandons a deferred Select burst when another context took the focus away for good.
+         */
+        void abortDeferredSelectIfPending();
+
+        /**
+         * @brief Re-arms the echo deadline of the in-flight burst after a focus bounce.
+         */
+        void rearmReplacementDeadline();
 
         /**
          * @brief Commits the replacement text stashed at focus-out; stale stashes are dropped.

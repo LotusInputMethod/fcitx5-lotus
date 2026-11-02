@@ -87,6 +87,13 @@ int main() {
             return 1;
         loseFocus(engine, entry, *context);
         KbMsg msg{};
+        if (listener.tryReceive(msg)) {
+            reportFailure("no cancel while the focus may bounce", "no request at focus-out time", "op=" + std::to_string(static_cast<int>(msg.op)),
+                          "the abort must wait for a possible focus bounce");
+            return 1;
+        }
+        auto other = std::make_unique<TestInputContext>(&testInstance.instance);
+        gainFocus(engine, entry, *other);
         if (!listener.receive(msg, "scenario 1: the cancel request did not arrive"))
             return 1;
         if (msg.op != KbOp::Cancel) {
@@ -116,6 +123,13 @@ int main() {
             return 1;
         loseFocus(engine, entry, *context);
         KbMsg msg{};
+        if (listener.tryReceive(msg)) {
+            reportFailure("no cancel while the focus may bounce", "no request at focus-out time", "op=" + std::to_string(static_cast<int>(msg.op)),
+                          "the abort must wait for a possible focus bounce");
+            return 1;
+        }
+        auto other = std::make_unique<TestInputContext>(&testInstance.instance);
+        gainFocus(engine, entry, *other);
         if (!listener.receive(msg, "scenario 2: the cancel request did not arrive"))
             return 1;
         std::this_thread::sleep_for(std::chrono::milliseconds(2100));
@@ -142,6 +156,13 @@ int main() {
             return 1;
         loseFocus(engine, entry, *context);
         KbMsg msg{};
+        if (listener.tryReceive(msg)) {
+            reportFailure("no cancel while the focus may bounce", "no request at focus-out time", "op=" + std::to_string(static_cast<int>(msg.op)),
+                          "the abort must wait for a possible focus bounce");
+            return 1;
+        }
+        auto other = std::make_unique<TestInputContext>(&testInstance.instance);
+        gainFocus(engine, entry, *other);
         if (!listener.receive(msg, "scenario 3: the cancel request did not arrive"))
             return 1;
         gainFocus(engine, entry, *context);

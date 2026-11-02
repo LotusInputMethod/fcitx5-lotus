@@ -414,6 +414,15 @@ namespace fcitx {
         std::string appName = programNameFor(ic);
         LOTUS_INFO("App name: " + appName);
 
+        instance_.inputContextManager().foreach ([this, ic](InputContext* other) {
+            if (other != ic) {
+                if (auto* otherState = other->propertyFor(&factory_)) {
+                    otherState->abortDeferredSelectIfPending();
+                }
+            }
+            return true;
+        });
+
         const LotusMode targetMode = getAppRule(appName);
         LOTUS_INFO("Target mode: " + LotusModeI18NAnnotation::toString(targetMode));
 
@@ -422,6 +431,9 @@ namespace fcitx {
         state->isLibreoffice_ = (appName == "soffice");
         state->isChromium_    = isChromiumProgram(appName);
         state->finishOverdueReplacement();
+        // A burst aborted while the context was away stashed its replacement text: commit it before setMode()
+        // clears the buffers it lives in.
+        state->reconcileAbortedUinputReplacement();
 
         const bool uinputMode         = isUinputMode(targetMode);
         const bool focusBounce        = uinputMode && state->lastDeactivateTime_ > 0 && nowMs() - state->lastDeactivateTime_ < 100;
@@ -431,6 +443,9 @@ namespace fcitx {
         if (!resumeReplacement) {
             state->cancelPendingUinput();
             g_isDeleting.store(false, std::memory_order_release);
+        } else {
+            state->cancelSelectAbort();
+            state->rearmReplacementDeadline();
         }
 
         if (focusBounce) {
@@ -745,8 +760,7 @@ namespace fcitx {
             state->lastDeactivateTime_    = nowMs();
             state->deletionInterruptedAt_ = state->lastDeactivateTime_;
             if (state->realSelect_) {
-                // Unfocused injected keys are never echoed back: cancel the burst right away.
-                state->abortPendingUinputReplacement();
+                state->deferSelectAbort();
             }
             LOTUS_INFO("Replacement interrupted by focus out");
             return;

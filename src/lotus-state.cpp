@@ -116,6 +116,7 @@ namespace fcitx {
     }
 
     void LotusState::abortPendingUinputReplacement() {
+        selectAbortDeferred_ = false;
         if (!g_isDeleting.load(std::memory_order_acquire)) {
             return;
         }
@@ -139,7 +140,36 @@ namespace fcitx {
         deferCommits_ = getFrontendName(&ic_) == "dbus";
     }
 
+    void LotusState::deferSelectAbort() {
+        if (!g_isDeleting.load(std::memory_order_acquire)) {
+            return;
+        }
+        selectAbortDeferred_ = true;
+        LOTUS_INFO("Defer the select abort across the focus bounce");
+    }
+
+    void LotusState::cancelSelectAbort() {
+        selectAbortDeferred_ = false;
+    }
+
+    void LotusState::abortDeferredSelectIfPending() {
+        if (!selectAbortDeferred_ || !g_isDeleting.load(std::memory_order_acquire)) {
+            return;
+        }
+        LOTUS_INFO("Select burst abandoned: the context did not come back");
+        abortPendingUinputReplacement();
+    }
+
+    void LotusState::rearmReplacementDeadline() {
+        if (!g_isDeleting.load(std::memory_order_acquire)) {
+            return;
+        }
+        const auto remaining   = static_cast<int64_t>(expectedBackspaces_ - std::min(expectedBackspaces_, currentBackspaceCount_));
+        replacementDeadlineMs_ = nowMs() + (remaining * static_cast<int64_t>(burstIntervalMs_)) + replacementEchoGrace_;
+    }
+
     void LotusState::dropAbortedUinputStash() {
+        cancelSelectAbort();
         stashedCommit_.clear();
         stashedNewWord_.clear();
         uinputAbortTimeMs_ = 0;
@@ -471,6 +501,7 @@ namespace fcitx {
     }
 
     void LotusState::finishReplacement(KeyEvent& event) {
+        cancelSelectAbort();
         appendCommit(pendingCommitString_);
         pendingCommitString_.clear();
         deferCommits_          = getFrontendName(&ic_) == "dbus";
@@ -549,6 +580,7 @@ namespace fcitx {
         const int64_t injectMs = static_cast<int64_t>(expectedBackspaces_) * static_cast<int64_t>(interval);
         replacementDeadlineMs_ = nowMs() + static_cast<int64_t>(preDelay) + injectMs + static_cast<int64_t>(postDelay) + kReplacementAckSlackMs;
         replacementEchoGrace_  = static_cast<int64_t>(interval) + static_cast<int64_t>(postDelay) + kReplacementAckSlackMs;
+        burstIntervalMs_       = interval;
         // Select mode: the uinput server selects with Shift+Left instead. The
         // trigger-key compensation above still applies because the last echoed
         // Left is swallowed; autofill compensation does not, see above.
@@ -1261,6 +1293,7 @@ namespace fcitx {
     }
 
     void LotusState::resetNow(bool isFocusOut) {
+        cancelSelectAbort();
         const auto& surrounding = ic_.surroundingText();
         const auto& text        = surrounding.text();
         size_t      textLen     = utf8::length(text);
@@ -1358,6 +1391,7 @@ namespace fcitx {
     }
 
     void LotusState::clearAllBuffers(bool keepSentenceState) {
+        cancelSelectAbort();
         deliverPendingCommits();
         LOTUS_DEBUG("Clear all buffers");
         if (g_isDeleting.load(std::memory_order_acquire)) {

@@ -83,9 +83,10 @@ int main() {
     auto                    context = std::make_unique<TestInputContext>(&testInstance.instance);
     gainFocus(engine, entry, *context);
 
-    // A focus-out in the middle of a Select burst severs the echo path: the app
-    // consumes the injected keys while text-input is disabled, so the replacement
-    // must be dropped and the pending burst cancelled at focus-out time.
+    // Another context taking the focus is what abandons a burst: a bounce keeps it, a real switch cancels it.
+    auto otherContext = std::make_unique<TestInputContext>(&testInstance.instance);
+
+    // A burst abandoned at focus-out is cancelled once the focus lands somewhere else.
     if (!press(engine, entry, *context, FcitxKey_a, false) || !press(engine, entry, *context, FcitxKey_t, false) || !press(engine, entry, *context, FcitxKey_s, true))
         return 1;
     KbMsg msg{};
@@ -95,37 +96,56 @@ int main() {
         return 1;
 
     loseFocus(engine, entry, *context);
-    if (!listener.receive(msg, "the cancel request at focus-out did not arrive"))
+    if (listener.tryReceive(msg)) {
+        reportFailure("no cancel while the focus may bounce", "no request at focus-out time", "op=" + std::to_string(static_cast<int>(msg.op)),
+                      "the abort must wait for a possible focus bounce");
         return 1;
-    if (!expectMsg(msg, KbOp::Cancel, 0, "receive cancel request", "focus out must cancel the pending burst"))
+    }
+    gainFocus(engine, entry, *otherContext);
+    if (!listener.receive(msg, "the cancel request after the focus moved away did not arrive"))
+        return 1;
+    if (!expectMsg(msg, KbOp::Cancel, 0, "receive cancel request", "a burst whose context did not come back must be cancelled"))
         return 1;
     if (!context->commits().empty()) {
         reportFailure("verify no commit after the cancel", "no commits", commitList(*context), "the cancelled replacement must commit nothing");
         return 1;
     }
 
-    // Typing resumes right after the bounce: the first key commits the stashed
-    // replacement, then a new word triggers a fresh replacement that completes
-    // through its echoes.
+    // Typing resumes right after the abandoned burst: the first key commits the stashed replacement.
     gainFocus(engine, entry, *context);
     if (!press(engine, entry, *context, FcitxKey_Escape, false))
         return 1;
-    const std::vector<std::string> afterBounce{"át"};
-    if (context->commits() != afterBounce) {
-        reportFailure("verify commit after the bounce", "commits=['át']", commitList(*context), "the stashed replacement was not committed once focus returned");
+    const std::vector<std::string> afterAbandoned{"át"};
+    if (context->commits() != afterAbandoned) {
+        reportFailure("verify commit after the abandoned burst", "commits=['át']", commitList(*context), "the stashed replacement was not committed once focus returned");
         return 1;
     }
+
+    // A focus bounce keeps the Select burst alive: no Cancel is sent, the remaining Left echoes finish the
+    // selection and the replacement commits exactly once.
     if (!press(engine, entry, *context, FcitxKey_a, false) || !press(engine, entry, *context, FcitxKey_t, false) || !press(engine, entry, *context, FcitxKey_s, true))
         return 1;
-    if (!listener.receive(msg, "the replacement request after the bounce did not arrive"))
+    if (!listener.receive(msg, "the replacement request before the bounce did not arrive"))
         return 1;
-    if (!expectMsg(msg, KbOp::Select, 2, "receive replacement request", "typing must resume with a fresh select request"))
+    if (!expectMsg(msg, KbOp::Select, 2, "receive replacement request", "the replacement before the bounce never started"))
         return 1;
+    loseFocus(engine, entry, *context);
+    if (listener.tryReceive(msg)) {
+        reportFailure("no cancel on a focus bounce", "no request at focus-out time", "op=" + std::to_string(static_cast<int>(msg.op)),
+                      "a bouncing focus must keep the burst running");
+        return 1;
+    }
+    gainFocus(engine, entry, *context);
+    if (listener.tryReceive(msg)) {
+        reportFailure("no request when the focus returns", "no request on refocus", "op=" + std::to_string(static_cast<int>(msg.op)),
+                      "the resumed burst must complete through its own echoes");
+        return 1;
+    }
     if (!press(engine, entry, *context, FcitxKey_Left, false) || !press(engine, entry, *context, FcitxKey_Left, false) || !press(engine, entry, *context, FcitxKey_Pause, true))
         return 1;
-    const std::vector<std::string> afterFresh{"át", "át"};
-    if (context->commits() != afterFresh) {
-        reportFailure("verify commit of the fresh replacement", "commits=['át']['át']", commitList(*context), "the fresh replacement did not commit normally");
+    const std::vector<std::string> afterBounce{"át", "át"};
+    if (context->commits() != afterBounce) {
+        reportFailure("verify commit after the bounce", "commits=['át']['át']", commitList(*context), "the resumed replacement did not commit normally");
         return 1;
     }
 
