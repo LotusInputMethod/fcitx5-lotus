@@ -1,5 +1,5 @@
 Name:           fcitx5-lotus
-Version:        6.0.4
+Version:        6.0.5
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -123,7 +123,7 @@ fi
 %service_del_postun fcitx5-lotus-server@.service
 
 %changelog
-* Sat Oct 31 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.4-1
-- Add detection of the address bar in Chromium-based browsers on X11.
-- Fix bug w2u in surrounding text mode
-- Fix bug cannot restore invalid word on uinput mode
+* Tue Nov 03 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.5-1
+- Resolve focus app via libxcb
+- Preserve Select key across focus bounces
+- Fix bug some gtk app forward double backspace
