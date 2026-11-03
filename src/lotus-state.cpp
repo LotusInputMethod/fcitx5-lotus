@@ -529,13 +529,16 @@ namespace fcitx {
         if (!isBackspace(currentSym) && (!realSelect_ || currentSym != FcitxKey_Left) && !(currentSym == FcitxKey_Pause)) {
             return false;
         }
-        currentBackspaceCount_ += 1;
-        if (currentBackspaceCount_ <= expectedBackspaces_ && currentSym != FcitxKey_Pause) {
+        if (currentSym != FcitxKey_Pause) {
+            if (currentBackspaceCount_ < expectedBackspaces_) {
+                currentBackspaceCount_ += 1;
+            }
             // Re-arm the deadline so a slow burst is never abandoned.
             replacementDeadlineMs_ = nowMs() + replacementEchoGrace_;
             return false; // Allow intermediate backspaces/lefts to reach the app to clear autofill/old text / extend the selection.
         }
         // The anchor closes the burst even if echoes are lost.
+        currentBackspaceCount_ += 1;
         finishReplacement(event);
         return true;
     }
