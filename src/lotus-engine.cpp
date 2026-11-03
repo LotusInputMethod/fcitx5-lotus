@@ -18,6 +18,7 @@
 #include "lotus-monitor.h"
 #include "lotus-notify.h"
 #include "lotus-utils.h"
+#include "lotus-x11.h"
 #include "lotus-plasma-theme.h"
 #include "window_focus_tracker.h"
 
@@ -51,9 +52,10 @@
 #include <sstream>
 
 namespace fcitx {
-    constexpr const char* CharsetActionPrefix = "lotus-charset-";
-    constexpr const char* CustomKeymapFile    = "conf/lotus-custom-keymap.conf";
-    constexpr const char* MacroTableFile      = "conf/lotus-macro-table.conf";
+    constexpr const char* CharsetActionPrefix    = "lotus-charset-";
+    constexpr const char* CustomKeymapFile       = "conf/lotus-custom-keymap.conf";
+    constexpr const char* MacroTableFile         = "conf/lotus-macro-table.conf";
+    constexpr uint64_t    kFocusedProgramFreshMs = 1000;
 
     EmojiLoader&          LotusEngine::emojiLoader() {
         if (!emojiLoader_) {
@@ -408,18 +410,30 @@ namespace fcitx {
         if (ic->capabilityFlags().test(CapabilityFlag::Preedit))
             instance_.inputContextManager().setPreeditEnabledByDefault(true);
 
-        std::string appName = getProgramName(ic);
+        auto*       state   = ic->propertyFor(&factory_);
+        std::string appName = programNameFor(ic);
         LOTUS_INFO("App name: " + appName);
+
+        instance_.inputContextManager().foreach ([this, ic](InputContext* other) {
+            if (other != ic) {
+                if (auto* otherState = other->propertyFor(&factory_)) {
+                    otherState->abortDeferredSelectIfPending();
+                }
+            }
+            return true;
+        });
 
         const LotusMode targetMode = getAppRule(appName);
         LOTUS_INFO("Target mode: " + LotusModeI18NAnnotation::toString(targetMode));
 
         updateCharsetAction(event.inputContext());
 
-        auto* state           = ic->propertyFor(&factory_);
         state->isLibreoffice_ = (appName == "soffice");
         state->isChromium_    = isChromiumProgram(appName);
         state->finishOverdueReplacement();
+        // A burst aborted while the context was away stashed its replacement text: commit it before setMode()
+        // clears the buffers it lives in.
+        state->reconcileAbortedUinputReplacement();
 
         const bool uinputMode         = isUinputMode(targetMode);
         const bool focusBounce        = uinputMode && state->lastDeactivateTime_ > 0 && nowMs() - state->lastDeactivateTime_ < 100;
@@ -429,6 +443,9 @@ namespace fcitx {
         if (!resumeReplacement) {
             state->cancelPendingUinput();
             g_isDeleting.store(false, std::memory_order_release);
+        } else {
+            state->cancelSelectAbort();
+            state->rearmReplacementDeadline();
         }
 
         if (focusBounce) {
@@ -646,9 +663,9 @@ namespace fcitx {
                 state->commitBuffer();
                 state->reset();
             }
-            currentConfigureApp_ = getProgramName(ic);
+            currentConfigureApp_ = programNameFor(ic);
             g_mouseClicked.store(false, std::memory_order_release);
-            std::string appName = getProgramName(ic);
+            std::string appName = programNameFor(ic);
             setMode(getAppRule(appName), ic);
             showAppModeMenu(ic);
             keyEvent.filterAndAccept();
@@ -669,7 +686,7 @@ namespace fcitx {
     bool LotusEngine::handleCycleModeHotkey(InputContext* ic, KeyEvent& keyEvent) {
         if (!keyEvent.isRelease() && !config_.cycleModeKey->empty() && keyEvent.key().checkKeyList(*config_.cycleModeKey)) {
             LOTUS_INFO("Cycle mode key pressed");
-            std::string            appName = getProgramName(ic);
+            std::string            appName = programNameFor(ic);
             const LotusMode        appMode = getAppRule(appName);
 
             std::vector<LotusMode> enabledModes = enabledModesInOrder();
@@ -743,8 +760,7 @@ namespace fcitx {
             state->lastDeactivateTime_    = nowMs();
             state->deletionInterruptedAt_ = state->lastDeactivateTime_;
             if (state->realSelect_) {
-                // Unfocused injected keys are never echoed back: cancel the burst right away.
-                state->abortPendingUinputReplacement();
+                state->deferSelectAbort();
             }
             LOTUS_INFO("Replacement interrupted by focus out");
             return;
@@ -783,7 +799,7 @@ namespace fcitx {
             if (ic->hasFocus()) {
                 // Re-resolve the focused window's rule; setEngine() must not
                 // reset it to the global mode.
-                setMode(getAppRule(getProgramName(ic)), ic);
+                setMode(getAppRule(programNameFor(ic)), ic);
                 state->reset();
             }
             return true;
@@ -1114,7 +1130,7 @@ namespace fcitx {
         setRealMode(mode);
         if (ic != nullptr) {
             if (auto* state = ic->propertyFor(&factory_)) {
-                state->appRuleSetting_ = getAppRuleSetting(getProgramName(ic));
+                state->appRuleSetting_ = getAppRuleSetting(programNameFor(ic));
                 state->clearAllBuffers();
             }
             ic->updateUserInterface(UserInterfaceComponent::StatusArea);
@@ -1161,17 +1177,22 @@ namespace fcitx {
         }
     }
 
-    std::string LotusEngine::getProgramName(InputContext* ic) {
+    std::string LotusEngine::programNameFor(InputContext* ic) {
         if (ic == nullptr) {
             return "unknown-app";
         }
-        std::string programName = ic->program();
-        if (programName.empty() || programName == "wayland" || programName == "x11") {
-            // Fallback: InputContext address-based resolution
-            // This ensures at least per-window separation.
+        std::string programName = resolveProgramName(ic->program(), {});
+        if (programName.empty()) {
+            if (getEnv("WAYLAND_DISPLAY").empty()) {
+                programName = activeWindowProgram();
+            } else if (const auto fresh = windowFocusTracker_->focusedProgramIfFresh(kFocusedProgramFreshMs)) {
+                programName = *fresh;
+            }
+        }
+        if (programName.empty()) {
             std::ostringstream oss;
             oss << "ctx_" << static_cast<const void*>(ic);
-            programName = oss.str();
+            return oss.str();
         }
         return programName;
     }

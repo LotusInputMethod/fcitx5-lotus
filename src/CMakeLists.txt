@@ -19,6 +19,7 @@ target_link_libraries(lotus_core_objects PRIVATE
     Lotus::Engine
     PkgConfig::LIBNOTIFY
     PkgConfig::DBUS
+    PkgConfig::XCB
     Pthread::Pthread
 )
 
@@ -61,6 +62,7 @@ target_link_libraries(lotus
         Lotus::Engine
         PkgConfig::LIBNOTIFY
         PkgConfig::DBUS
+        PkgConfig::XCB
         Pthread::Pthread
 )
 

@@ -12,6 +12,7 @@
   libevdev,
   libinput,
   libnotify,
+  libxcb,
   nix-update-script,
   pkg-config,
   python3,
@@ -60,6 +61,7 @@ stdenv.mkDerivation (finalAttrs: {
     libevdev
     libinput
     libnotify
+    libxcb
     pythonEnv
     qt6.qtbase
     qt6.qtsvg

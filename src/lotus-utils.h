@@ -126,6 +126,28 @@ bool isUinputMode(fcitx::LotusMode mode);
 bool isChromiumProgram(std::string_view program);
 
 /**
+ * @brief Reads the process name from /proc/<pid>/comm.
+ * @param pid Process id.
+ * @return Process name, empty when it cannot be read.
+ */
+std::string LOTUS_EXPORT programForPid(int pid);
+
+/**
+ * @brief Resolves the program name behind an AT-SPI bus name through its process id.
+ * @param busName Bus name of the accessibility client.
+ * @return Program name, empty when the bus or the process is unknown.
+ */
+std::string LOTUS_EXPORT programNameForBusName(std::string_view busName);
+
+/**
+ * @brief Chooses the application name used as the app-rule key.
+ * @param icProgram Name reported by the input context.
+ * @param focusedProgram Name behind the focused accessibility window, empty when unknown.
+ * @return icProgram when it is a real name, otherwise focusedProgram; empty when neither is usable.
+ */
+std::string LOTUS_EXPORT resolveProgramName(std::string_view icProgram, std::string_view focusedProgram);
+
+/**
  * @brief Compares two texts and computes diff.
  * @param A First text.
  * @param B Second text.
