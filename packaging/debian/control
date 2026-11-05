@@ -3,6 +3,7 @@ Section: utils
 Priority: optional
 Maintainer: Nguyen Hoang Ky <nhktmdzhg@gmail.com>
 Build-Depends: debhelper-compat (= 13),
+               dbus-daemon,
                dh-python,
                dh-sequence-python3,
                cmake,
