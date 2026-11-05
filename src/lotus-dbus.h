@@ -103,7 +103,7 @@ DbusMessagePtr dbusCallMethod(DBusConnection* connection, const char* destinatio
 std::string dbusAtspiBusAddress();
 
 /**
- * @brief Opens and registers a connection to the AT-SPI bus, falling back to a private session connection.
+ * @brief Opens a private AT-SPI bus connection, falling back to a private session connection.
  * @return Connection holding the bus, or null when neither answers.
  */
 DbusConnectionPtr dbusConnectAtspiBus();

@@ -115,6 +115,17 @@ namespace fcitx {
         LOTUS_INFO("Cancel the burst still pending on the uinput server");
     }
 
+    void LotusState::discardForAppChange() {
+        cancelPendingUinput();
+        g_isDeleting.store(false, std::memory_order_release);
+        deferredCommitTimer_.reset();
+        deferredCommitPending_ = false;
+        deferredCommitText_.clear();
+        commitBatch_.clear();
+        deferredFocusOut_ = false;
+        clearAllBuffers();
+    }
+
     void LotusState::abortPendingUinputReplacement() {
         selectAbortDeferred_ = false;
         if (!g_isDeleting.load(std::memory_order_acquire)) {
