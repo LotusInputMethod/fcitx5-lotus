@@ -1,6 +1,11 @@
 #!/usr/bin/make -f
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
+# The private-bus regression needs dbus-run-session only when checks are enabled.
+ifneq (,$(filter nocheck,$(DEB_BUILD_PROFILES)))
+export DEB_BUILD_OPTIONS += nocheck
+endif
+
 %:
 	dh $@ --buildsystem=cmake
 
@@ -11,4 +16,4 @@ override_dh_dwz:
 	@echo "Skipping dh_dwz (incompatible with mixed debug sections)"
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DLOTUS_BYTECOMPILE_PYTHON=OFF -DBUILD_TESTING=ON
+	dh_auto_configure -- -DLOTUS_BYTECOMPILE_PYTHON=OFF -DBUILD_TESTING=$(if $(filter nocheck,$(DEB_BUILD_OPTIONS)),OFF,ON)

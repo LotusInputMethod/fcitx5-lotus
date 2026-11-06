@@ -52,10 +52,9 @@
 #include <sstream>
 
 namespace fcitx {
-    constexpr const char* CharsetActionPrefix    = "lotus-charset-";
-    constexpr const char* CustomKeymapFile       = "conf/lotus-custom-keymap.conf";
-    constexpr const char* MacroTableFile         = "conf/lotus-macro-table.conf";
-    constexpr uint64_t    kFocusedProgramFreshMs = 1000;
+    constexpr const char* CharsetActionPrefix = "lotus-charset-";
+    constexpr const char* CustomKeymapFile    = "conf/lotus-custom-keymap.conf";
+    constexpr const char* MacroTableFile      = "conf/lotus-macro-table.conf";
 
     EmojiLoader&          LotusEngine::emojiLoader() {
         if (!emojiLoader_) {
@@ -164,8 +163,7 @@ namespace fcitx {
 
     LotusEngine::LotusEngine(Instance* instance) :
         instance_(*instance), kbSender_(buildSocketPath("kbSocket")), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
-        windowFocusTracker_ = std::make_unique<WindowFocusTracker>();
-        windowFocusTracker_->start();
+        windowFocusTracker_ = std::make_unique<WindowFocusTracker>([this] { appRuleDispatcher_.schedule([this] { refreshFocusedAppRule(); }); });
         std::string desktop = getEnv("XDG_CURRENT_DESKTOP");
         isGnome_            = (!desktop.empty()) && desktop.find("GNOME") != std::string::npos;
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
@@ -230,6 +228,8 @@ namespace fcitx {
             charsetAction_.get(),          spellCheckAction_.get(),       macroAction_.get(),    capitalizeMacroAction_.get(),
             autoNonVnRestoreAction_.get(), enableDictionaryAction_.get(), settingsAction_.get(),
         };
+        appRuleDispatcher_.attach(&instance_.eventLoop());
+        windowFocusTracker_->start();
     }
 
     void LotusEngine::initToggleAction(std::unique_ptr<SimpleAction>& action, Option<bool>& option, const std::string& actionId, const std::string& iconName,
@@ -257,6 +257,8 @@ namespace fcitx {
     }
 
     LotusEngine::~LotusEngine() {
+        windowFocusTracker_->stop();
+        appRuleDispatcher_.detach();
         g_stopFlagMonitor.store(true, std::memory_order_release);
         mouseEventSource_.reset();
         FdGuard fd(g_mouseSocketFd.exchange(-1, std::memory_order_acq_rel));
@@ -412,6 +414,8 @@ namespace fcitx {
 
         auto*       state   = ic->propertyFor(&factory_);
         std::string appName = programNameFor(ic);
+        activeContext_      = ic->watch();
+        activeProgram_      = appName;
         LOTUS_INFO("App name: " + appName);
 
         instance_.inputContextManager().foreach ([this, ic](InputContext* other) {
@@ -752,7 +756,11 @@ namespace fcitx {
     }
 
     void LotusEngine::deactivate(const InputMethodEntry& /*entry*/, InputContextEvent& event) {
-        auto*      ic         = event.inputContext();
+        auto* ic = event.inputContext();
+        if (activeContext_.get() == ic) {
+            activeContext_ = {};
+            activeProgram_.clear();
+        }
         auto*      state      = ic->propertyFor(&factory_);
         const bool uinputMode = isUinputMode(currentMode());
 
@@ -1185,8 +1193,8 @@ namespace fcitx {
         if (programName.empty()) {
             if (getEnv("WAYLAND_DISPLAY").empty()) {
                 programName = activeWindowProgram();
-            } else if (const auto fresh = windowFocusTracker_->focusedProgramIfFresh(kFocusedProgramFreshMs)) {
-                programName = *fresh;
+            } else if (const auto focused = windowFocusTracker_->focusedProgram()) {
+                programName = *focused;
             }
         }
         if (programName.empty()) {
@@ -1195,6 +1203,28 @@ namespace fcitx {
             return oss.str();
         }
         return programName;
+    }
+
+    void LotusEngine::refreshFocusedAppRule() {
+        auto* ic = activeContext_.get();
+        if (ic == nullptr || !ic->hasFocus() || isSelectingAppMode_ || !resolveProgramName(ic->program(), {}).empty()) {
+            return;
+        }
+        const auto program = programNameFor(ic);
+        if (program == activeProgram_) {
+            return;
+        }
+        activeProgram_ = program;
+        auto* state    = ic->propertyFor(&factory_);
+        // A shared GNOME input context may now belong to a different app: never commit its old
+        // composition into the newly focused field.
+        state->discardForAppChange();
+        state->isLibreoffice_ = program == "soffice";
+        state->isChromium_    = isChromiumProgram(program);
+        ic->inputPanel().reset();
+        setMode(getAppRule(program), ic);
+        ic->updatePreedit();
+        ic->updateUserInterface(UserInterfaceComponent::InputPanel);
     }
 
     void LotusEngine::clearAppRule(const std::string& appName) {

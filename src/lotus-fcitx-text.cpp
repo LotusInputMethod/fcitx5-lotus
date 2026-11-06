@@ -3,10 +3,7 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-/**
- * @file lotus-fcitx-text.cpp
- * @brief Implementation of the addon UTF-32 to UTF-8 boundary.
- */
+
 #include "lotus-fcitx-text.h"
 
 #include "lotus-log.h"

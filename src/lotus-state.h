@@ -206,6 +206,11 @@ namespace fcitx {
         void cancelPendingUinput();
 
         /**
+         * @brief Discards replacement and commit state when a shared context changes applications.
+         */
+        void discardForAppChange();
+
+        /**
          * @brief Cancels the in-flight burst and stashes the replacement text for the refocus commit.
          */
         void abortPendingUinputReplacement();

@@ -1,3 +1,5 @@
+%bcond_without tests
+
 Name:           fcitx5-lotus
 Version:        6.0.5
 Release:        1
@@ -20,6 +22,11 @@ BuildRequires:  pkgconfig(libudev)
 
 BuildRequires:  python3-devel
 
+%if %{with tests}
+# Provides dbus-run-session for the private-bus regression in %check.
+BuildRequires:  dbus-daemon
+%endif
+
 %{?systemd_ordering}
 Requires:       fcitx5
 Requires:       python3-QtPy
@@ -34,7 +41,7 @@ Vietnamese input method for fcitx5
 %setup -q
 
 %build
-%cmake -DLOTUS_BYTECOMPILE_PYTHON:BOOL=OFF -DBUILD_TESTING:BOOL=ON
+%cmake -DLOTUS_BYTECOMPILE_PYTHON:BOOL=OFF -DBUILD_TESTING:BOOL=%{with tests}
 %cmake_build
 
 %install
@@ -43,7 +50,9 @@ Vietnamese input method for fcitx5
 %py_byte_compile %{__python3} %{buildroot}%{_datadir}/fcitx5-lotus
 
 %check
+%if %{with tests}
 %ctest
+%endif
 
 %files -f %{name}.lang
 %{_datadir}/licenses/%{name}/LICENSE

@@ -5,18 +5,21 @@
  */
 /**
  * @file window_focus_tracker.h
- * @brief Tracks the AT-SPI focus of Chromium based browsers to recognise their address bar.
+ * @brief Tracks the active accessibility application and Chromium address-bar focus.
  */
 
 #ifndef _SRC_WINDOW_FOCUS_TRACKER_H_
 #define _SRC_WINDOW_FOCUS_TRACKER_H_
 
 #include "lotus-dbus.h"
+#include "common-export.h"
 
 #include <atomic>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 
 namespace fcitx {
@@ -24,9 +27,13 @@ namespace fcitx {
     /**
      * @brief Watches AT-SPI focus events and reports the focused application.
      */
-    class WindowFocusTracker {
+    class LOTUS_EXPORT WindowFocusTracker {
       public:
-        WindowFocusTracker() = default;
+        /**
+         * @brief Constructs the tracker.
+         * @param focusChanged Called on the tracker thread when the focused program changes.
+         */
+        explicit WindowFocusTracker(std::function<void()> focusChanged = {});
 
         /**
          * @brief Stops the tracker thread.
@@ -57,11 +64,10 @@ namespace fcitx {
         }
 
         /**
-         * @brief Reports the program behind the focused accessibility window when that focus is recent.
-         * @param maxAgeMs Maximum age of the last AT-SPI focus event.
-         * @return Program name, or nullopt when no accessible window holds the focus or the event is too old.
+         * @brief Reports the active window's program, falling back to text-field focus when no window is known.
+         * @return Program name, or nullopt when no accessible application holds the focus.
          */
-        [[nodiscard]] std::optional<std::string> focusedProgramIfFresh(uint64_t maxAgeMs) const;
+        [[nodiscard]] std::optional<std::string> focusedProgram() const;
 
       private:
         /**
@@ -110,16 +116,29 @@ namespace fcitx {
         static std::optional<bool> focusedState(const DbusMessagePtr& message);
 
         /**
+         * @brief Classifies window activation, deactivation and destruction events.
+         * @param message Signal to inspect.
+         * @return True for activation, false for deactivation/destruction, nullopt for other events.
+         */
+        static std::optional<bool> windowState(const DbusMessagePtr& message);
+
+        /**
+         * @brief Publishes a program change and notifies the consumer outside the state lock.
+         * @param program Focused program, empty when focus is lost.
+         */
+        void updateFocusedProgram(std::string_view program);
+
+        /**
          * @brief Body of the tracker thread: connects to the AT-SPI bus and follows focus events.
          */
-        void               threadFunc();
+        void                  threadFunc();
 
-        std::thread        thread_;                  ///< Thread following the accessibility focus
-        std::atomic<bool>  stopRequested_{false};    ///< Set by stop() to end the thread
-        std::atomic<bool>  browserUIFocused_{false}; ///< True while a Chromium Omnibox holds the focus
-        mutable std::mutex programMutex_;            ///< Guards focusedProgram_ and lastFocusEventMs_
-        std::string        focusedProgram_;          ///< Program behind the focused accessibility window
-        int64_t            lastFocusEventMs_ = 0;    ///< Monotonic ms of the last AT-SPI focus event, 0 when unknown
+        std::thread           thread_;                  ///< Thread following the accessibility focus
+        std::atomic<bool>     stopRequested_{false};    ///< Set by stop() to end the thread
+        std::atomic<bool>     browserUIFocused_{false}; ///< True while a Chromium Omnibox holds the focus
+        std::function<void()> focusChanged_;            ///< Notification delivered on the tracker thread
+        mutable std::mutex    programMutex_;            ///< Guards focusedProgram_
+        std::string           focusedProgram_;          ///< Program behind the focused accessibility window
     };
 
 } // namespace fcitx
