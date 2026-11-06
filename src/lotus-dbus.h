@@ -16,10 +16,12 @@
 
 #include <dbus/dbus.h>
 
+#include "common-export.h"
+
 /**
  * @brief RAII guard for a DBusError: initialised on construction, freed when the guard dies.
  */
-class DbusErrorGuard final {
+class LOTUS_EXPORT DbusErrorGuard final {
   public:
     DbusErrorGuard();
     ~DbusErrorGuard();
@@ -53,7 +55,7 @@ class DbusErrorGuard final {
 /**
  * @brief Releases a libdbus connection; a private connection is closed before the unref.
  */
-struct DbusConnectionDeleter {
+struct LOTUS_EXPORT DbusConnectionDeleter {
     bool isPrivate = false; ///< True for connections opened with dbus_bus_get_private
 
     /**
@@ -66,7 +68,7 @@ struct DbusConnectionDeleter {
 /**
  * @brief Releases a libdbus message.
  */
-struct DbusMessageDeleter {
+struct LOTUS_EXPORT DbusMessageDeleter {
     /**
      * @brief Unrefs the message.
      * @param message Message to release, may be null.
@@ -80,7 +82,7 @@ using DbusMessagePtr    = std::unique_ptr<DBusMessage, DbusMessageDeleter>;     
 /**
  * @brief Initialises libdbus threading once, required because fcitx also uses dbus.
  */
-void dbusEnsureThreadsInitialised();
+LOTUS_EXPORT void dbusEnsureThreadsInitialised();
 
 /**
  * @brief Calls a D-Bus method and waits for its reply.

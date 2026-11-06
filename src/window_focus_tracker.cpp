@@ -12,11 +12,6 @@
 #include <cstring>
 #include <utility>
 
-/**
- * @file window_focus_tracker.cpp
- * @brief Tracks accessibility focus for per-application rules and Chromium address bars.
- */
-
 namespace fcitx {
     namespace {
         constexpr int                       kMaxAccessibleNodes = 256;  ///< Children walked while priming the tree
@@ -187,11 +182,10 @@ namespace fcitx {
     void WindowFocusTracker::stop() {
         stopRequested_.store(true, std::memory_order_release);
         browserUIFocused_.store(false, std::memory_order_relaxed);
+        updateFocusedProgram({});
         if (thread_.joinable()) {
             thread_.join();
         }
-        browserUIFocused_.store(false, std::memory_order_relaxed);
-        updateFocusedProgram({});
     }
 
     void WindowFocusTracker::threadFunc() {

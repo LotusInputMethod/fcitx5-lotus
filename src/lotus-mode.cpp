@@ -5,10 +5,6 @@
  *
  */
 
-/**
- * @file lotus-mode.cpp
- * @brief Integer mapping of the typing modes, kept stable for stored configurations.
- */
 
 #include "lotus-mode.h"
 

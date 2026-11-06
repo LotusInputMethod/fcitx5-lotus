@@ -133,13 +133,6 @@ bool isChromiumProgram(std::string_view program);
 std::string LOTUS_EXPORT programForPid(int pid);
 
 /**
- * @brief Resolves the program name behind an AT-SPI bus name through its process id.
- * @param busName Bus name of the accessibility client.
- * @return Program name, empty when the bus or the process is unknown.
- */
-std::string LOTUS_EXPORT programNameForBusName(std::string_view busName);
-
-/**
  * @brief Chooses the application name used as the app-rule key.
  * @param icProgram Name reported by the input context.
  * @param focusedProgram Name behind the focused accessibility window, empty when unknown.

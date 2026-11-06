@@ -123,6 +123,8 @@ namespace fcitx {
         deferredCommitText_.clear();
         commitBatch_.clear();
         deferredFocusOut_ = false;
+        realSelect_       = false;
+        lastSelect_       = false;
         clearAllBuffers();
     }
 
