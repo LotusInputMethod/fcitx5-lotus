@@ -129,8 +129,9 @@ int main(int argc, char* argv[]) {
     const std::span<char*> arguments(argv, static_cast<size_t>(argc));
     if (argc == 1) {
         // Re-exec before constructing Fcitx/libdbus objects, isolating all bus traffic from
-        // the user's session. dbus-run-session also tears down its daemon on every exit path.
-        execlp("dbus-run-session", "dbus-run-session", "--", arguments.front(), "--private-bus", nullptr);
+        // the user's session. Use our own configuration so sandboxes need no host session
+        // configuration or services. dbus-run-session tears down its daemon on every exit path.
+        execlp("dbus-run-session", "dbus-run-session", "--config-file", LOTUS_TEST_DBUS_CONFIG, "--", arguments.front(), "--private-bus", nullptr);
         std::perror("dbus-run-session");
         return 1;
     }
