@@ -5,7 +5,6 @@
  *
  */
 
-
 #include "lotus-mode.h"
 
 namespace fcitx {
