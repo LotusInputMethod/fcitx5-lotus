@@ -27,6 +27,7 @@
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/instance.h>
 #include <fcitx-utils/event.h>
+#include <fcitx-utils/eventdispatcher.h>
 #include <fcitx-utils/keysym.h>
 #include "common-export.h"
 #include "lotus-kb-sender.h"
@@ -254,12 +255,15 @@ namespace fcitx {
         std::unique_ptr<EventSourceTime>                     cycleModeNotificationTimer_;
         static constexpr uint64_t                            kCycleModeNotificationTimeoutUsec = 800000; // 800ms in microseconds
         FCITX_ADDON_DEPENDENCY_LOADER(emoji, instance_.addonManager());
-        std::unique_ptr<EmojiLoader>          emojiLoader_;
-        std::unique_ptr<WindowFocusTracker>   windowFocusTracker_;
-        bool                                  isGnome_ = false;
-        mutable std::mutex                    appRulesMutex_;
-        std::unordered_map<KeySym, LotusMode> modeMenuMapping_;
-        std::unique_ptr<EventSourceIO>        mouseEventSource_;
+        std::unique_ptr<EmojiLoader>           emojiLoader_;
+        std::unique_ptr<WindowFocusTracker>    windowFocusTracker_;
+        EventDispatcher                        appRuleDispatcher_;
+        TrackableObjectReference<InputContext> activeContext_;
+        std::string                            activeProgram_;
+        bool                                   isGnome_ = false;
+        mutable std::mutex                     appRulesMutex_;
+        std::unordered_map<KeySym, LotusMode>  modeMenuMapping_;
+        std::unique_ptr<EventSourceIO>         mouseEventSource_;
 
         /**
          * @brief (Re)loads the custom dictionary from disk into the Go engine handle.
@@ -413,6 +417,11 @@ namespace fcitx {
          * @return Application name, or a stable "ctx_<address>" key when nothing usable is known.
          */
         std::string programNameFor(InputContext* ic);
+
+        /**
+         * @brief Reapplies a shared input context's rule when accessibility identifies its application.
+         */
+        void refreshFocusedAppRule();
 
         /**
          * @brief Detects if the system is in dark mode.

@@ -10,6 +10,7 @@
 
 #include <chrono>
 #include <cstring>
+#include <utility>
 
 namespace fcitx {
     namespace {
@@ -23,6 +24,8 @@ namespace fcitx {
         constexpr int                       kChromiumPokeAttempts = 3;  ///< Fast pokes after focusing a Chromium window
         constexpr std::chrono::milliseconds kChromiumPokeDelay{200};    ///< Spacing of the fast pokes
     } // namespace
+
+    WindowFocusTracker::WindowFocusTracker(std::function<void()> focusChanged) : focusChanged_(std::move(focusChanged)) {}
 
     std::string WindowFocusTracker::queryFocusClass(const DbusConnectionPtr& bus, const char* sender, const char* path) {
         DbusMessagePtr reply = dbusCallMethod(bus.get(), sender, path, "org.a11y.atspi.Accessible", "GetAttributes", {}, kPokeTimeoutMs);
@@ -94,8 +97,22 @@ namespace fcitx {
     }
 
     bool WindowFocusTracker::registerFocusEvents(const DbusConnectionPtr& bus) {
-        return registerEvent(bus, "object:state-changed:focused") && registerEvent(bus, "focus:") &&
-            addMatch(bus, "type='signal',interface='org.a11y.atspi.Event.Object',member='StateChanged'") && addMatch(bus, "type='signal',interface='org.a11y.atspi.Event.Focus'");
+        return registerEvent(bus, "object:state-changed:focused") && registerEvent(bus, "focus:") && registerEvent(bus, "window:activate") &&
+            registerEvent(bus, "window:deactivate") && registerEvent(bus, "window:destroy") &&
+            addMatch(bus, "type='signal',interface='org.a11y.atspi.Event.Object',member='StateChanged'") && addMatch(bus, "type='signal',interface='org.a11y.atspi.Event.Focus'") &&
+            addMatch(bus, "type='signal',interface='org.a11y.atspi.Event.Window'") &&
+            addMatch(bus, "type='signal',sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',member='NameOwnerChanged'");
+    }
+
+    std::optional<bool> WindowFocusTracker::windowState(const DbusMessagePtr& message) {
+        if (dbus_message_is_signal(message.get(), "org.a11y.atspi.Event.Window", "Activate") != FALSE) {
+            return true;
+        }
+        if (dbus_message_is_signal(message.get(), "org.a11y.atspi.Event.Window", "Deactivate") != FALSE ||
+            dbus_message_is_signal(message.get(), "org.a11y.atspi.Event.Window", "Destroy") != FALSE) {
+            return false;
+        }
+        return std::nullopt;
     }
 
     std::optional<bool> WindowFocusTracker::focusedState(const DbusMessagePtr& message) {
@@ -129,12 +146,25 @@ namespace fcitx {
         return focusState == 1;
     }
 
-    std::optional<std::string> WindowFocusTracker::focusedProgramIfFresh(uint64_t maxAgeMs) const {
+    std::optional<std::string> WindowFocusTracker::focusedProgram() const {
         std::scoped_lock lock(programMutex_);
-        if (focusedProgram_.empty() || lastFocusEventMs_ == 0 || nowMs() - lastFocusEventMs_ > static_cast<int64_t>(maxAgeMs)) {
+        if (focusedProgram_.empty()) {
             return std::nullopt;
         }
         return focusedProgram_;
+    }
+
+    void WindowFocusTracker::updateFocusedProgram(std::string_view program) {
+        {
+            std::scoped_lock lock(programMutex_);
+            if (focusedProgram_ == program) {
+                return;
+            }
+            focusedProgram_ = program;
+        }
+        if (focusChanged_) {
+            focusChanged_();
+        }
     }
 
     WindowFocusTracker::~WindowFocusTracker() {
@@ -152,11 +182,7 @@ namespace fcitx {
     void WindowFocusTracker::stop() {
         stopRequested_.store(true, std::memory_order_release);
         browserUIFocused_.store(false, std::memory_order_relaxed);
-        {
-            std::scoped_lock lock(programMutex_);
-            focusedProgram_.clear();
-            lastFocusEventMs_ = 0;
-        }
+        updateFocusedProgram({});
         if (thread_.joinable()) {
             thread_.join();
         }
@@ -168,11 +194,7 @@ namespace fcitx {
             DbusConnectionPtr bus = dbusConnectAtspiBus();
             if (!bus || !registerFocusEvents(bus)) {
                 browserUIFocused_.store(false, std::memory_order_relaxed);
-                {
-                    std::scoped_lock lock(programMutex_);
-                    focusedProgram_.clear();
-                    lastFocusEventMs_ = 0;
-                }
+                updateFocusedProgram({});
                 for (int retry = 0; retry < kReconnectAttempts && !stopRequested_.load(std::memory_order_acquire); ++retry) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(kReconnectDelayMs));
                 }
@@ -180,35 +202,82 @@ namespace fcitx {
             }
             std::string focusBus;
             std::string focusPath;
-            int         chromiumPokesLeft = 0;
+            std::string windowBus;
+            std::string windowPath;
+            std::string windowProgram;
+            auto        clearNodeFocus = [&] {
+                browserUIFocused_.store(false, std::memory_order_relaxed);
+                focusBus.clear();
+                focusPath.clear();
+            };
+            auto clearWindowFocus = [&] {
+                windowBus.clear();
+                windowPath.clear();
+                windowProgram.clear();
+                clearNodeFocus();
+                updateFocusedProgram({});
+            };
+            int chromiumPokesLeft = 0;
             pokeAccessibleApps(bus);
             auto nextAccessibilityPoke = std::chrono::steady_clock::now() + kPokeInterval;
             while (!stopRequested_.load(std::memory_order_acquire) && dbus_connection_read_write(bus.get(), kReadWriteTimeoutMs) != FALSE) {
                 while (DbusMessagePtr message{dbus_connection_pop_message(bus.get())}) {
+                    if (dbus_message_is_signal(message.get(), "org.freedesktop.DBus", "NameOwnerChanged") != FALSE) {
+                        const char*    name     = nullptr;
+                        const char*    oldOwner = nullptr;
+                        const char*    newOwner = nullptr;
+                        DbusErrorGuard error;
+                        if (dbus_message_get_args(message.get(), error.get(), DBUS_TYPE_STRING, &name, DBUS_TYPE_STRING, &oldOwner, DBUS_TYPE_STRING, &newOwner,
+                                                  DBUS_TYPE_INVALID) != FALSE &&
+                            name != nullptr && newOwner != nullptr && *newOwner == '\0') {
+                            if (name == windowBus) {
+                                clearWindowFocus();
+                            } else if (name == focusBus) {
+                                clearNodeFocus();
+                                updateFocusedProgram(windowProgram);
+                            }
+                        }
+                    }
+                    if (const auto active = windowState(message)) {
+                        const char* sender = dbus_message_get_sender(message.get());
+                        const char* path   = dbus_message_get_path(message.get());
+                        if (sender != nullptr && path != nullptr) {
+                            if (*active) {
+                                // Editors such as Sublime expose a window but no focused text node.
+                                // Window activation is authoritative over any cached background field.
+                                windowBus     = sender;
+                                windowPath    = path;
+                                windowProgram = programForPid(dbusConnectionPid(bus.get(), sender));
+                                clearNodeFocus();
+                                updateFocusedProgram(windowProgram);
+                            } else if (windowBus == sender && windowPath == path) {
+                                clearWindowFocus();
+                            }
+                        }
+                        continue;
+                    }
                     if (const std::optional<bool> focused = focusedState(message)) {
                         const char* sender = dbus_message_get_sender(message.get());
                         const char* path   = dbus_message_get_path(message.get());
                         if (!*focused) {
                             if (sender != nullptr && focusBus == sender && (path == nullptr || focusPath == path)) {
-                                browserUIFocused_.store(false, std::memory_order_relaxed);
-                                std::scoped_lock lock(programMutex_);
-                                focusedProgram_.clear();
-                                lastFocusEventMs_ = nowMs();
-                                focusBus.clear();
-                                focusPath.clear();
+                                clearNodeFocus();
+                                updateFocusedProgram(windowProgram);
                             }
                         } else if (sender != nullptr && path != nullptr) {
-                            focusBus                    = sender;
-                            focusPath                   = path;
-                            const std::string program   = programNameForBusName(sender);
+                            if (!windowBus.empty() && windowBus != sender) {
+                                // A background browser can change its internal focus without gaining the window.
+                                continue;
+                            }
+                            focusBus                  = sender;
+                            focusPath                 = path;
+                            const std::string program = programForPid(dbusConnectionPid(bus.get(), sender));
+                            // Focus remains valid until a matching blur or disconnect, not merely until the
+                            // next second. Publish before querying optional Chromium attributes, which may block.
+                            updateFocusedProgram(program);
                             const bool        chromium  = isChromiumProgram(program);
                             const std::string className = chromium ? queryFocusClass(bus, sender, path) : std::string{};
                             browserUIFocused_.store(className.find("Omnibox") != std::string::npos, std::memory_order_relaxed);
-                            {
-                                std::scoped_lock lock(programMutex_);
-                                focusedProgram_   = program;
-                                lastFocusEventMs_ = nowMs();
-                            }
                             if (chromium && !browserUIFocused_.load(std::memory_order_relaxed)) {
                                 pokeAccessibleApps(bus);
                                 chromiumPokesLeft     = kChromiumPokeAttempts;
@@ -228,11 +297,7 @@ namespace fcitx {
                 }
             }
             browserUIFocused_.store(false, std::memory_order_relaxed);
-            {
-                std::scoped_lock lock(programMutex_);
-                focusedProgram_.clear();
-                lastFocusEventMs_ = 0;
-            }
+            updateFocusedProgram({});
             for (int retry = 0; retry < kRedialAttempts && !stopRequested_.load(std::memory_order_acquire); ++retry) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(kReconnectDelayMs));
             }

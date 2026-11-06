@@ -72,7 +72,8 @@ jobs:
       - name: Install dependencies (musl)
         if: matrix.install == 'alpine'
         run: |
-          apk add --no-cache build-base cmake ninja extra-cmake-modules libuv-dev git libinput-dev libevdev-dev libnotify-dev dbus-dev python3 zlib-dev gettext-dev util-linux-dev tar clang linux-headers libxcb-dev
+          # dbus supplies dbus-run-session for the private-bus regression; dbus-dev supplies headers.
+          apk add --no-cache build-base cmake ninja extra-cmake-modules libuv-dev git libinput-dev libevdev-dev libnotify-dev dbus dbus-dev python3 zlib-dev gettext-dev util-linux-dev tar clang linux-headers libxcb-dev
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5-lotus"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5"

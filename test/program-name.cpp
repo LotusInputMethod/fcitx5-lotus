@@ -47,6 +47,7 @@ int main() {
     check("real name wins over the focused program", resolveProgramName("chrome", "code") == "chrome");
     check("wayland falls back to the focused program", resolveProgramName("wayland", "code") == "code");
     check("x11 falls back to the focused program", resolveProgramName("x11", "code") == "code");
+    check("shared GNOME context falls back to the focused application", resolveProgramName("gnome-shell", "ghostty") == "ghostty");
     check("empty name falls back to the focused program", resolveProgramName("", "code") == "code");
     check("both unknown", resolveProgramName("wayland", "").empty());
 

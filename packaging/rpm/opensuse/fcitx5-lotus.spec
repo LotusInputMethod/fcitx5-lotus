@@ -1,5 +1,5 @@
 Name:           fcitx5-lotus
-Version:        6.0.5
+Version:        6.0.6
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -123,7 +123,5 @@ fi
 %service_del_postun fcitx5-lotus-server@.service
 
 %changelog
-* Tue Nov 03 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.5-1
-- Resolve focus app via libxcb
-- Preserve Select key across focus bounces
-- Fix bug some gtk app forward double backspace
+* Fri Nov 06 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.6-1
+- Preserve per-application modes on GNOME Wayland

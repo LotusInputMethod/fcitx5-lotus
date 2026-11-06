@@ -1,5 +1,7 @@
+%bcond_without tests
+
 Name:           fcitx5-lotus
-Version:        6.0.5
+Version:        6.0.6
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -20,6 +22,11 @@ BuildRequires:  pkgconfig(libudev)
 
 BuildRequires:  python3-devel
 
+%if %{with tests}
+# Provides dbus-run-session for the private-bus regression in %check.
+BuildRequires:  dbus-daemon
+%endif
+
 %{?systemd_ordering}
 Requires:       fcitx5
 Requires:       python3-QtPy
@@ -34,7 +41,7 @@ Vietnamese input method for fcitx5
 %setup -q
 
 %build
-%cmake -DLOTUS_BYTECOMPILE_PYTHON:BOOL=OFF -DBUILD_TESTING:BOOL=ON
+%cmake -DLOTUS_BYTECOMPILE_PYTHON:BOOL=OFF -DBUILD_TESTING:BOOL=%{with tests}
 %cmake_build
 
 %install
@@ -43,7 +50,9 @@ Vietnamese input method for fcitx5
 %py_byte_compile %{__python3} %{buildroot}%{_datadir}/fcitx5-lotus
 
 %check
+%if %{with tests}
 %ctest
+%endif
 
 %files -f %{name}.lang
 %{_datadir}/licenses/%{name}/LICENSE
@@ -116,7 +125,5 @@ fi
 %systemd_postun_with_restart fcitx5-lotus-server@.service
 
 %changelog
-* Tue Nov 03 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.5-1
-- Resolve focus app via libxcb
-- Preserve Select key across focus bounces
-- Fix bug some gtk app forward double backspace
+* Fri Nov 06 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.6-1
+- Preserve per-application modes on GNOME Wayland

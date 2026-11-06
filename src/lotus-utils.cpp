@@ -7,7 +7,6 @@
  */
 #include "lotus-utils.h"
 #include "common-socket-name.h"
-#include "lotus-dbus.h"
 #include "lotus-log.h"
 
 #include <cstddef>
@@ -25,7 +24,6 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include <mutex>
 
 std::atomic<fcitx::LotusMode> g_realMode{fcitx::LotusMode::Smooth};
 std::atomic<bool>             g_mouseClicked{false};
@@ -142,28 +140,6 @@ std::string programForPid(int pid) {
     }
     name.at(std::strcspn(name.data(), "\r\n")) = '\0';
     return name.data();
-}
-
-std::string programNameForBusName(std::string_view busName) {
-    if (busName.empty()) {
-        return {};
-    }
-    static std::mutex        connectionMutex;
-    static DbusConnectionPtr connection;
-    int                      pid = -1;
-    {
-        std::scoped_lock lock(connectionMutex);
-        if (!connection) {
-            dbusEnsureThreadsInitialised();
-            connection = dbusConnectAtspiBus();
-        }
-        if (!connection) {
-            return {};
-        }
-        const std::string name{busName};
-        pid = dbusConnectionPid(connection.get(), name.c_str());
-    }
-    return programForPid(pid);
 }
 
 std::string resolveProgramName(std::string_view icProgram, std::string_view focusedProgram) {

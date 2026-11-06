@@ -1,7 +1,5 @@
-fcitx5-lotus (6.0.5-1) unstable; urgency=medium
+fcitx5-lotus (6.0.6-1) unstable; urgency=medium
 
-  * Resolve focus app via libxcb
-  * Preserve Select key across focus bounces
-  * Fix bug some gtk app forward double backspace
+  * Preserve per-application modes on GNOME Wayland
 
- -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Tue, 03 Nov 2026 23:25:00 +0700
+ -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Fri, 06 Nov 2026 23:32:00 +0700

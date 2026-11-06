@@ -53,6 +53,9 @@ stdenv.mkDerivation (finalAttrs: {
     qt6.wrapQtAppsHook
   ];
 
+  # Provides dbus-run-session for the private-bus regression when checks run.
+  nativeCheckInputs = [ dbus ];
+
   buildInputs = [
     acl
     dbus
