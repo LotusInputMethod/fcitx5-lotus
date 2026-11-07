@@ -4,6 +4,7 @@ add_library(lotus_core_objects OBJECT ${fcitx_lotus_core_sources})
 set_target_properties(lotus_core_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(lotus_core_objects PRIVATE
     ${PROJECT_BINARY_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}/common
 )
@@ -20,7 +21,35 @@ target_link_libraries(lotus_core_objects PRIVATE
     PkgConfig::LIBNOTIFY
     PkgConfig::DBUS
     PkgConfig::XCB
+    PkgConfig::WAYLAND_CLIENT
     Pthread::Pthread
+)
+
+set(LOTUS_VK_HEADER "${CMAKE_CURRENT_BINARY_DIR}/virtual-keyboard-unstable-v1-client-protocol.h")
+set(LOTUS_VK_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/virtual-keyboard-unstable-v1-protocol.c")
+add_custom_command(
+    OUTPUT "${LOTUS_VK_HEADER}"
+    COMMAND "${WAYLAND_SCANNER}" client-header "${LOTUS_VK_XML}" "${LOTUS_VK_HEADER}"
+    DEPENDS "${LOTUS_VK_XML}"
+    VERBATIM
+)
+add_custom_command(
+    OUTPUT "${LOTUS_VK_SOURCE}"
+    COMMAND "${WAYLAND_SCANNER}" private-code "${LOTUS_VK_XML}" "${LOTUS_VK_SOURCE}"
+    DEPENDS "${LOTUS_VK_XML}"
+    VERBATIM
+)
+set_source_files_properties("${LOTUS_VK_SOURCE}" PROPERTIES
+    LANGUAGE C
+    SKIP_PRECOMPILE_HEADERS ON
+)
+set_source_files_properties(
+    "${CMAKE_CURRENT_SOURCE_DIR}/lotus-virtual-keyboard.cpp"
+    PROPERTIES OBJECT_DEPENDS "${LOTUS_VK_HEADER}"
+)
+target_sources(lotus_core_objects PRIVATE
+    "${LOTUS_VK_HEADER}"
+    "${LOTUS_VK_SOURCE}"
 )
 
 # Parse the shared fcitx5 headers once instead of once per TU.
@@ -63,11 +92,13 @@ target_link_libraries(lotus
         PkgConfig::LIBNOTIFY
         PkgConfig::DBUS
         PkgConfig::XCB
+        PkgConfig::WAYLAND_CLIENT
         Pthread::Pthread
 )
 
 target_include_directories(lotus PRIVATE
     ${PROJECT_BINARY_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
 )
 # Same flags as lotus_core_objects so its prebuilt PCH is reused, not rejected.
 target_compile_definitions(lotus PRIVATE
