@@ -1044,7 +1044,7 @@ namespace fcitx {
             if (isMacroExpansion) {
                 LOTUS_INFO("Macro expansion: '" + lotus::utf8::encode(oldPreBuffer_) + "' -> '" + lotus::utf8::encode(commitStr) + "'");
                 // Try uinput replacement first, fallback to deleteSurroundingText, then plain commit
-                if (!vkAvailable() || engine_.kbSender().connected() && !oldPreBuffer_.empty()) {
+                if ((vkAvailable() || engine_.kbSender().connected()) && !oldPreBuffer_.empty()) {
                     performReplacement({.deletedPart = oldPreBuffer_, .addedPart = commitStr});
                 } else if (ic_.capabilityFlags().test(CapabilityFlag::SurroundingText)) {
                     const auto& surrounding = ic_.surroundingText();

@@ -36,19 +36,22 @@ namespace fcitx {
 
         bool                         emit(int backspaces, std::string_view utf8, bool trackEcho = true);
         // Shift+Left via zwp_virtual_keyboard_v1_modifiers, not a real Shift key.
-        bool emitSelect(int count, std::string_view utf8, bool trackEcho = true);
-        bool injecting() const {
+        bool               emitSelect(int count, std::string_view utf8, bool trackEcho = true);
+        [[nodiscard]] bool injecting() const {
             return injecting_;
         }
         bool consumeEcho(uint32_t code, uint32_t time);
         // Probes the current compositor once for zwp_virtual_keyboard_manager_v1.
         bool available();
 
+        LotusVirtualKeyboard(const LotusVirtualKeyboard&)            = delete;
+        LotusVirtualKeyboard& operator=(const LotusVirtualKeyboard&) = delete;
+        LotusVirtualKeyboard(LotusVirtualKeyboard&&)                 = delete;
+        LotusVirtualKeyboard& operator=(LotusVirtualKeyboard&&)      = delete;
+
       private:
         LotusVirtualKeyboard() = default;
         ~LotusVirtualKeyboard();
-        LotusVirtualKeyboard(const LotusVirtualKeyboard&)                                = delete;
-        LotusVirtualKeyboard&                     operator=(const LotusVirtualKeyboard&) = delete;
 
         bool                                      ensureConnected();
         bool                                      uploadKeymap(const uint32_t* cps, size_t n);
