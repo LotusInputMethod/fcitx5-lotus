@@ -125,6 +125,7 @@ namespace fcitx {
         size_t                                expectedBackspaces_    = 0;
         size_t                                currentBackspaceCount_ = 0;
         bool                                  realSelect_            = false; ///< when real shift +left is send
+        bool                                  vkWaitEcho_            = false;
         bool                                  lastSelect_            = false; ///< kind of the most recent burst, for replay
         std::u32string                        pendingCommitString_;
         std::u32string                        commitBatch_;                   ///< Text of the replacement batch, sent as one commitString
@@ -363,7 +364,8 @@ namespace fcitx {
         void finishReplacement(KeyEvent& event);
 
         /**
-         * @brief Performs text replacement via uinput.
+         * @brief Performs text replacement via virtual-keyboard-unstable-v1 when
+         * the compositor supports it, otherwise via uinput.
          * @param diffPart pairs of deleted part and added part
          */
         void performReplacement(DiffPart diffPart);

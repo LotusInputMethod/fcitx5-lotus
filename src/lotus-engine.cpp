@@ -20,6 +20,7 @@
 #include "lotus-utils.h"
 #include "lotus-x11.h"
 #include "lotus-plasma-theme.h"
+#include "lotus-virtual-keyboard.h"
 #include "window_focus_tracker.h"
 
 #include "dictionary.h"
@@ -166,6 +167,7 @@ namespace fcitx {
         windowFocusTracker_ = std::make_unique<WindowFocusTracker>([this] { appRuleDispatcher_.schedule([this] { refreshFocusedAppRule(); }); });
         std::string desktop = getEnv("XDG_CURRENT_DESKTOP");
         isGnome_            = (!desktop.empty()) && desktop.find("GNOME") != std::string::npos;
+        LotusVirtualKeyboard::instance().available();
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
 
         auto& uiManager = instance_.userInterfaceManager();
@@ -1129,7 +1131,7 @@ namespace fcitx {
     }
 
     void LotusEngine::checkServerForMode(LotusMode mode) {
-        if (isUinputMode(mode) && !kbSender_.ensureConnected()) {
+        if (isUinputMode(mode) && !LotusVirtualKeyboard::instance().available() && !kbSender_.ensureConnected()) {
             notifyMissingUinputServer();
         }
     }

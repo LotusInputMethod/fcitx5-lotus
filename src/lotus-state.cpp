@@ -13,6 +13,7 @@
 #include "lotus-fcitx-text.h"
 #include "lotus-log.h"
 #include "lotus-utils.h"
+#include "lotus-virtual-keyboard.h"
 
 #include "emoji.h"
 #include "input_method.h"
@@ -29,6 +30,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <thread>
 
 namespace fcitx {
     constexpr int     kMaxScanLength         = 15;
@@ -38,8 +40,13 @@ namespace fcitx {
     constexpr int     kMinDelayMs = 1;
     constexpr int     kMaxDelayMs = 1000;
 
-    int               clampDelay(int value) {
+    //
+    int clampDelay(int value) {
         return std::clamp(value, kMinDelayMs, kMaxDelayMs);
+    }
+
+    bool vkAvailable() {
+        return LotusVirtualKeyboard::instance().available();
     }
 
     bool isWordBreak(uint32_t ucs4) {
@@ -569,6 +576,16 @@ namespace fcitx {
             }
             // Re-arm the deadline so a slow burst is never abandoned.
             replacementDeadlineMs_ = nowMs() + replacementEchoGrace_;
+            // Virtual keyboard path (dbus/fcitx4): the last echoed backspace or Left is the trigger, commit on it.
+            const bool vkEcho = vkWaitEcho_ && (realSelect_ ? currentSym == FcitxKey_Left : isBackspace(currentSym));
+            if (vkEcho && currentBackspaceCount_ >= expectedBackspaces_) {
+                vkWaitEcho_ = false;
+                // Let the app finish the backspaces and the focus bounce before commit.
+                const int postMs = clampDelay(appRuleSetting_.postDelay > 0 ? appRuleSetting_.postDelay : *engine_.config().defaultPostDelay);
+                std::this_thread::sleep_for(std::chrono::milliseconds(postMs));
+                finishReplacement(event);
+                return true;
+            }
             return false; // Allow intermediate backspaces/lefts to reach the app to clear autofill/old text / extend the selection.
         }
         // The anchor closes the burst even if echoes are lost.
@@ -578,6 +595,7 @@ namespace fcitx {
     }
 
     void LotusState::performReplacement(DiffPart diffPart) {
+        vkWaitEcho_ = false;
         // WA for libreoffice (issue #162)
         // force use deleteSurroundingText func
         if (isLibreoffice_) {
@@ -588,10 +606,38 @@ namespace fcitx {
             lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
             return;
         }
+
+        const size_t delSize      = diffPart.deletedPart.size();
+        const bool   autofill     = isAutofillCertain(ic_.surroundingText());
+        const bool   addressBar   = isChromium_ && (ic_.capabilityFlags().test(CapabilityFlag::Url) || engine_.isLikeAddressBarChromium());
+        const bool   uinputSelect = (currentMode() == LotusMode::Select && !autofill) || (isUinputMode(currentMode()) && addressBar);
+        auto&        vk           = LotusVirtualKeyboard::instance();
+        bool         vkDbus       = false;
+
+        if (vk.available()) {
+            const std::string frontend = getFrontendName(&ic_);
+            vkDbus                     = frontend == "dbus" || frontend == "fcitx4";
+            if (vkDbus && delSize == 0) {
+                lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
+                return;
+            }
+            if (!vkDbus) {
+                const int         vkCount   = static_cast<int>(delSize) + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0);
+                const std::string addedUtf8 = lotus::utf8::encode(diffPart.addedPart);
+                const bool        ok        = uinputSelect ? vk.emitSelect(vkCount, addedUtf8) : vk.emit(vkCount, addedUtf8);
+                if (ok) {
+                    LOTUS_INFO(std::string("virtual-keyboard: sent ") + (uinputSelect ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
+                    return;
+                }
+                LOTUS_WARN("virtual-keyboard emit failed, fallback use uinput");
+            }
+        }
+
         const int  commitMs = clampDelay(appRuleSetting_.commitInterval > 0 ? appRuleSetting_.commitInterval : *engine_.config().defaultCommitInterval);
         const auto interval =
             static_cast<uint32_t>(clampDelay(appRuleSetting_.backspaceInterval > 0 ? appRuleSetting_.backspaceInterval : *engine_.config().defaultBackspaceInterval));
-        uint32_t preDelay = 0;
+        const auto postDelay = static_cast<uint32_t>(clampDelay(appRuleSetting_.postDelay > 0 ? appRuleSetting_.postDelay : *engine_.config().defaultPostDelay));
+        uint32_t   preDelay  = 0;
         if (lastCommitTime_.time_since_epoch().count() > 0) {
             auto now       = std::chrono::steady_clock::now();
             auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastCommitTime_).count();
@@ -600,24 +646,32 @@ namespace fcitx {
             }
         }
         LOTUS_INFO("Perform replacement: " + lotus::utf8::encode(diffPart.deletedPart) + " -> " + lotus::utf8::encode(diffPart.addedPart)); //NOLINT
-        currentBackspaceCount_         = 0;
-        pendingCommitString_           = diffPart.addedPart;
-        expectedBackspaces_            = diffPart.deletedPart.size();
-        const auto& surrounding        = ic_.surroundingText();
-        bool        isAutofillCertain_ = isAutofillCertain(surrounding);
-        if (currentMode() != LotusMode::SuperSmooth && isAutofillCertain_) {
-            ++expectedBackspaces_;
-        }
-        const bool addressBar = isChromium_ && (ic_.capabilityFlags().test(CapabilityFlag::Url) || engine_.isLikeAddressBarChromium());
-        realSelect_           = (currentMode() == LotusMode::Select && !isAutofillCertain_) || (isUinputMode(currentMode()) && addressBar);
-        lastSelect_           = realSelect_;
+
+        const size_t uinputCount = delSize + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0);
+
+        currentBackspaceCount_ = 0;
+        pendingCommitString_   = diffPart.addedPart;
+        // dbus: the extra last backspace/Left is the trigger, it is swallowed and commits
+        expectedBackspaces_ = vkDbus ? delSize + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0) + 1 : uinputCount;
+        realSelect_         = uinputSelect;
+        lastSelect_         = realSelect_;
         g_isDeleting.store(true, std::memory_order_release);
-        const auto    postDelay = static_cast<uint32_t>(clampDelay(appRuleSetting_.postDelay > 0 ? appRuleSetting_.postDelay : *engine_.config().defaultPostDelay));
 
         const int64_t injectMs = static_cast<int64_t>(expectedBackspaces_) * static_cast<int64_t>(interval);
         replacementDeadlineMs_ = nowMs() + static_cast<int64_t>(preDelay) + injectMs + static_cast<int64_t>(postDelay) + kReplacementAckSlackMs;
         replacementEchoGrace_  = static_cast<int64_t>(interval) + static_cast<int64_t>(postDelay) + kReplacementAckSlackMs;
         burstIntervalMs_       = interval;
+
+        if (vkDbus) {
+            vkWaitEcho_   = true;
+            const bool ok = uinputSelect ? vk.emitSelect(static_cast<int>(expectedBackspaces_), "", false) : vk.emit(static_cast<int>(expectedBackspaces_), "", false);
+            if (ok) {
+                return;
+            }
+            LOTUS_WARN("virtual-keyboard emit failed, fallback use uinput");
+            vkWaitEcho_         = false;
+            expectedBackspaces_ = uinputCount;
+        }
         // Select mode: the uinput server selects with Shift+Left instead. The
         // trigger-key compensation above still applies because the last echoed
         // Left is swallowed; autofill compensation does not, see above.
@@ -724,7 +778,7 @@ namespace fcitx {
         if (forwardSpecialKey(keyEvent, currentSym))
             return;
 
-        if (!engine_.kbSender().connected()) {
+        if (!vkAvailable() && !engine_.kbSender().connected()) {
             setupUinput();
         }
 
@@ -809,7 +863,7 @@ namespace fcitx {
             return;
         }
 
-        if (!engine_.kbSender().connected()) {
+        if (!vkAvailable() && !engine_.kbSender().connected()) {
             LOTUS_ERROR("Cannot connect to uinput server, commit rawkey");
             std::string rawKey = keyEvent.key().toString();
             if (!rawKey.empty()) {
@@ -973,7 +1027,7 @@ namespace fcitx {
         if (forwardSpecialKey(keyEvent, currentSym))
             return;
 
-        if (!engine_.kbSender().connected()) {
+        if (!vkAvailable() && !engine_.kbSender().connected()) {
             engine_.kbSender().ensureConnected();
         }
 
@@ -1011,7 +1065,7 @@ namespace fcitx {
             if (isMacroExpansion) {
                 LOTUS_INFO("Macro expansion: '" + lotus::utf8::encode(oldPreBuffer_) + "' -> '" + lotus::utf8::encode(commitStr) + "'");
                 // Try uinput replacement first, fallback to deleteSurroundingText, then plain commit
-                if (engine_.kbSender().connected() && !oldPreBuffer_.empty()) {
+                if ((vkAvailable() || engine_.kbSender().connected()) && !oldPreBuffer_.empty()) {
                     performReplacement({.deletedPart = oldPreBuffer_, .addedPart = commitStr});
                 } else if (ic_.capabilityFlags().test(CapabilityFlag::SurroundingText)) {
                     const auto& surrounding = ic_.surroundingText();
@@ -1061,6 +1115,17 @@ namespace fcitx {
     bool LotusState::handleKeyEventGuards(KeyEvent& keyEvent) {
         if (!lotusEngine_)
             return true;
+        {
+            auto& vk = LotusVirtualKeyboard::instance();
+            if (vk.injecting()) {
+                keyEvent.filterAndAccept();
+                return true;
+            }
+            if (vk.consumeEcho(static_cast<uint32_t>(keyEvent.rawKey().code()), static_cast<uint32_t>(keyEvent.time()))) {
+                keyEvent.forward();
+                return true;
+            }
+        }
         if (currentMode() == LotusMode::Preedit) {
             if (keyEvent.rawKey().check(FcitxKey_Shift_L) || keyEvent.rawKey().check(FcitxKey_Shift_R))
                 return true;
@@ -1114,7 +1179,7 @@ namespace fcitx {
     }
 
     void LotusState::ensureUinputConnection() {
-        if (!engine_.kbSender().connected()) {
+        if (!vkAvailable() && !engine_.kbSender().connected()) {
             LOTUS_WARN("Cannot connect to uinput server, reconnecting....");
             engine_.kbSender().ensureConnected();
         }
@@ -1581,7 +1646,7 @@ namespace fcitx {
                         appendCommit(diffPart.addedPart);
                         oldPreBuffer_ = preeditStr;
                     }
-                } else if (!engine_.kbSender().connected()) {
+                } else if (!vkAvailable() && !engine_.kbSender().connected()) {
                     appendCommit(keyText);
                 } else {
                     if (g_isDeleting.load(std::memory_order_acquire)) {
