@@ -39,7 +39,7 @@ namespace fcitx {
     constexpr int     kMinDelayMs = 1;
     constexpr int     kMaxDelayMs = 1000;
 
-//
+    //
     int clampDelay(int value) {
         return std::clamp(value, kMinDelayMs, kMaxDelayMs);
     }
