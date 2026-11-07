@@ -8,12 +8,7 @@
 
 /**
  * @file lotus-server.h
- * @brief Uinput server for handling backspace and mouse events.
- *
- * This server runs as a separate process with elevated privileges to:
- * - Send backspace key events via uinput device
- * - Monitor mouse button presses via libinput
- * - Communicate with fcitx5 addon via Unix sockets
+ * @brief Wide uinput server: injects keys through uinput, watches mouse clicks through libinput, serves the addon over sockets.
  */
 
 #ifndef _LOTUS_SERVER_H_
@@ -28,8 +23,6 @@
 #include <memory>
 #include <optional>
 #include <poll.h>
-#include <pwd.h>
-#include <string>
 #include <string_view>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -146,19 +139,6 @@ extern std::atomic<bool> g_running; //NOLINT
 void signalHandler(int sig);
 
 /**
- * @brief Gets the current username.
- * @return Username string or "unknown" if cannot determine.
- */
-std::string getCurrentUsername();
-
-/**
- * @brief Gets the UID for a given username.
- * @param username Username to resolve.
- * @return UID of the user, or nullopt when the user does not exist.
- */
-std::optional<uid_t> getUidForUser(std::string_view username);
-
-/**
  * @brief Boosts process priority for real-time responsiveness.
  */
 void boostProcessPriority();
@@ -189,15 +169,14 @@ void close_restricted(int fd, void* user_data);
 /**
  * @brief Authorizes a new client of one of the server sockets.
  *
- * Fetches the peer credentials, verifies the peer UID and that the peer
- * executable is the fcitx5 binary that is allowed to talk to the server.
+ * Fetches the peer credentials and verifies that the peer executable is an
+ * allowed fcitx5 binary.
  *
  * @param fd Accepted client socket.
- * @param expectedUid UID the server was started for.
  * @param socketLabel Socket name used in the log messages.
  * @return Peer PID when the peer is allowed to use the socket, nullopt otherwise.
  */
-std::optional<pid_t> authorizePeer(int fd, uid_t expectedUid, std::string_view socketLabel);
+std::optional<pid_t> authorizePeer(int fd, std::string_view socketLabel);
 
 /**
  * @brief libinput interface callbacks.
@@ -205,11 +184,9 @@ std::optional<pid_t> authorizePeer(int fd, uid_t expectedUid, std::string_view s
 extern const struct libinput_interface interface;
 
 /**
- * @brief Main entry point for the uinput server.
- * @param argc Argument count.
- * @param argv Argument vector.
+ * @brief Main entry point of the server.
  * @return Exit code (0 on success).
  */
-int main(int argc, char* argv[]);
+int main();
 
 #endif // _LOTUS_SERVER_H_
