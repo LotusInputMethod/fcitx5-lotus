@@ -15,6 +15,7 @@ target_link_libraries(lotus_test_core PUBLIC
     PkgConfig::LIBNOTIFY
     PkgConfig::DBUS
     PkgConfig::XCB
+    PkgConfig::WAYLAND_CLIENT
     Pthread::Pthread
 )
 
