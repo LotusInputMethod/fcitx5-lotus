@@ -1130,7 +1130,7 @@ namespace fcitx {
     }
 
     void LotusEngine::checkServerForMode(LotusMode mode) {
-        if (isUinputMode(mode) && !kbSender_.ensureConnected()) {
+        if (isUinputMode(mode) && !LotusVirtualKeyboard::instance().available() && !kbSender_.ensureConnected()) {
             notifyMissingUinputServer();
         }
     }
