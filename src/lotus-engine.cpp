@@ -783,10 +783,11 @@ namespace fcitx {
         if (currentMode() == LotusMode::Preedit && event.type() != EventType::InputContextFocusOut) {
             state->commitBuffer();
         } else {
-            if (event.type() == EventType::InputContextFocusOut && isDbus && !surrvalid) {
+            const bool preedit = currentMode() == LotusMode::Preedit;
+            if (!preedit && event.type() == EventType::InputContextFocusOut && isDbus && !surrvalid) {
                 state->lastDeactivateTime_ = nowMs();
                 LOTUS_INFO("Skip clearAllBuffers");
-            } else if ((!uinputMode || event.type() != EventType::InputContextFocusOut) && surrvalid && !state->oldPreBuffer_.empty()) {
+            } else if (preedit || ((!uinputMode || event.type() != EventType::InputContextFocusOut) && surrvalid && !state->oldPreBuffer_.empty())) {
                 state->clearAllBuffers();
             }
 
@@ -1286,10 +1287,9 @@ namespace fcitx {
                 instance_.inputContextManager().foreachFocused([this](InputContext* ic) {
                     if (ic) {
                         if (auto* state = ic->propertyFor(&factory_)) {
-                            if (currentMode() == LotusMode::Preedit && !ic->capabilityFlags().test(CapabilityFlag::ClientSideInputPanel)) {
-                                state->commitBuffer();
-                            } else {
-                                state->clearAllBuffers();
+                            switch (mouseClickAction(currentMode())) {
+                                case MouseClickAction::ClearBuffers: state->clearAllBuffers(); break;
+                                case MouseClickAction::DeferToClient: state->armMouseClickWatchdog(); break;
                             }
                         }
                     }

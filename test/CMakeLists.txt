@@ -192,6 +192,7 @@ add_lotus_headless_test(TARGET emoji_search_history SOURCES emoji-search-history
 add_lotus_headless_test(TARGET emoji_history_unit SOURCES emoji-history-unit.cpp LABELS "unit;emoji")
 add_lotus_headless_test(TARGET kb_sender SOURCES kb-sender.cpp LABELS "unit;socket")
 add_lotus_headless_test(TARGET program_name SOURCES program-name.cpp LABELS "unit;apprule")
+add_lotus_headless_test(TARGET mouse_click_plan SOURCES mouse-click-plan.cpp LABELS "unit;preedit")
 add_lotus_headless_test(TARGET window_focus_tracker SOURCES window-focus-tracker.cpp LABELS "integration;apprule;dbus")
 target_compile_definitions(window_focus_tracker PRIVATE LOTUS_TEST_DBUS_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/dbus-session.conf")
 set_tests_properties(kb_sender PROPERTIES
