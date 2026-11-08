@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(fcitx5-lotus VERSION 6.0.6)
+project(fcitx5-lotus VERSION 6.0.7)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_TESTING "Build Lotus tests" OFF)
 

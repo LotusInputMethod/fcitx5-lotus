@@ -119,6 +119,21 @@ uint32_t engineKeyValue(uint32_t sym);
 bool isUinputMode(fcitx::LotusMode mode);
 
 /**
+ * @brief What the mouse watcher must do for a click in the focused context.
+ */
+enum class MouseClickAction : std::uint8_t {
+    DeferToClient, ///< Let the client reset itself; a watchdog commits only when it does not
+    ClearBuffers,  ///< Drop the composition state without committing
+};
+
+/**
+ * @brief Chooses the mouse-click handling for a mode.
+ * @param mode Mode of the focused context.
+ * @return Handling to apply.
+ */
+LOTUS_EXPORT MouseClickAction mouseClickAction(fcitx::LotusMode mode);
+
+/**
  * @brief Reports whether a program name belongs to a Chromium based browser.
  * @param program Program name reported by fcitx
  * @return True for Chromium-based

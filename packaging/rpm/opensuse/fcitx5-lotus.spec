@@ -1,5 +1,5 @@
 Name:           fcitx5-lotus
-Version:        6.0.6
+Version:        6.0.7
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -123,5 +123,5 @@ fi
 %service_del_postun fcitx5-lotus-server@.service
 
 %changelog
-* Fri Nov 06 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.6-1
-- Preserve per-application modes on GNOME Wayland
+* Sun Nov 08 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.7-1
+- Fix double commit when mouse clicking

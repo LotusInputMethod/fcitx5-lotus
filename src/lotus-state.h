@@ -129,6 +129,7 @@ namespace fcitx {
         std::u32string                        pendingCommitString_;
         std::u32string                        commitBatch_;                   ///< Text of the replacement batch, sent as one commitString
         std::unique_ptr<EventSourceTime>      deferredCommitTimer_;           ///< Pending dbus commit timer
+        std::unique_ptr<EventSourceTime>      mouseClickWatchdog_;            ///< Commits the preedit a click left behind
         bool                                  selectAbortDeferred_ = false;   ///< Select burst kept alive across a focus bounce
         uint32_t                              burstIntervalMs_     = 0;       ///< Pacing of the in-flight uinput burst, used to re-arm its deadline
         std::u32string                        deferredCommitText_;            ///< Text waiting for the deferred commit
@@ -224,6 +225,16 @@ namespace fcitx {
          * @brief Drops a deferred Select abort, keeping the in-flight burst alive across a focus bounce.
          */
         void cancelSelectAbort();
+
+        /**
+         * @brief Arms the watchdog that drops a preedit left alive by a click.
+         */
+        void armMouseClickWatchdog();
+
+        /**
+         * @brief Drops the click watchdog, e.g. because the client reset the context itself.
+         */
+        void cancelMouseClickWatchdog();
 
         /**
          * @brief Abandons a deferred Select burst when another context took the focus away for good.

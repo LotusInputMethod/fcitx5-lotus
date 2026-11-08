@@ -110,6 +110,13 @@ bool isUinputMode(fcitx::LotusMode mode) {
     return std::ranges::find(modes, mode) != modes.end();
 }
 
+MouseClickAction mouseClickAction(fcitx::LotusMode mode) {
+    if (mode == fcitx::LotusMode::Preedit) {
+        return MouseClickAction::DeferToClient;
+    }
+    return MouseClickAction::ClearBuffers;
+}
+
 bool isChromiumProgram(std::string_view program) {
     static const auto names = std::to_array<std::string_view>({
         "chrome",

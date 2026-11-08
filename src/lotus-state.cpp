@@ -33,6 +33,7 @@
 namespace fcitx {
     constexpr int     kMaxScanLength         = 15;
     constexpr int64_t kReplacementAckSlackMs = 200;
+    constexpr int64_t kMouseClickWatchdogMs  = 200; ///< Time a client gets to reset itself after a click
 
     constexpr int     kMinDelayMs = 1;
     constexpr int     kMaxDelayMs = 1000;
@@ -163,6 +164,26 @@ namespace fcitx {
 
     void LotusState::cancelSelectAbort() {
         selectAbortDeferred_ = false;
+    }
+
+    void LotusState::armMouseClickWatchdog() {
+        if (currentMode() != LotusMode::Preedit || mouseClickWatchdog_) {
+            return;
+        }
+        mouseClickWatchdog_ =
+            engine_.instance()->eventLoop().addTimeEvent(CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + (kMouseClickWatchdogMs * 1000), 0, [this](EventSourceTime*, uint64_t) {
+                [[maybe_unused]] auto* released = mouseClickWatchdog_.release();
+                if (currentMode() == LotusMode::Preedit && !pullPreeditString().empty()) {
+                    LOTUS_INFO("Mouse click watchdog: drop the preedit the client already committed");
+                    reset();
+                }
+                return false;
+            });
+        LOTUS_DEBUG("Mouse click watchdog armed");
+    }
+
+    void LotusState::cancelMouseClickWatchdog() {
+        mouseClickWatchdog_.reset();
     }
 
     void LotusState::abortDeferredSelectIfPending() {
@@ -1059,13 +1080,21 @@ namespace fcitx {
         trackShiftModifier(keyEvent);
         if (handleKeyEventGuards(keyEvent))
             return;
+        if (mouseClickWatchdog_) {
+            cancelMouseClickWatchdog();
+            if (currentMode() == LotusMode::Preedit && !pullPreeditString().empty()) {
+                reset();
+            }
+        }
         ensureUinputConnection();
         completePendingReplacement();
         finishOverdueReplacement();
 
         if (g_mouseClicked.load(std::memory_order_acquire) && !g_isDeleting.load(std::memory_order_acquire)) {
             g_mouseClicked.store(false, std::memory_order_release);
-            clearAllBuffers();
+            if (mouseClickAction(currentMode()) == MouseClickAction::ClearBuffers) {
+                clearAllBuffers();
+            }
         }
         reconcileAbortedUinputReplacement();
         KeySym currentSym = keyEvent.rawKey().sym();
@@ -1310,6 +1339,7 @@ namespace fcitx {
 
     void LotusState::resetNow(bool isFocusOut) {
         cancelSelectAbort();
+        cancelMouseClickWatchdog();
         const auto& surrounding = ic_.surroundingText();
         const auto& text        = surrounding.text();
         size_t      textLen     = utf8::length(text);
@@ -1408,6 +1438,7 @@ namespace fcitx {
 
     void LotusState::clearAllBuffers(bool keepSentenceState) {
         cancelSelectAbort();
+        cancelMouseClickWatchdog();
         deliverPendingCommits();
         LOTUS_DEBUG("Clear all buffers");
         if (g_isDeleting.load(std::memory_order_acquire)) {
