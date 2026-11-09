@@ -39,8 +39,7 @@ namespace fcitx {
     constexpr int     kMinDelayMs = 1;
     constexpr int     kMaxDelayMs = 1000;
 
-    //
-    int clampDelay(int value) {
+    int               clampDelay(int value) {
         return std::clamp(value, kMinDelayMs, kMaxDelayMs);
     }
 
@@ -636,19 +635,19 @@ namespace fcitx {
         const bool   addressBar   = isChromium_ && (ic_.capabilityFlags().test(CapabilityFlag::Url) || engine_.isLikeAddressBarChromium());
         const bool   uinputSelect = (currentMode() == LotusMode::Select && !autofill) || (isUinputMode(currentMode()) && addressBar);
         auto&        vk           = LotusVirtualKeyboard::instance();
-        bool         vkDbus       = false;
+        bool         vkEchoDriven = false;
 
         if (vk.available()) {
             const std::string frontend = getFrontendName(&ic_);
-            vkDbus                     = frontend == "dbus" || frontend == "fcitx4";
-            if (vkDbus && delSize == 0) {
+            vkEchoDriven               = frontend == "dbus" || frontend == "fcitx4" || frontend == "x11" || frontend == "xim";
+            if (vkEchoDriven && delSize == 0) {
                 lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
                 return;
             }
-            if (!vkDbus) {
+            if (!vkEchoDriven) {
                 const int         vkCount   = static_cast<int>(delSize) + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0);
                 const std::string addedUtf8 = lotus::utf8::encode(diffPart.addedPart);
-                const bool        ok        = uinputSelect ? vk.emitSelect(vkCount, addedUtf8) : vk.emit(vkCount, addedUtf8);
+                const bool        ok        = uinputSelect ? vk.emitSelect(vkCount, addedUtf8, false) : vk.emit(vkCount, addedUtf8, false);
                 if (ok) {
                     LOTUS_INFO(std::string("virtual-keyboard: sent ") + (uinputSelect ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
                     return;
@@ -675,8 +674,8 @@ namespace fcitx {
 
         currentBackspaceCount_ = 0;
         pendingCommitString_   = diffPart.addedPart;
-        // dbus: the extra last backspace/Left is the trigger, it is swallowed and commits
-        expectedBackspaces_ = vkDbus ? delSize + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0) + 1 : uinputCount;
+        // Echo-driven frontends: the extra last backspace/Left is the trigger, it is swallowed and commits
+        expectedBackspaces_ = vkEchoDriven ? delSize + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0) + 1 : uinputCount;
         realSelect_         = uinputSelect;
         lastSelect_         = realSelect_;
         g_isDeleting.store(true, std::memory_order_release);
@@ -686,7 +685,7 @@ namespace fcitx {
         replacementEchoGrace_  = static_cast<int64_t>(interval) + static_cast<int64_t>(postDelay) + kReplacementAckSlackMs;
         burstIntervalMs_       = interval;
 
-        if (vkDbus) {
+        if (vkEchoDriven) {
             vkWaitEcho_   = true;
             const bool ok = uinputSelect ? vk.emitSelect(static_cast<int>(expectedBackspaces_), "", false) : vk.emit(static_cast<int>(expectedBackspaces_), "", false);
             if (ok) {

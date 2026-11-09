@@ -10,6 +10,7 @@
 #include <fcitx-utils/utf8.h>
 
 #include <algorithm>
+#include <array>
 #include <utility>
 #include <cerrno>
 #include <cstdio>
@@ -29,13 +30,11 @@ namespace fcitx {
         // Linux evdev codes for the printable section of a PC keyboard. Chromium may
         // fall back to a key's physical meaning even when its keysym is printable.
         // Never put literal text on Escape, Backspace, Tab, Enter, or modifier codes.
-        // NOLINTNEXTLINE(modernize-avoid-c-arrays)
-        constexpr uint32_t kTextKeys[] = {
+        constexpr auto     kTextKeys = std::to_array<uint32_t>({
             2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
             30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 57,
-        };
-        constexpr size_t   kTextKeysLen = sizeof(kTextKeys) / sizeof(kTextKeys[0]);
-        constexpr uint32_t kShiftMod    = 1;
+        });
+        constexpr uint32_t kShiftMod = 1;
 
         struct RegistryData {
             wl_seat*                         seat    = nullptr;
@@ -64,25 +63,23 @@ namespace fcitx {
                 return fd;
             }
 #endif
-            // NOLINTNEXTLINE(modernize-avoid-c-arrays)
-            char path[] = "/tmp/lotus-vk-keymap-XXXXXX";
-            int  tmpFd  = mkstemp(path);
+            auto path  = std::to_array("/tmp/lotus-vk-keymap-XXXXXX");
+            int  tmpFd = mkstemp(path.data());
             if (tmpFd < 0) {
                 return -1;
             }
-            unlink(path);
+            unlink(path.data());
             return tmpFd;
         }
 
         std::string xkbSymName(uint32_t cp) {
-            // NOLINTNEXTLINE(modernize-avoid-c-arrays)
-            char buf[16];
+            std::array<char, 16> buf{};
             if (cp <= 0xFFFF) {
-                std::snprintf(buf, sizeof(buf), "U%04X", cp);
+                std::snprintf(buf.data(), buf.size(), "U%04X", cp);
             } else {
-                std::snprintf(buf, sizeof(buf), "U%08X", cp);
+                std::snprintf(buf.data(), buf.size(), "U%08X", cp);
             }
-            return buf;
+            return buf.data();
         }
     } // namespace
 
@@ -212,10 +209,10 @@ namespace fcitx {
     }
 
     bool LotusVirtualKeyboard::uploadKeymap(const uint32_t* cps, size_t n) {
-        if (n > kTextKeysLen) {
+        if (n > kTextKeys.size()) {
             return false;
         }
-        const uint32_t maxXkb = std::max(kTextKeys[kTextKeysLen - 1] + 8U, KEY_DELETE + 8U);
+        const uint32_t maxXkb = std::max(kTextKeys.back() + 8U, KEY_DELETE + 8U);
         std::string    keycodes;
         std::string    symbols;
         keycodes.reserve(128 + (n * 24));
@@ -235,10 +232,8 @@ namespace fcitx {
         symbols += "    key <DELE> { [ Delete ] };\n";
         symbols += "    modifier_map Shift { <LFSH> };\n";
         for (size_t i = 0; i < n; ++i) {
-            const uint32_t xkb = kTextKeys[i] + 8U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            // NOLINTNEXTLINE(modernize-avoid-c-arrays)
-            char name[16];
-            std::snprintf(name, sizeof(name), "K%02zu", i);
+            const uint32_t    xkb  = kTextKeys[i] + 8U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            const std::string name = "K" + (i < 10 ? std::string("0") : std::string()) + std::to_string(i);
             keycodes += "    <";
             keycodes += name;
             keycodes += "> = ";
@@ -354,7 +349,7 @@ namespace fcitx {
         bool   first = true;
         size_t pos   = 0;
         while (ok && (first || pos < cps.size())) {
-            const size_t n = std::min(kTextKeysLen, cps.size() - pos);
+            const size_t n = std::min(kTextKeys.size(), cps.size() - pos);
             ok             = uploadKeymap(cps.data() + pos, n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             if (!ok) {
                 break;
