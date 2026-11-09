@@ -260,6 +260,7 @@ namespace fcitx {
 
     LotusEngine::~LotusEngine() {
         windowFocusTracker_->stop();
+        LotusVirtualKeyboard::instance().cancelPendingTasks();
         appRuleDispatcher_.detach();
         g_stopFlagMonitor.store(true, std::memory_order_release);
         mouseEventSource_.reset();
@@ -268,6 +269,14 @@ namespace fcitx {
             shutdown(fd.get(), SHUT_RDWR);
         }
         LOTUS_INFO("Engine destroyed.");
+    }
+
+    void LotusEngine::scheduleOnMainThread(std::function<void()> task) {
+        appRuleDispatcher_.schedule(std::move(task));
+    }
+
+    LotusState* LotusEngine::stateFor(InputContext* ic) {
+        return ic != nullptr ? ic->propertyFor(&factory_) : nullptr;
     }
 
     const lotusCustomKeymap& LotusEngine::customKeymap() const {

@@ -30,7 +30,6 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <thread>
 
 namespace fcitx {
     constexpr int     kMaxScanLength         = 15;
@@ -542,6 +541,12 @@ namespace fcitx {
     }
 
     void LotusState::finishReplacement(KeyEvent& event) {
+        event.filterAndAccept();
+        finishReplacementNow();
+    }
+
+    void LotusState::finishReplacementNow() {
+        ++replacementToken_;
         cancelSelectAbort();
         appendCommit(pendingCommitString_);
         pendingCommitString_.clear();
@@ -550,7 +555,6 @@ namespace fcitx {
         currentBackspaceCount_ = 0;
         replacementDeadlineMs_ = 0;
         realSelect_            = false;
-        event.filterAndAccept();
         g_isDeleting.store(false, std::memory_order_release);
         if (deferCommits_) {
             flushCommitBatch();
@@ -558,6 +562,13 @@ namespace fcitx {
             replayBufferedKeys();
             flushCommitBatch();
         }
+    }
+
+    void LotusState::finishScheduledReplacement(uint64_t token) {
+        if (token != replacementToken_ || !g_isDeleting.load(std::memory_order_acquire)) {
+            return;
+        }
+        finishReplacementNow();
     }
 
     bool LotusState::handleUInputKeyPress(KeyEvent& event, KeySym currentSym) {
@@ -580,10 +591,22 @@ namespace fcitx {
             const bool vkEcho = vkWaitEcho_ && (realSelect_ ? currentSym == FcitxKey_Left : isBackspace(currentSym));
             if (vkEcho && currentBackspaceCount_ >= expectedBackspaces_) {
                 vkWaitEcho_ = false;
-                // Let the app finish the backspaces and the focus bounce before commit.
+                // Let the app finish the backspaces and the focus bounce before
+                // commit. Consume the echoed trigger now and let the virtual
+                // keyboard worker wait the post-delay, so the fcitx main thread
+                // keeps processing key presses while it elapses.
                 const int postMs = clampDelay(appRuleSetting_.postDelay > 0 ? appRuleSetting_.postDelay : *engine_.config().defaultPostDelay);
-                std::this_thread::sleep_for(std::chrono::milliseconds(postMs));
-                finishReplacement(event);
+                event.filterAndAccept();
+                const uint64_t token  = replacementToken_;
+                auto           icRef  = ic_.watch();
+                LotusEngine*   engine = &engine_;
+                LotusVirtualKeyboard::instance().runAfter(postMs, [engine, icRef, token] {
+                    engine->scheduleOnMainThread([engine, icRef, token] {
+                        if (auto* state = engine->stateFor(icRef.get())) {
+                            state->finishScheduledReplacement(token);
+                        }
+                    });
+                });
                 return true;
             }
             return false; // Allow intermediate backspaces/lefts to reach the app to clear autofill/old text / extend the selection.
@@ -596,6 +619,7 @@ namespace fcitx {
 
     void LotusState::performReplacement(DiffPart diffPart) {
         vkWaitEcho_ = false;
+        ++replacementToken_;
         // WA for libreoffice (issue #162)
         // force use deleteSurroundingText func
         if (isLibreoffice_) {
