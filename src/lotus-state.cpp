@@ -647,7 +647,7 @@ namespace fcitx {
             if (!vkEchoDriven) {
                 const int         vkCount   = static_cast<int>(delSize) + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0);
                 const std::string addedUtf8 = lotus::utf8::encode(diffPart.addedPart);
-                const bool        ok        = uinputSelect ? vk.emitSelect(vkCount, addedUtf8, false) : vk.emit(vkCount, addedUtf8, false);
+                const bool        ok        = uinputSelect ? vk.emitSelect(vkCount, addedUtf8) : vk.emit(vkCount, addedUtf8);
                 if (ok) {
                     LOTUS_INFO(std::string("virtual-keyboard: sent ") + (uinputSelect ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
                     return;
