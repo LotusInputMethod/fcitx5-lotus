@@ -641,10 +641,6 @@ namespace fcitx {
         if (vk.available()) {
             const std::string frontend = getFrontendName(&ic_);
             vkEchoDriven               = frontend == "dbus" || frontend == "fcitx4" || frontend == "x11" || frontend == "xim";
-            if (vkEchoDriven && delSize == 0) {
-                lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
-                return;
-            }
             if (!vkEchoDriven) {
                 const int         vkCount   = static_cast<int>(delSize) + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0);
                 const std::string addedUtf8 = lotus::utf8::encode(diffPart.addedPart);
