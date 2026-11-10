@@ -428,6 +428,7 @@ namespace fcitx {
         activeContext_      = ic->watch();
         activeProgram_      = appName;
         LOTUS_INFO("App name: " + appName);
+        LOTUS_INFO("Frontend: " + getFrontendName(ic));
 
         instance_.inputContextManager().foreach ([this, ic](InputContext* other) {
             if (other != ic) {
