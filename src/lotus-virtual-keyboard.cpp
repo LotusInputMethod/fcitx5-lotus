@@ -64,7 +64,7 @@ namespace fcitx {
             }
 #endif
             auto path  = std::to_array("/tmp/lotus-vk-keymap-XXXXXX");
-            int  tmpFd = mkstemp(path.data());
+            int  tmpFd = mkostemp(path.data(), O_CLOEXEC);
             if (tmpFd < 0) {
                 return -1;
             }
