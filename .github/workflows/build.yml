@@ -100,7 +100,7 @@ jobs:
           fetch-depth: 0
       - name: Init CodeQL
         if: matrix.distro == 'glibc' && matrix.compiler == 'gcc'
-        uses: github/codeql-action/init@v4.39.1
+        uses: github/codeql-action/init@v4.39.3
         with:
           languages: cpp
           source-root: fcitx5-lotus
@@ -141,7 +141,7 @@ jobs:
           fi
       - name: CodeQL Analysis
         if: matrix.distro == 'glibc' && matrix.compiler == 'gcc'
-        uses: github/codeql-action/analyze@v4.39.1
+        uses: github/codeql-action/analyze@v4.39.3
         with:
           checkout_path: fcitx5-lotus
 
