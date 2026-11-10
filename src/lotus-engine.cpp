@@ -20,6 +20,7 @@
 #include "lotus-utils.h"
 #include "lotus-x11.h"
 #include "lotus-plasma-theme.h"
+#include "lotus-virtual-keyboard.h"
 #include "window_focus_tracker.h"
 
 #include "dictionary.h"
@@ -166,6 +167,7 @@ namespace fcitx {
         windowFocusTracker_ = std::make_unique<WindowFocusTracker>([this] { appRuleDispatcher_.schedule([this] { refreshFocusedAppRule(); }); });
         std::string desktop = getEnv("XDG_CURRENT_DESKTOP");
         isGnome_            = (!desktop.empty()) && desktop.find("GNOME") != std::string::npos;
+        LotusVirtualKeyboard::instance().available();
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
 
         auto& uiManager = instance_.userInterfaceManager();
@@ -258,6 +260,7 @@ namespace fcitx {
 
     LotusEngine::~LotusEngine() {
         windowFocusTracker_->stop();
+        LotusVirtualKeyboard::instance().cancelPendingTasks();
         appRuleDispatcher_.detach();
         g_stopFlagMonitor.store(true, std::memory_order_release);
         mouseEventSource_.reset();
@@ -266,6 +269,14 @@ namespace fcitx {
             shutdown(fd.get(), SHUT_RDWR);
         }
         LOTUS_INFO("Engine destroyed.");
+    }
+
+    void LotusEngine::scheduleOnMainThread(std::function<void()> task) {
+        appRuleDispatcher_.schedule(std::move(task));
+    }
+
+    LotusState* LotusEngine::stateFor(InputContext* ic) {
+        return ic != nullptr ? ic->propertyFor(&factory_) : nullptr;
     }
 
     const lotusCustomKeymap& LotusEngine::customKeymap() const {
@@ -417,6 +428,7 @@ namespace fcitx {
         activeContext_      = ic->watch();
         activeProgram_      = appName;
         LOTUS_INFO("App name: " + appName);
+        LOTUS_INFO("Frontend: " + getFrontendName(ic));
 
         instance_.inputContextManager().foreach ([this, ic](InputContext* other) {
             if (other != ic) {
@@ -1129,7 +1141,7 @@ namespace fcitx {
     }
 
     void LotusEngine::checkServerForMode(LotusMode mode) {
-        if (isUinputMode(mode) && !kbSender_.ensureConnected()) {
+        if (isUinputMode(mode) && !LotusVirtualKeyboard::instance().available() && !kbSender_.ensureConnected()) {
             notifyMissingUinputServer();
         }
     }

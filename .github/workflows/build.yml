@@ -65,7 +65,7 @@ jobs:
       - name: Install dependencies (glibc)
         if: matrix.install == 'arch'
         run: |
-          pacman -Syu --noconfirm base-devel clang cmake ninja extra-cmake-modules libuv git libinput libevdev libnotify dbus systemd-libs python libxcb
+          pacman -Syu --noconfirm base-devel clang cmake ninja extra-cmake-modules libuv git libinput libevdev libnotify dbus systemd-libs python libxcb wayland
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5-lotus"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5"
@@ -73,7 +73,7 @@ jobs:
         if: matrix.install == 'alpine'
         run: |
           # dbus supplies dbus-run-session for the private-bus regression; dbus-dev supplies headers.
-          apk add --no-cache build-base cmake ninja extra-cmake-modules libuv-dev git libinput-dev libevdev-dev libnotify-dev dbus dbus-dev python3 zlib-dev gettext-dev util-linux-dev tar clang linux-headers libxcb-dev
+          apk add --no-cache build-base cmake ninja extra-cmake-modules libuv-dev git libinput-dev libevdev-dev libnotify-dev dbus dbus-dev python3 zlib-dev gettext-dev util-linux-dev tar clang linux-headers libxcb-dev wayland-dev
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5-lotus"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5"
@@ -129,12 +129,12 @@ jobs:
           fi
           if [ -z "$changed" ] || printf '%s\n' "$changed" | grep -qE '\.(h|hpp)$'; then
               echo "clang-tidy: checking the whole project"
-              run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*'
+              run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*' -header-filter='/fcitx5-lotus/(src|server|common|lotus|test)/' '/fcitx5-lotus/(src|server|common|lotus|test)/'
           else
               cpp_changed="$(printf '%s\n' "$changed" | grep -E '\.cpp$' || true)"
               if [ -n "$cpp_changed" ]; then
                   echo "clang-tidy: checking the changed translation units"
-                  printf '%s\n' "$cpp_changed" | xargs run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*'
+                  printf '%s\n' "$cpp_changed" | xargs run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*' -header-filter='/fcitx5-lotus/(src|server|common|lotus|test)/'
               else
                   echo "clang-tidy: no translation unit changed"
               fi

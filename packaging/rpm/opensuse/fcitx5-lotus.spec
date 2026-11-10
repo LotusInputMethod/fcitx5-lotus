@@ -17,6 +17,7 @@ BuildRequires:  libnotify-devel
 BuildRequires:  dbus-1-devel
 BuildRequires:  libxcb-devel
 BuildRequires:  systemd-devel
+BuildRequires:  wayland-devel
 
 BuildRequires:  sysuser-tools
 BuildRequires:  python3

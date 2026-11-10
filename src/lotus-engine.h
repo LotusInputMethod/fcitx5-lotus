@@ -17,6 +17,7 @@
 #define _FCITX5_LOTUS_ENGINE_H_
 
 #include "lotus-config.h"
+#include <functional>
 #include <mutex>
 #include <memory>
 #include <vector>
@@ -74,6 +75,21 @@ namespace fcitx {
         KbSender& kbSender() {
             return kbSender_;
         }
+
+        /**
+         * @brief Returns the Lotus state of an input context.
+         * @param ic Input context, may be null.
+         * @return The state, or null when the context is gone.
+         */
+        LotusState* stateFor(InputContext* ic);
+
+        /**
+         * @brief Schedules a task on the fcitx event loop thread.
+         *
+         * Safe to call from the virtual keyboard worker thread.
+         * @param task Task to run inside the event loop.
+         */
+        void scheduleOnMainThread(std::function<void()> task);
 
         /**
          * @brief Constructs the Lotus engine.

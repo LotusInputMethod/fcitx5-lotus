@@ -98,6 +98,12 @@ namespace fcitx {
         void finishOverdueReplacement();
 
         /**
+         * @brief Finishes a replacement scheduled after the virtual keyboard post-delay.
+         * @param token Replacement generation captured when the task was queued.
+         */
+        void finishScheduledReplacement(uint64_t token);
+
+        /**
          * @brief Commits the current buffer.
          */
         void commitBuffer();
@@ -125,6 +131,7 @@ namespace fcitx {
         size_t                                expectedBackspaces_    = 0;
         size_t                                currentBackspaceCount_ = 0;
         bool                                  realSelect_            = false; ///< when real shift +left is send
+        bool                                  vkWaitEcho_            = false;
         bool                                  lastSelect_            = false; ///< kind of the most recent burst, for replay
         std::u32string                        pendingCommitString_;
         std::u32string                        commitBatch_;                   ///< Text of the replacement batch, sent as one commitString
@@ -153,6 +160,7 @@ namespace fcitx {
         bool                                  isChromium_            = false;
         int64_t                               replacementDeadlineMs_ = 0; ///< ms by which every injected backspace must be echoed (0 = no replacement in flight)
         int64_t                               replacementEchoGrace_  = 0; ///< deadline grace re-armed on each echo
+        uint64_t                              replacementToken_      = 0; ///< invalidates a queued virtual-keyboard completion
         std::chrono::steady_clock::time_point lastCommitTime_;
 
         // Replacement aborted at focus-out, committed once focus returns.
@@ -361,9 +369,14 @@ namespace fcitx {
          * @param event The key event of the final echoed key.
          */
         void finishReplacement(KeyEvent& event);
+        /**
+         * @brief Commits the pending replacement without touching the key event.
+         */
+        void finishReplacementNow();
 
         /**
-         * @brief Performs text replacement via uinput.
+         * @brief Performs text replacement via virtual-keyboard-unstable-v1 when
+         * the compositor supports it, otherwise via uinput.
          * @param diffPart pairs of deleted part and added part
          */
         void performReplacement(DiffPart diffPart);
