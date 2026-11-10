@@ -617,6 +617,7 @@ namespace fcitx {
     }
 
     void LotusState::performReplacement(DiffPart diffPart) {
+        LOTUS_INFO("Perform replacement: " + lotus::utf8::encode(diffPart.deletedPart) + " -> " + lotus::utf8::encode(diffPart.addedPart)); //NOLINT
         vkWaitEcho_ = false;
         ++replacementToken_;
         // WA for libreoffice (issue #162)
@@ -668,7 +669,6 @@ namespace fcitx {
                 preDelay = static_cast<uint32_t>(commitMs - elapsedMs);
             }
         }
-        LOTUS_INFO("Perform replacement: " + lotus::utf8::encode(diffPart.deletedPart) + " -> " + lotus::utf8::encode(diffPart.addedPart)); //NOLINT
 
         const size_t uinputCount = delSize + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0);
 
@@ -686,7 +686,28 @@ namespace fcitx {
         burstIntervalMs_       = interval;
 
         if (vkEchoDriven) {
-            vkWaitEcho_   = true;
+            vkWaitEcho_ = true;
+            if (preDelay > 0) {
+                // The previous commit may still be in flight over dbus: wait before the backspaces.
+                const uint64_t token  = replacementToken_;
+                auto           icRef  = ic_.watch();
+                LotusEngine*   engine = &engine_;
+                const int      count  = static_cast<int>(expectedBackspaces_);
+                vk.runAfter(static_cast<int>(preDelay), [engine, icRef, token, count, uinputSelect] {
+                    engine->scheduleOnMainThread([engine, icRef, token, count, uinputSelect] {
+                        auto* state = engine->stateFor(icRef.get());
+                        if (state == nullptr || token != state->replacementToken_ || !g_isDeleting.load(std::memory_order_acquire)) {
+                            return;
+                        }
+                        auto& vk = LotusVirtualKeyboard::instance();
+                        if (!(uinputSelect ? vk.emitSelect(count, "", false) : vk.emit(count, "", false))) {
+                            state->vkWaitEcho_ = false;
+                            state->finishReplacementNow();
+                        }
+                    });
+                });
+                return;
+            }
             const bool ok = uinputSelect ? vk.emitSelect(static_cast<int>(expectedBackspaces_), "", false) : vk.emit(static_cast<int>(expectedBackspaces_), "", false);
             if (ok) {
                 return;
