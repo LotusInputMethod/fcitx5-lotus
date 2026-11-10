@@ -15,6 +15,7 @@ target_link_libraries(lotus_test_core PUBLIC
     PkgConfig::LIBNOTIFY
     PkgConfig::DBUS
     PkgConfig::XCB
+    PkgConfig::XCB_XTEST
     PkgConfig::WAYLAND_CLIENT
     Pthread::Pthread
 )
@@ -194,6 +195,13 @@ add_lotus_headless_test(TARGET emoji_history_unit SOURCES emoji-history-unit.cpp
 add_lotus_headless_test(TARGET kb_sender SOURCES kb-sender.cpp LABELS "unit;socket")
 add_lotus_headless_test(TARGET program_name SOURCES program-name.cpp LABELS "unit;apprule")
 add_lotus_headless_test(TARGET mouse_click_plan SOURCES mouse-click-plan.cpp LABELS "unit;preedit")
+add_lotus_headless_test(TARGET x11_keyboard_inject SOURCES x11-keyboard-inject.cpp LABELS "integration;x11" LINK_LIBRARIES PkgConfig::XCB_XTEST PkgConfig::XCB)
+# The real check needs an X server with XTEST: run it again under a throwaway Xvfb.
+find_program(XVFB_RUN xvfb-run)
+if(XVFB_RUN)
+    add_test(NAME x11_keyboard_inject_xvfb COMMAND ${XVFB_RUN} -a $<TARGET_FILE:x11_keyboard_inject>)
+    set_tests_properties(x11_keyboard_inject_xvfb PROPERTIES LABELS "integration;x11" TIMEOUT 60 ENVIRONMENT "LOTUS_X11_KEYBOARD_TEST=1")
+endif()
 add_lotus_headless_test(TARGET window_focus_tracker SOURCES window-focus-tracker.cpp LABELS "integration;apprule;dbus")
 target_compile_definitions(window_focus_tracker PRIVATE LOTUS_TEST_DBUS_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/dbus-session.conf")
 set_tests_properties(kb_sender PROPERTIES

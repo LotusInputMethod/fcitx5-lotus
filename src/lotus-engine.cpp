@@ -20,7 +20,8 @@
 #include "lotus-utils.h"
 #include "lotus-x11.h"
 #include "lotus-plasma-theme.h"
-#include "lotus-virtual-keyboard.h"
+#include "lotus-wlr-virtual-keyboard.h"
+#include "lotus-x11-keyboard.h"
 #include "window_focus_tracker.h"
 
 #include "dictionary.h"
@@ -168,7 +169,7 @@ namespace fcitx {
         std::string desktop = getEnv("XDG_CURRENT_DESKTOP");
         isGnome_            = (!desktop.empty()) && desktop.find("GNOME") != std::string::npos;
         if (*config_.preferVirtualKeyboard) {
-            LotusVirtualKeyboard::instance().available();
+            LotusWlrVirtualKeyboard::instance().available();
         }
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
 
@@ -262,7 +263,8 @@ namespace fcitx {
 
     LotusEngine::~LotusEngine() {
         windowFocusTracker_->stop();
-        LotusVirtualKeyboard::instance().cancelPendingTasks();
+        LotusWlrVirtualKeyboard::instance().cancelPendingTasks();
+        LotusX11Keyboard::instance().cancelPendingTasks();
         appRuleDispatcher_.detach();
         g_stopFlagMonitor.store(true, std::memory_order_release);
         mouseEventSource_.reset();
@@ -1143,8 +1145,10 @@ namespace fcitx {
     }
 
     void LotusEngine::checkServerForMode(LotusMode mode) {
-        const bool vkUsable = *config_.preferVirtualKeyboard && LotusVirtualKeyboard::instance().available();
-        if (isUinputMode(mode) && !vkUsable && !kbSender_.ensureConnected()) {
+        const bool preferInjection = *config_.preferVirtualKeyboard;
+        const bool vkUsable        = preferInjection && LotusWlrVirtualKeyboard::instance().available();
+        const bool x11Usable       = preferInjection && getEnv("WAYLAND_DISPLAY").empty() && LotusX11Keyboard::instance().available();
+        if (isUinputMode(mode) && !vkUsable && !x11Usable && !kbSender_.ensureConnected()) {
             notifyMissingUinputServer();
         }
     }

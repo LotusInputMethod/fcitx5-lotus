@@ -21,6 +21,7 @@ target_link_libraries(lotus_core_objects PRIVATE
     PkgConfig::LIBNOTIFY
     PkgConfig::DBUS
     PkgConfig::XCB
+    PkgConfig::XCB_XTEST
     PkgConfig::WAYLAND_CLIENT
     Pthread::Pthread
 )
@@ -44,7 +45,7 @@ set_source_files_properties("${LOTUS_VK_SOURCE}" PROPERTIES
     SKIP_PRECOMPILE_HEADERS ON
 )
 set_source_files_properties(
-    "${CMAKE_CURRENT_SOURCE_DIR}/lotus-virtual-keyboard.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/lotus-wlr-virtual-keyboard.cpp"
     PROPERTIES OBJECT_DEPENDS "${LOTUS_VK_HEADER}"
 )
 target_sources(lotus_core_objects PRIVATE
@@ -92,6 +93,7 @@ target_link_libraries(lotus
         PkgConfig::LIBNOTIFY
         PkgConfig::DBUS
         PkgConfig::XCB
+        PkgConfig::XCB_XTEST
         PkgConfig::WAYLAND_CLIENT
         Pthread::Pthread
 )

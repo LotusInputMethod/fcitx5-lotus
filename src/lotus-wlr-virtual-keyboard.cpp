@@ -1,11 +1,13 @@
 /*
  * SPDX-FileCopyrightText: 2026 Zebra2711
+ * SPDX-FileCopyrightText: 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "lotus-virtual-keyboard.h"
+#include "lotus-wlr-virtual-keyboard.h"
 #include "lotus-log.h"
+#include "lotus-utils.h"
 
 #include <fcitx-utils/utf8.h>
 
@@ -83,69 +85,17 @@ namespace fcitx {
         }
     } // namespace
 
-    LotusVirtualKeyboard& LotusVirtualKeyboard::instance() {
-        static LotusVirtualKeyboard k;
+    LotusWlrVirtualKeyboard& LotusWlrVirtualKeyboard::instance() {
+        static LotusWlrVirtualKeyboard k;
         return k;
     }
 
-    LotusVirtualKeyboard::~LotusVirtualKeyboard() {
+    LotusWlrVirtualKeyboard::~LotusWlrVirtualKeyboard() {
         cancelPendingTasks();
         disconnect();
     }
 
-    void LotusVirtualKeyboard::runAfter(int delayMs, std::function<void()> task) {
-        if (!task) {
-            return;
-        }
-        delayMs = std::max(delayMs, 0);
-        {
-            std::scoped_lock lock(workerMutex_);
-            if (!worker_.joinable()) {
-                workerStop_ = false;
-                worker_     = std::thread(&LotusVirtualKeyboard::workerLoop, this);
-            }
-            delayedTasks_.push_back({.due = std::chrono::steady_clock::now() + std::chrono::milliseconds(delayMs), .generation = taskGeneration_, .task = std::move(task)});
-        }
-        workerCv_.notify_one();
-    }
-
-    void LotusVirtualKeyboard::cancelPendingTasks() {
-        {
-            std::scoped_lock lock(workerMutex_);
-            ++taskGeneration_;
-            delayedTasks_.clear();
-            workerStop_ = true;
-        }
-        workerCv_.notify_all();
-        if (worker_.joinable() && std::this_thread::get_id() != worker_.get_id()) {
-            worker_.join();
-        }
-    }
-
-    void LotusVirtualKeyboard::workerLoop() {
-        std::unique_lock<std::mutex> lock(workerMutex_);
-        while (!workerStop_) {
-            if (delayedTasks_.empty()) {
-                workerCv_.wait(lock);
-                continue;
-            }
-            auto next = std::ranges::min_element(delayedTasks_, [](const DelayedTask& a, const DelayedTask& b) { return a.due < b.due; });
-            if (std::chrono::steady_clock::now() < next->due) {
-                workerCv_.wait_until(lock, next->due);
-                continue;
-            }
-            DelayedTask task = std::move(*next);
-            delayedTasks_.erase(next);
-            const bool current = task.generation == taskGeneration_;
-            lock.unlock();
-            if (current) {
-                task.task();
-            }
-            lock.lock();
-        }
-    }
-
-    void LotusVirtualKeyboard::disconnect() {
+    void LotusWlrVirtualKeyboard::disconnect() {
         if (keyboard_ != nullptr) {
             zwp_virtual_keyboard_v1_destroy(keyboard_);
             keyboard_ = nullptr;
@@ -168,9 +118,9 @@ namespace fcitx {
         }
     }
 
-    bool LotusVirtualKeyboard::ensureConnected() {
-        if (keyboard_ != nullptr) {
-            return true;
+    bool LotusWlrVirtualKeyboard::probe() {
+        if (display_ != nullptr) {
+            return manager_ != nullptr && seat_ != nullptr;
         }
         display_ = wl_display_connect(nullptr);
         if (display_ == nullptr) {
@@ -186,6 +136,16 @@ namespace fcitx {
             disconnect();
             return false;
         }
+        return true;
+    }
+
+    bool LotusWlrVirtualKeyboard::ensureDevice() {
+        if (keyboard_ != nullptr) {
+            return true;
+        }
+        if (!probe()) {
+            return false;
+        }
         keyboard_ = zwp_virtual_keyboard_manager_v1_create_virtual_keyboard(manager_, seat_);
         if (keyboard_ == nullptr) {
             disconnect();
@@ -194,21 +154,26 @@ namespace fcitx {
         return true;
     }
 
-    bool LotusVirtualKeyboard::available() {
+    bool LotusWlrVirtualKeyboard::available() {
         if (probed_) {
             return supported_;
         }
-        probed_    = true;
-        supported_ = ensureConnected();
+        probed_ = true;
+        if (getEnv("WAYLAND_DISPLAY").empty()) {
+            supported_ = false;
+            LOTUS_INFO("no WAYLAND_DISPLAY, wlr virtual keyboard unavailable, using uinput");
+            return supported_;
+        }
+        supported_ = probe();
         if (supported_) {
-            LOTUS_INFO("compositor supports virtual-keyboard-unstable-v1, using LotusVirtualKeyboard");
+            LOTUS_INFO("compositor supports zwp_virtual_keyboard_v1, using the wlr virtual keyboard");
         } else {
-            LOTUS_INFO("compositor has no virtual-keyboard-unstable-v1, using uinput");
+            LOTUS_INFO("compositor has no zwp_virtual_keyboard_v1, using uinput");
         }
         return supported_;
     }
 
-    bool LotusVirtualKeyboard::uploadKeymap(const uint32_t* cps, size_t n) {
+    bool LotusWlrVirtualKeyboard::uploadKeymap(const uint32_t* cps, size_t n) {
         if (n > kTextKeys.size()) {
             return false;
         }
@@ -249,7 +214,7 @@ namespace fcitx {
         std::string keymap;
         keymap.reserve(256 + keycodes.size() + symbols.size());
         keymap += "xkb_keymap {\n";
-        keymap += "xkb_keycodes \"lotus-virtual-keyboard\" {\n";
+        keymap += "xkb_keycodes \"lotus-wlr-virtual-keyboard\" {\n";
         keymap += "    minimum = 8;\n";
         keymap += "    maximum = ";
         keymap += std::to_string(maxXkb);
@@ -259,14 +224,14 @@ namespace fcitx {
         keymap += "xkb_types \"complete\" { include \"complete\" };\n";
         keymap += "xkb_compatibility \"complete\" { include \"complete\" };\n";
         keymap += "xkb_symbols \"lotus_vk\" {\n";
-        keymap += "    name[Group1] = \"lotus-virtual-keyboard\";\n";
+        keymap += "    name[Group1] = \"lotus-wlr-virtual-keyboard\";\n";
         keymap += symbols;
         keymap += "};\n";
         keymap += "};\n";
 
-        const int fd = createMemfd("lotus-virtual-keyboard-keymap");
+        const int fd = createMemfd("lotus-wlr-virtual-keyboard-keymap");
         if (fd < 0) {
-            LOTUS_ERROR("virtual-keyboard: memfd_create failed");
+            LOTUS_ERROR("wlr-virtual-keyboard: memfd_create failed");
             return false;
         }
         const auto size = static_cast<uint32_t>(keymap.size() + 1);
@@ -293,7 +258,7 @@ namespace fcitx {
         return wl_display_roundtrip(display_) >= 0;
     }
 
-    void LotusVirtualKeyboard::tap(uint32_t evdevKey, bool track) {
+    void LotusWlrVirtualKeyboard::tap(uint32_t evdevKey, bool track) {
         if (track) {
             echo_.emplace_back(evdevKey + 8U, time_);
         }
@@ -301,11 +266,11 @@ namespace fcitx {
         zwp_virtual_keyboard_v1_key(keyboard_, time_++, evdevKey, WL_KEYBOARD_KEY_STATE_RELEASED);
     }
 
-    void LotusVirtualKeyboard::setShift(bool down) {
+    void LotusWlrVirtualKeyboard::setShift(bool down) {
         zwp_virtual_keyboard_v1_modifiers(keyboard_, down ? kShiftMod : 0, 0, 0, 0);
     }
 
-    bool LotusVirtualKeyboard::consumeEcho(uint32_t code, uint32_t time) {
+    bool LotusWlrVirtualKeyboard::consumeEcho(uint32_t code, uint32_t time) {
         for (auto it = echo_.begin(); it != echo_.end(); ++it) {
             if (it->first == code && it->second == time) {
                 echo_.erase(it);
@@ -315,20 +280,20 @@ namespace fcitx {
         return false;
     }
 
-    bool LotusVirtualKeyboard::emit(int backspaces, std::string_view utf8, bool trackEcho) {
+    bool LotusWlrVirtualKeyboard::emit(int backspaces, std::string_view utf8, bool trackEcho) {
         return emitImpl(backspaces, utf8, trackEcho, false);
     }
 
-    bool LotusVirtualKeyboard::emitSelect(int count, std::string_view utf8, bool trackEcho) {
+    bool LotusWlrVirtualKeyboard::emitSelect(int count, std::string_view utf8, bool trackEcho) {
         return emitImpl(count, utf8, trackEcho, true);
     }
 
-    bool LotusVirtualKeyboard::emitImpl(int count, std::string_view utf8, bool trackEcho, bool shiftLeft) {
+    bool LotusWlrVirtualKeyboard::emitImpl(int count, std::string_view utf8, bool trackEcho, bool shiftLeft) {
         count = std::max(count, 0);
         std::vector<uint32_t> cps;
         if (!utf8.empty()) {
             if (!utf8::validate(utf8)) {
-                LOTUS_ERROR("virtual-keyboard: invalid UTF-8");
+                LOTUS_ERROR("wlr-virtual-keyboard: invalid UTF-8");
                 return false;
             }
             for (auto cp : utf8::MakeUTF8CharRange(utf8)) {
@@ -338,7 +303,7 @@ namespace fcitx {
         if (count == 0 && cps.empty()) {
             return true;
         }
-        if (!ensureConnected()) {
+        if (!ensureDevice()) {
             return false;
         }
         injecting_ = true;
@@ -383,7 +348,7 @@ namespace fcitx {
         if (!ok) {
             echo_.clear();
             setShift(false);
-            LOTUS_ERROR("virtual-keyboard: keymap upload failed");
+            LOTUS_ERROR("wlr-virtual-keyboard: keymap upload failed");
         }
         return ok;
     }

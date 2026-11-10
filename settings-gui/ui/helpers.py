@@ -35,8 +35,8 @@ HELPERS = {
         "If another key is pressed between the modifier's press and release, the skip is cancelled."
     ),
     "PreferVirtualKeyboard": N_(
-        "When the compositor provides zwp_virtual_keyboard_v1, Lotus types replacements through it and the uinput server is not needed.\n"
-        "Turn this off to always use the uinput service."
+        "Prefer injecting keys through the system instead of the uinput service: the wlroots virtual keyboard on Wayland and XTEST on X11.\n"
+        "Turn this off to always use the uinput service; when neither backend is available the uinput service is used anyway."
     ),
 }
 
