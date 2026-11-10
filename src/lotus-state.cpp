@@ -43,10 +43,6 @@ namespace fcitx {
         return std::clamp(value, kMinDelayMs, kMaxDelayMs);
     }
 
-    bool vkAvailable() {
-        return LotusVirtualKeyboard::instance().available();
-    }
-
     bool isWordBreak(uint32_t ucs4) {
         // Space, tab, newline, carriage return, null, or punctuation/symbols (: ; < = > ? @)
         return ucs4 == ' ' || ucs4 == '\t' || ucs4 == '\n' || ucs4 == '\r' || ucs4 == 0 || (ucs4 >= 58 && ucs4 <= 64);
@@ -94,6 +90,10 @@ namespace fcitx {
         };
 
         lotusEngine_->setOptions(option);
+    }
+
+    bool LotusState::vkUsable() const {
+        return *engine_.config().preferVirtualKeyboard && LotusVirtualKeyboard::instance().available();
     }
 
     bool LotusState::setupUinput() {
@@ -638,7 +638,7 @@ namespace fcitx {
         auto&        vk           = LotusVirtualKeyboard::instance();
         bool         vkEchoDriven = false;
 
-        if (vk.available()) {
+        if (vkUsable()) {
             const std::string frontend = getFrontendName(&ic_);
             vkEchoDriven               = frontend == "dbus" || frontend == "fcitx4" || frontend == "x11" || frontend == "xim";
             if (!vkEchoDriven) {
@@ -818,7 +818,7 @@ namespace fcitx {
         if (forwardSpecialKey(keyEvent, currentSym))
             return;
 
-        if (!vkAvailable() && !engine_.kbSender().connected()) {
+        if (!vkUsable() && !engine_.kbSender().connected()) {
             setupUinput();
         }
 
@@ -903,7 +903,7 @@ namespace fcitx {
             return;
         }
 
-        if (!vkAvailable() && !engine_.kbSender().connected()) {
+        if (!vkUsable() && !engine_.kbSender().connected()) {
             LOTUS_ERROR("Cannot connect to uinput server, commit rawkey");
             std::string rawKey = keyEvent.key().toString();
             if (!rawKey.empty()) {
@@ -1067,7 +1067,7 @@ namespace fcitx {
         if (forwardSpecialKey(keyEvent, currentSym))
             return;
 
-        if (!vkAvailable() && !engine_.kbSender().connected()) {
+        if (!vkUsable() && !engine_.kbSender().connected()) {
             engine_.kbSender().ensureConnected();
         }
 
@@ -1105,7 +1105,7 @@ namespace fcitx {
             if (isMacroExpansion) {
                 LOTUS_INFO("Macro expansion: '" + lotus::utf8::encode(oldPreBuffer_) + "' -> '" + lotus::utf8::encode(commitStr) + "'");
                 // Try uinput replacement first, fallback to deleteSurroundingText, then plain commit
-                if ((vkAvailable() || engine_.kbSender().connected()) && !oldPreBuffer_.empty()) {
+                if ((vkUsable() || engine_.kbSender().connected()) && !oldPreBuffer_.empty()) {
                     performReplacement({.deletedPart = oldPreBuffer_, .addedPart = commitStr});
                 } else if (ic_.capabilityFlags().test(CapabilityFlag::SurroundingText)) {
                     const auto& surrounding = ic_.surroundingText();
@@ -1219,7 +1219,7 @@ namespace fcitx {
     }
 
     void LotusState::ensureUinputConnection() {
-        if (!vkAvailable() && !engine_.kbSender().connected()) {
+        if (!vkUsable() && !engine_.kbSender().connected()) {
             LOTUS_WARN("Cannot connect to uinput server, reconnecting....");
             engine_.kbSender().ensureConnected();
         }
@@ -1686,7 +1686,7 @@ namespace fcitx {
                         appendCommit(diffPart.addedPart);
                         oldPreBuffer_ = preeditStr;
                     }
-                } else if (!vkAvailable() && !engine_.kbSender().connected()) {
+                } else if (!vkUsable() && !engine_.kbSender().connected()) {
                     appendCommit(keyText);
                 } else {
                     if (g_isDeleting.load(std::memory_order_acquire)) {

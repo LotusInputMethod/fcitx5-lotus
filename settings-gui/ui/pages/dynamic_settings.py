@@ -46,6 +46,7 @@ SETTINGS_MAP = {
     SettingsCategory.GENERAL: {
         "INPUT METHOD": ["InputMethod", "Mode", "OutputCharset"],
         "TYPING": ["W2U", "BracketTransform"],
+        "UINPUT BACKEND": ["PreferVirtualKeyboard"],
     },
     SettingsCategory.APPEARANCE: {
         "THEME & ICONS": ["UseLotusIcons", "IconTheme"],
@@ -85,6 +86,9 @@ CATEGORY_DESCRIPTIONS = {
 }
 
 GROUP_DESCRIPTIONS = {
+    "UINPUT BACKEND": _(
+        "Choose whether Lotus types replacements through the compositor virtual keyboard instead of the uinput service."
+    ),
     "MAIN SHORTCUTS": _(
         "Assign hotkeys to open the mode menu or quickly cycle through enabled modes."
     ),

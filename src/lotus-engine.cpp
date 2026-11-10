@@ -167,7 +167,9 @@ namespace fcitx {
         windowFocusTracker_ = std::make_unique<WindowFocusTracker>([this] { appRuleDispatcher_.schedule([this] { refreshFocusedAppRule(); }); });
         std::string desktop = getEnv("XDG_CURRENT_DESKTOP");
         isGnome_            = (!desktop.empty()) && desktop.find("GNOME") != std::string::npos;
-        LotusVirtualKeyboard::instance().available();
+        if (*config_.preferVirtualKeyboard) {
+            LotusVirtualKeyboard::instance().available();
+        }
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
 
         auto& uiManager = instance_.userInterfaceManager();
@@ -1141,7 +1143,8 @@ namespace fcitx {
     }
 
     void LotusEngine::checkServerForMode(LotusMode mode) {
-        if (isUinputMode(mode) && !LotusVirtualKeyboard::instance().available() && !kbSender_.ensureConnected()) {
+        const bool vkUsable = *config_.preferVirtualKeyboard && LotusVirtualKeyboard::instance().available();
+        if (isUinputMode(mode) && !vkUsable && !kbSender_.ensureConnected()) {
             notifyMissingUinputServer();
         }
     }

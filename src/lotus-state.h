@@ -176,6 +176,12 @@ namespace fcitx {
         void resetNow(bool isFocusOut);
 
         /**
+         * @brief Whether the uinput server can be skipped because the compositor takes the virtual keyboard.
+         * @return True when the option is enabled and the compositor provides zwp_virtual_keyboard_v1.
+         */
+        [[nodiscard]] bool vkUsable() const;
+
+        /**
          * @brief Sets up uinput device.
          * @return True when a usable keyboard socket is held.
          */

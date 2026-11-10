@@ -197,6 +197,7 @@ namespace fcitx {
 
         Option<bool>        enableDictionary{this, "EnableDictionary", _("Custom Dictionary"), false};
         Option<bool>        enableCustomKeymap{this, "EnableCustomKeymap", _("Custom Keymap"), false};
+        Option<bool>        preferVirtualKeyboard{this, "PreferVirtualKeyboard", _("Use virtual keyboard when available (no uinput needed)"), true};
 
         Option<bool>        showModeSmooth{this, "ShowModeSmooth", _("Show Uinput (Smooth)"), true};
         Option<std::string> shortcutSmooth{this, "ShortcutSmooth", _("Shortcut for Uinput (Smooth)"), "1"};

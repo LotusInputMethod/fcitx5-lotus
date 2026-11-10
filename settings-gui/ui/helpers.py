@@ -34,6 +34,10 @@ HELPERS = {
         "Press and release the selected modifier key before typing to skip macro expansion for the next word.\n"
         "If another key is pressed between the modifier's press and release, the skip is cancelled."
     ),
+    "PreferVirtualKeyboard": N_(
+        "When the compositor provides zwp_virtual_keyboard_v1, Lotus types replacements through it and the uinput server is not needed.\n"
+        "Turn this off to always use the uinput service."
+    ),
 }
 
 
