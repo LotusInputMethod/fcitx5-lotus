@@ -1742,7 +1742,7 @@ namespace fcitx {
                         appendCommit(diffPart.addedPart);
                         oldPreBuffer_ = preeditStr;
                     }
-                } else if (!vkUsable() && !engine_.kbSender().connected()) {
+                } else if (!injectionUsable() && !engine_.kbSender().connected()) {
                     appendCommit(keyText);
                 } else {
                     if (g_isDeleting.load(std::memory_order_acquire)) {
