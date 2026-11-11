@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <memory>
 #include <string_view>
 #include <utility>
 
@@ -29,6 +30,67 @@ struct zwp_virtual_keyboard_manager_v1;
 struct zwp_virtual_keyboard_v1;
 
 namespace fcitx {
+
+    /**
+     * @brief Releases a Wayland display connection.
+     */
+    struct WlDisplayDeleter {
+        /**
+         * @brief Disconnects the display.
+         * @param display Display to release, may be null.
+         */
+        void operator()(wl_display* display) const noexcept;
+    };
+
+    /**
+     * @brief Releases a Wayland registry proxy.
+     */
+    struct WlRegistryDeleter {
+        /**
+         * @brief Destroys the registry proxy.
+         * @param registry Registry to release, may be null.
+         */
+        void operator()(wl_registry* registry) const noexcept;
+    };
+
+    /**
+     * @brief Releases a Wayland seat proxy.
+     */
+    struct WlSeatDeleter {
+        /**
+         * @brief Destroys the seat proxy.
+         * @param seat Seat to release, may be null.
+         */
+        void operator()(wl_seat* seat) const noexcept;
+    };
+
+    /**
+     * @brief Releases a zwp_virtual_keyboard_manager_v1 proxy.
+     */
+    struct ZwpVirtualKeyboardManagerDeleter {
+        /**
+         * @brief Destroys the manager proxy.
+         * @param manager Manager to release, may be null.
+         */
+        void operator()(zwp_virtual_keyboard_manager_v1* manager) const noexcept;
+    };
+
+    /**
+     * @brief Releases a zwp_virtual_keyboard_v1 proxy.
+     */
+    struct ZwpVirtualKeyboardDeleter {
+        /**
+         * @brief Destroys the virtual keyboard proxy.
+         * @param keyboard Virtual keyboard to release, may be null.
+         */
+        void operator()(zwp_virtual_keyboard_v1* keyboard) const noexcept;
+    };
+
+    using WlDisplayPtr                 = std::unique_ptr<wl_display, WlDisplayDeleter>;                                      ///< Owning display
+    using WlRegistryPtr                = std::unique_ptr<wl_registry, WlRegistryDeleter>;                                    ///< Owning registry
+    using WlSeatPtr                    = std::unique_ptr<wl_seat, WlSeatDeleter>;                                            ///< Owning seat
+    using ZwpVirtualKeyboardManagerPtr = std::unique_ptr<zwp_virtual_keyboard_manager_v1, ZwpVirtualKeyboardManagerDeleter>; ///< Owning manager
+    using ZwpVirtualKeyboardPtr        = std::unique_ptr<zwp_virtual_keyboard_v1, ZwpVirtualKeyboardDeleter>;                ///< Owning virtual keyboard
 
     /**
      * @brief Wayland zwp_virtual_keyboard_v1 helper.
@@ -91,11 +153,11 @@ namespace fcitx {
         bool                                      emitImpl(int count, std::string_view utf8, bool trackEcho, bool shiftLeft);
         void                                      disconnect();
 
-        ::wl_display*                             display_   = nullptr;
-        ::wl_registry*                            registry_  = nullptr;
-        ::wl_seat*                                seat_      = nullptr;
-        ::zwp_virtual_keyboard_manager_v1*        manager_   = nullptr;
-        ::zwp_virtual_keyboard_v1*                keyboard_  = nullptr;
+        WlDisplayPtr                              display_;  ///< Display opened on the first probe
+        WlRegistryPtr                             registry_; ///< Registry of that display
+        WlSeatPtr                                 seat_;     ///< Seat the virtual keyboard is bound to
+        ZwpVirtualKeyboardManagerPtr              manager_;  ///< Manager global of the compositor
+        ZwpVirtualKeyboardPtr                     keyboard_; ///< Virtual keyboard device, created on the first emit
         uint32_t                                  time_      = 1;
         bool                                      injecting_ = false;
         bool                                      probed_    = false;

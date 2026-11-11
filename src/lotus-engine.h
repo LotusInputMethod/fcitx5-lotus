@@ -454,7 +454,7 @@ namespace fcitx {
 
         /**
          * @brief Whether the selected injection backend still needs the uinput server.
-         * @return False when the wlroots virtual keyboard or XTEST will deliver replacements.
+         * @return False when the wlroots virtual keyboard or Xtest will deliver replacements.
          */
         [[nodiscard]] bool needsUinputServer() const;
 

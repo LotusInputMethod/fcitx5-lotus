@@ -6,7 +6,7 @@
 
 /**
  * @file lotus-x11-keyboard.h
- * @brief X11 keyboard backend built on the XTEST extension.
+ * @brief X11 keyboard backend built on the Xtest extension.
  */
 
 #ifndef _LOTUS_X11_KEYBOARD_H_
@@ -26,7 +26,7 @@
 namespace fcitx {
 
     /**
-     * @brief Injects keys into the X server through XTEST.
+     * @brief Injects keys into the X server through Xtest.
      *
      * Behaves like the wlroots virtual keyboard: BackSpace, Shift+Left, Delete and text are sent as real key events,
      * so the focused client and the input method both see them in order. Text uses the keysyms of spare keycodes,
@@ -38,7 +38,7 @@ namespace fcitx {
         static LotusX11Keyboard& instance();
 
         /**
-         * @brief Probes the X server once for the XTEST extension.
+         * @brief Probes the X server once for the Xtest extension.
          * @return True when keys can be injected.
          */
         bool available();
@@ -89,7 +89,7 @@ namespace fcitx {
         XcbConnectionPtr       connection_;        ///< X server connection owned by the runner thread
         std::atomic<bool>      cancelled_{false};  ///< Set by cancelPendingTasks() to cut a burst short
         bool                   probed_    = false; ///< The probe already ran
-        bool                   supported_ = false; ///< The probe found XTEST
+        bool                   supported_ = false; ///< The probe found Xtest
         LotusDelayedTaskRunner runner_;            ///< Paces the injected keys off the main thread
     };
 

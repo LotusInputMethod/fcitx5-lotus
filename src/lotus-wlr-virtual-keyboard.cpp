@@ -6,6 +6,7 @@
  */
 
 #include "lotus-wlr-virtual-keyboard.h"
+#include "common-fd-guard.h"
 #include "lotus-log.h"
 #include "lotus-utils.h"
 
@@ -28,6 +29,36 @@
 #include "virtual-keyboard-unstable-v1-client-protocol.h"
 
 namespace fcitx {
+    void WlDisplayDeleter::operator()(wl_display* display) const noexcept {
+        if (display != nullptr) {
+            wl_display_disconnect(display);
+        }
+    }
+
+    void WlRegistryDeleter::operator()(wl_registry* registry) const noexcept {
+        if (registry != nullptr) {
+            wl_registry_destroy(registry);
+        }
+    }
+
+    void WlSeatDeleter::operator()(wl_seat* seat) const noexcept {
+        if (seat != nullptr) {
+            wl_seat_destroy(seat);
+        }
+    }
+
+    void ZwpVirtualKeyboardManagerDeleter::operator()(zwp_virtual_keyboard_manager_v1* manager) const noexcept {
+        if (manager != nullptr) {
+            zwp_virtual_keyboard_manager_v1_destroy(manager);
+        }
+    }
+
+    void ZwpVirtualKeyboardDeleter::operator()(zwp_virtual_keyboard_v1* keyboard) const noexcept {
+        if (keyboard != nullptr) {
+            zwp_virtual_keyboard_v1_destroy(keyboard);
+        }
+    }
+
     namespace {
         // Linux evdev codes for the printable section of a PC keyboard. Chromium may
         // fall back to a key's physical meaning even when its keysym is printable.
@@ -49,7 +80,7 @@ namespace fcitx {
                 if (d->seat == nullptr) {
                     d->seat = static_cast<wl_seat*>(wl_registry_bind(registry, name, &wl_seat_interface, 1));
                 }
-            } else if (std::strcmp(interface, zwp_virtual_keyboard_manager_v1_interface.name) == 0) {
+            } else if (std::strcmp(interface, zwp_virtual_keyboard_manager_v1_interface.name) == 0 && d->manager == nullptr) {
                 d->manager = static_cast<zwp_virtual_keyboard_manager_v1*>(wl_registry_bind(registry, name, &zwp_virtual_keyboard_manager_v1_interface, 1));
             }
         }
@@ -96,43 +127,32 @@ namespace fcitx {
     }
 
     void LotusWlrVirtualKeyboard::disconnect() {
-        if (keyboard_ != nullptr) {
-            zwp_virtual_keyboard_v1_destroy(keyboard_);
-            keyboard_ = nullptr;
-        }
-        if (manager_ != nullptr) {
-            zwp_virtual_keyboard_manager_v1_destroy(manager_);
-            manager_ = nullptr;
-        }
-        if (seat_ != nullptr) {
-            wl_seat_destroy(seat_);
-            seat_ = nullptr;
-        }
-        if (registry_ != nullptr) {
-            wl_registry_destroy(registry_);
-            registry_ = nullptr;
-        }
-        if (display_ != nullptr) {
-            wl_display_disconnect(display_);
-            display_ = nullptr;
-        }
+        // Proxies first, then the display that owns the underlying connection.
+        keyboard_.reset();
+        manager_.reset();
+        seat_.reset();
+        registry_.reset();
+        display_.reset();
     }
 
     bool LotusWlrVirtualKeyboard::probe() {
-        if (display_ != nullptr) {
+        if (display_) {
             return manager_ != nullptr && seat_ != nullptr;
         }
-        display_ = wl_display_connect(nullptr);
-        if (display_ == nullptr) {
+        display_.reset(wl_display_connect(nullptr));
+        if (!display_) {
             return false;
         }
-        registry_ = wl_display_get_registry(display_);
-        RegistryData data;
-        wl_registry_add_listener(registry_, &kRegistryListener, &data);
-        wl_display_roundtrip(display_);
-        seat_    = data.seat;
-        manager_ = data.manager;
-        if (seat_ == nullptr || manager_ == nullptr) {
+        registry_.reset(wl_display_get_registry(display_.get()));
+        RegistryData data; // Non-owning: the proxies move into the members below.
+        wl_registry_add_listener(registry_.get(), &kRegistryListener, &data);
+        if (wl_display_roundtrip(display_.get()) < 0) {
+            disconnect();
+            return false;
+        }
+        seat_.reset(data.seat);
+        manager_.reset(data.manager);
+        if (!seat_ || !manager_) {
             disconnect();
             return false;
         }
@@ -140,14 +160,14 @@ namespace fcitx {
     }
 
     bool LotusWlrVirtualKeyboard::ensureDevice() {
-        if (keyboard_ != nullptr) {
+        if (keyboard_) {
             return true;
         }
         if (!probe()) {
             return false;
         }
-        keyboard_ = zwp_virtual_keyboard_manager_v1_create_virtual_keyboard(manager_, seat_);
-        if (keyboard_ == nullptr) {
+        keyboard_.reset(zwp_virtual_keyboard_manager_v1_create_virtual_keyboard(manager_.get(), seat_.get()));
+        if (!keyboard_) {
             disconnect();
             return false;
         }
@@ -229,45 +249,42 @@ namespace fcitx {
         keymap += "};\n";
         keymap += "};\n";
 
-        const int fd = createMemfd("lotus-wlr-virtual-keyboard-keymap");
-        if (fd < 0) {
+        FdGuard fd(createMemfd("lotus-wlr-virtual-keyboard-keymap"));
+        if (!fd.isValid()) {
             LOTUS_ERROR("wlr-virtual-keyboard: memfd_create failed");
             return false;
         }
         const auto size = static_cast<uint32_t>(keymap.size() + 1);
-        if (ftruncate(fd, static_cast<off_t>(size)) != 0) {
-            close(fd);
+        if (ftruncate(fd.get(), static_cast<off_t>(size)) != 0) {
             return false;
         }
         ssize_t written = 0;
         while (std::cmp_less(written, size)) {
-            const ssize_t w = write(fd, keymap.c_str() + written, size - static_cast<uint32_t>(written)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            const ssize_t w = write(fd.get(), keymap.c_str() + written, size - static_cast<uint32_t>(written)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             if (w < 0) {
                 if (errno == EINTR) {
                     continue;
                 }
-                close(fd);
                 return false;
             }
             written += w;
         }
-        lseek(fd, 0, SEEK_SET);
-        zwp_virtual_keyboard_v1_keymap(keyboard_, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, fd, size);
-        close(fd);
-        zwp_virtual_keyboard_v1_modifiers(keyboard_, 0, 0, 0, 0);
-        return wl_display_roundtrip(display_) >= 0;
+        lseek(fd.get(), 0, SEEK_SET);
+        zwp_virtual_keyboard_v1_keymap(keyboard_.get(), WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, fd.get(), size);
+        zwp_virtual_keyboard_v1_modifiers(keyboard_.get(), 0, 0, 0, 0);
+        return wl_display_roundtrip(display_.get()) >= 0;
     }
 
     void LotusWlrVirtualKeyboard::tap(uint32_t evdevKey, bool track) {
         if (track) {
             echo_.emplace_back(evdevKey + 8U, time_);
         }
-        zwp_virtual_keyboard_v1_key(keyboard_, time_++, evdevKey, WL_KEYBOARD_KEY_STATE_PRESSED);
-        zwp_virtual_keyboard_v1_key(keyboard_, time_++, evdevKey, WL_KEYBOARD_KEY_STATE_RELEASED);
+        zwp_virtual_keyboard_v1_key(keyboard_.get(), time_++, evdevKey, WL_KEYBOARD_KEY_STATE_PRESSED);
+        zwp_virtual_keyboard_v1_key(keyboard_.get(), time_++, evdevKey, WL_KEYBOARD_KEY_STATE_RELEASED);
     }
 
     void LotusWlrVirtualKeyboard::setShift(bool down) {
-        zwp_virtual_keyboard_v1_modifiers(keyboard_, down ? kShiftMod : 0, 0, 0, 0);
+        zwp_virtual_keyboard_v1_modifiers(keyboard_.get(), down ? kShiftMod : 0, 0, 0, 0);
     }
 
     bool LotusWlrVirtualKeyboard::consumeEcho(uint32_t code, uint32_t time) {
@@ -322,12 +339,12 @@ namespace fcitx {
             if (first) {
                 if (shiftLeft) {
                     setShift(true);
-                    wl_display_roundtrip(display_);
+                    wl_display_roundtrip(display_.get());
                     for (int i = 0; i < count; ++i) {
                         tap(KEY_LEFT, trackEcho);
                     }
                     setShift(false);
-                    wl_display_roundtrip(display_);
+                    wl_display_roundtrip(display_.get());
                     if (!cps.empty()) {
                         tap(KEY_DELETE, trackEcho);
                     }
@@ -341,7 +358,7 @@ namespace fcitx {
             for (size_t i = 0; i < n; ++i) {
                 tap(kTextKeys[i], trackEcho); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             }
-            wl_display_roundtrip(display_);
+            wl_display_roundtrip(display_.get());
             pos += n;
         }
         injecting_ = false;

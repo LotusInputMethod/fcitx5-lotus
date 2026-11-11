@@ -129,7 +129,7 @@ namespace fcitx {
         enum class InjectionBackend : std::uint8_t {
             None,               ///< No injected burst; the uinput server drives it
             WlrVirtualKeyboard, ///< zwp_virtual_keyboard_v1 on a wlroots compositor
-            X11Test,            ///< XTEST on an X11 session
+            X11Test,            ///< Xtest on an X11 session
         };
 
         LotusEngine&                          engine_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
@@ -192,14 +192,14 @@ namespace fcitx {
         [[nodiscard]] bool vkUsable() const;
 
         /**
-         * @brief Whether the X server can take the injected keys through XTEST.
-         * @return True on an X11 session whose server provides the XTEST extension.
+         * @brief Whether the X server can take the injected keys through Xtest.
+         * @return True on an X11 session whose server provides the Xtest extension.
          */
         [[nodiscard]] bool x11Usable() const;
 
         /**
          * @brief Whether any backend other than the uinput server can deliver a replacement.
-         * @return True when the option is enabled and the wlroots virtual keyboard or XTEST is usable.
+         * @return True when the option is enabled and the wlroots virtual keyboard or Xtest is usable.
          */
         [[nodiscard]] bool injectionUsable() const;
 

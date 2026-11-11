@@ -1,5 +1,5 @@
-fcitx5-lotus (6.0.7-1) unstable; urgency=medium
+fcitx5-lotus (6.1.0-1) unstable; urgency=medium
 
-  * Fix double commit when mouse clicking
+  * Added Wayland zwp_virtual_keyboard_v1 and X11 Xtest key injection backends alongside uinput.
 
- -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Sun, 08 Nov 2026 20:55:00 +0700
+ -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Wed, 11 Nov 2026 19:39:00 +0700

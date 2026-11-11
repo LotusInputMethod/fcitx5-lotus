@@ -668,7 +668,7 @@ namespace fcitx {
 
         bool selectMode = uinputSelect;
         if (selectMode && x11Backend && LotusX11Keyboard::shiftHeld()) {
-            // XTEST shares the server modifier state with the user's keyboard: a Shift we press and release would
+            // Xtest shares the server modifier state with the user's keyboard: a Shift we press and release would
             // release the user's own Shift, so Select falls back to BackSpace like the uinput server does.
             LOTUS_INFO("x11-keyboard: physical Shift is held, backspacing instead of selecting");
             selectMode = false;
@@ -1209,7 +1209,7 @@ namespace fcitx {
     bool LotusState::handleKeyEventGuards(KeyEvent& keyEvent) {
         if (!lotusEngine_)
             return true;
-        // Only the wlroots backend leaves echoes that have to be matched by keycode and forwarded. XTEST keys come
+        // Only the wlroots backend leaves echoes that have to be matched by keycode and forwarded. Xtest keys come
         // back through the XIM/dbus frontend like uinput keys and are counted by handleUInputKeyPress.
         if (injectionBackend_ != InjectionBackend::X11Test) {
             auto& vk = LotusWlrVirtualKeyboard::instance();

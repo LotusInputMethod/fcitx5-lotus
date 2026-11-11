@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /**
  * @file x11-keyboard-inject.cpp
- * @brief Checks the XTEST backend: key order, keysym mapping, mandatory interval and keymap restore.
+ * @brief Checks the Xtest backend: key order, keysym mapping, mandatory interval and keymap restore.
  */
 
 #include "lotus-x11-keyboard.h"
@@ -114,7 +114,7 @@ int main() {
     xcb_flush(conn);
 
     const xcb_keycode_t backspaceKey = keycodeFor(conn, XK_BackSpace);
-    check("XTEST backend is available", fcitx::LotusX11Keyboard::instance().available());
+    check("Xtest backend is available", fcitx::LotusX11Keyboard::instance().available());
 
     constexpr int kIntervalMs = 200;
     const auto    started     = std::chrono::steady_clock::now();

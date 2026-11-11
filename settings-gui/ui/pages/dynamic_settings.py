@@ -87,7 +87,7 @@ CATEGORY_DESCRIPTIONS = {
 
 GROUP_DESCRIPTIONS = {
     "UINPUT BACKEND": _(
-        "Choose whether Lotus types replacements through the compositor virtual keyboard instead of the uinput service."
+        "Choose whether Lotus types replacements through the system keyboard injection instead of the uinput service."
     ),
     "MAIN SHORTCUTS": _(
         "Assign hotkeys to open the mode menu or quickly cycle through enabled modes."

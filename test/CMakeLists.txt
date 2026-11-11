@@ -196,7 +196,7 @@ add_lotus_headless_test(TARGET kb_sender SOURCES kb-sender.cpp LABELS "unit;sock
 add_lotus_headless_test(TARGET program_name SOURCES program-name.cpp LABELS "unit;apprule")
 add_lotus_headless_test(TARGET mouse_click_plan SOURCES mouse-click-plan.cpp LABELS "unit;preedit")
 add_lotus_headless_test(TARGET x11_keyboard_inject SOURCES x11-keyboard-inject.cpp LABELS "integration;x11" LINK_LIBRARIES PkgConfig::XCB_XTEST PkgConfig::XCB)
-# The real check needs an X server with XTEST: run it again under a throwaway Xvfb.
+# The real check needs an X server with Xtest: run it again under a throwaway Xvfb.
 find_program(XVFB_RUN xvfb-run)
 if(XVFB_RUN)
     add_test(NAME x11_keyboard_inject_xvfb COMMAND ${XVFB_RUN} -a $<TARGET_FILE:x11_keyboard_inject>)

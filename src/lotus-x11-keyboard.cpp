@@ -64,7 +64,7 @@ namespace fcitx {
         };
 
         using KeyboardMappingReplyPtr = std::unique_ptr<xcb_get_keyboard_mapping_reply_t, KeyboardMappingReplyDeleter>; ///< Owning mapping reply
-        using TestVersionReplyPtr     = std::unique_ptr<xcb_test_get_version_reply_t, TestVersionReplyDeleter>;         ///< Owning XTEST version reply
+        using TestVersionReplyPtr     = std::unique_ptr<xcb_test_get_version_reply_t, TestVersionReplyDeleter>;         ///< Owning Xtest version reply
         using QueryKeymapReplyPtr     = std::unique_ptr<xcb_query_keymap_reply_t, QueryKeymapReplyDeleter>;             ///< Owning keymap reply
 
         /// @brief True when the keymap bit of @p keycode is set, i.e. that key is currently pressed.
@@ -181,9 +181,9 @@ namespace fcitx {
         }
         supported_ = ok;
         if (supported_) {
-            LOTUS_INFO("XTEST is available, using x11-keyboard");
+            LOTUS_INFO("Xtest is available, using x11-keyboard");
         } else {
-            LOTUS_INFO("XTEST is unavailable, using uinput");
+            LOTUS_INFO("Xtest is unavailable, using uinput");
         }
         return supported_;
     }

@@ -1,7 +1,7 @@
 %bcond_without tests
 
 Name:           fcitx5-lotus
-Version:        6.0.7
+Version:        6.1.0
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -126,5 +126,5 @@ fi
 %systemd_postun_with_restart fcitx5-lotus-server@.service
 
 %changelog
-* Sun Nov 08 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.0.7-1
-- Fix double commit when mouse clicking
+* Wed Nov 11 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.1.0-1
+- Added Wayland zwp_virtual_keyboard_v1 and X11 Xtest key injection backends alongside uinput.
