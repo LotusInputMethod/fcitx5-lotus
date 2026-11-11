@@ -74,7 +74,27 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
         <fcitx-utils/keysym.h>
         <fcitx-utils/utf8.h>
     )
-    target_precompile_headers(lotus_core_objects PRIVATE ${LOTUS_PCH_HEADERS})
+    # genex needed because target has a .c source.
+    target_precompile_headers(lotus_core_objects PRIVATE
+        "$<$<COMPILE_LANGUAGE:C>:>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/instance.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/addonmanager.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/addonfactory.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/inputmethodengine.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/action.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/inputcontext.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/candidatelist.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/inputpanel.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/text.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/menu.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/userinterface.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx/userinterfacemanager.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx-config/iniparser.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx-utils/log.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx-utils/event.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx-utils/keysym.h$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<fcitx-utils/utf8.h$<ANGLE-R>>"
+    )
     # test/ reuses the same list for its own PCH host (sibling scope).
     set(LOTUS_PCH_HEADERS "${LOTUS_PCH_HEADERS}" PARENT_SCOPE)
 endif()
