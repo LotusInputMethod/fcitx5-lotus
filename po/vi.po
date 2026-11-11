@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: fcitx5-lotus\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-21 08:19+0700\n"
-"PO-Revision-Date: 2026-10-21 08:22+0700\n"
+"POT-Creation-Date: 2026-11-11 19:45+0700\n"
+"PO-Revision-Date: 2026-11-11 19:47+0700\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: vi\n"
@@ -72,7 +72,7 @@ msgstr "Thêm"
 msgid "Add Keymap"
 msgstr "Thêm Keymap"
 
-#: src/lotus-config.h:215
+#: src/lotus-config.h:216
 msgid "Allow Macro in Off Mode"
 msgstr "Cho phép gõ tắt trong chế độ \"Tắt\""
 
@@ -104,7 +104,7 @@ msgstr "App"
 msgid "App Rules"
 msgstr "Quy tắc ứng dụng"
 
-#: src/lotus-engine.cpp:1047
+#: src/lotus-engine.cpp:1103
 msgid "App: "
 msgstr "App: "
 
@@ -133,7 +133,7 @@ msgstr ""
 "Bạn có muốn khôi phục các thành phần? Điều này sẽ ghi đè cấu hình hiện tại "
 "của bạn."
 
-#: settings-gui/ui/pages/dynamic_settings.py:89
+#: settings-gui/ui/pages/dynamic_settings.py:93
 msgid ""
 "Assign hotkeys to open the mode menu or quickly cycle through enabled modes."
 msgstr ""
@@ -143,11 +143,11 @@ msgstr ""
 msgid "Auto"
 msgstr "Tự động"
 
-#: src/lotus-engine.cpp:196 src/lotus-engine.cpp:350
+#: src/lotus-engine.cpp:210 src/lotus-engine.cpp:374
 msgid "Auto Non-VN Restore"
 msgstr "Tự động khôi phục với từ không phải tiếng Việt"
 
-#: src/lotus-config.h:192 src/lotus-engine.cpp:196
+#: src/lotus-engine.cpp:210 src/lotus-config.h:192
 msgid "Auto Restore Invalid Words"
 msgstr "Tự động khôi phục phím với từ sai"
 
@@ -218,13 +218,21 @@ msgid ""
 msgstr ""
 "Không thể lưu từ điển vì tải thất bại trước đó. Hãy sửa định dạng tệp trước."
 
-#: src/lotus-config.h:186 src/lotus-engine.cpp:194 src/lotus-engine.cpp:349
+#: src/lotus-engine.cpp:208 src/lotus-engine.cpp:373 src/lotus-config.h:186
 msgid "Capitalize Macro"
 msgstr "Gõ tắt chữ hoa"
 
-#: src/lotus-engine.cpp:165
+#: src/lotus-engine.cpp:179
 msgid "Charset"
 msgstr "Bảng mã"
+
+#: settings-gui/ui/pages/dynamic_settings.py:90
+msgid ""
+"Choose whether Lotus types replacements through the system keyboard "
+"injection instead of the uinput service."
+msgstr ""
+"Chọn xem Lotus liệu có gõ thông qua tính năng chèn phím hệ thống thay vì "
+"dịch vụ uinput."
 
 #: settings-gui/ui/components.py:257
 msgid "Clear hotkey"
@@ -238,7 +246,7 @@ msgstr "Khoảng cách giữa 2 commit"
 msgid "Configure Fcitx5 Lotus Input Method"
 msgstr "Tuỳ chỉnh bộ gõ Fcitx5 Lotus"
 
-#: settings-gui/ui/pages/dynamic_settings.py:79
+#: settings-gui/ui/pages/dynamic_settings.py:80
 msgid "Configure basic input method settings and behaviors."
 msgstr "Thiết lập các cài đặt và hành vi cơ bản của bộ gõ."
 
@@ -262,11 +270,11 @@ msgstr "Xác nhận khôi phục"
 msgid "Ctrl"
 msgstr "Ctrl"
 
-#: src/lotus-config.h:198 src/lotus-engine.cpp:198 src/lotus-engine.cpp:351
+#: src/lotus-engine.cpp:212 src/lotus-engine.cpp:375 src/lotus-config.h:198
 msgid "Custom Dictionary"
 msgstr "Từ điển tuỳ chỉnh"
 
-#: src/lotus-config.h:159 src/lotus-config.h:199 src/lotus-config.h:224
+#: src/lotus-config.h:159 src/lotus-config.h:199 src/lotus-config.h:225
 msgid "Custom Keymap"
 msgstr "Keymap tuỳ chỉnh"
 
@@ -275,7 +283,7 @@ msgstr "Keymap tuỳ chỉnh"
 msgid "Custom Keymaps"
 msgstr "Keymap tuỳ chỉnh"
 
-#: settings-gui/ui/pages/dynamic_settings.py:81
+#: settings-gui/ui/pages/dynamic_settings.py:82
 msgid "Customize the look and feel of the Lotus status icons and theme."
 msgstr "Tùy chỉnh giao diện, biểu tượng trạng thái và chủ đề của Lotus."
 
@@ -287,7 +295,7 @@ msgstr "Phím tắt chuyển nhanh chế độ"
 msgid "Dark"
 msgstr "Tối"
 
-#: src/lotus-config.h:221
+#: src/lotus-config.h:222
 msgid "Date Format ($DATE in macro)"
 msgstr "Định dạng ngày ($DATE trong macro)"
 
@@ -299,15 +307,15 @@ msgstr "Định dạng ngày:"
 msgid "Default"
 msgstr "Mặc định"
 
-#: src/lotus-config.h:217
+#: src/lotus-config.h:218
 msgid "Default Backspace Interval"
 msgstr "Khoảng cách giữa 2 phím xoá mặc định"
 
-#: src/lotus-config.h:216
+#: src/lotus-config.h:217
 msgid "Default Commit Interval"
 msgstr "Khoảng cách giữa 2 commit mặc định"
 
-#: src/lotus-config.h:218
+#: src/lotus-config.h:219
 msgid "Default Post Delay"
 msgstr "Độ trễ sau commit mặc định"
 
@@ -335,7 +343,7 @@ msgstr "Dấu gạch ngang 2 lần để thành dấu gạch dài"
 msgid "Double Space to Period"
 msgstr "Phím cách 2 lần để chấm câu (thử nghiệm)"
 
-#: settings-gui/ui/pages/dynamic_settings.py:250
+#: settings-gui/ui/pages/dynamic_settings.py:254
 msgid ""
 "Drag the handle on the left to reorder modes in the menu. Use checkboxes to "
 "toggle visibility, and click the buttons to reassign shortcuts."
@@ -343,7 +351,7 @@ msgstr ""
 "Kéo thả biểu tượng bên trái để sắp xếp thứ tự chế độ trong menu. Đánh dấu để "
 "bật/tắt hiển thị, và nhấn vào các nút để gán lại phím tắt."
 
-#: settings-gui/ui/pages/dynamic_settings.py:563
+#: settings-gui/ui/pages/dynamic_settings.py:567
 #, python-brace-format
 msgid "Duplicate shortcut '{}' used for multiple enabled modes."
 msgstr "Phím tắt '{}' được sử dụng bởi một chế độ gõ khác đang được bật."
@@ -395,7 +403,7 @@ msgstr "Xuất/Nhập cài đặt"
 msgid "Failed to export backup:\n"
 msgstr "Xuất sao lưu thất bại\n"
 
-#: settings-gui/ui/pages/dynamic_settings.py:209
+#: settings-gui/ui/pages/dynamic_settings.py:213
 msgid "Failed to load configuration."
 msgstr "Tải cấu hình thất bại."
 
@@ -441,7 +449,7 @@ msgstr "Những người đóng góp cho Fcitx5 Lotus"
 msgid "Fcitx5 Lotus Settings"
 msgstr "Cài đặt Fcitx5 Lotus"
 
-#: settings-gui/ui/pages/dynamic_settings.py:83
+#: settings-gui/ui/pages/dynamic_settings.py:84
 msgid "Fine-tune spelling corrections and advanced typing options."
 msgstr "Tinh chỉnh kiểm tra chính tả và các tùy chọn gõ nâng cao."
 
@@ -457,7 +465,7 @@ msgstr "Tổng quan"
 msgid "Global Default Mode:"
 msgstr "Chế độ toàn cục mặc định:"
 
-#: src/lotus-config.h:225
+#: src/lotus-config.h:226
 msgid "Icon Color"
 msgstr "Màu biểu tượng"
 
@@ -506,7 +514,7 @@ msgstr "Sáng"
 msgid "Lotus"
 msgstr "Lotus"
 
-#: src/lotus-engine.cpp:1140
+#: src/lotus-engine.cpp:1196
 msgid "Lotus - Off"
 msgstr "Lotus - Tắt"
 
@@ -523,12 +531,12 @@ msgid ""
 "modes and input methods."
 msgstr "Lotus là bộ gõ tiếng Việt cho Fcitx5, hỗ trợ nhiều chế độ và kiểu gõ."
 
-#: src/lotus-notify.cpp:86
+#: src/lotus-notify.cpp:88
 msgid "Lotus: the uinput server is not running"
 msgstr "Lotus: máy chủ uinput đang không chạy"
 
-#: src/lotus-config.h:155 src/lotus-config.h:223 src/lotus-engine.cpp:193
-#: src/lotus-engine.cpp:348
+#: src/lotus-engine.cpp:207 src/lotus-engine.cpp:372 src/lotus-config.h:155
+#: src/lotus-config.h:224
 msgid "Macro"
 msgstr "Gõ tắt"
 
@@ -558,7 +566,7 @@ msgstr ""
 msgid "Main Settings"
 msgstr "Cài đặt chính"
 
-#: settings-gui/ui/pages/dynamic_settings.py:84
+#: settings-gui/ui/pages/dynamic_settings.py:85
 msgid "Manage input mode shortcuts, display order, and fast cycling."
 msgstr "Quản lý phím tắt, thứ tự hiển thị và chuyển nhanh các chế độ gõ."
 
@@ -570,7 +578,7 @@ msgstr "Chế độ"
 msgid "Mode Menu Hotkey"
 msgstr "Phím tắt menu chế độ gõ"
 
-#: src/lotus-config.h:219
+#: src/lotus-config.h:220
 msgid "Mode Order"
 msgstr "Thứ tự chế độ"
 
@@ -594,7 +602,7 @@ msgstr "Chuyển xuống"
 msgid "Move Up"
 msgstr "Chuyển lên"
 
-#: settings-gui/ui/pages/dynamic_settings.py:282
+#: settings-gui/ui/pages/dynamic_settings.py:286
 msgid "No interface settings available yet."
 msgstr "Không có cài đặt nào hiện khả dụng."
 
@@ -624,7 +632,7 @@ msgstr "Kiểu gõ gốc:"
 msgid "Output Charset"
 msgstr "Bảng mã"
 
-#: src/lotus-state.cpp:211
+#: src/lotus-state.cpp:355
 msgid "Page "
 msgstr "Trang "
 
@@ -635,6 +643,22 @@ msgstr "Độ trễ sau commit"
 #: src/lotus-config.h:31
 msgid "Preedit"
 msgstr "Gạch chân"
+
+#: settings-gui/ui/helpers.py:38
+msgid ""
+"Prefer injecting keys through the system instead of the uinput service: the "
+"wlroots virtual keyboard on Wayland and Xtest on X11.\n"
+"Turn this off to always use the uinput service; when neither backend is "
+"available the uinput service is used anyway."
+msgstr ""
+"Ưu tiên bơm phím qua hệ thống thay vì dịch vụ uinput: sử dụng bàn phím ảo "
+"wlroots trên wayland và Xtest trên X11.\n"
+"Tắt tuỳ chọn này để luôn sử dụng dịch vụ uinput, khi không có backend nào "
+"khả dụng thì uinput sẽ luôn được sử dụng."
+
+#: src/lotus-config.h:200
+msgid "Prefer system keyboard injection when available"
+msgstr "Ưu tiên bơm phím qua hệ thống khi khả dụng"
 
 #: settings-gui/ui/helpers.py:34
 msgid ""
@@ -734,7 +758,7 @@ msgstr ""
 "Các thành phần được chọn đã khôi phục thành công. Vài thay đổi cần khởi động "
 "lại fcitx5."
 
-#: src/lotus-engine.cpp:202
+#: src/lotus-engine.cpp:216
 msgid "Settings"
 msgstr "Cài đặt"
 
@@ -746,35 +770,35 @@ msgstr "Cài đặt đã được lưu."
 msgid "Shift"
 msgstr "Shift"
 
-#: src/lotus-config.h:214
+#: src/lotus-config.h:215
 msgid "Shortcut for Default Typing"
 msgstr "Phím tắt cho Chế độ gõ mặc định"
 
-#: src/lotus-config.h:212
+#: src/lotus-config.h:213
 msgid "Shortcut for Emoji Picker"
 msgstr "Phím tắt cho Chọn Emoji"
 
-#: src/lotus-config.h:213
+#: src/lotus-config.h:214
 msgid "Shortcut for OFF"
 msgstr "Phím tắt cho Tắt"
 
-#: src/lotus-config.h:210
+#: src/lotus-config.h:211
 msgid "Shortcut for Preedit"
 msgstr "Phím tắt cho Gạch chân"
 
-#: src/lotus-config.h:208
+#: src/lotus-config.h:209
 msgid "Shortcut for Surrounding Text"
 msgstr "Phím tắt cho Văn bản xung quanh"
 
-#: src/lotus-config.h:206
+#: src/lotus-config.h:207
 msgid "Shortcut for Uinput (Select)"
 msgstr "Phím tắt cho Uinput (Chọn)"
 
-#: src/lotus-config.h:202
+#: src/lotus-config.h:203
 msgid "Shortcut for Uinput (Smooth)"
 msgstr "Phím tắt cho Uinput (Mượt)"
 
-#: src/lotus-config.h:204
+#: src/lotus-config.h:205
 msgid "Shortcut for Uinput (Super Smooth)"
 msgstr "Phím tắt cho Uinput (Siêu mượt)"
 
@@ -782,39 +806,39 @@ msgstr "Phím tắt cho Uinput (Siêu mượt)"
 msgid "Shortcuts"
 msgstr "Phím tắt"
 
-#: src/lotus-config.h:213
+#: src/lotus-config.h:214
 msgid "Show Default Typing"
 msgstr "Hiển thị chế độ gõ mặc định"
 
-#: src/lotus-config.h:211
+#: src/lotus-config.h:212
 msgid "Show Emoji Picker"
 msgstr "Hiển thị chế độ Chọn Emoji"
 
-#: src/lotus-config.h:212
+#: src/lotus-config.h:213
 msgid "Show OFF"
 msgstr "Hiển thị chế độ Tắt"
 
-#: src/lotus-config.h:209
+#: src/lotus-config.h:210
 msgid "Show Preedit"
 msgstr "Hiển thị chế độ Gạch chân"
 
-#: src/lotus-config.h:207
+#: src/lotus-config.h:208
 msgid "Show Surrounding Text"
 msgstr "Hiển thị chế độ Văn bản xung quanh"
 
-#: src/lotus-config.h:205
+#: src/lotus-config.h:206
 msgid "Show Uinput (Select)"
 msgstr "Hiển thị chế độ Uinput (Chọn)"
 
-#: src/lotus-config.h:201
+#: src/lotus-config.h:202
 msgid "Show Uinput (Smooth)"
 msgstr "Hiển thị chế độ Uinput (Mượt)"
 
-#: src/lotus-config.h:203
+#: src/lotus-config.h:204
 msgid "Show Uinput (Super Smooth)"
 msgstr "Hiển thị chế độ Uinput (Siêu mượt)"
 
-#: src/lotus-engine.cpp:192 src/lotus-engine.cpp:347
+#: src/lotus-engine.cpp:206 src/lotus-engine.cpp:371
 msgid "Spell Check"
 msgstr "Kiểm tra chính tả"
 
@@ -839,7 +863,7 @@ msgstr ""
 "Dự án được cấp phép dưới <b>Giấy phép Công cộng GNU phiên bản 3.0 hoặc mới "
 "hơn (GPL-3.0-or-later)</b>."
 
-#: src/lotus-config.h:220
+#: src/lotus-config.h:221
 msgid "Time Format ($TIME in macro)"
 msgstr "Định dạng giờ ($TIME trong gõ tắt)"
 
@@ -847,7 +871,7 @@ msgstr "Định dạng giờ ($TIME trong gõ tắt)"
 msgid "Time Format:"
 msgstr "Định dạng giờ:"
 
-#: src/lotus-engine.cpp:1030
+#: src/lotus-engine.cpp:1086
 msgid "Type"
 msgstr "Gõ"
 
@@ -875,7 +899,7 @@ msgstr "Uinput (Mượt)"
 msgid "Uinput (Super Smooth)"
 msgstr "Uinput (Siêu mượt)"
 
-#: src/lotus-notify.cpp:82
+#: src/lotus-notify.cpp:84
 msgid ""
 "Uinput modes need the Lotus uinput server. Enable the server service for "
 "your distribution and init system."

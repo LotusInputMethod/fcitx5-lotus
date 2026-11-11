@@ -176,6 +176,11 @@ inline void configureTestPaths(const char* name) {
     setenv("XDG_DATA_HOME", (root / "data").c_str(), 1);
     setenv("XDG_CACHE_HOME", (root / "cache").c_str(), 1);
 
+    // Keep the addon off a live compositor: libwayland falls back to "wayland-0" when WAYLAND_DISPLAY is unset, so
+    // a session with zwp_virtual_keyboard_v1 would type replacements through it instead of the fake uinput socket
+    // these tests observe. The name below never exists inside XDG_RUNTIME_DIR, so the probe fails and uinput runs.
+    setenv("WAYLAND_DISPLAY", "lotus-headless-test", 1);
+
     static std::filesystem::path s_cleanupPath;
     s_cleanupPath                = root;
     static const bool registered = [] {

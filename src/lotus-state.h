@@ -23,6 +23,8 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <fcitx-utils/event.h>
 #include <fcitx/inputcontext.h>
 #include <memory>
@@ -98,6 +100,12 @@ namespace fcitx {
         void finishOverdueReplacement();
 
         /**
+         * @brief Finishes a replacement scheduled after the virtual keyboard post-delay.
+         * @param token Replacement generation captured when the task was queued.
+         */
+        void finishScheduledReplacement(uint64_t token);
+
+        /**
          * @brief Commits the current buffer.
          */
         void commitBuffer();
@@ -117,6 +125,13 @@ namespace fcitx {
         friend class LotusEngine;
 
       private:
+        /// @brief Keyboard backend that delivers the in-flight replacement burst.
+        enum class InjectionBackend : std::uint8_t {
+            None,               ///< No injected burst; the uinput server drives it
+            WlrVirtualKeyboard, ///< zwp_virtual_keyboard_v1 on a wlroots compositor
+            X11Test,            ///< Xtest on an X11 session
+        };
+
         LotusEngine&                          engine_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         InputContext&                         ic_;     // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         std::shared_ptr<lotus::KeyProcessor>  lotusEngine_;
@@ -124,8 +139,10 @@ namespace fcitx {
         bool                                  hasHistory_            = false;
         size_t                                expectedBackspaces_    = 0;
         size_t                                currentBackspaceCount_ = 0;
-        bool                                  realSelect_            = false; ///< when real shift +left is send
-        bool                                  lastSelect_            = false; ///< kind of the most recent burst, for replay
+        bool                                  realSelect_            = false;                  ///< when real shift +left is send
+        bool                                  echoTriggerPending_    = false;                  ///< the injected burst commits on its last echo
+        InjectionBackend                      injectionBackend_      = InjectionBackend::None; ///< backend delivering the in-flight burst
+        bool                                  lastSelect_            = false;                  ///< kind of the most recent burst, for replay
         std::u32string                        pendingCommitString_;
         std::u32string                        commitBatch_;                   ///< Text of the replacement batch, sent as one commitString
         std::unique_ptr<EventSourceTime>      deferredCommitTimer_;           ///< Pending dbus commit timer
@@ -153,6 +170,7 @@ namespace fcitx {
         bool                                  isChromium_            = false;
         int64_t                               replacementDeadlineMs_ = 0; ///< ms by which every injected backspace must be echoed (0 = no replacement in flight)
         int64_t                               replacementEchoGrace_  = 0; ///< deadline grace re-armed on each echo
+        uint64_t                              replacementToken_      = 0; ///< invalidates a queued virtual-keyboard completion
         std::chrono::steady_clock::time_point lastCommitTime_;
 
         // Replacement aborted at focus-out, committed once focus returns.
@@ -166,6 +184,24 @@ namespace fcitx {
          * @param isFocusOut True when the reset comes from a focus-out event. Only cleans up composition state; it never commits text.
          */
         void resetNow(bool isFocusOut);
+
+        /**
+         * @brief Whether the uinput server can be skipped because the compositor takes the virtual keyboard.
+         * @return True when the option is enabled and the compositor provides zwp_virtual_keyboard_v1.
+         */
+        [[nodiscard]] bool vkUsable() const;
+
+        /**
+         * @brief Whether the X server can take the injected keys through Xtest.
+         * @return True on an X11 session whose server provides the Xtest extension.
+         */
+        [[nodiscard]] bool x11Usable() const;
+
+        /**
+         * @brief Whether any backend other than the uinput server can deliver a replacement.
+         * @return True when the option is enabled and the wlroots virtual keyboard or Xtest is usable.
+         */
+        [[nodiscard]] bool injectionUsable() const;
 
         /**
          * @brief Sets up uinput device.
@@ -245,6 +281,21 @@ namespace fcitx {
          * @brief Re-arms the echo deadline of the in-flight burst after a focus bounce.
          */
         void rearmReplacementDeadline();
+
+        /**
+         * @brief Emits the echo-driven burst through the backend that was selected for it.
+         * @param count Number of BackSpace (or Shift+Left in Select mode) events.
+         * @param select True to select with Shift+Left and Delete instead of backspacing.
+         * @return True when the backend accepted the burst.
+         */
+        bool injectEchoBurst(size_t count, bool select);
+
+        /**
+         * @brief Runs a task after the delay on the worker of the selected backend.
+         * @param delayMs Delay in milliseconds.
+         * @param task Task to run on that worker thread.
+         */
+        void scheduleAfterInjection(int delayMs, std::function<void()> task);
 
         /**
          * @brief Commits the replacement text stashed at focus-out; stale stashes are dropped.
@@ -361,9 +412,14 @@ namespace fcitx {
          * @param event The key event of the final echoed key.
          */
         void finishReplacement(KeyEvent& event);
+        /**
+         * @brief Commits the pending replacement without touching the key event.
+         */
+        void finishReplacementNow();
 
         /**
-         * @brief Performs text replacement via uinput.
+         * @brief Performs text replacement via virtual-keyboard-unstable-v1 when
+         * the compositor supports it, otherwise via uinput.
          * @param diffPart pairs of deleted part and added part
          */
         void performReplacement(DiffPart diffPart);

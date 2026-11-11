@@ -17,6 +17,7 @@
 #define _FCITX5_LOTUS_ENGINE_H_
 
 #include "lotus-config.h"
+#include <functional>
 #include <mutex>
 #include <memory>
 #include <vector>
@@ -74,6 +75,21 @@ namespace fcitx {
         KbSender& kbSender() {
             return kbSender_;
         }
+
+        /**
+         * @brief Returns the Lotus state of an input context.
+         * @param ic Input context, may be null.
+         * @return The state, or null when the context is gone.
+         */
+        LotusState* stateFor(InputContext* ic);
+
+        /**
+         * @brief Schedules a task on the fcitx event loop thread.
+         *
+         * Safe to call from the virtual keyboard worker thread.
+         * @param task Task to run inside the event loop.
+         */
+        void scheduleOnMainThread(std::function<void()> task);
 
         /**
          * @brief Constructs the Lotus engine.
@@ -435,6 +451,22 @@ namespace fcitx {
          * @param appName Name of application.
          */
         void clearAppRule(const std::string& appName);
+
+        /**
+         * @brief Whether the selected injection backend still needs the uinput server.
+         * @return False when the wlroots virtual keyboard or Xtest will deliver replacements.
+         */
+        [[nodiscard]] bool needsUinputServer() const;
+
+        /**
+         * @brief Starts or stops the mouse watcher to match the current backend.
+         */
+        void syncMouseWatcher();
+
+        /**
+         * @brief Closes the mouse socket and drops the watcher event source.
+         */
+        void teardownMouseWatcher();
 
         /**
          * @brief Connects and sets up IO watcher on Fcitx EventLoop for mouse click events.

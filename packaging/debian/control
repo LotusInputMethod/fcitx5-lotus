@@ -19,8 +19,11 @@ Build-Depends: debhelper-compat (= 13),
                libdbus-1-dev,
                libudev-dev,
                libxcb1-dev,
+               libxcb-xtest0-dev,
                pkg-config,
-               python3
+               python3,
+               libwayland-dev,
+               libwayland-bin
 Standards-Version: 4.6.0
 
 Package: fcitx5-lotus

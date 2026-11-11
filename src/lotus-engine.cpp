@@ -20,6 +20,8 @@
 #include "lotus-utils.h"
 #include "lotus-x11.h"
 #include "lotus-plasma-theme.h"
+#include "lotus-wlr-virtual-keyboard.h"
+#include "lotus-x11-keyboard.h"
 #include "window_focus_tracker.h"
 
 #include "dictionary.h"
@@ -166,6 +168,9 @@ namespace fcitx {
         windowFocusTracker_ = std::make_unique<WindowFocusTracker>([this] { appRuleDispatcher_.schedule([this] { refreshFocusedAppRule(); }); });
         std::string desktop = getEnv("XDG_CURRENT_DESKTOP");
         isGnome_            = (!desktop.empty()) && desktop.find("GNOME") != std::string::npos;
+        if (*config_.preferVirtualKeyboard) {
+            LotusWlrVirtualKeyboard::instance().available();
+        }
         // emptyCustomKeymap_.customKeymap is implicitly initialized to empty by fcitx::Option default value macro.
 
         auto& uiManager = instance_.userInterfaceManager();
@@ -258,14 +263,20 @@ namespace fcitx {
 
     LotusEngine::~LotusEngine() {
         windowFocusTracker_->stop();
+        LotusWlrVirtualKeyboard::instance().cancelPendingTasks();
+        LotusX11Keyboard::instance().cancelPendingTasks();
         appRuleDispatcher_.detach();
         g_stopFlagMonitor.store(true, std::memory_order_release);
-        mouseEventSource_.reset();
-        FdGuard fd(g_mouseSocketFd.exchange(-1, std::memory_order_acq_rel));
-        if (fd.isValid()) {
-            shutdown(fd.get(), SHUT_RDWR);
-        }
+        teardownMouseWatcher();
         LOTUS_INFO("Engine destroyed.");
+    }
+
+    void LotusEngine::scheduleOnMainThread(std::function<void()> task) {
+        appRuleDispatcher_.schedule(std::move(task));
+    }
+
+    LotusState* LotusEngine::stateFor(InputContext* ic) {
+        return ic != nullptr ? ic->propertyFor(&factory_) : nullptr;
     }
 
     const lotusCustomKeymap& LotusEngine::customKeymap() const {
@@ -348,6 +359,7 @@ namespace fcitx {
     void LotusEngine::setConfig(const RawConfig& config) {
         config_.load(config, true);
         saveConfig();
+        syncMouseWatcher();
         loadDictionary();
         populateConfig();
     }
@@ -406,7 +418,7 @@ namespace fcitx {
         auto*      ic        = event.inputContext();
         const bool surrvalid = ic->surroundingText().isValid();
         const bool isDbus    = getFrontendName(ic) == "dbus";
-        setupMouseWatcher();
+        syncMouseWatcher();
 
         auto& statusArea = event.inputContext()->statusArea();
         if (ic->capabilityFlags().test(CapabilityFlag::Preedit))
@@ -417,6 +429,7 @@ namespace fcitx {
         activeContext_      = ic->watch();
         activeProgram_      = appName;
         LOTUS_INFO("App name: " + appName);
+        LOTUS_INFO("Frontend: " + getFrontendName(ic));
 
         instance_.inputContextManager().foreach ([this, ic](InputContext* other) {
             if (other != ic) {
@@ -1129,7 +1142,7 @@ namespace fcitx {
     }
 
     void LotusEngine::checkServerForMode(LotusMode mode) {
-        if (isUinputMode(mode) && !kbSender_.ensureConnected()) {
+        if (isUinputMode(mode) && needsUinputServer() && !kbSender_.ensureConnected()) {
             notifyMissingUinputServer();
         }
     }
@@ -1239,6 +1252,38 @@ namespace fcitx {
         if (!appName.starts_with("ctx_")) {
             saveAppRules();
         }
+    }
+
+    bool LotusEngine::needsUinputServer() const {
+        const bool preferInjection = *config_.preferVirtualKeyboard;
+        if (preferInjection && LotusWlrVirtualKeyboard::instance().available()) {
+            return false;
+        }
+        if (preferInjection && getEnv("WAYLAND_DISPLAY").empty() && LotusX11Keyboard::instance().available()) {
+            return false;
+        }
+        return true;
+    }
+
+    void LotusEngine::syncMouseWatcher() {
+        if (needsUinputServer()) {
+            setupMouseWatcher();
+        } else {
+            teardownMouseWatcher();
+        }
+    }
+
+    void LotusEngine::teardownMouseWatcher() {
+        if (!mouseEventSource_ && g_mouseSocketFd.load(std::memory_order_acquire) < 0) {
+            return;
+        }
+        mouseEventSource_.reset();
+        FdGuard fd(g_mouseSocketFd.exchange(-1, std::memory_order_acq_rel));
+        if (fd.isValid()) {
+            shutdown(fd.get(), SHUT_RDWR);
+        }
+        g_mouseClicked.store(false, std::memory_order_release);
+        LOTUS_INFO("Mouse watcher disabled, the uinput server is not used");
     }
 
     void LotusEngine::setupMouseWatcher() {

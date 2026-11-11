@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(fcitx5-lotus VERSION 6.0.7)
+project(fcitx5-lotus VERSION 6.1.0)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_TESTING "Build Lotus tests" OFF)
 
@@ -24,6 +24,9 @@ set(fcitx_lotus_core_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/lotus-key-buffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/lotus-notify.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/emoji.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lotus-wlr-virtual-keyboard.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lotus-delayed-task-runner.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lotus-x11-keyboard.cpp
 )
 
 set(REQUIRED_FCITX_VERSION 5.0.14)
@@ -43,6 +46,10 @@ pkg_check_modules(LIBINPUT REQUIRED IMPORTED_TARGET libinput)
 pkg_check_modules(LIBNOTIFY REQUIRED IMPORTED_TARGET libnotify)
 pkg_check_modules(DBUS REQUIRED IMPORTED_TARGET dbus-1)
 pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb)
+pkg_check_modules(XCB_XTEST REQUIRED IMPORTED_TARGET xcb-xtest)
+pkg_check_modules(WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
+find_program(WAYLAND_SCANNER wayland-scanner REQUIRED)
+set(LOTUS_VK_XML "${CMAKE_CURRENT_SOURCE_DIR}/protocols/virtual-keyboard-unstable-v1.xml")
 
 include("${FCITX_INSTALL_CMAKECONFIG_DIR}/Fcitx5Utils/Fcitx5CompilerSettings.cmake")
 

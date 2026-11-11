@@ -34,6 +34,10 @@ HELPERS = {
         "Press and release the selected modifier key before typing to skip macro expansion for the next word.\n"
         "If another key is pressed between the modifier's press and release, the skip is cancelled."
     ),
+    "PreferVirtualKeyboard": N_(
+        "Prefer injecting keys through the system instead of the uinput service: the wlroots virtual keyboard on Wayland and Xtest on X11.\n"
+        "Turn this off to always use the uinput service; when neither backend is available the uinput service is used anyway."
+    ),
 }
 
 

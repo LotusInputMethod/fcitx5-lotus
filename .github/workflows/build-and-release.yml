@@ -366,7 +366,7 @@ jobs:
             pacman -Syu --noconfirm \
               cmake extra-cmake-modules gcc \
               libxcb fcitx5 libinput libevdev libnotify dbus systemd python \
-              make pkgconf zstd
+              make pkgconf zstd wayland
 
             cd /work
             export LDFLAGS="-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,-z,pack-relative-relocs"
