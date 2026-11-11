@@ -453,6 +453,22 @@ namespace fcitx {
         void clearAppRule(const std::string& appName);
 
         /**
+         * @brief Whether the selected injection backend still needs the uinput server.
+         * @return False when the wlroots virtual keyboard or XTEST will deliver replacements.
+         */
+        [[nodiscard]] bool needsUinputServer() const;
+
+        /**
+         * @brief Starts or stops the mouse watcher to match the current backend.
+         */
+        void syncMouseWatcher();
+
+        /**
+         * @brief Closes the mouse socket and drops the watcher event source.
+         */
+        void teardownMouseWatcher();
+
+        /**
          * @brief Connects and sets up IO watcher on Fcitx EventLoop for mouse click events.
          */
         void setupMouseWatcher();
