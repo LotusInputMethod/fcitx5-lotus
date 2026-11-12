@@ -97,6 +97,21 @@ int main() {
     if (!listener.valid())
         return 1;
 
+    // Phase 0: a character typed while the previous commit is still deferred must wait for it instead of being
+    // forwarded to the application, which used to reorder the word ("tooi" became "tiô").
+    fcitx::InputMethodEntry entry("lotus", "Lotus", "vi", "lotus");
+    auto                    pendingContext = runReplacement(testInstance, engine, listener, "dbus");
+    if (pendingContext == nullptr)
+        return 1;
+    if (!send(engine, entry, *pendingContext, FcitxKey_i, true))
+        return 1;
+    if (!pendingContext->commits().empty() || !pendingContext->forwarded().empty()) {
+        reportFailure("wait for the deferred commit", "no commit and no forwarded key while the commit is queued",
+                      "commits=" + std::to_string(pendingContext->commits().size()) + ", forwarded=" + std::to_string(pendingContext->forwarded().size()),
+                      "a character typed before the deferred commit must be buffered, not delivered first");
+        return 1;
+    }
+
     // Phase A: a dbus frontend must not receive the commit inside the consumed anchor-backspace event.
     auto dbusContext = runReplacement(testInstance, engine, listener, "dbus");
     if (dbusContext == nullptr)
@@ -111,6 +126,13 @@ int main() {
     if (dbusContext->commits() != expected) {
         reportFailure("deferred commit delivered", "one commit of the replaced word", "commits=" + std::to_string(dbusContext->commits().size()),
                       "the deferred commit must reach the client after the key event");
+        return 1;
+    }
+    // The buffered character of Phase 0 is replayed right after its commit, so the client sees "ái" as one commit.
+    const std::vector<std::string> pendingExpected{"ái"};
+    if (pendingContext->commits() != pendingExpected) {
+        reportFailure("buffered key replayed after the commit", "one commit \"ái\"", "commits=" + std::to_string(pendingContext->commits().size()),
+                      "the character typed during the deferred commit was not merged after it");
         return 1;
     }
 

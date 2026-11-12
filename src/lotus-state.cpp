@@ -1258,6 +1258,16 @@ namespace fcitx {
         trackShiftModifier(keyEvent);
         if (handleKeyEventGuards(keyEvent))
             return;
+
+        if (deferredCommitPending_ || !deferredCommitText_.empty()) {
+            const KeySym    bufferedSym   = keyEvent.rawKey().sym();
+            const KeyStates bufferedState = keyEvent.rawKey().states();
+            if (!Key::keySymToUTF8(bufferedSym).empty()) {
+                bufferedKeys_.push({.sym = bufferedSym, .state = bufferedState});
+                keyEvent.filterAndAccept();
+                return;
+            }
+        }
         if (mouseClickWatchdog_) {
             cancelMouseClickWatchdog();
             if (currentMode() == LotusMode::Preedit && !pullPreeditString().empty()) {
