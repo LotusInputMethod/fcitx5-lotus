@@ -33,7 +33,10 @@ void GetPropertyReplyDeleter::operator()(xcb_get_property_reply_t* reply) const 
 
 xcb_atom_t internAtom(xcb_connection_t* conn, const char* name) {
     const InternAtomReplyPtr reply(xcb_intern_atom_reply(conn, xcb_intern_atom(conn, 0, static_cast<uint16_t>(std::strlen(name)), name), nullptr));
-    return reply != nullptr ? reply->atom : XCB_ATOM_NONE;
+    if (reply == nullptr) {
+        return XCB_ATOM_NONE;
+    }
+    return reply->atom;
 }
 
 uint32_t firstCardinal(xcb_connection_t* conn, xcb_window_t window, xcb_atom_t atom) {
@@ -80,12 +83,18 @@ void QueryTreeReplyDeleter::operator()(xcb_query_tree_reply_t* reply) const noex
 
 xcb_window_t rootWindow(xcb_connection_t* conn) {
     xcb_screen_iterator_t screens = xcb_setup_roots_iterator(xcb_get_setup(conn));
-    return screens.rem != 0 ? screens.data->root : XCB_WINDOW_NONE;
+    if (screens.rem == 0) {
+        return XCB_WINDOW_NONE;
+    }
+    return screens.data->root;
 }
 
 xcb_window_t parentWindow(xcb_connection_t* conn, xcb_window_t window) {
     const QueryTreeReplyPtr reply(xcb_query_tree_reply(conn, xcb_query_tree(conn, window), nullptr));
-    return reply != nullptr ? reply->parent : XCB_WINDOW_NONE;
+    if (reply == nullptr) {
+        return XCB_WINDOW_NONE;
+    }
+    return reply->parent;
 }
 
 std::string programForWindow(xcb_connection_t* conn, xcb_window_t window) {
