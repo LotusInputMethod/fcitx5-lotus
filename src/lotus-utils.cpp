@@ -141,7 +141,7 @@ std::string programForPid(int pid) {
     std::array<char, 64> path{};
     std::array<char, 64> name{};
     std::snprintf(path.data(), path.size(), "/proc/%d/comm", pid);
-    std::unique_ptr<FILE, decltype(&std::fclose)> file(std::fopen(path.data(), "r"), &std::fclose);
+    std::unique_ptr<FILE, int (*)(FILE*)> file(std::fopen(path.data(), "r"), &std::fclose);
     if (!file || std::fgets(name.data(), static_cast<int>(name.size()), file.get()) == nullptr) {
         return {};
     }
