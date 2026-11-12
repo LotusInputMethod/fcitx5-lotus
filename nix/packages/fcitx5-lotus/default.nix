@@ -31,13 +31,13 @@ let
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "fcitx5-lotus";
-  version = "6.0.7";
+  version = "6.1.0";
 
   src = fetchFromGitHub {
     owner = "LotusInputMethod";
     repo = "fcitx5-lotus";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-GZUWRnEQrwyuhRw9LznOVtqoBTyWyOvzHz3lrCKvKms=";
+    hash = "sha256-pG+n9KBm+AklRSiDG8BKmq5rmAzqWuM+5dLDNeW2Duc=";
   };
 
   passthru = {
