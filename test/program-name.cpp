@@ -25,8 +25,8 @@ namespace {
     }
 
     std::string readSelfComm() {
-        std::array<char, 64>                          buffer{};
-        std::unique_ptr<FILE, decltype(&std::fclose)> file(std::fopen("/proc/self/comm", "r"), &std::fclose);
+        std::array<char, 64>                  buffer{};
+        std::unique_ptr<FILE, int (*)(FILE*)> file(std::fopen("/proc/self/comm", "r"), &std::fclose);
         if (!file || std::fgets(buffer.data(), static_cast<int>(buffer.size()), file.get()) == nullptr) {
             return {};
         }
