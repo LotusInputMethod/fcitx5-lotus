@@ -15,6 +15,7 @@ concurrency:
 jobs:
   build-deb:
     name: DEB [${{ matrix.codename }}]
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -27,6 +28,7 @@ jobs:
             codename: forky
           - distro: debian:unstable
             codename: sid
+            experimental: true
           - distro: ubuntu:22.04
             codename: jammy
           - distro: ubuntu:24.04
@@ -46,19 +48,10 @@ jobs:
       - name: Prepare debian directory
         run: cp -r packaging/debian debian
 
-      - name: Patch Sid image with Testing fallback
-        if: matrix.codename == 'sid'
-        run: |
-          docker build -t sid-fallback - << 'EOF'
-          FROM debian:unstable
-          RUN echo "deb http://deb.debian.org/debian testing main" > /etc/apt/sources.list.d/testing-fallback.list && \
-              printf 'Package: *\nPin: release a=unstable\nPin-Priority: 900\n\nPackage: *\nPin: release a=testing\nPin-Priority: 500\n' > /etc/apt/preferences.d/pinning
-          EOF
-
       - name: Build DEB
         uses: jtdor/build-deb-action@v1
         with:
-          docker-image: ${{ matrix.codename == 'sid' && 'sid-fallback' || matrix.distro }}
+          docker-image: ${{ matrix.distro }}
           buildpackage-opts: --build=binary --no-sign
 
       - name: Rename DEB artifacts
