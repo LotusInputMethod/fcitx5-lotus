@@ -15,6 +15,7 @@
 
 #include "lotus-delayed-task-runner.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -115,6 +116,12 @@ namespace fcitx {
         bool consumeEcho(uint32_t code, uint32_t time);
 
         /**
+         * @brief Records the user's physical Shift state.
+         * @param down True while the user holds Shift.
+         */
+        void setUserShift(bool down);
+
+        /**
          * @brief Hands a delayed task to the shared runner.
          * @param delayMs Delay in milliseconds.
          * @param task Task to run on the worker thread.
@@ -162,6 +169,7 @@ namespace fcitx {
         bool                                      injecting_ = false;
         bool                                      probed_    = false;
         bool                                      supported_ = false;
+        std::atomic<bool>                         userShift_ = false;
         std::deque<std::pair<uint32_t, uint32_t>> echo_;
 
         LotusDelayedTaskRunner                    runner_; ///< Delivers the replacement pre/post delay off the main thread

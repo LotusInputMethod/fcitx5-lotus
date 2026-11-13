@@ -1833,6 +1833,7 @@ namespace fcitx {
         const KeySym sym = keyEvent.rawKey().sym();
         if (sym == FcitxKey_Shift_L || sym == FcitxKey_Shift_R) {
             shiftHeld_ = !keyEvent.isRelease();
+            LotusWlrVirtualKeyboard::instance().setUserShift(shiftHeld_);
         }
     }
 
@@ -1842,6 +1843,7 @@ namespace fcitx {
 
     void LotusState::forgetShiftState() {
         shiftHeld_ = false;
+        LotusWlrVirtualKeyboard::instance().setUserShift(false);
     }
 
     void LotusState::reEnableMacroAfterWordEnd() {
