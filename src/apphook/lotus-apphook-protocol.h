@@ -23,12 +23,12 @@
 
 namespace lotus::apphook {
 
-    constexpr uint32_t kMagic        = 0x4c485031; // LHP1
-    constexpr uint16_t kVersion      = 1;
-    constexpr size_t   kMaxOps       = 128;
-    constexpr size_t   kMaxTaps      = 4096;
-    constexpr size_t   kMaxTasks     = 64;
-    constexpr size_t   kMaxPeers     = 128;
+    constexpr uint32_t kMagic                  = 0x4c485031; // LHP1
+    constexpr uint16_t kVersion                = 1;
+    constexpr size_t   kMaxOps                 = 128;
+    constexpr size_t   kMaxTaps                = 4096;
+    constexpr size_t   kMaxTasks               = 64;
+    constexpr size_t   kMaxPeers               = 128;
     constexpr uint32_t kReadyFocused           = 1U; ///< Focus snapshot carried by Ready.
     constexpr uint32_t kCompleteMayHaveApplied = 1U; ///< A failed request already delivered synthetic input.
 
