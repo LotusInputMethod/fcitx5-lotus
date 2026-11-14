@@ -20,6 +20,8 @@
 #include <array>
 #include <cerrno>
 #include <cstdint>
+#include <cstdarg>
+#include <cctype>
 #include <cstring>
 #include <dlfcn.h>
 #include <list>
@@ -98,37 +100,44 @@ namespace lotus::apphook {
             void*                   originalData   = nullptr;
             Dispatcher              dispatcher     = nullptr;
             bool                    focused        = false;
-            uint32_t                serial         = 0;
-            uint32_t                time           = 0;
-            uint32_t                depressed      = 0;
-            uint32_t                latched        = 0;
-            uint32_t                locked         = 0;
-            uint32_t                group          = 0;
-            uint32_t                shiftIndex     = 0;
-            uint32_t                ctrlIndex      = 2;
-            uint32_t                altIndex       = 3;
-            uint32_t                superIndex     = 6;
+            std::atomic<bool>       alive{true};
+            uint32_t                serial     = 0;
+            uint32_t                time       = 0;
+            uint32_t                depressed  = 0;
+            uint32_t                latched    = 0;
+            uint32_t                locked     = 0;
+            uint32_t                group      = 0;
+            uint32_t                shiftIndex = 0;
+            uint32_t                ctrlIndex  = 2;
+            uint32_t                altIndex   = 3;
+            uint32_t                superIndex = 6;
         };
 
-        std::list<std::unique_ptr<Keyboard>> keyboards;
+        std::list<std::shared_ptr<Keyboard>> keyboards;
+        std::recursive_mutex                 keyboardMutex;
+        std::mutex                           waylandConnectionMutex;
         void*                                wayland = nullptr;
         void*                                xkb     = nullptr;
         std::mutex                           resolveMutex;
 
-        int (*originalAddListener)(wl_proxy*, void (**)(void), void*)                                   = nullptr;
-        int (*originalAddDispatcher)(wl_proxy*, Dispatcher, const void*, void*)                         = nullptr;
-        int (*originalDispatchQueuePending)(wl_display*, wl_event_queue*)                               = nullptr;
-        int (*originalDispatchPending)(wl_display*)                                                     = nullptr;
-        int (*originalDispatch)(wl_display*)                                                            = nullptr;
-        int (*originalDispatchQueue)(wl_display*, wl_event_queue*)                                      = nullptr;
-        wl_display* (*originalConnect)(const char*)                                                     = nullptr;
-        wl_display* (*originalConnectFd)(int)                                                           = nullptr;
-        void (*originalDestroy)(wl_proxy*)                                                              = nullptr;
-        wl_display* (*originalGetProxyDisplay)(wl_proxy*)                                               = nullptr;
-        const char* (*originalClass)(wl_proxy*)                                                         = nullptr;
-        int (*originalFlush)(wl_display*)                                                               = nullptr;
-        wl_proxy* (*originalMarshalConstructor)(wl_proxy*, uint32_t, const WlInterface*, uint32_t, ...) = nullptr;
-        const WlInterface* callbackInterface                                                            = nullptr;
+        int (*originalAddListener)(wl_proxy*, void (**)(void), void*)                                                    = nullptr;
+        int (*originalAddDispatcher)(wl_proxy*, Dispatcher, const void*, void*)                                          = nullptr;
+        int (*originalDispatchQueuePending)(wl_display*, wl_event_queue*)                                                = nullptr;
+        int (*originalDispatchPending)(wl_display*)                                                                      = nullptr;
+        int (*originalDispatch)(wl_display*)                                                                             = nullptr;
+        int (*originalDispatchQueue)(wl_display*, wl_event_queue*)                                                       = nullptr;
+        wl_display* (*originalConnect)(const char*)                                                                      = nullptr;
+        wl_display* (*originalConnectFd)(int)                                                                            = nullptr;
+        void (*originalDestroy)(wl_proxy*)                                                                               = nullptr;
+        void (*originalDisconnect)(wl_display*)                                                                          = nullptr;
+        wl_event_queue* (*originalGetQueue)(const wl_proxy*)                                                             = nullptr;
+        void (*originalSetQueue)(wl_proxy*, wl_event_queue*)                                                             = nullptr;
+        wl_proxy* (*originalMarshalArrayFlags)(wl_proxy*, uint32_t, const WlInterface*, uint32_t, uint32_t, WlArgument*) = nullptr;
+        wl_display* (*originalGetProxyDisplay)(wl_proxy*)                                                                = nullptr;
+        const char* (*originalClass)(wl_proxy*)                                                                          = nullptr;
+        int (*originalFlush)(wl_display*)                                                                                = nullptr;
+        wl_proxy* (*originalMarshalConstructor)(wl_proxy*, uint32_t, const WlInterface*, uint32_t, ...)                  = nullptr;
+        const WlInterface* callbackInterface                                                                             = nullptr;
 
         void* (*newXkbContext)(int)                         = nullptr;
         void (*releaseXkbContext)(void*)                    = nullptr;
@@ -175,7 +184,8 @@ namespace lotus::apphook {
          * @return Tracked keyboard, or null if absent.
          */
         Keyboard* lookupKeyboard(wl_proxy* proxy) {
-            const auto it = std::find_if(keyboards.begin(), keyboards.end(), [&](const auto& keyboard) { return keyboard->proxy == proxy; });
+            std::scoped_lock lock(keyboardMutex);
+            const auto       it = std::find_if(keyboards.begin(), keyboards.end(), [&](const auto& keyboard) { return keyboard->proxy == proxy; });
             return it == keyboards.end() ? nullptr : it->get();
         }
 
@@ -184,9 +194,42 @@ namespace lotus::apphook {
          * @return Focused keyboard, or null if none.
          */
         Keyboard* focusedKeyboard(wl_display* display = nullptr) {
-            const auto it = std::find_if(keyboards.begin(), keyboards.end(),
-                                         [display](const auto& keyboard) { return keyboard->focused && (!display || !keyboard->display || keyboard->display == display); });
+            std::scoped_lock lock(keyboardMutex);
+            const auto       it = std::find_if(keyboards.begin(), keyboards.end(),
+                                               [display](const auto& keyboard) { return keyboard->focused && (!display || !keyboard->display || keyboard->display == display); });
             return it == keyboards.end() ? nullptr : it->get();
+        }
+
+        std::shared_ptr<Keyboard> retainKeyboard(Keyboard* keyboard) {
+            std::scoped_lock lock(keyboardMutex);
+            const auto       it = std::find_if(keyboards.begin(), keyboards.end(), [keyboard](const auto& item) { return item.get() == keyboard; });
+            return it == keyboards.end() ? nullptr : *it;
+        }
+
+        // Keep callback data alive during reentrant wl_keyboard_release/destroy.
+        void forgetProxy(wl_proxy* proxy) {
+            bool changed   = false;
+            bool available = false;
+            bool focused   = false;
+            {
+                std::scoped_lock lock(keyboardMutex);
+                for (auto it = keyboards.begin(); it != keyboards.end();) {
+                    if ((*it)->proxy == proxy) {
+                        (*it)->alive   = false;
+                        (*it)->focused = false;
+                        it             = keyboards.erase(it);
+                        changed        = true;
+                    } else {
+                        ++it;
+                    }
+                }
+                available = !keyboards.empty();
+                focused   = focusedKeyboard() != nullptr;
+            }
+            if (changed) {
+                noteWaylandKeyboardAvailable(available);
+                noteWaylandFocus(focused);
+            }
         }
 
         /**
@@ -301,6 +344,7 @@ namespace lotus::apphook {
          * @param args Observed event arguments.
          */
         void observe(Keyboard* keyboard, uint32_t opcode, const WlArgument* args) {
+            std::scoped_lock lock(keyboardMutex);
             if (opcode == 1) {
                 for (auto& other : keyboards) {
                     if (other->display == keyboard->display)
@@ -337,7 +381,11 @@ namespace lotus::apphook {
          * @param size Keymap size in bytes.
          */
         void onKeymap(void* data, wl_keyboard*, uint32_t format, int32_t fd, uint32_t size) {
-            auto*      keyboard = static_cast<Keyboard*>(data);
+            auto retained = retainKeyboard(static_cast<Keyboard*>(data));
+            if (!retained || !retained->alive)
+                return;
+
+            auto*      keyboard = retained.get();
             WlArgument args[3]{};
             args[0].u = format;
             args[1].h = fd;
@@ -355,7 +403,11 @@ namespace lotus::apphook {
          * @param keys Pressed keys supplied by the compositor.
          */
         void onEnter(void* data, wl_keyboard*, uint32_t serial, wl_surface* surface, wl_array* keys) {
-            auto*      keyboard = static_cast<Keyboard*>(data);
+            auto retained = retainKeyboard(static_cast<Keyboard*>(data));
+            if (!retained || !retained->alive)
+                return;
+
+            auto*      keyboard = retained.get();
             WlArgument args[3]{};
             args[0].u = serial;
             args[1].o = surface;
@@ -371,7 +423,11 @@ namespace lotus::apphook {
          * @param surface Exited surface.
          */
         void onLeave(void* data, wl_keyboard*, uint32_t serial, wl_surface* surface) {
-            auto*      keyboard = static_cast<Keyboard*>(data);
+            auto retained = retainKeyboard(static_cast<Keyboard*>(data));
+            if (!retained || !retained->alive)
+                return;
+
+            auto*      keyboard = retained.get();
             WlArgument args[2]{};
             args[0].u = serial;
             args[1].o = surface;
@@ -388,7 +444,11 @@ namespace lotus::apphook {
          * @param state Key press or release state.
          */
         void onKey(void* data, wl_keyboard*, uint32_t serial, uint32_t time, uint32_t key, uint32_t state) {
-            auto*      keyboard = static_cast<Keyboard*>(data);
+            auto retained = retainKeyboard(static_cast<Keyboard*>(data));
+            if (!retained || !retained->alive)
+                return;
+
+            auto*      keyboard = retained.get();
             WlArgument args[4]{};
             args[0].u = serial;
             args[1].u = time;
@@ -411,7 +471,11 @@ namespace lotus::apphook {
          * @param group Keyboard layout group.
          */
         void onModifiers(void* data, wl_keyboard*, uint32_t serial, uint32_t depressed, uint32_t latched, uint32_t locked, uint32_t group) {
-            auto*      keyboard = static_cast<Keyboard*>(data);
+            auto retained = retainKeyboard(static_cast<Keyboard*>(data));
+            if (!retained || !retained->alive)
+                return;
+
+            auto*      keyboard = retained.get();
             WlArgument args[5]{};
             args[0].u = serial;
             args[1].u = depressed;
@@ -430,9 +494,11 @@ namespace lotus::apphook {
          */
         void onRepeat(void* data, wl_keyboard*, int32_t rate, int32_t delay) {
             WlArgument args[2]{};
-            args[0].i = rate;
-            args[1].i = delay;
-            deliver(static_cast<Keyboard*>(data), 5, args);
+            args[0].i     = rate;
+            args[1].i     = delay;
+            auto retained = retainKeyboard(static_cast<Keyboard*>(data));
+            if (retained && retained->alive)
+                deliver(retained.get(), 5, args);
         }
 
         const KeyboardListener wrapper{onKeymap, onEnter, onLeave, onKey, onModifiers, onRepeat};
@@ -447,7 +513,10 @@ namespace lotus::apphook {
          * @return Original dispatcher return value.
          */
         int dispatchWrapper(const void* implementation, void* data, uint32_t opcode, const WlMessage* message, WlArgument* args) {
-            auto* keyboard = static_cast<Keyboard*>(data);
+            auto retained = retainKeyboard(static_cast<Keyboard*>(data));
+            if (!retained || !retained->alive)
+                return 0;
+            auto* keyboard = retained.get();
             if (opcode == 0 && args && args[0].u == 1)
                 readKeymap(keyboard, args[1].h, args[2].u);
             if (opcode >= 1 && opcode <= 4 && args)
@@ -465,12 +534,13 @@ namespace lotus::apphook {
         void wrapProxy(wl_proxy* proxy) {
             if (!proxy || lookupKeyboard(proxy))
                 return;
-            auto keyboard            = std::make_unique<Keyboard>();
-            keyboard->proxy          = proxy;
-            keyboard->display        = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
-            keyboard->implementation = proxyField<void*>(proxy, kImplementationOffset);
-            keyboard->originalData   = proxyField<void*>(proxy, kDataOffset);
-            keyboard->dispatcher     = proxyField<Dispatcher>(proxy, kDispatcherOffset);
+            std::scoped_lock lock(keyboardMutex);
+            auto             keyboard = std::make_shared<Keyboard>();
+            keyboard->proxy           = proxy;
+            keyboard->display         = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
+            keyboard->implementation  = proxyField<void*>(proxy, kImplementationOffset);
+            keyboard->originalData    = proxyField<void*>(proxy, kDataOffset);
+            keyboard->dispatcher      = proxyField<Dispatcher>(proxy, kDispatcherOffset);
             if (!keyboard->implementation && !keyboard->dispatcher)
                 return;
             if (keyboard->dispatcher) {
@@ -557,8 +627,14 @@ namespace lotus::apphook {
         /**
          * @brief Delivers queued synthetic key taps to the focused Wayland keyboard.
          */
-        void pump(wl_display* display) {
-            Keyboard* keyboard = focusedKeyboard(display);
+        void pump(wl_display* display, wl_event_queue* queue) {
+            std::shared_ptr<Keyboard> keyboard;
+            {
+                std::scoped_lock lock(keyboardMutex);
+                Keyboard*        focused = focusedKeyboard(display);
+                if (focused && focused->alive && originalGetQueue && originalGetQueue(focused->proxy) == queue)
+                    keyboard = retainKeyboard(focused);
+            }
             if (!keyboard)
                 return;
             auto task = takeTask();
@@ -566,21 +642,22 @@ namespace lotus::apphook {
                 return;
             const uint32_t prior = keyboard->depressed;
             for (const KeyOperation& op : task->ops) {
-                if (task->cancelled.load(std::memory_order_acquire))
+                if (!keyboard->alive || task->cancelled.load(std::memory_order_acquire))
                     break;
                 const uint32_t combined = prior | modifierMask(*keyboard, op.modifiers);
                 if (combined != prior)
-                    emitModifiers(keyboard, combined);
-                for (uint32_t i = 0; i < op.count && !task->cancelled.load(std::memory_order_acquire); ++i) {
+                    emitModifiers(keyboard.get(), combined);
+                for (uint32_t i = 0; i < op.count && keyboard->alive && !task->cancelled.load(std::memory_order_acquire); ++i) {
                     task->applied.store(true, std::memory_order_release);
-                    emitKey(keyboard, op.keycode, 1);
-                    emitKey(keyboard, op.keycode, 0);
+                    emitKey(keyboard.get(), op.keycode, 1);
+                    if (keyboard->alive)
+                        emitKey(keyboard.get(), op.keycode, 0);
                 }
-                if (combined != prior)
-                    emitModifiers(keyboard, prior);
+                if (combined != prior && keyboard->alive)
+                    emitModifiers(keyboard.get(), prior);
             }
             std::scoped_lock lock(runtime().mutex);
-            finishLocked(task, task->cancelled.load(std::memory_order_acquire) ? -ECANCELED : 0);
+            finishLocked(task, !keyboard->alive ? -ENOTCONN : task->cancelled.load(std::memory_order_acquire) ? -ECANCELED : 0);
         }
 
         /**
@@ -588,7 +665,7 @@ namespace lotus::apphook {
          * @param display Current Wayland display.
          * @param completed Whether the original dispatch has returned successfully.
          */
-        void onDispatch(wl_display* display, bool completed) {
+        void onDispatch(wl_display* display, wl_event_queue* queue, bool completed) {
             if (display) {
                 wl_display* expected = nullptr;
                 (void)runtime().waylandDisplay.compare_exchange_strong(expected, display, std::memory_order_acq_rel);
@@ -596,7 +673,7 @@ namespace lotus::apphook {
             if (runtime().lateAttached.load(std::memory_order_acquire))
                 scanProxies(runtime().waylandDisplay.load(std::memory_order_acquire));
             if (completed && runtime().workersStarted.load(std::memory_order_acquire))
-                pump(display);
+                pump(display, queue);
         }
 
         /**
@@ -626,6 +703,10 @@ namespace lotus::apphook {
         originalConnect              = resolve<decltype(originalConnect)>(wayland, "wl_display_connect");
         originalConnectFd            = resolve<decltype(originalConnectFd)>(wayland, "wl_display_connect_to_fd");
         originalDestroy              = resolve<decltype(originalDestroy)>(wayland, "wl_proxy_destroy");
+        originalDisconnect           = resolve<decltype(originalDisconnect)>(wayland, "wl_display_disconnect");
+        originalGetQueue             = resolve<decltype(originalGetQueue)>(wayland, "wl_proxy_get_queue");
+        originalSetQueue             = resolve<decltype(originalSetQueue)>(wayland, "wl_proxy_set_queue");
+        originalMarshalArrayFlags    = resolve<decltype(originalMarshalArrayFlags)>(wayland, "wl_proxy_marshal_array_flags");
         originalGetProxyDisplay      = resolve<decltype(originalGetProxyDisplay)>(wayland, "wl_proxy_get_display");
         originalClass                = resolve<decltype(originalClass)>(wayland, "wl_proxy_get_class");
         originalFlush                = resolve<decltype(originalFlush)>(wayland, "wl_display_flush");
@@ -634,12 +715,25 @@ namespace lotus::apphook {
     }
 
     void wakeWayland() {
-        wl_display* display = runtime().waylandDisplay.load(std::memory_order_acquire);
-        if (!display || !originalMarshalConstructor || !originalFlush || !originalAddListener || !callbackInterface)
+        std::scoped_lock connectionLock(waylandConnectionMutex);
+        wl_display*      display = nullptr;
+        if (!originalMarshalConstructor || !originalFlush || !originalAddListener || !originalSetQueue || !originalGetQueue || !callbackInterface)
+            return;
+        wl_event_queue* queue = nullptr;
+        {
+            std::scoped_lock lock(keyboardMutex);
+            Keyboard*        keyboard = focusedKeyboard();
+            if (!keyboard || !keyboard->alive || !keyboard->display)
+                return;
+            display = keyboard->display;
+            queue   = originalGetQueue(keyboard->proxy);
+        }
+        if (!queue)
             return;
         wl_proxy* callback = originalMarshalConstructor(reinterpret_cast<wl_proxy*>(display), 0, callbackInterface, 1);
         if (!callback)
             return;
+        originalSetQueue(callback, queue);
         static void (*const listener[])(void) = {reinterpret_cast<void (*)(void)>(&callbackDone)};
         if (originalAddListener(callback, const_cast<void (**)(void)>(listener), nullptr) != 0) {
             if (originalDestroy)
@@ -669,12 +763,13 @@ LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(void), v
     if (!proxy || !callbacks || !originalClass || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || lookupKeyboard(proxy))
         return originalAddListener(proxy, callbacks, data);
 
-    auto keyboard          = std::make_unique<Keyboard>();
-    keyboard->proxy        = proxy;
-    keyboard->display      = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
-    keyboard->listener     = reinterpret_cast<const KeyboardListener*>(callbacks);
-    keyboard->originalData = data;
-    Keyboard* tracked      = keyboard.get();
+    std::scoped_lock lock(keyboardMutex);
+    auto             keyboard = std::make_shared<Keyboard>();
+    keyboard->proxy           = proxy;
+    keyboard->display         = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
+    keyboard->listener        = reinterpret_cast<const KeyboardListener*>(callbacks);
+    keyboard->originalData    = data;
+    Keyboard* tracked         = keyboard.get();
     keyboards.push_back(std::move(keyboard));
     const int result = originalAddListener(proxy, reinterpret_cast<void (**)(void)>(const_cast<KeyboardListener*>(&wrapper)), tracked);
     if (result != 0)
@@ -701,13 +796,14 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
     if (!proxy || !dispatcher || !originalClass || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || lookupKeyboard(proxy))
         return originalAddDispatcher(proxy, dispatcher, implementation, data);
 
-    auto keyboard            = std::make_unique<Keyboard>();
-    keyboard->proxy          = proxy;
-    keyboard->display        = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
-    keyboard->dispatcher     = dispatcher;
-    keyboard->implementation = implementation;
-    keyboard->originalData   = data;
-    Keyboard* tracked        = keyboard.get();
+    std::scoped_lock lock(keyboardMutex);
+    auto             keyboard = std::make_shared<Keyboard>();
+    keyboard->proxy           = proxy;
+    keyboard->display         = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
+    keyboard->dispatcher      = dispatcher;
+    keyboard->implementation  = implementation;
+    keyboard->originalData    = data;
+    Keyboard* tracked         = keyboard.get();
     keyboards.push_back(std::move(keyboard));
     const int result = originalAddDispatcher(proxy, &dispatchWrapper, implementation, tracked);
     if (result != 0)
@@ -717,17 +813,87 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
     return result;
 }
 
+/** Forward Wayland's variadic marshaller through the equivalent argument-array API. */
+LH_EXPORT wl_proxy* wl_proxy_marshal_flags(wl_proxy* proxy, uint32_t opcode, const WlInterface* interface, uint32_t version, uint32_t flags, ...) {
+    using namespace lotus::apphook;
+    if (!originalMarshalArrayFlags)
+        loadWayland();
+    if (!originalMarshalArrayFlags || !proxy)
+        return nullptr;
+    const auto* protocol = proxyField<const WlInterface*>(proxy, 0);
+    if (!protocol || opcode >= static_cast<uint32_t>(protocol->methodCount))
+        return nullptr;
+    const auto* methods   = static_cast<const WlMessage*>(protocol->methods);
+    const char* signature = methods[opcode].signature;
+    WlArgument  arguments[20]{};
+    unsigned    count = 0;
+    va_list     ap;
+    va_start(ap, flags);
+    for (const char* p = signature; p && *p && count < 20; ++p) {
+        if (*p == '?' || (*p >= '0' && *p <= '9'))
+            continue;
+        switch (*p) {
+            case 'u': arguments[count++].u = va_arg(ap, uint32_t); break;
+            case 'i':
+            case 'f':
+            case 'h': arguments[count++].i = va_arg(ap, int32_t); break;
+            case 's': arguments[count++].s = va_arg(ap, const char*); break;
+            case 'o':
+            case 'n':
+            case 'a': arguments[count++].o = va_arg(ap, void*); break;
+            default: break;
+        }
+    }
+    va_end(ap);
+    const bool destroy = (flags & 1U) != 0;
+    // Lifetime stays valid until the real marshaller has finished with the proxy.
+    wl_proxy* result = originalMarshalArrayFlags(proxy, opcode, interface, version, flags, arguments);
+    if (destroy)
+        forgetProxy(proxy);
+    return result;
+}
+
+/** Array-based marshals use the same destruction flag. */
+LH_EXPORT wl_proxy* wl_proxy_marshal_array_flags(wl_proxy* proxy, uint32_t opcode, const WlInterface* interface, uint32_t version, uint32_t flags, WlArgument* args) {
+    using namespace lotus::apphook;
+    if (!originalMarshalArrayFlags)
+        loadWayland();
+    if (!originalMarshalArrayFlags)
+        return nullptr;
+    wl_proxy* result = originalMarshalArrayFlags(proxy, opcode, interface, version, flags, args);
+    if (flags & 1U)
+        forgetProxy(proxy);
+    return result;
+}
+
+/** Disconnect invalidates every keyboard and pending wakeup on this display. */
+LH_EXPORT void wl_display_disconnect(wl_display* display) {
+    using namespace lotus::apphook;
+    if (!originalDisconnect)
+        loadWayland();
+    std::scoped_lock       connectionLock(waylandConnectionMutex);
+    std::vector<wl_proxy*> removed;
+    {
+        std::scoped_lock lock(keyboardMutex);
+        for (auto& keyboard : keyboards)
+            if (keyboard->display == display)
+                removed.push_back(keyboard->proxy);
+    }
+    for (auto* proxy : removed)
+        forgetProxy(proxy);
+    if (runtime().waylandDisplay.load(std::memory_order_acquire) == display)
+        runtime().waylandDisplay.store(nullptr, std::memory_order_release);
+    if (originalDisconnect)
+        originalDisconnect(display);
+}
+
 /**
  * @brief Drops keyboard tracking when its Wayland proxy is destroyed.
  * @param proxy Proxy being destroyed.
  */
 LH_EXPORT void wl_proxy_destroy(wl_proxy* proxy) {
     using namespace lotus::apphook;
-    if (lookupKeyboard(proxy)) {
-        keyboards.remove_if([&](const auto& keyboard) { return keyboard->proxy == proxy; });
-        noteWaylandKeyboardAvailable(!keyboards.empty());
-        noteWaylandFocus(focusedKeyboard() != nullptr);
-    }
+    forgetProxy(proxy);
     if (!originalDestroy)
         loadWayland();
     if (originalDestroy)
@@ -742,12 +908,12 @@ LH_EXPORT void wl_proxy_destroy(wl_proxy* proxy) {
  */
 LH_EXPORT int wl_display_dispatch_queue_pending(wl_display* display, wl_event_queue* queue) {
     using namespace lotus::apphook;
-    onDispatch(display, false);
+    onDispatch(display, queue, false);
     if (!originalDispatchQueuePending)
         loadWayland();
     const int result = originalDispatchQueuePending ? originalDispatchQueuePending(display, queue) : -1;
     if (result >= 0)
-        onDispatch(display, true);
+        onDispatch(display, queue, true);
     return result;
 }
 
@@ -758,12 +924,12 @@ LH_EXPORT int wl_display_dispatch_queue_pending(wl_display* display, wl_event_qu
  */
 LH_EXPORT int wl_display_dispatch_pending(wl_display* display) {
     using namespace lotus::apphook;
-    onDispatch(display, false);
+    onDispatch(display, originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, false);
     if (!originalDispatchPending)
         loadWayland();
     const int result = originalDispatchPending ? originalDispatchPending(display) : -1;
     if (result >= 0)
-        onDispatch(display, true);
+        onDispatch(display, originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, true);
     return result;
 }
 
@@ -774,12 +940,12 @@ LH_EXPORT int wl_display_dispatch_pending(wl_display* display) {
  */
 LH_EXPORT int wl_display_dispatch(wl_display* display) {
     using namespace lotus::apphook;
-    onDispatch(display, false);
+    onDispatch(display, originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, false);
     if (!originalDispatch)
         loadWayland();
     const int result = originalDispatch ? originalDispatch(display) : -1;
     if (result >= 0)
-        onDispatch(display, true);
+        onDispatch(display, originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, true);
     return result;
 }
 
@@ -791,12 +957,12 @@ LH_EXPORT int wl_display_dispatch(wl_display* display) {
  */
 LH_EXPORT int wl_display_dispatch_queue(wl_display* display, wl_event_queue* queue) {
     using namespace lotus::apphook;
-    onDispatch(display, false);
+    onDispatch(display, queue, false);
     if (!originalDispatchQueue)
         loadWayland();
     const int result = originalDispatchQueue ? originalDispatchQueue(display, queue) : -1;
     if (result >= 0)
-        onDispatch(display, true);
+        onDispatch(display, queue, true);
     return result;
 }
 
@@ -839,6 +1005,9 @@ namespace lotus::apphook {
             HookSpec{"wl_proxy_add_listener", reinterpret_cast<void*>(&wl_proxy_add_listener)},
             HookSpec{"wl_proxy_add_dispatcher", reinterpret_cast<void*>(&wl_proxy_add_dispatcher)},
             HookSpec{"wl_proxy_destroy", reinterpret_cast<void*>(&wl_proxy_destroy)},
+            HookSpec{"wl_proxy_marshal_flags", reinterpret_cast<void*>(&wl_proxy_marshal_flags)},
+            HookSpec{"wl_proxy_marshal_array_flags", reinterpret_cast<void*>(&wl_proxy_marshal_array_flags)},
+            HookSpec{"wl_display_disconnect", reinterpret_cast<void*>(&wl_display_disconnect)},
             HookSpec{"wl_display_dispatch_queue_pending", reinterpret_cast<void*>(&wl_display_dispatch_queue_pending)},
             HookSpec{"wl_display_dispatch_pending", reinterpret_cast<void*>(&wl_display_dispatch_pending)},
             HookSpec{"wl_display_dispatch", reinterpret_cast<void*>(&wl_display_dispatch)},

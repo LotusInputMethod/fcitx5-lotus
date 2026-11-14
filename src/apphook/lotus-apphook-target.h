@@ -55,7 +55,8 @@ namespace lotus::apphook {
         std::atomic<bool>                 focusedWayland{false};
         std::deque<std::shared_ptr<Task>> pending;
         std::shared_ptr<Task>             activeX11;
-        size_t                            inFlight = 0;
+        void*                             activeX11Display = nullptr;
+        size_t                            inFlight         = 0;
         std::atomic<int>                  wakeFd{-1};
         std::atomic<int>                  completionFd{-1};
         std::atomic<bool>                 readyX11{false};
