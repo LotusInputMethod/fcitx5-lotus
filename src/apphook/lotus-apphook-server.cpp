@@ -197,7 +197,6 @@ namespace fcitx {
             session->waitingId = 0;
             return sent;
         }
-        LOTUS_DEBUG("apphook: dispatched pid=" + std::to_string(work.pid) + " request=" + std::to_string(work.requestId));
         // Close the race where cancellation reaches the target before Emit.
         bool cancelled;
         {
@@ -274,7 +273,6 @@ namespace fcitx {
             LOTUS_WARN("apphook: cannot listen on the abstract IPC socket");
             return;
         }
-        LOTUS_DEBUG("apphook: listening on abstract IPC socket");
         while (!stopping_) {
             std::vector<std::shared_ptr<Session>> clients;
             {
@@ -323,7 +321,6 @@ namespace fcitx {
                         }
                     }
                     sessions_[pid] = std::move(session);
-                    LOTUS_DEBUG("apphook: registered pid=" + std::to_string(pid));
                 }
             }
             for (size_t i = 0; i < clients.size(); ++i) {
@@ -350,8 +347,6 @@ namespace fcitx {
                                 } else if (focusedPid_ == session->pid) {
                                     focusedPid_ = 0;
                                 }
-                                LOTUS_DEBUG("apphook: readiness pid=" + std::to_string(session->pid) + " status=" + std::to_string(response.status) +
-                                            " focused=" + std::to_string(focused));
                             }
                         }
                         if (response.status != 0) {
@@ -367,7 +362,6 @@ namespace fcitx {
                             } else if (focusedPid_ == session->pid) {
                                 focusedPid_ = 0;
                             }
-                            LOTUS_DEBUG("apphook: focus pid=" + std::to_string(session->pid) + " active=" + std::to_string(response.status));
                         }
                     } else if (!drop && response.type == ResponseKind::Complete && response.requestId != 0) {
                         std::scoped_lock lock(session->mutex);
@@ -389,7 +383,6 @@ namespace fcitx {
                             focusedPid_ = 0;
                         }
                         sessions_.erase(found);
-                        LOTUS_DEBUG("apphook: disconnected pid=" + std::to_string(session->pid));
                     }
                 }
             }

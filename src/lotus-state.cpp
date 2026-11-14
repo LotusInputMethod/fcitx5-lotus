@@ -711,9 +711,6 @@ namespace fcitx {
         const pid_t hookPid     = engine_.appHookPid();
         const bool  hookEnabled = *engine_.config().preferVirtualKeyboard;
         const bool  hookReady   = hookEnabled && engine_.appHook().ready(hookPid);
-        if (hookEnabled && !hookReady) {
-            LOTUS_DEBUG("apphook: unavailable pid=" + std::to_string(hookPid) + ", using fallback");
-        }
         if (allowAppHook && hookReady) {
             using lotus::apphook::KeyOperation;
             std::vector<KeyOperation> keys;
@@ -746,7 +743,6 @@ namespace fcitx {
                     hookPid, std::move(keys), requestId, preDelay, postDelay,
                     [engine, icRef, token, hookPid, requestId, deletedText = std::u32string(diffPart.deletedPart), addedText = std::u32string(diffPart.addedPart)](int result) {
                         engine->scheduleOnMainThread([engine, icRef, token, hookPid, requestId, deletedText, addedText, result] {
-                            LOTUS_DEBUG("apphook: completed pid=" + std::to_string(hookPid) + " request=" + std::to_string(requestId) + " status=" + std::to_string(result));
                             auto* state = engine->stateFor(icRef.get());
                             if (!state || state->replacementToken_ != token || state->appHookPid_ != hookPid || state->appHookRequestId_ != requestId) {
                                 LOTUS_DEBUG("apphook: stale completion ignored request=" + std::to_string(requestId));
@@ -772,7 +768,6 @@ namespace fcitx {
                             }
                         });
                     })) {
-                LOTUS_DEBUG("apphook: selected pid=" + std::to_string(hookPid) + " request=" + std::to_string(requestId) + " keys=" + std::to_string(burstCount));
                 return;
             }
             LOTUS_DEBUG("apphook: queue rejected pid=" + std::to_string(hookPid) + ", using fallback");
