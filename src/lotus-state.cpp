@@ -649,13 +649,18 @@ namespace fcitx {
         const auto   interval =
             static_cast<uint32_t>(clampDelay(appRuleSetting_.backspaceInterval > 0 ? appRuleSetting_.backspaceInterval : *engine_.config().defaultBackspaceInterval));
         const auto postDelay = static_cast<uint32_t>(clampDelay(appRuleSetting_.postDelay > 0 ? appRuleSetting_.postDelay : *engine_.config().defaultPostDelay));
-        uint32_t   preDelay  = 0;
+
+        const bool commitPending = deferredCommitPending_ || !deferredCommitText_.empty() || !commitBatch_.empty();
+        uint32_t   preDelay      = 0;
         if (lastCommitTime_.time_since_epoch().count() > 0) {
             auto now       = std::chrono::steady_clock::now();
             auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastCommitTime_).count();
             if (elapsedMs < commitMs) {
                 preDelay = static_cast<uint32_t>(commitMs - elapsedMs);
             }
+        }
+        if (commitPending) {
+            preDelay = std::max<uint32_t>(preDelay, static_cast<uint32_t>(commitMs));
         }
 
         const std::string frontend     = getFrontendName(&ic_);
@@ -677,9 +682,14 @@ namespace fcitx {
         if (vkUsable()) {
             echoDriven = echoFrontend;
             if (!echoDriven) {
-                auto&      wlr = LotusWlrVirtualKeyboard::instance();
-                const bool ok  = uinputSelect ? wlr.emitSelect(burstCount, addedUtf8) : wlr.emit(burstCount, addedUtf8);
-                if (ok) {
+                auto& wlr     = LotusWlrVirtualKeyboard::instance();
+                auto  emitNow = [&wlr, burstCount, addedUtf8, uinputSelect] { return uinputSelect ? wlr.emitSelect(burstCount, addedUtf8) : wlr.emit(burstCount, addedUtf8); };
+                if (preDelay > 0) {
+                    wlr.runAfter(static_cast<int>(preDelay), emitNow);
+                    LOTUS_INFO(std::string("wlr-virtual-keyboard: sent ") + (uinputSelect ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
+                    return;
+                }
+                if (emitNow()) {
                     LOTUS_INFO(std::string("wlr-virtual-keyboard: sent ") + (uinputSelect ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
                     return;
                 }
@@ -690,7 +700,14 @@ namespace fcitx {
         } else if (x11Backend) {
             echoDriven = echoFrontend;
             if (!echoDriven) {
-                if (LotusX11Keyboard::instance().emit(burstCount, addedUtf8, static_cast<int>(interval), selectMode)) {
+                auto& x11     = LotusX11Keyboard::instance();
+                auto  emitNow = [&x11, burstCount, addedUtf8, interval, selectMode] { return x11.emit(burstCount, addedUtf8, static_cast<int>(interval), selectMode); };
+                if (preDelay > 0) {
+                    x11.runAfter(static_cast<int>(preDelay), emitNow);
+                    LOTUS_INFO(std::string("x11-keyboard: sent ") + (selectMode ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
+                    return;
+                }
+                if (emitNow()) {
                     LOTUS_INFO(std::string("x11-keyboard: sent ") + (selectMode ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
                     return;
                 }
@@ -1241,6 +1258,16 @@ namespace fcitx {
         trackShiftModifier(keyEvent);
         if (handleKeyEventGuards(keyEvent))
             return;
+
+        if (deferredCommitPending_ || !deferredCommitText_.empty()) {
+            const KeySym    bufferedSym   = keyEvent.rawKey().sym();
+            const KeyStates bufferedState = keyEvent.rawKey().states();
+            if (!Key::keySymToUTF8(bufferedSym).empty()) {
+                bufferedKeys_.push({.sym = bufferedSym, .state = bufferedState});
+                keyEvent.filterAndAccept();
+                return;
+            }
+        }
         if (mouseClickWatchdog_) {
             cancelMouseClickWatchdog();
             if (currentMode() == LotusMode::Preedit && !pullPreeditString().empty()) {
@@ -1806,6 +1833,7 @@ namespace fcitx {
         const KeySym sym = keyEvent.rawKey().sym();
         if (sym == FcitxKey_Shift_L || sym == FcitxKey_Shift_R) {
             shiftHeld_ = !keyEvent.isRelease();
+            LotusWlrVirtualKeyboard::instance().setUserShift(shiftHeld_);
         }
     }
 
@@ -1815,6 +1843,7 @@ namespace fcitx {
 
     void LotusState::forgetShiftState() {
         shiftHeld_ = false;
+        LotusWlrVirtualKeyboard::instance().setUserShift(false);
     }
 
     void LotusState::reEnableMacroAfterWordEnd() {

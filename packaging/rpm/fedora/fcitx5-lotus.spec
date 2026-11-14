@@ -1,7 +1,7 @@
 %bcond_without tests
 
 Name:           fcitx5-lotus
-Version:        6.1.0
+Version:        6.1.1
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -24,8 +24,8 @@ BuildRequires:  wayland-devel
 BuildRequires:  python3-devel
 
 %if %{with tests}
-# Provides dbus-run-session for the private-bus regression in %check.
 BuildRequires:  dbus-daemon
+BuildRequires:  xorg-x11-server-Xvfb
 %endif
 
 %{?systemd_ordering}
@@ -126,5 +126,5 @@ fi
 %systemd_postun_with_restart fcitx5-lotus-server@.service
 
 %changelog
-* Wed Nov 11 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.1.0-1
-- Added Wayland zwp_virtual_keyboard_v1 and X11 Xtest key injection backends alongside uinput.
+* Sat Nov 14 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.1.1-1
+- Fix shift state wrong when using select mode with wlr backend
