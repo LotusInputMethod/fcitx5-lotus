@@ -102,9 +102,6 @@ namespace {
         check("loadFromText([Đường]) got [missing] expected [found]", dictionary.hasWord(U"đường"));
         check("loadFromText([Đường]) got [missing] expected [found] as a prefix", dictionary.hasWordOrPrefix(U"đườ"));
         check("loadFromText([Đường]) stores [đường]", dictionary.words() == std::vector<std::u32string>{U"đường"});
-        const std::vector<std::u32string>& stored    = dictionary.words();
-        const std::u32string_view          firstWord = stored.empty() ? std::u32string_view() : std::u32string_view(stored.front());
-        checkU32("loadFromText([Đường]) stores the lowercased word", firstWord, U"đường");
         check("the uppercase spelling is not stored", !dictionary.hasWord(U"Đường"));
     }
 

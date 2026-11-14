@@ -2,6 +2,7 @@
 //
 // A Select replacement must finish on its Pause anchor even when some Shift+Left
 // echoes are lost, and a stray anchor after the burst must not commit again.
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
@@ -9,27 +10,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
-namespace {
-
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() == requireAccepted)
-            return true;
-        reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                      "accepted=" + std::to_string(static_cast<int>(event.accepted())), "unexpected key outcome");
-        return false;
-    }
-
-    std::string commitList(const TestInputContext& context) {
-        std::string actual = "commits=";
-        for (const auto& commit : context.commits())
-            actual += "['" + commit + "']";
-        return actual;
-    }
-
-} // namespace
 
 int main() {
     configureTestPaths("fcitx5-lotus-select-anchor-completion");
@@ -51,7 +31,7 @@ int main() {
     engine.activate(entry, focus);
 
     // "at" plus the tone-mark key requests a 2-character selection.
-    if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_t, false) || !send(engine, entry, *context, FcitxKey_s, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_a, false) || !sendKey(engine, entry, *context, FcitxKey_t, false) || !sendKey(engine, entry, *context, FcitxKey_s, true))
         return 1;
     KbMsg msg{};
     if (!listener.receive(msg, "the Telex replacement request did not arrive"))
@@ -63,9 +43,9 @@ int main() {
     }
 
     // One echo is lost; the anchor still closes the replacement.
-    if (!send(engine, entry, *context, FcitxKey_Left, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_Left, false))
         return 1;
-    if (!send(engine, entry, *context, FcitxKey_Pause, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_Pause, true))
         return 1;
     const std::vector<std::string> afterAnchor{"át"};
     if (context->commits() != afterAnchor) {
@@ -74,7 +54,7 @@ int main() {
     }
 
     // A stray anchor after the burst is forwarded and must not commit again.
-    if (!send(engine, entry, *context, FcitxKey_Pause, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_Pause, false))
         return 1;
     if (context->commits() != afterAnchor) {
         reportFailure("no second commit on a stray anchor", "commits=['át']", commitList(*context), "a stray anchor committed the replacement twice");

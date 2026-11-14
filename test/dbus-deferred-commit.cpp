@@ -4,6 +4,7 @@
 // consumes its anchor backspace together with the reply of that key event, and GTK4 apps on Wayland
 // then attach the text to the already consumed backspace and drop it (#441, #286). The addon must
 // therefore hand the commit to the event loop instead of committing inside the key event.
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
@@ -31,18 +32,6 @@ namespace {
         return true;
     }
 
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()),
-                          "the replacement handling accepted or rejected the key unexpectedly");
-            return false;
-        }
-        return true;
-    }
-
     // Runs the fcitx event loop long enough for the 0 ms deferred-commit timer to fire.
     void pumpEventLoop(TestInstance& testInstance) {
         auto&      loop      = testInstance.instance.eventLoop();
@@ -64,16 +53,17 @@ namespace {
         engine.activate(entry, focus);
         context->resetPreeditUpdateCount();
 
-        if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_s, true))
+        if (!sendKey(engine, entry, *context, FcitxKey_a, false, "plain letters before the trigger must echo to the app") ||
+            !sendKey(engine, entry, *context, FcitxKey_s, true, "the trigger key must be swallowed to start the replacement"))
             return nullptr;
         size_t backspaces = 0;
         if (!receiveBackspaceRequest(listener, backspaces, "the Telex replacement request did not arrive"))
             return nullptr;
         for (size_t i = 0; i < backspaces; ++i) {
-            if (!send(engine, entry, *context, FcitxKey_BackSpace, false))
+            if (!sendKey(engine, entry, *context, FcitxKey_BackSpace, false, "the burst backspace must echo to the app so it deletes the old word"))
                 return nullptr;
         }
-        if (!send(engine, entry, *context, FcitxKey_Pause, true))
+        if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement"))
             return nullptr;
         return context;
     }
@@ -103,7 +93,7 @@ int main() {
     auto                    pendingContext = runReplacement(testInstance, engine, listener, "dbus");
     if (pendingContext == nullptr)
         return 1;
-    if (!send(engine, entry, *pendingContext, FcitxKey_i, true))
+    if (!sendKey(engine, entry, *pendingContext, FcitxKey_i, true, "a key typed while the commit is deferred must be swallowed and buffered"))
         return 1;
     if (!pendingContext->commits().empty() || !pendingContext->forwarded().empty()) {
         reportFailure("wait for the deferred commit", "no commit and no forwarded key while the commit is queued",
