@@ -573,15 +573,16 @@ namespace lotus::apphook {
         }
 
         /**
-         * @brief Attaches existing proxies and processes pending key operations.
+         * @brief Attaches existing proxies and processes keys only after queued Wayland events.
          * @param display Current Wayland display.
+         * @param completed Whether the original dispatch has returned successfully.
          */
-        void beforeDispatch(wl_display* display) {
+        void onDispatch(wl_display* display, bool completed) {
             if (display)
                 runtime().waylandDisplay.store(display, std::memory_order_release);
             if (runtime().lateAttached.load(std::memory_order_acquire))
                 scanProxies(runtime().waylandDisplay.load(std::memory_order_acquire));
-            if (runtime().workersStarted.load(std::memory_order_acquire))
+            if (completed && runtime().workersStarted.load(std::memory_order_acquire))
                 pump();
         }
 
@@ -725,11 +726,12 @@ LH_EXPORT void wl_proxy_destroy(wl_proxy* proxy) {
  */
 LH_EXPORT int wl_display_dispatch_queue_pending(wl_display* display, wl_event_queue* queue) {
     using namespace lotus::apphook;
-    beforeDispatch(display);
+    onDispatch(display, false);
     if (!originalDispatchQueuePending)
         loadWayland();
     const int result = originalDispatchQueuePending ? originalDispatchQueuePending(display, queue) : -1;
-    beforeDispatch(display);
+    if (result >= 0)
+        onDispatch(display, true);
     return result;
 }
 
@@ -740,11 +742,12 @@ LH_EXPORT int wl_display_dispatch_queue_pending(wl_display* display, wl_event_qu
  */
 LH_EXPORT int wl_display_dispatch_pending(wl_display* display) {
     using namespace lotus::apphook;
-    beforeDispatch(display);
+    onDispatch(display, false);
     if (!originalDispatchPending)
         loadWayland();
     const int result = originalDispatchPending ? originalDispatchPending(display) : -1;
-    beforeDispatch(display);
+    if (result >= 0)
+        onDispatch(display, true);
     return result;
 }
 
@@ -755,11 +758,12 @@ LH_EXPORT int wl_display_dispatch_pending(wl_display* display) {
  */
 LH_EXPORT int wl_display_dispatch(wl_display* display) {
     using namespace lotus::apphook;
-    beforeDispatch(display);
+    onDispatch(display, false);
     if (!originalDispatch)
         loadWayland();
     const int result = originalDispatch ? originalDispatch(display) : -1;
-    beforeDispatch(display);
+    if (result >= 0)
+        onDispatch(display, true);
     return result;
 }
 
@@ -771,11 +775,12 @@ LH_EXPORT int wl_display_dispatch(wl_display* display) {
  */
 LH_EXPORT int wl_display_dispatch_queue(wl_display* display, wl_event_queue* queue) {
     using namespace lotus::apphook;
-    beforeDispatch(display);
+    onDispatch(display, false);
     if (!originalDispatchQueue)
         loadWayland();
     const int result = originalDispatchQueue ? originalDispatchQueue(display, queue) : -1;
-    beforeDispatch(display);
+    if (result >= 0)
+        onDispatch(display, true);
     return result;
 }
 
