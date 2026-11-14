@@ -35,15 +35,18 @@ namespace lotus::apphook {
     namespace {
 
         struct XcbFocus : XFocusState<xcb_window_t, XCB_NONE> {
-            xcb_window_t          root              = XCB_NONE;
-            xcb_window_t          wakeWindow        = XCB_NONE;
-            bool                  keyboardAvailable = false;
-            std::shared_ptr<Task> active;
-            xcb_window_t          activeTarget = XCB_NONE;
-            xcb_window_t          activeRoot   = XCB_NONE;
-            KeySequence           sequence;
-            uint32_t              lastTime        = 0;
-            unsigned              blockingWaiters = 0;
+            xcb_window_t                               root              = XCB_NONE;
+            xcb_window_t                               wakeWindow        = XCB_NONE;
+            bool                                       keyboardAvailable = false;
+            bool                                       nativeKeyboard    = false;
+            std::unordered_map<xcb_window_t, uint32_t> keyboardMasks;
+            int                                        screenIndex = 0;
+            std::shared_ptr<Task>                      active;
+            xcb_window_t                               activeTarget = XCB_NONE;
+            xcb_window_t                               activeRoot   = XCB_NONE;
+            KeySequence                                sequence;
+            uint32_t                                   lastTime        = 0;
+            unsigned                                   blockingWaiters = 0;
         };
 
         std::mutex                                      xcbMutex;
@@ -54,11 +57,12 @@ namespace lotus::apphook {
         // Never bypass libxcb's internal event queue synchronization with poll().
         constexpr char kWakePayload[] = "lotus-apphook-wakeup";
         static_assert(sizeof(kWakePayload) - 1 == sizeof(xcb_client_message_data_t::data8));
-        std::mutex resolveMutex;
-        void*      xcbLibrary = nullptr;
+        std::once_flag resolveOnce;
+        void*          xcbLibrary = nullptr;
 
         const xcb_setup_t* (*originalGetSetup)(xcb_connection_t*)                                                    = nullptr;
         xcb_screen_iterator_t (*originalRootsIterator)(const xcb_setup_t*)                                           = nullptr;
+        void (*originalScreenNext)(xcb_screen_iterator_t*)                                                           = nullptr;
         int (*originalGetFd)(xcb_connection_t*)                                                                      = nullptr;
         int (*originalHasError)(xcb_connection_t*)                                                                   = nullptr;
         xcb_connection_t* (*originalConnect)(const char*, int*)                                                      = nullptr;
@@ -90,8 +94,14 @@ namespace lotus::apphook {
             const xcb_setup_t* setup = originalGetSetup ? originalGetSetup(connection) : nullptr;
             if (!setup)
                 return XCB_NONE;
-            const xcb_screen_iterator_t roots = originalRootsIterator ? originalRootsIterator(setup) : xcb_screen_iterator_t{};
-            return roots.data ? roots.data->root : XCB_NONE;
+            auto       roots = originalRootsIterator ? originalRootsIterator(setup) : xcb_screen_iterator_t{};
+            const auto it    = connections.find(connection);
+            const int  index = it != connections.end() ? it->second.screenIndex : 0;
+            if (index > 0 && !originalScreenNext)
+                return XCB_NONE;
+            for (int i = 0; roots.rem && i < index && originalScreenNext; ++i)
+                originalScreenNext(&roots);
+            return roots.data && roots.rem ? roots.data->root : XCB_NONE;
         }
 
         void updateFocusState() {
@@ -118,16 +128,20 @@ namespace lotus::apphook {
             auto&         state = connections[connection];
             const uint8_t type  = event->response_type & 0x7f;
             if (type == XCB_FOCUS_IN || type == XCB_FOCUS_OUT) {
-                auto* focus = reinterpret_cast<const xcb_focus_in_event_t*>(event);
-                if (state.active && (type == XCB_FOCUS_OUT || state.activeTarget != focus->event)) {
+                const auto*        focus         = reinterpret_cast<const xcb_focus_in_event_t*>(event);
+                const bool         wasFocused    = state.focused;
+                const xcb_window_t previousOwner = state.focus;
+                if (type == XCB_FOCUS_IN)
+                    state.enter(focus->event);
+                else
+                    state.leave(focus->event);
+                const bool lostFocus    = wasFocused && !state.focused;
+                const bool changedOwner = type == XCB_FOCUS_IN && wasFocused && previousOwner != focus->event;
+                if (state.active && (lostFocus || changedOwner)) {
                     state.active->cancelled.store(true, std::memory_order_release);
                     if (!state.sequence.needsRelease())
                         finishXcb(state, -ECANCELED);
                 }
-                if (type == XCB_FOCUS_IN)
-                    state.enter(focus->event);
-                else
-                    state.leave(focus->event, true);
                 updateFocusState();
             } else if (type == XCB_KEY_PRESS || type == XCB_KEY_RELEASE) {
                 const auto* key = reinterpret_cast<const xcb_key_press_event_t*>(event);
@@ -135,9 +149,12 @@ namespace lotus::apphook {
                 // but must not resurrect a focus already revoked by FocusOut.
                 if (state.acceptsKey()) {
                     state.keyTarget(key->event);
+                    if (!state.observedFocus && state.focus == XCB_NONE)
+                        state.focus = key->event;
                     state.root     = key->root;
                     state.lastTime = key->time;
                 }
+                state.nativeKeyboard    = true;
                 state.keyboardAvailable = true;
                 if (type == XCB_KEY_PRESS && !(event->response_type & 0x80) && state.acceptsKey()) {
                     state.focused = true;
@@ -146,21 +163,29 @@ namespace lotus::apphook {
             }
         }
 
-        bool subscribed(uint32_t mask, const void* values) {
+        /** @brief Extracts the event mask from XCB packed window attributes. */
+        bool keyboardMask(uint32_t mask, const void* values, uint32_t& result) {
             if (!(mask & XCB_CW_EVENT_MASK) || !values)
                 return false;
             const auto*    items = static_cast<const uint32_t*>(values);
             const unsigned index = __builtin_popcount(mask & (XCB_CW_EVENT_MASK - 1));
-            return (items[index] & (XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE)) != 0;
+            result               = items[index] & (XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE);
+            return true;
         }
 
-        void subscribedKeyboard(xcb_connection_t* connection, uint32_t mask, const void* values) {
-            if (!subscribed(mask, values))
+        void subscribedKeyboard(xcb_connection_t* connection, xcb_window_t window, uint32_t mask, const void* values) {
+            uint32_t keys = 0;
+            if (!keyboardMask(mask, values, keys))
                 return;
             std::scoped_lock lock(xcbMutex);
             if (ownedByXlib(connection))
                 return;
-            connections[connection].keyboardAvailable = true;
+            auto& state = connections[connection];
+            if (keys)
+                state.keyboardMasks[window] = keys;
+            else
+                state.keyboardMasks.erase(window);
+            state.keyboardAvailable = state.nativeKeyboard || !state.keyboardMasks.empty();
             updateFocusState();
         }
 
@@ -242,6 +267,13 @@ namespace lotus::apphook {
             state.active = takeTask();
             if (!state.active)
                 return nullptr;
+            // X11 core keycodes occupy 8..255; reject rather than truncate.
+            for (const auto& operation : state.active->ops) {
+                if (operation.keycode > 247) {
+                    finishXcb(state, -EINVAL);
+                    return nullptr;
+                }
+            }
             state.activeTarget = state.target;
             state.activeRoot   = state.root;
             state.sequence.reset(state.active->ops);
@@ -310,29 +342,29 @@ namespace lotus::apphook {
     } // namespace
 
     void loadXcb() {
-        std::scoped_lock lock(resolveMutex);
-        if (xcbLibrary)
-            return;
-        xcbLibrary = dlopen("libxcb.so.1", RTLD_NOW | RTLD_NOLOAD);
-        if (!xcbLibrary)
-            return;
-        originalGetSetup                = resolve<decltype(originalGetSetup)>("xcb_get_setup");
-        originalRootsIterator           = resolve<decltype(originalRootsIterator)>("xcb_setup_roots_iterator");
-        originalGetFd                   = resolve<decltype(originalGetFd)>("xcb_get_file_descriptor");
-        originalHasError                = resolve<decltype(originalHasError)>("xcb_connection_has_error");
-        originalConnect                 = resolve<decltype(originalConnect)>("xcb_connect");
-        originalConnectFd               = resolve<decltype(originalConnectFd)>("xcb_connect_to_fd");
-        originalGenerateId              = resolve<decltype(originalGenerateId)>("xcb_generate_id");
-        originalDisconnect              = resolve<decltype(originalDisconnect)>("xcb_disconnect");
-        originalPoll                    = resolve<decltype(originalPoll)>("xcb_poll_for_event");
-        originalPollQueued              = resolve<decltype(originalPollQueued)>("xcb_poll_for_queued_event");
-        originalWait                    = resolve<decltype(originalWait)>("xcb_wait_for_event");
-        originalSendEvent               = resolve<decltype(originalSendEvent)>("xcb_send_event");
-        originalFlush                   = resolve<decltype(originalFlush)>("xcb_flush");
-        originalChangeAttributes        = resolve<decltype(originalChangeAttributes)>("xcb_change_window_attributes");
-        originalChangeAttributesChecked = resolve<decltype(originalChangeAttributesChecked)>("xcb_change_window_attributes_checked");
-        originalCreateWindow            = resolve<decltype(originalCreateWindow)>("xcb_create_window");
-        originalCreateWindowChecked     = resolve<decltype(originalCreateWindowChecked)>("xcb_create_window_checked");
+        std::call_once(resolveOnce, [] {
+            xcbLibrary = dlopen("libxcb.so.1", RTLD_NOW | RTLD_NOLOAD);
+            if (!xcbLibrary)
+                return;
+            originalGetSetup                = resolve<decltype(originalGetSetup)>("xcb_get_setup");
+            originalRootsIterator           = resolve<decltype(originalRootsIterator)>("xcb_setup_roots_iterator");
+            originalScreenNext              = resolve<decltype(originalScreenNext)>("xcb_screen_next");
+            originalGetFd                   = resolve<decltype(originalGetFd)>("xcb_get_file_descriptor");
+            originalHasError                = resolve<decltype(originalHasError)>("xcb_connection_has_error");
+            originalConnect                 = resolve<decltype(originalConnect)>("xcb_connect");
+            originalConnectFd               = resolve<decltype(originalConnectFd)>("xcb_connect_to_fd");
+            originalGenerateId              = resolve<decltype(originalGenerateId)>("xcb_generate_id");
+            originalDisconnect              = resolve<decltype(originalDisconnect)>("xcb_disconnect");
+            originalPoll                    = resolve<decltype(originalPoll)>("xcb_poll_for_event");
+            originalPollQueued              = resolve<decltype(originalPollQueued)>("xcb_poll_for_queued_event");
+            originalWait                    = resolve<decltype(originalWait)>("xcb_wait_for_event");
+            originalSendEvent               = resolve<decltype(originalSendEvent)>("xcb_send_event");
+            originalFlush                   = resolve<decltype(originalFlush)>("xcb_flush");
+            originalChangeAttributes        = resolve<decltype(originalChangeAttributes)>("xcb_change_window_attributes");
+            originalChangeAttributesChecked = resolve<decltype(originalChangeAttributesChecked)>("xcb_change_window_attributes_checked");
+            originalCreateWindow            = resolve<decltype(originalCreateWindow)>("xcb_create_window");
+            originalCreateWindowChecked     = resolve<decltype(originalCreateWindowChecked)>("xcb_create_window_checked");
+        });
     }
 
     void markXlibOwnedXcbConnection(void* ptr) {
@@ -391,13 +423,15 @@ namespace lotus::apphook {
         updateFocusState();
     }
 
-    void setXcbEventQueueOwner(void* ptr, bool xcbOwns) {
+    void setXcbEventQueueOwner(void* ptr, bool xcbOwns, uint32_t root) {
         if (!ptr)
             return;
         auto*            connection = static_cast<xcb_connection_t*>(ptr);
         std::scoped_lock lock(xcbMutex);
         if (xcbOwns) {
             xcbEventOwners.insert(connection);
+            if (root != XCB_NONE)
+                connections[connection].root = root;
         } else {
             xcbEventOwners.erase(connection);
             auto it = connections.find(connection);
@@ -432,22 +466,26 @@ namespace lotus::apphook {
 
 LH_EXPORT xcb_connection_t* xcb_connect(const char* display, int* screen) {
     using namespace lotus::apphook;
-    if (!originalConnect)
-        loadXcb();
-    return originalConnect ? originalConnect(display, screen) : nullptr;
+    loadXcb();
+    int               selected   = 0;
+    int*              screenOut  = screen ? screen : &selected;
+    xcb_connection_t* connection = originalConnect ? originalConnect(display, screenOut) : nullptr;
+    if (connection) {
+        std::scoped_lock lock(xcbMutex);
+        connections[connection].screenIndex = *screenOut;
+    }
+    return connection;
 }
 
 LH_EXPORT xcb_connection_t* xcb_connect_to_fd(int fd, xcb_auth_info_t* auth) {
     using namespace lotus::apphook;
-    if (!originalConnectFd)
-        loadXcb();
+    loadXcb();
     return originalConnectFd ? originalConnectFd(fd, auth) : nullptr;
 }
 
 LH_EXPORT void xcb_disconnect(xcb_connection_t* connection) {
     using namespace lotus::apphook;
-    if (!originalDisconnect)
-        loadXcb();
+    loadXcb();
     {
         std::scoped_lock lock(xcbMutex);
         auto             it = connections.find(connection);
@@ -465,22 +503,19 @@ LH_EXPORT void xcb_disconnect(xcb_connection_t* connection) {
 
 LH_EXPORT xcb_generic_event_t* xcb_poll_for_event(xcb_connection_t* connection) {
     using namespace lotus::apphook;
-    if (!originalPoll)
-        loadXcb();
+    loadXcb();
     return originalPoll ? checkedPoll(connection, false) : nullptr;
 }
 
 LH_EXPORT xcb_generic_event_t* xcb_poll_for_queued_event(xcb_connection_t* connection) {
     using namespace lotus::apphook;
-    if (!originalPollQueued)
-        loadXcb();
+    loadXcb();
     return originalPollQueued ? checkedPoll(connection, true) : nullptr;
 }
 
 LH_EXPORT xcb_generic_event_t* xcb_wait_for_event(xcb_connection_t* connection) {
     using namespace lotus::apphook;
-    if (!originalWait)
-        loadXcb();
+    loadXcb();
     if (!originalWait)
         return nullptr;
     while (true) {
@@ -526,45 +561,41 @@ LH_EXPORT xcb_generic_event_t* xcb_wait_for_event(xcb_connection_t* connection) 
 
 LH_EXPORT xcb_void_cookie_t xcb_change_window_attributes(xcb_connection_t* connection, xcb_window_t window, uint32_t mask, const void* values) {
     using namespace lotus::apphook;
-    if (!originalChangeAttributes)
-        loadXcb();
+    loadXcb();
     const auto result = originalChangeAttributes ? originalChangeAttributes(connection, window, mask, values) : xcb_void_cookie_t{};
     if (result.sequence)
-        subscribedKeyboard(connection, mask, values);
+        subscribedKeyboard(connection, window, mask, values);
     return result;
 }
 
 LH_EXPORT xcb_void_cookie_t xcb_change_window_attributes_checked(xcb_connection_t* connection, xcb_window_t window, uint32_t mask, const void* values) {
     using namespace lotus::apphook;
-    if (!originalChangeAttributesChecked)
-        loadXcb();
+    loadXcb();
     const auto result = originalChangeAttributesChecked ? originalChangeAttributesChecked(connection, window, mask, values) : xcb_void_cookie_t{};
     if (result.sequence)
-        subscribedKeyboard(connection, mask, values);
+        subscribedKeyboard(connection, window, mask, values);
     return result;
 }
 
 LH_EXPORT xcb_void_cookie_t xcb_create_window(xcb_connection_t* connection, uint8_t depth, xcb_window_t window, xcb_window_t parent, int16_t x, int16_t y, uint16_t width,
                                               uint16_t height, uint16_t border, uint16_t windowClass, xcb_visualid_t visual, uint32_t mask, const void* values) {
     using namespace lotus::apphook;
-    if (!originalCreateWindow)
-        loadXcb();
+    loadXcb();
     const auto result =
         originalCreateWindow ? originalCreateWindow(connection, depth, window, parent, x, y, width, height, border, windowClass, visual, mask, values) : xcb_void_cookie_t{};
     if (result.sequence)
-        subscribedKeyboard(connection, mask, values);
+        subscribedKeyboard(connection, window, mask, values);
     return result;
 }
 
 LH_EXPORT xcb_void_cookie_t xcb_create_window_checked(xcb_connection_t* connection, uint8_t depth, xcb_window_t window, xcb_window_t parent, int16_t x, int16_t y, uint16_t width,
                                                       uint16_t height, uint16_t border, uint16_t windowClass, xcb_visualid_t visual, uint32_t mask, const void* values) {
     using namespace lotus::apphook;
-    if (!originalCreateWindowChecked)
-        loadXcb();
+    loadXcb();
     const auto result = originalCreateWindowChecked ?
         originalCreateWindowChecked(connection, depth, window, parent, x, y, width, height, border, windowClass, visual, mask, values) :
         xcb_void_cookie_t{};
     if (result.sequence)
-        subscribedKeyboard(connection, mask, values);
+        subscribedKeyboard(connection, window, mask, values);
     return result;
 }
