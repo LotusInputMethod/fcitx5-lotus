@@ -1,5 +1,5 @@
 Name:           fcitx5-lotus
-Version:        6.1.0
+Version:        6.1.1
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -124,5 +124,5 @@ fi
 %service_del_postun fcitx5-lotus-server@.service
 
 %changelog
-* Wed Nov 11 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.1.0-1
-- Added Wayland zwp_virtual_keyboard_v1 and X11 Xtest key injection backends alongside uinput.
+* Sat Nov 14 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.1.1-1
+- Fix shift state wrong when using select mode with wlr backend
