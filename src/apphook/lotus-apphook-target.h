@@ -45,7 +45,8 @@ namespace lotus::apphook {
      */
     struct Runtime {
         std::mutex                        mutex;
-        std::atomic<bool>                 keyboardActivity{false};
+        std::atomic<bool>                 workersStarted{false};
+        std::atomic<bool>                 initialized{false};
         std::atomic<bool>                 focusedX11{false};
         std::atomic<bool>                 focusedWayland{false};
             std::deque<std::shared_ptr<Task>> pending;
@@ -64,11 +65,11 @@ namespace lotus::apphook {
      * @return Shared runtime instance.
      */
     Runtime& runtime();
-    /** @brief Starts the IPC worker after the first physical key received by this process. */
+    /** @brief Starts the IPC worker after keyboard focus or the first delivered key. */
     void noteKeyboardActivity(bool wayland);
-    /** @brief Updates the keyboard focus observed by Xlib without initiating a connection. */
+    /** @brief Updates Xlib keyboard focus and starts lazy IPC on focus-in. */
     void noteX11Focus(bool focused);
-    /** @brief Updates the keyboard focus observed by Wayland without initiating a connection. */
+    /** @brief Updates Wayland keyboard focus and starts lazy IPC on focus-in. */
     void noteWaylandFocus(bool focused);
     /**
      * @brief Takes the next pending keyboard request.
