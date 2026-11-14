@@ -35,9 +35,12 @@ namespace lotus::apphook {
 
         constexpr unsigned long kInjectedSerial = 0x4c485831UL;
 
-        Display*                display      = nullptr;
-        Window                  targetWindow = None;
-        void*                   xlib         = nullptr;
+        Display*                display       = nullptr;
+        Window                  targetWindow  = None;
+        Display*                targetDisplay = nullptr;
+        Window                  focusWindow   = None;
+        Display*                focusDisplay  = nullptr;
+        void*                   xlib          = nullptr;
         std::mutex              resolveMutex;
 
         int (*originalSelectInput)(Display*, Window, long)                                            = nullptr;
@@ -80,7 +83,7 @@ namespace lotus::apphook {
 
         /** @brief Removes a cancelled task's undelivered events on the application thread. */
         void purgeCancelled(Display* target) {
-            Runtime& state = runtime();
+            Runtime&              state = runtime();
             std::shared_ptr<Task> task;
             {
                 std::scoped_lock lock(state.mutex);
@@ -113,11 +116,25 @@ namespace lotus::apphook {
                 return;
             }
             if (event.type == FocusIn) {
+                // Track the actual keyboard focus window, not the most recent
+                // unrelated event (Expose, ConfigureNotify, mouse input, etc.).
+                targetDisplay = event.xfocus.display;
+                targetWindow  = event.xfocus.window;
+                focusDisplay  = event.xfocus.display;
+                focusWindow   = event.xfocus.window;
                 runtime().observedX11Focus.store(true, std::memory_order_release);
                 noteX11Focus(true);
             } else if (event.type == FocusOut) {
-                runtime().observedX11Focus.store(true, std::memory_order_release);
-                noteX11Focus(false);
+                // An unrelated X11 window losing focus must not invalidate
+                // the keyboard destination that is still focused.
+                if (focusDisplay == event.xfocus.display && focusWindow == event.xfocus.window) {
+                    targetWindow  = None;
+                    targetDisplay = nullptr;
+                    focusWindow   = None;
+                    focusDisplay  = nullptr;
+                    runtime().observedX11Focus.store(true, std::memory_order_release);
+                    noteX11Focus(false);
+                }
             }
             if ((event.type == KeyPress || event.type == KeyRelease) && event.xkey.serial == kInjectedSerial) {
                 Runtime&         state = runtime();
@@ -130,12 +147,15 @@ namespace lotus::apphook {
                         state.activeX11.reset();
                     }
                 }
-            } else if (event.xany.window != None) {
-                targetWindow = event.xany.window;
-                runtime().readyX11.store(true, std::memory_order_release);
             }
-            if (event.type == KeyPress && event.xkey.serial != kInjectedSerial) {
-                noteKeyboardActivity(false);
+            if ((event.type == KeyPress || event.type == KeyRelease) && event.xkey.serial != kInjectedSerial) {
+                // Real keyboard events identify the window that handles keys.
+                // Other X11 event classes must never change the injection target.
+                targetDisplay = event.xkey.display;
+                targetWindow  = event.xkey.window;
+                runtime().readyX11.store(true, std::memory_order_release);
+                if (event.type == KeyPress)
+                    noteKeyboardActivity(false);
             }
         }
 
@@ -189,14 +209,14 @@ namespace lotus::apphook {
                 if (runtime().activeX11 || runtime().pending.empty())
                     return;
             }
-            if (!targetWindow) {
+            if (targetDisplay != target || !targetWindow) {
                 Window focused = None;
                 int    revert  = 0;
-                if (originalGetFocus && originalGetFocus(target, &focused, &revert) && focused != None && focused != PointerRoot)
-                    targetWindow = focused;
+                if (!originalGetFocus || !originalGetFocus(target, &focused, &revert) || focused == None || focused == PointerRoot)
+                    return;
+                targetDisplay = target;
+                targetWindow  = focused;
             }
-            if (!targetWindow)
-                return;
             runtime().readyX11.store(true, std::memory_order_release);
 
             // Keep the native queue order intact even when an XCheck* filter
@@ -220,9 +240,7 @@ namespace lotus::apphook {
 
                 // A pending focus transition must be delivered to the app first.
                 // In particular, a filtered KeyPress lookup must not bypass FocusOut.
-                const bool focusTransition = std::any_of(native.begin(), native.end(), [](const XEvent& event) {
-                    return event.type == FocusIn || event.type == FocusOut;
-                });
+                const bool focusTransition = std::any_of(native.begin(), native.end(), [](const XEvent& event) { return event.type == FocusIn || event.type == FocusOut; });
                 if (!focusTransition) {
                     auto task = takeTask();
                     if (task) {

@@ -92,6 +92,7 @@ namespace lotus::apphook {
 
         struct Keyboard {
             wl_proxy*               proxy          = nullptr;
+            wl_display*             display        = nullptr;
             const KeyboardListener* listener       = nullptr;
             const void*             implementation = nullptr;
             void*                   originalData   = nullptr;
@@ -123,6 +124,7 @@ namespace lotus::apphook {
         wl_display* (*originalConnect)(const char*)                                                     = nullptr;
         wl_display* (*originalConnectFd)(int)                                                           = nullptr;
         void (*originalDestroy)(wl_proxy*)                                                              = nullptr;
+        wl_display* (*originalGetProxyDisplay)(wl_proxy*)                                               = nullptr;
         const char* (*originalClass)(wl_proxy*)                                                         = nullptr;
         int (*originalFlush)(wl_display*)                                                               = nullptr;
         wl_proxy* (*originalMarshalConstructor)(wl_proxy*, uint32_t, const WlInterface*, uint32_t, ...) = nullptr;
@@ -181,8 +183,9 @@ namespace lotus::apphook {
          * @brief Finds the keyboard currently focused by the application.
          * @return Focused keyboard, or null if none.
          */
-        Keyboard* focusedKeyboard() {
-            const auto it = std::find_if(keyboards.begin(), keyboards.end(), [](const auto& keyboard) { return keyboard->focused; });
+        Keyboard* focusedKeyboard(wl_display* display = nullptr) {
+            const auto it = std::find_if(keyboards.begin(), keyboards.end(),
+                                         [display](const auto& keyboard) { return keyboard->focused && (!display || !keyboard->display || keyboard->display == display); });
             return it == keyboards.end() ? nullptr : it->get();
         }
 
@@ -299,15 +302,19 @@ namespace lotus::apphook {
          */
         void observe(Keyboard* keyboard, uint32_t opcode, const WlArgument* args) {
             if (opcode == 1) {
-                for (auto& other : keyboards)
-                    other->focused = false;
+                for (auto& other : keyboards) {
+                    if (other->display == keyboard->display)
+                        other->focused = false;
+                }
                 keyboard->focused = true;
                 keyboard->serial  = args[0].u;
+                if (keyboard->display)
+                    runtime().waylandDisplay.store(keyboard->display, std::memory_order_release);
             } else if (opcode == 2) {
                 keyboard->focused = false;
             } else if (opcode == 3) {
-                if (!focusedKeyboard())
-                    keyboard->focused = true;
+                // A key is not an enter: do not invent focus before the
+                // actual wl_keyboard.enter has reached this listener.
                 keyboard->serial = args[0].u;
                 keyboard->time   = args[1].u;
             } else if (opcode == 4) {
@@ -388,7 +395,7 @@ namespace lotus::apphook {
             args[2].u = key;
             args[3].u = state;
             observe(keyboard, 3, args);
-            if (state == 1) {
+            if (state == 1 && keyboard->focused) {
                 noteKeyboardActivity(true);
             }
             deliver(keyboard, 3, args);
@@ -445,7 +452,7 @@ namespace lotus::apphook {
                 readKeymap(keyboard, args[1].h, args[2].u);
             if (opcode >= 1 && opcode <= 4 && args)
                 observe(keyboard, opcode, args);
-            if (opcode == 3 && args && args[3].u == 1) {
+            if (opcode == 3 && args && args[3].u == 1 && keyboard->focused) {
                 noteKeyboardActivity(true);
             }
             return keyboard->dispatcher ? keyboard->dispatcher(implementation, keyboard->originalData, opcode, message, args) : 0;
@@ -460,6 +467,7 @@ namespace lotus::apphook {
                 return;
             auto keyboard            = std::make_unique<Keyboard>();
             keyboard->proxy          = proxy;
+            keyboard->display        = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
             keyboard->implementation = proxyField<void*>(proxy, kImplementationOffset);
             keyboard->originalData   = proxyField<void*>(proxy, kDataOffset);
             keyboard->dispatcher     = proxyField<Dispatcher>(proxy, kDispatcherOffset);
@@ -549,8 +557,8 @@ namespace lotus::apphook {
         /**
          * @brief Delivers queued synthetic key taps to the focused Wayland keyboard.
          */
-        void pump() {
-            Keyboard* keyboard = focusedKeyboard();
+        void pump(wl_display* display) {
+            Keyboard* keyboard = focusedKeyboard(display);
             if (!keyboard)
                 return;
             auto task = takeTask();
@@ -581,12 +589,14 @@ namespace lotus::apphook {
          * @param completed Whether the original dispatch has returned successfully.
          */
         void onDispatch(wl_display* display, bool completed) {
-            if (display)
-                runtime().waylandDisplay.store(display, std::memory_order_release);
+            if (display) {
+                wl_display* expected = nullptr;
+                (void)runtime().waylandDisplay.compare_exchange_strong(expected, display, std::memory_order_acq_rel);
+            }
             if (runtime().lateAttached.load(std::memory_order_acquire))
                 scanProxies(runtime().waylandDisplay.load(std::memory_order_acquire));
             if (completed && runtime().workersStarted.load(std::memory_order_acquire))
-                pump();
+                pump(display);
         }
 
         /**
@@ -616,6 +626,7 @@ namespace lotus::apphook {
         originalConnect              = resolve<decltype(originalConnect)>(wayland, "wl_display_connect");
         originalConnectFd            = resolve<decltype(originalConnectFd)>(wayland, "wl_display_connect_to_fd");
         originalDestroy              = resolve<decltype(originalDestroy)>(wayland, "wl_proxy_destroy");
+        originalGetProxyDisplay      = resolve<decltype(originalGetProxyDisplay)>(wayland, "wl_proxy_get_display");
         originalClass                = resolve<decltype(originalClass)>(wayland, "wl_proxy_get_class");
         originalFlush                = resolve<decltype(originalFlush)>(wayland, "wl_display_flush");
         originalMarshalConstructor   = resolve<decltype(originalMarshalConstructor)>(wayland, "wl_proxy_marshal_constructor_versioned");
@@ -660,6 +671,7 @@ LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(void), v
 
     auto keyboard          = std::make_unique<Keyboard>();
     keyboard->proxy        = proxy;
+    keyboard->display      = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
     keyboard->listener     = reinterpret_cast<const KeyboardListener*>(callbacks);
     keyboard->originalData = data;
     Keyboard* tracked      = keyboard.get();
@@ -691,6 +703,7 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
 
     auto keyboard            = std::make_unique<Keyboard>();
     keyboard->proxy          = proxy;
+    keyboard->display        = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
     keyboard->dispatcher     = dispatcher;
     keyboard->implementation = implementation;
     keyboard->originalData   = data;
