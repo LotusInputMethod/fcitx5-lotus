@@ -4,6 +4,7 @@
 // BackSpace keys and then an anchor KEY_PAUSE. The anchor is a real key, so the kernel orders it after
 // the whole burst, but no app, terminal or WM binds it: when it lands in an app (the app is out of
 // the addon's key path) it does nothing. A standard app never sees it because the addon swallows it.
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
@@ -11,22 +12,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
-namespace {
-
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()),
-                          "the anchor protocol test saw an unexpected key outcome");
-            return false;
-        }
-        return true;
-    }
-
-} // namespace
 
 int main() {
     configureTestPaths("fcitx5-lotus-anchor-key-protocol");
@@ -47,7 +32,8 @@ int main() {
     fcitx::InputContextEvent focus(context.get(), fcitx::EventType::InputContextFocusIn);
     engine.activate(entry, focus);
 
-    if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_s, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_a, false, "plain letters before the trigger must echo to the app") ||
+        !sendKey(engine, entry, *context, FcitxKey_s, true, "the trigger key must be swallowed to start the replacement"))
         return 1;
 
     KbMsg msg{};
@@ -64,26 +50,23 @@ int main() {
     }
 
     // The burst backspace is intermediate; the trailing anchor is the final ack.
-    if (!send(engine, entry, *context, FcitxKey_BackSpace, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_BackSpace, false, "the burst backspace must echo to the app so it deletes the old word"))
         return 1;
     if (!context->commits().empty()) {
         reportFailure("wait for the anchor", "no commit before the anchor", "commits=" + std::to_string(context->commits().size()),
                       "the replacement committed before the anchor key arrived");
         return 1;
     }
-    if (!send(engine, entry, *context, FcitxKey_Pause, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement"))
         return 1;
     const std::vector<std::string> expected{"á"};
     if (context->commits() != expected) {
-        std::string actual = "commits=";
-        for (const auto& commit : context->commits())
-            actual += "['" + commit + "']";
-        reportFailure("commit on the anchor", "commits=['á']", actual, "the anchor echo did not finish the replacement");
+        reportFailure("commit on the anchor", "commits=['á']", commitList(*context), "the anchor echo did not finish the replacement");
         return 1;
     }
 
     // A later anchor must not reach the app: it is a no-op key, forwarded and never committed.
-    if (!send(engine, entry, *context, FcitxKey_Pause, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_Pause, false, "a later anchor is a no-op key and must echo to the app"))
         return 1;
     if (context->commits() != expected) {
         reportFailure("anchor leak", "commits unchanged", "commits=" + std::to_string(context->commits().size()), "the anchor key produced text");

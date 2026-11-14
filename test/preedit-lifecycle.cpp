@@ -22,23 +22,12 @@
 
 #include "lotus-engine.h"
 #include "test-input-context.h"
+#include "test-util.h"
 
 #include <fcitx-utils/utf8.h>
 #include <iostream>
 #include <string>
 #include <vector>
-
-namespace {
-
-    // Helper to log explicit assertion failures with step, expected, actual, and business meaning.
-    void reportFailure(const std::string& step, const std::string& expected, const std::string& actual, const std::string& meaning) {
-        std::cerr << "Step: " << step << '\n';
-        std::cerr << "Expected: " << expected << '\n';
-        std::cerr << "Actual: " << actual << '\n';
-        std::cerr << "Meaning: " << meaning << '\n';
-    }
-
-} // namespace
 
 int main() {
     // Step 0: Sandbox filesystem paths to /tmp/fcitx5-lotus-preedit-lifecycle

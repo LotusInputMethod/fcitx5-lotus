@@ -16,6 +16,7 @@
 
 #include "lotus-engine.h"
 #include "test-input-context.h"
+#include "test-util.h"
 
 #include <filesystem>
 #include <fstream>
@@ -24,14 +25,6 @@
 #include <string>
 
 namespace {
-
-    // Helper to log explicit assertion failures with step, expected, actual, and business meaning.
-    void reportFailure(const std::string& step, const std::string& expected, const std::string& actual, const std::string& meaning) {
-        std::cerr << "Step: " << step << '\n';
-        std::cerr << "Expected: " << expected << '\n';
-        std::cerr << "Actual: " << actual << '\n';
-        std::cerr << "Meaning: " << meaning << '\n';
-    }
 
     // Writes the word list to both places the engine may resolve
     // "lotus/vietnamese.cm.dict" from, so the test does not depend on the

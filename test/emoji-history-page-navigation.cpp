@@ -2,6 +2,7 @@
 #include "lotus-engine.h"
 #include "lotus-utils.h"
 #include "test-input-context.h"
+#include "test-util.h"
 
 #include <fcitx/candidatelist.h>
 #include <fcitx/inputpanel.h>
@@ -14,13 +15,6 @@
 #include <string>
 
 namespace {
-
-    void reportFailure(const std::string& step, const std::string& expected, const std::string& actual, const std::string& meaning) {
-        std::cerr << "Step: " << step << '\n';
-        std::cerr << "Expected: " << expected << '\n';
-        std::cerr << "Actual: " << actual << '\n';
-        std::cerr << "Meaning: " << meaning << '\n';
-    }
 
     bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol) {
         fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);

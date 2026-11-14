@@ -3,6 +3,7 @@
 // In Select mode the uinput server holds a synthetic Shift for its Shift+Left selection, so a key
 // typed during the replacement carries a Shift bit nobody pressed. The modifier must be decided when
 // the key is replayed: strip a Shift that is no longer physically held, keep one the user still holds.
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
@@ -13,22 +14,6 @@
 #include <vector>
 
 namespace {
-
-    void reportFailure(const std::string& step, const std::string& expected, const std::string& actual, const std::string& meaning) {
-        std::fprintf(stderr, "Step: %s\nExpected: %s\nActual: %s\nMeaning: %s\n", step.c_str(), expected.c_str(), actual.c_str(), meaning.c_str());
-    }
-
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::Key key, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, key, false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + key.toString(), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()),
-                          "the Select modifier replay test saw an unexpected key outcome");
-            return false;
-        }
-        return true;
-    }
 
     std::string commitText(const TestInputContext& context) {
         std::string text;
@@ -47,7 +32,8 @@ namespace {
         fcitx::InputContextEvent focus(context.get(), fcitx::EventType::InputContextFocusIn);
         engine.activate(entry, focus);
 
-        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_a), false) || !send(engine, entry, *context, fcitx::Key(FcitxKey_s), true))
+        if (!sendKey(engine, entry, *context, fcitx::Key(FcitxKey_a), false, "plain letters before the trigger must echo to the app") ||
+            !sendKey(engine, entry, *context, fcitx::Key(FcitxKey_s), true, "the trigger key must be swallowed to start the replacement"))
             return false;
 
         KbMsg msg{};
@@ -58,19 +44,19 @@ namespace {
                           "the Select replacement did not start as expected");
             return false;
         }
-        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_Left), false)) { // counted echo, still deleting
+        if (!sendKey(engine, entry, *context, fcitx::Key(FcitxKey_Left), false, "the selection echo passes through while the replacement is still deleting")) {
             return false;
         }
-        if (holdShift && !send(engine, entry, *context, fcitx::Key(FcitxKey_Shift_L), true)) { // modifier is swallowed while deleting
+        if (holdShift && !sendKey(engine, entry, *context, fcitx::Key(FcitxKey_Shift_L), true, "the physical Shift must be swallowed while the replacement deletes")) {
             return false;
         }
-        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_N, fcitx::KeyState::Shift), true)) { // buffered while deleting
+        if (!sendKey(engine, entry, *context, fcitx::Key(FcitxKey_N, fcitx::KeyState::Shift), true, "a key typed during the replacement must be swallowed and buffered")) {
             return false;
         }
-        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_Delete), false)) {
+        if (!sendKey(engine, entry, *context, fcitx::Key(FcitxKey_Delete), false, "the Delete echo must reach the application")) {
             return false;
         }
-        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_Pause), true)) { // anchor finishes the replacement
+        if (!sendKey(engine, entry, *context, fcitx::Key(FcitxKey_Pause), true, "the anchor must be swallowed to finish the replacement")) {
             return false;
         }
 

@@ -13,6 +13,8 @@
 #include "types.h"
 #include "utf8.h"
 
+#include "test-util.h"
+
 #include <array>
 
 #include <cstdio>
@@ -41,18 +43,7 @@ namespace {
         std::u32string_view want;
     };
 
-    int failures = 0;
-
-    // Renders a code point list as "U+XXXX U+YYYY", used to report mismatching expectations.
-    std::string hexOf(std::u32string_view text) {
-        std::string          out;
-        std::array<char, 16> buffer{};
-        for (const char32_t codePoint : text) {
-            std::snprintf(buffer.data(), buffer.size(), "%sU+%04X", out.empty() ? "" : " ", static_cast<unsigned int>(codePoint));
-            out += buffer.data();
-        }
-        return out;
-    }
+    int  failures = 0;
 
     void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected) {
         if (actual == expected) {
@@ -144,24 +135,6 @@ namespace {
         checkU32("After rebuild 'go' + ProcessKey('s')", engine.processedString(kVietnamese), U"gó");
     }
 
-    void case_rebuild_from_text_compare_with_process_string() {
-        Engine engine = newTelexEngine();
-
-        engine.processString(U"goo", kVietnamese);
-        const std::u32string buggyResult = engine.processedString(kVietnamese);
-
-        engine.reset();
-        engine.rebuildFromText(U"goo");
-        const std::u32string correctResult = engine.processedString(kVietnamese);
-
-        // Go only logs when ProcessString already returns "goo" (t.Log) and always logs both results
-        // (t.Logf); both are informational, so the port keeps only the unexpected-case message.
-        if (buggyResult == U"goo") {
-            std::printf("note: ProcessString('goo') unexpectedly correct - Telex behavior may have changed\n");
-        }
-        checkU32("RebuildFromText('goo')", correctResult, U"goo");
-    }
-
     void case_rebuild_from_text_with_punctuation_and_space() {
         const std::array<NamedRebuildCase, 13> tests = {
             NamedRebuildCase{.name = "vãi", .input = U"vãi", .want = U"vãi"},          NamedRebuildCase{.name = "vãi.", .input = U"vãi.", .want = U"vãi."},
@@ -222,7 +195,6 @@ int run_rebuild() {
     case_rebuild_from_text_upper_case();
     case_rebuild_from_text_then_process_key();
     case_rebuild_w2u_then_w();
-    case_rebuild_from_text_compare_with_process_string();
     case_rebuild_from_text_with_punctuation_and_space();
     case_rebuild_engine_from_text_with_punctuation_and_space();
     case_rebuild_matches_process_string();

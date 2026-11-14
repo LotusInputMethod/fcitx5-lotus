@@ -8,6 +8,7 @@
 // and Ctrl+C clears a pending isPrevPunctuation_ before Space can arm it.
 #include "lotus-engine.h"
 #include "test-input-context.h"
+#include "test-util.h"
 
 #include <cstdio>
 #include <memory>
@@ -44,10 +45,6 @@ namespace {
         fcitx::KeyEvent event(f.context.get(), fcitx::Key(sym, states), false);
         f.engine.keyEvent(f.entry, event);
         return event.key().sym();
-    }
-
-    void reportFailure(const char* step, const std::string& expected, const std::string& actual, const char* meaning) {
-        std::printf("FAIL %s\nExpected: %s\nActual: %s\nMeaning: %s\n", step, expected.c_str(), actual.c_str(), meaning);
     }
 
 } // namespace

@@ -8,7 +8,6 @@
 // guessed. Column semantics of the corpus are documented in bamboo/golden_dump_test.go: the "mode"
 // column is only the mode handed to ProcessKey, while processedHex is always
 // GetProcessedString(VietnameseMode | FullText) (mask 33) and isValid is IsValid(true).
-#include <optional>
 #include "engine.h"
 
 #include "input_method.h"
@@ -16,11 +15,13 @@
 #include "utf8.h"
 
 #include "golden-reader.h"
+#include "test-util.h"
 
 #include <array>
 #include <cstdint>
 #include <cstdio>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -48,17 +49,6 @@ namespace {
     lotus::EngineFlags withoutStdToneStyle() {
         lotus::EngineFlags flags = lotus::kEstdFlags;
         return flags.remove(lotus::EngineFlag::StdToneStyle);
-    }
-
-    // Renders a code point list as "U+XXXX U+YYYY", used to report mismatching expectations.
-    std::string hexOf(std::u32string_view text) {
-        std::string          out;
-        std::array<char, 16> buffer{};
-        for (const char32_t codePoint : text) {
-            std::snprintf(buffer.data(), buffer.size(), "%sU+%04X", out.empty() ? "" : " ", static_cast<unsigned int>(codePoint));
-            out += buffer.data();
-        }
-        return out;
     }
 
     void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected) {
@@ -461,15 +451,15 @@ namespace {
         type(engine, U"nhuw", kVietnamese);
         checkU32("Process [nhuw]", processed(engine, kVietnamese), U"như");
         checkValid("Findresultmatch full", engine, true, true);
-        // AddDictionaryToSpellingTrie(map[string]bool{"thứ": true})
         engine.reset();
+        // The Go test seeds the spelling trie with "thứ" before this word.
         type(engine, U"thuw", kVietnamese);
         checkValid("thuw is valid", engine, true, true);
         engine.reset();
         type(engine, U"thow", kVietnamese);
         checkValid("thow is valid", engine, true, true);
         engine.reset();
-        // AddDictionaryToSpellingTrie(map[string]bool{"tôi": true, "tối": true, "tời": true, "tơi": true})
+        // The Go test seeds the spelling trie with {tôi, tối, tời, tơi} here.
         type(engine, U"tooi", kVietnamese);
         checkU32("Process [tooi]", processed(engine, kVietnamese), U"tôi");
         checkValid("Findresultmatch full", engine, true, true);
@@ -490,7 +480,6 @@ namespace {
         type(engine, U"turyn", kVietnamese);
         engine.removeLastChar(true);
         engine.removeLastChar(true);
-        // engine.ProcessString("r", VietnameseMode)
         checkU32("Process turyen,BS,BS,BS,r", processed(engine, kVietnamese), U"tủ");
         engine.reset();
         type(engine, U"chuyển", kVietnamese);
@@ -505,10 +494,6 @@ namespace {
         engine.reset();
         type(engine, U"quawcj", kVietnamese);
         checkU32("Process quawcj", processed(engine, kVietnamese), U"quặc");
-        // eechs
-        engine.reset();
-        type(engine, U"quawcj", kVietnamese);
-        checkU32("Process quawcj", processed(engine, kVietnamese), U"quặc");
         engine.reset();
         type(engine, U"tôi）t", kEnglish);
         checkU32("Process [tôi）t]", processed(engine, kVietnamese), U"t");
@@ -516,11 +501,11 @@ namespace {
     }
 
     void case_ew2u_enabled() {
-        // Standard Telex (no w -> ư rule)
-        const lotus::InputMethod im = lotus::cachedInputMethod(lotus::InputMethodId::Telex);
+        // Standard Telex (no w -> ư rule); bind by reference, the cache owns the object.
+        const lotus::InputMethod& im = lotus::cachedInputMethod(lotus::InputMethodId::Telex);
 
         // Flag OFF
-        Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), withoutW2u());
+        Engine engine(im, withoutW2u());
         engine.processKey(U'w', kVietnamese);
         checkU32("Ew2uEnabled OFF: Process [w]", processed(engine, kVietnamese), U"w");
 

@@ -9,6 +9,7 @@
 
 #include "lotus-engine.h"
 #include "test-input-context.h"
+#include "test-util.h"
 
 #include <filesystem>
 #include <fstream>
@@ -16,13 +17,6 @@
 #include <string>
 
 namespace {
-
-    void reportFailure(const std::string& step, const std::string& expected, const std::string& actual, const std::string& meaning) {
-        std::cerr << "Step: " << step << '\n';
-        std::cerr << "Expected: " << expected << '\n';
-        std::cerr << "Actual: " << actual << '\n';
-        std::cerr << "Meaning: " << meaning << '\n';
-    }
 
     std::string settingText(const fcitx::LotusAppRuleSetting& setting) {
         return "mode=" + std::to_string(static_cast<int>(setting.mode)) + " commit=" + std::to_string(setting.commitInterval) +
