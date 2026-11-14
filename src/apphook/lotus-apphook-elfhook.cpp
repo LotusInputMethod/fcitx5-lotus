@@ -104,14 +104,14 @@ namespace lotus::apphook {
          * hard-coding architecture-specific relocation numbers.
          */
         template <typename Relocation>
-        void patchRelocations(uintptr_t base, const Relocation* relocations, size_t count, bool plt, const ElfW(Sym)* symbols, const char* strings, WalkContext& context) {
+        void patchRelocations(uintptr_t base, const Relocation* relocations, size_t count, bool plt, const ElfW(Sym) * symbols, const char* strings, WalkContext& context) {
             for (size_t i = 0; i < count; ++i) {
-                const auto& relocation = relocations[i];
+                const auto&  relocation = relocations[i];
                 const size_t index      = symbolIndex(relocation.r_info);
                 if (index == 0)
                     continue;
-                const auto& symbol = symbols[index];
-                const unsigned type = ELF64_ST_TYPE(symbol.st_info);
+                const auto&    symbol = symbols[index];
+                const unsigned type   = ELF64_ST_TYPE(symbol.st_info);
                 if (symbol.st_shndx != SHN_UNDEF || (type != STT_FUNC && type != STT_NOTYPE))
                     continue;
                 const char* name = strings + symbol.st_name;
@@ -141,8 +141,8 @@ namespace lotus::apphook {
         int visitObject(dl_phdr_info* info, size_t, void* userData) {
             if (info->dlpi_name && std::strstr(info->dlpi_name, "liblotus-apphook"))
                 return 0;
-            auto&             context = *static_cast<WalkContext*>(userData);
-            const uintptr_t   base    = static_cast<uintptr_t>(info->dlpi_addr);
+            auto&           context  = *static_cast<WalkContext*>(userData);
+            const uintptr_t base     = static_cast<uintptr_t>(info->dlpi_addr);
             const ElfW(Dyn)* dynamic = nullptr;
             for (size_t i = 0; i < info->dlpi_phnum; ++i) {
                 if (info->dlpi_phdr[i].p_type == PT_DYNAMIC) {
@@ -155,13 +155,13 @@ namespace lotus::apphook {
 
             const ElfW(Sym)* symbols = nullptr;
             const char* strings      = nullptr;
-            uintptr_t jumpRel        = 0;
-            uintptr_t rel            = 0;
-            uintptr_t rela           = 0;
-            size_t jumpSize          = 0;
-            size_t relSize           = 0;
-            size_t relaSize          = 0;
-            int    pltType           = 0;
+            uintptr_t   jumpRel      = 0;
+            uintptr_t   rel          = 0;
+            uintptr_t   rela         = 0;
+            size_t      jumpSize     = 0;
+            size_t      relSize      = 0;
+            size_t      relaSize     = 0;
+            int         pltType      = 0;
             for (const ElfW(Dyn)* entry = dynamic; entry->d_tag != DT_NULL; ++entry) {
                 switch (entry->d_tag) {
                     case DT_SYMTAB: symbols = reinterpret_cast<const ElfW(Sym)*>(dynamicPointer(base, entry->d_un.d_ptr)); break;

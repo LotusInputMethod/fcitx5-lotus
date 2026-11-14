@@ -208,7 +208,7 @@ namespace lotus::apphook {
                 }
                 {
                     std::scoped_lock lock(state.mutex);
-                    const auto taskIt = tasks.find(request.requestId);
+                    const auto       taskIt = tasks.find(request.requestId);
                     if (taskIt != tasks.end()) {
                         const auto& task = taskIt->second;
                         task->cancelled.store(true, std::memory_order_release);
@@ -260,7 +260,7 @@ namespace lotus::apphook {
          * @return False when writing a completion failed.
          */
         bool flushCompleted(int fd, std::unordered_map<uint64_t, std::shared_ptr<Task>>& tasks) {
-            Runtime&                              state = runtime();
+            Runtime& state = runtime();
             struct Completion {
                 uint64_t requestId;
                 int      status;

@@ -587,8 +587,8 @@ namespace fcitx {
     void LotusState::abortUncertainAppHookReplacement() {
         ++replacementToken_;
         cancelSelectAbort();
-        appHookPid_          = 0;
-        appHookRequestId_    = 0;
+        appHookPid_       = 0;
+        appHookRequestId_ = 0;
         pendingCommitString_.clear();
         expectedBackspaces_    = 0;
         currentBackspaceCount_ = 0;

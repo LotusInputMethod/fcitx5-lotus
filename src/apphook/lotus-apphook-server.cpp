@@ -215,7 +215,7 @@ namespace fcitx {
         const bool done = session->completed.wait_for(lock, std::chrono::milliseconds(3000), [&] { return session->hasReply || !session->connected.load() || stopping_.load(); });
         // Once Emit was accepted by the socket, neither a timeout nor a lost
         // connection proves that no keys reached the application.
-        const int status = session->hasReply ? session->result : -EINPROGRESS;
+        const int status   = session->hasReply ? session->result : -EINPROGRESS;
         session->waitingId = 0;
         lock.unlock();
         if (!done || status == -EINPROGRESS) {
