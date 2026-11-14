@@ -201,7 +201,7 @@ namespace lotus::apphook {
                 finishXcb(state, 0);
                 return nullptr;
             }
-            auto* event = static_cast<xcb_key_press_event_t*>(std::calloc(1, sizeof(xcb_key_press_event_t)));
+            auto* event = static_cast<xcb_key_press_event_t*>(std::calloc(1, std::max(sizeof(xcb_key_press_event_t), sizeof(xcb_generic_event_t))));
             if (!event) {
                 finishXcb(state, -ENOMEM);
                 return nullptr;
