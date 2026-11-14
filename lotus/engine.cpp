@@ -196,11 +196,11 @@ namespace lotus {
     }
 
     Composition Engine::newComposition(const Composition& composition, char32_t key, bool isUpperCase) const {
-        const char32_t lowerKey = case_map::toLower(key);
-        const bool     lastCharIsKey =
-            !composition.empty() && flatten(Composition{composition.back()}, toMask(Mode::ToneLess) | toMask(Mode::LowerCase)) == std::u32string(1U, lowerKey);
+        const char32_t lowerKey      = case_map::toLower(key);
+        const bool     lastCharIsKey = (lowerKey == U'a' || lowerKey == U'e') && !composition.empty() &&
+            flatten(Composition{composition.back()}, toMask(Mode::ToneLess) | toMask(Mode::LowerCase)) == std::u32string(1U, lowerKey);
 
-        if (lastCharIsKey && (lowerKey == U'a' || lowerKey == U'e')) {
+        if (lastCharIsKey) {
             const std::vector<Rule> applicableRules = getApplicableRules(lowerKey);
             const bool              hasHatRule =
                 std::ranges::any_of(applicableRules, [](const Rule& rule) { return rule.effectType == EffectType::MarkTransformation && rule.mark() == Mark::Hat; });
