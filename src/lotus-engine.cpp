@@ -4,6 +4,8 @@
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
  * SPDX-FileCopyrightText: 2026 kimxuanhong <kimxuanhong@outlook.com>
  *
+ * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
+ *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  */
@@ -163,6 +165,10 @@ namespace fcitx {
         return windowFocusTracker_->isLikeAddressBarChromium();
     }
 
+    pid_t LotusEngine::appHookPid() const {
+        return appHook_.focusedPid();
+    }
+
     LotusEngine::LotusEngine(Instance* instance) :
         instance_(*instance), kbSender_(buildSocketPath("kbSocket")), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
         windowFocusTracker_ = std::make_unique<WindowFocusTracker>([this] { appRuleDispatcher_.schedule([this] { refreshFocusedAppRule(); }); });
@@ -263,6 +269,7 @@ namespace fcitx {
 
     LotusEngine::~LotusEngine() {
         windowFocusTracker_->stop();
+        appHook_.shutdown();
         LotusWlrVirtualKeyboard::instance().cancelPendingTasks();
         LotusX11Keyboard::instance().cancelPendingTasks();
         appRuleDispatcher_.detach();
@@ -1221,7 +1228,10 @@ namespace fcitx {
 
     void LotusEngine::refreshFocusedAppRule() {
         auto* ic = activeContext_.get();
-        if (ic == nullptr || !ic->hasFocus() || isSelectingAppMode_ || !resolveProgramName(ic->program(), {}).empty()) {
+        if (ic == nullptr || !ic->hasFocus()) {
+            return;
+        }
+        if (isSelectingAppMode_ || !resolveProgramName(ic->program(), {}).empty()) {
             return;
         }
         const auto program = programNameFor(ic);

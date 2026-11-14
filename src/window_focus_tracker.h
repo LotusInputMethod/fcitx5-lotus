@@ -1,6 +1,8 @@
 /*
  * SPDX-FileCopyrightText: 2026 kimxuanhong <kimxuanhong@outlook.com>
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
+ * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
+ *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 /**
@@ -21,6 +23,8 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <sys/types.h>
+#include <sys/types.h>
 
 namespace fcitx {
 
@@ -68,6 +72,11 @@ namespace fcitx {
          * @return Program name, or nullopt when no accessible application holds the focus.
          */
         [[nodiscard]] std::optional<std::string> focusedProgram() const;
+        /**
+         * @brief Reports the process ID of the currently focused application.
+         * @return Focused application process ID, or zero if unavailable.
+         */
+        [[nodiscard]] pid_t focusedPid() const;
 
       private:
         /**
@@ -125,8 +134,9 @@ namespace fcitx {
         /**
          * @brief Publishes a program change and notifies the consumer outside the state lock.
          * @param program Focused program, empty when focus is lost.
+         * @param pid Focused application process ID, zero when focus is lost.
          */
-        void updateFocusedProgram(std::string_view program);
+        void updateFocusedProgram(std::string_view program, pid_t pid = 0);
 
         /**
          * @brief Body of the tracker thread: connects to the AT-SPI bus and follows focus events.
@@ -137,8 +147,9 @@ namespace fcitx {
         std::atomic<bool>     stopRequested_{false};    ///< Set by stop() to end the thread
         std::atomic<bool>     browserUIFocused_{false}; ///< True while a Chromium Omnibox holds the focus
         std::function<void()> focusChanged_;            ///< Notification delivered on the tracker thread
-        mutable std::mutex    programMutex_;            ///< Guards focusedProgram_
+        mutable std::mutex    programMutex_;            ///< Guards focusedProgram_ and focusedPid_
         std::string           focusedProgram_;          ///< Program behind the focused accessibility window
+        pid_t                 focusedPid_ = 0;
     };
 
 } // namespace fcitx
