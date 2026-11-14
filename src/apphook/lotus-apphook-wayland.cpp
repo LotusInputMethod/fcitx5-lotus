@@ -117,6 +117,8 @@ namespace lotus::apphook {
         int (*originalDispatchQueue)(wl_display*, wl_event_queue*)                                                       = nullptr;
         int (*originalDispatchTimeout)(wl_display*, const timespec*)                                                     = nullptr;
         int (*originalDispatchQueueTimeout)(wl_display*, wl_event_queue*, const timespec*)                               = nullptr;
+        int (*originalDispatchPendingSingle)(wl_display*)                                                                = nullptr;
+        int (*originalDispatchQueuePendingSingle)(wl_display*, wl_event_queue*)                                          = nullptr;
         wl_display* (*originalConnect)(const char*)                                                                      = nullptr;
         wl_display* (*originalConnectFd)(int)                                                                            = nullptr;
         void (*originalDestroy)(wl_proxy*)                                                                               = nullptr;
@@ -629,28 +631,30 @@ namespace lotus::apphook {
         wayland = dlopen("libwayland-client.so.0", RTLD_NOW | RTLD_NOLOAD);
         if (!wayland)
             return;
-        originalAddListener          = resolve<decltype(originalAddListener)>(wayland, "wl_proxy_add_listener");
-        originalAddDispatcher        = resolve<decltype(originalAddDispatcher)>(wayland, "wl_proxy_add_dispatcher");
-        originalDispatchQueuePending = resolve<decltype(originalDispatchQueuePending)>(wayland, "wl_display_dispatch_queue_pending");
-        originalDispatchPending      = resolve<decltype(originalDispatchPending)>(wayland, "wl_display_dispatch_pending");
-        originalDispatch             = resolve<decltype(originalDispatch)>(wayland, "wl_display_dispatch");
-        originalDispatchQueue        = resolve<decltype(originalDispatchQueue)>(wayland, "wl_display_dispatch_queue");
-        originalDispatchTimeout      = resolve<decltype(originalDispatchTimeout)>(wayland, "wl_display_dispatch_timeout");
-        originalDispatchQueueTimeout = resolve<decltype(originalDispatchQueueTimeout)>(wayland, "wl_display_dispatch_queue_timeout");
-        originalConnect              = resolve<decltype(originalConnect)>(wayland, "wl_display_connect");
-        originalConnectFd            = resolve<decltype(originalConnectFd)>(wayland, "wl_display_connect_to_fd");
-        originalDestroy              = resolve<decltype(originalDestroy)>(wayland, "wl_proxy_destroy");
-        originalDisconnect           = resolve<decltype(originalDisconnect)>(wayland, "wl_display_disconnect");
-        originalGetQueue             = resolve<decltype(originalGetQueue)>(wayland, "wl_proxy_get_queue");
-        originalSetQueue             = resolve<decltype(originalSetQueue)>(wayland, "wl_proxy_set_queue");
-        originalMarshalArrayFlags    = resolve<decltype(originalMarshalArrayFlags)>(wayland, "wl_proxy_marshal_array_flags");
-        originalGetProxyDisplay      = resolve<decltype(originalGetProxyDisplay)>(wayland, "wl_proxy_get_display");
-        originalGetUserData          = resolve<decltype(originalGetUserData)>(wayland, "wl_proxy_get_user_data");
-        originalGetListener          = resolve<decltype(originalGetListener)>(wayland, "wl_proxy_get_listener");
-        originalClass                = resolve<decltype(originalClass)>(wayland, "wl_proxy_get_class");
-        originalFlush                = resolve<decltype(originalFlush)>(wayland, "wl_display_flush");
-        originalMarshalConstructor   = resolve<decltype(originalMarshalConstructor)>(wayland, "wl_proxy_marshal_constructor_versioned");
-        callbackInterface            = resolve<const WlInterface*>(wayland, "wl_callback_interface");
+        originalAddListener                = resolve<decltype(originalAddListener)>(wayland, "wl_proxy_add_listener");
+        originalAddDispatcher              = resolve<decltype(originalAddDispatcher)>(wayland, "wl_proxy_add_dispatcher");
+        originalDispatchQueuePending       = resolve<decltype(originalDispatchQueuePending)>(wayland, "wl_display_dispatch_queue_pending");
+        originalDispatchPending            = resolve<decltype(originalDispatchPending)>(wayland, "wl_display_dispatch_pending");
+        originalDispatch                   = resolve<decltype(originalDispatch)>(wayland, "wl_display_dispatch");
+        originalDispatchQueue              = resolve<decltype(originalDispatchQueue)>(wayland, "wl_display_dispatch_queue");
+        originalDispatchTimeout            = resolve<decltype(originalDispatchTimeout)>(wayland, "wl_display_dispatch_timeout");
+        originalDispatchQueueTimeout       = resolve<decltype(originalDispatchQueueTimeout)>(wayland, "wl_display_dispatch_queue_timeout");
+        originalDispatchPendingSingle      = resolve<decltype(originalDispatchPendingSingle)>(wayland, "wl_display_dispatch_pending_single");
+        originalDispatchQueuePendingSingle = resolve<decltype(originalDispatchQueuePendingSingle)>(wayland, "wl_display_dispatch_queue_pending_single");
+        originalConnect                    = resolve<decltype(originalConnect)>(wayland, "wl_display_connect");
+        originalConnectFd                  = resolve<decltype(originalConnectFd)>(wayland, "wl_display_connect_to_fd");
+        originalDestroy                    = resolve<decltype(originalDestroy)>(wayland, "wl_proxy_destroy");
+        originalDisconnect                 = resolve<decltype(originalDisconnect)>(wayland, "wl_display_disconnect");
+        originalGetQueue                   = resolve<decltype(originalGetQueue)>(wayland, "wl_proxy_get_queue");
+        originalSetQueue                   = resolve<decltype(originalSetQueue)>(wayland, "wl_proxy_set_queue");
+        originalMarshalArrayFlags          = resolve<decltype(originalMarshalArrayFlags)>(wayland, "wl_proxy_marshal_array_flags");
+        originalGetProxyDisplay            = resolve<decltype(originalGetProxyDisplay)>(wayland, "wl_proxy_get_display");
+        originalGetUserData                = resolve<decltype(originalGetUserData)>(wayland, "wl_proxy_get_user_data");
+        originalGetListener                = resolve<decltype(originalGetListener)>(wayland, "wl_proxy_get_listener");
+        originalClass                      = resolve<decltype(originalClass)>(wayland, "wl_proxy_get_class");
+        originalFlush                      = resolve<decltype(originalFlush)>(wayland, "wl_display_flush");
+        originalMarshalConstructor         = resolve<decltype(originalMarshalConstructor)>(wayland, "wl_proxy_marshal_constructor_versioned");
+        callbackInterface                  = resolve<const WlInterface*>(wayland, "wl_callback_interface");
         // Required primitives for event ordering, per-queue injection, and wakeups.
         // The timeout dispatch APIs (Wayland 1.24+) are optional.
         const bool capable = originalAddListener && originalAddDispatcher && originalDispatchQueuePending && originalDispatchPending && originalDispatch && originalDispatchQueue &&
@@ -941,6 +945,48 @@ LH_EXPORT int wl_display_dispatch_queue_timeout(wl_display* display, wl_event_qu
     }
     onDispatch(display, queue, false);
     const int result = originalDispatchQueueTimeout(display, queue, timeout);
+    if (result >= 0)
+        onDispatch(display, queue, true);
+    return result;
+}
+
+/**
+ * @brief Intercepts dispatch of at most one event from the default Wayland queue (1.25+).
+ * @param display Application Wayland display.
+ * @return Original dispatch result, or -1 with ENOSYS if unavailable.
+ */
+LH_EXPORT int wl_display_dispatch_pending_single(wl_display* display) {
+    using namespace lotus::apphook;
+    if (!originalDispatchPendingSingle)
+        loadWayland();
+    if (!originalDispatchPendingSingle) {
+        errno = ENOSYS;
+        return -1;
+    }
+    wl_event_queue* queue = originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr;
+    onDispatch(display, queue, false);
+    const int result = originalDispatchPendingSingle(display);
+    if (result >= 0)
+        onDispatch(display, queue, true);
+    return result;
+}
+
+/**
+ * @brief Intercepts dispatch of at most one event from a custom Wayland queue (1.25+).
+ * @param display Application Wayland display.
+ * @param queue Queue being dispatched.
+ * @return Original dispatch result, or -1 with ENOSYS if unavailable.
+ */
+LH_EXPORT int wl_display_dispatch_queue_pending_single(wl_display* display, wl_event_queue* queue) {
+    using namespace lotus::apphook;
+    if (!originalDispatchQueuePendingSingle)
+        loadWayland();
+    if (!originalDispatchQueuePendingSingle) {
+        errno = ENOSYS;
+        return -1;
+    }
+    onDispatch(display, queue, false);
+    const int result = originalDispatchQueuePendingSingle(display, queue);
     if (result >= 0)
         onDispatch(display, queue, true);
     return result;
