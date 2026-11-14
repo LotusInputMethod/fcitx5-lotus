@@ -40,6 +40,10 @@ namespace lotus::apphook {
         void*                   xlib         = nullptr;
         std::mutex              resolveMutex;
 
+        int (*originalSelectInput)(Display*, Window, long)                                             = nullptr;
+        int (*originalChangeWindowAttributes)(Display*, Window, unsigned long, XSetWindowAttributes*)   = nullptr;
+        Window (*originalCreateWindow)(Display*, Window, int, int, unsigned int, unsigned int, unsigned int, int, unsigned int, Visual*, unsigned long,
+                                        XSetWindowAttributes*)                                         = nullptr;
         int (*originalNext)(Display*, XEvent*)                                                      = nullptr;
         int (*originalPeek)(Display*, XEvent*)                                                      = nullptr;
         int (*originalMask)(Display*, long, XEvent*)                                                = nullptr;
@@ -261,6 +265,9 @@ namespace lotus::apphook {
         if (!xlib) {
             return;
         }
+        originalSelectInput      = resolve<decltype(originalSelectInput)>("XSelectInput");
+        originalChangeWindowAttributes = resolve<decltype(originalChangeWindowAttributes)>("XChangeWindowAttributes");
+        originalCreateWindow     = resolve<decltype(originalCreateWindow)>("XCreateWindow");
         originalNext             = resolve<decltype(originalNext)>("XNextEvent");
         originalPeek             = resolve<decltype(originalPeek)>("XPeekEvent");
         originalMask             = resolve<decltype(originalMask)>("XMaskEvent");
@@ -282,6 +289,74 @@ namespace lotus::apphook {
 } // namespace lotus::apphook
 
 #define LH_EXPORT extern "C" __attribute__((visibility("default")))
+
+/**
+ * @brief Detects Xlib keyboard event subscriptions before keyboard focus arrives.
+ * @param target Application Xlib display.
+ * @param window X11 window subscribing to events.
+ * @param mask Requested X11 event mask.
+ * @return Original Xlib call status.
+ */
+LH_EXPORT int XSelectInput(Display* target, Window window, long mask) {
+    using namespace lotus::apphook;
+    if (!originalSelectInput)
+        loadX11();
+    if (!originalSelectInput)
+        return 0;
+    const int result = originalSelectInput(target, window, mask);
+    if (result && (mask & (KeyPressMask | KeyReleaseMask)))
+        noteX11KeyboardAvailable();
+    return result;
+}
+
+/**
+ * @brief Detects keyboard event masks updated through XChangeWindowAttributes.
+ * @param target Application Xlib display.
+ * @param window X11 window being configured.
+ * @param mask Attribute selection bitmask.
+ * @param attributes New X11 window attributes.
+ * @return Original Xlib call status.
+ */
+LH_EXPORT int XChangeWindowAttributes(Display* target, Window window, unsigned long mask, XSetWindowAttributes* attributes) {
+    using namespace lotus::apphook;
+    if (!originalChangeWindowAttributes)
+        loadX11();
+    if (!originalChangeWindowAttributes)
+        return 0;
+    const int result = originalChangeWindowAttributes(target, window, mask, attributes);
+    if (result && (mask & CWEventMask) && attributes && (attributes->event_mask & (KeyPressMask | KeyReleaseMask)))
+        noteX11KeyboardAvailable();
+    return result;
+}
+
+/**
+ * @brief Detects keyboard event subscriptions installed while creating an Xlib window.
+ * @param target Application Xlib display.
+ * @param parent Parent X11 window.
+ * @param x Window X coordinate.
+ * @param y Window Y coordinate.
+ * @param width Window width.
+ * @param height Window height.
+ * @param borderWidth Window border width.
+ * @param depth Window pixel depth.
+ * @param windowClass X11 window class.
+ * @param visual Window visual.
+ * @param mask Attribute selection bitmask.
+ * @param attributes Initial X11 window attributes.
+ * @return Created X11 window or None on failure.
+ */
+LH_EXPORT Window XCreateWindow(Display* target, Window parent, int x, int y, unsigned int width, unsigned int height, unsigned int borderWidth, int depth,
+                               unsigned int windowClass, Visual* visual, unsigned long mask, XSetWindowAttributes* attributes) {
+    using namespace lotus::apphook;
+    if (!originalCreateWindow)
+        loadX11();
+    if (!originalCreateWindow)
+        return None;
+    const Window window = originalCreateWindow(target, parent, x, y, width, height, borderWidth, depth, windowClass, visual, mask, attributes);
+    if (window != None && (mask & CWEventMask) && attributes && (attributes->event_mask & (KeyPressMask | KeyReleaseMask)))
+        noteX11KeyboardAvailable();
+    return window;
+}
 
 /**
  * @brief Intercepts the blocking Xlib next-event call.
@@ -515,6 +590,9 @@ namespace lotus::apphook {
         if (!xlib)
             return 0;
         const std::array hooks{
+            HookSpec{"XSelectInput", reinterpret_cast<void*>(&XSelectInput)},
+            HookSpec{"XChangeWindowAttributes", reinterpret_cast<void*>(&XChangeWindowAttributes)},
+            HookSpec{"XCreateWindow", reinterpret_cast<void*>(&XCreateWindow)},
             HookSpec{"XNextEvent", reinterpret_cast<void*>(&XNextEvent)},
             HookSpec{"XPeekEvent", reinterpret_cast<void*>(&XPeekEvent)},
             HookSpec{"XMaskEvent", reinterpret_cast<void*>(&XMaskEvent)},

@@ -318,9 +318,7 @@ namespace lotus::apphook {
                 keyboard->group     = args[4].u;
             }
             if (opcode >= 1 && opcode <= 3) {
-                const bool focused = focusedKeyboard() != nullptr;
-                runtime().readyWayland.store(focused);
-                noteWaylandFocus(focused);
+                noteWaylandFocus(focusedKeyboard() != nullptr);
             }
         }
 
@@ -665,6 +663,8 @@ LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(void), v
     const int result = originalAddListener(proxy, reinterpret_cast<void (**)(void)>(const_cast<KeyboardListener*>(&wrapper)), tracked);
     if (result != 0)
         keyboards.pop_back();
+    else
+        noteWaylandKeyboardAvailable(true);
     return result;
 }
 
@@ -695,6 +695,8 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
     const int result = originalAddDispatcher(proxy, &dispatchWrapper, implementation, tracked);
     if (result != 0)
         keyboards.pop_back();
+    else
+        noteWaylandKeyboardAvailable(true);
     return result;
 }
 
@@ -706,9 +708,8 @@ LH_EXPORT void wl_proxy_destroy(wl_proxy* proxy) {
     using namespace lotus::apphook;
     if (lookupKeyboard(proxy)) {
         keyboards.remove_if([&](const auto& keyboard) { return keyboard->proxy == proxy; });
-        const bool focused = focusedKeyboard() != nullptr;
-        runtime().readyWayland.store(focused);
-        noteWaylandFocus(focused);
+        noteWaylandKeyboardAvailable(!keyboards.empty());
+        noteWaylandFocus(focusedKeyboard() != nullptr);
     }
     if (!originalDestroy)
         loadWayland();

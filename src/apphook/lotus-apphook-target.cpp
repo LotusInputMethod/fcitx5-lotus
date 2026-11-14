@@ -106,11 +106,27 @@ namespace lotus::apphook {
         }
     }
 
+    void noteX11KeyboardAvailable() {
+        if (!runtime().readyX11.exchange(true, std::memory_order_acq_rel)) {
+            signalChange();
+        }
+        startWorkers();
+    }
+
     void noteWaylandFocus(bool focused) {
         if (runtime().focusedWayland.exchange(focused, std::memory_order_acq_rel) != focused) {
             signalChange();
         }
         if (focused) {
+            startWorkers();
+        }
+    }
+
+    void noteWaylandKeyboardAvailable(bool available) {
+        if (runtime().readyWayland.exchange(available, std::memory_order_acq_rel) != available) {
+            signalChange();
+        }
+        if (available) {
             startWorkers();
         }
     }
@@ -163,10 +179,11 @@ namespace lotus::apphook {
          * @param type Message kind.
          * @param requestId Request identifier, zero for readiness.
          * @param status Zero or negative errno-style status.
+         * @param flags Initial focus flags for Ready, zero for other messages.
          * @return True when the message was sent.
          */
-        bool reply(int fd, ResponseKind type, uint64_t requestId, int status) {
-            const Response response{.type = type, .status = status, .requestId = requestId};
+        bool reply(int fd, ResponseKind type, uint64_t requestId, int status, uint32_t flags = 0) {
+            const Response response{.type = type, .status = status, .reserved = flags, .requestId = requestId};
             return send(fd, &response, sizeof(response), MSG_NOSIGNAL | MSG_DONTWAIT) == sizeof(response);
         }
 
@@ -307,7 +324,7 @@ namespace lotus::apphook {
                 }
                 const bool reportedReady   = true;
                 bool       reportedFocused = hasKeyboardFocus();
-                if (!reply(connection.get(), ResponseKind::Ready, 0, 0) || !reply(connection.get(), ResponseKind::Focus, 0, reportedFocused ? 1 : 0)) {
+                if (!reply(connection.get(), ResponseKind::Ready, 0, 0, reportedFocused ? kReadyFocused : 0)) {
                     continue;
                 }
                 std::unordered_map<uint64_t, std::shared_ptr<Task>> tasks;

@@ -328,9 +328,23 @@ namespace fcitx {
                     Response      response{};
                     const ssize_t got = recv(session->fd.get(), &response, sizeof(response), MSG_DONTWAIT | MSG_TRUNC);
                     drop              = got != sizeof(response) || response.magic != kMagic || response.version != kVersion;
-                    if (!drop && response.type == ResponseKind::Ready && response.requestId == 0) {
-                        session->ready.store(response.status == 0);
-                        LOTUS_DEBUG("apphook: readiness pid=" + std::to_string(session->pid) + " status=" + std::to_string(response.status));
+                    if (!drop && response.type == ResponseKind::Ready && response.requestId == 0 && (response.reserved & ~kReadyFocused) == 0) {
+                        {
+                            std::scoped_lock lock(mutex_);
+                            const auto       found = sessions_.find(session->pid);
+                            if (found != sessions_.end() && found->second == session) {
+                                const bool focused = response.status == 0 && (response.reserved & kReadyFocused) != 0;
+                                session->ready.store(response.status == 0);
+                                session->focused.store(focused);
+                                if (focused) {
+                                    focusedPid_ = session->pid;
+                                } else if (focusedPid_ == session->pid) {
+                                    focusedPid_ = 0;
+                                }
+                                LOTUS_DEBUG("apphook: readiness pid=" + std::to_string(session->pid) + " status=" + std::to_string(response.status) +
+                                            " focused=" + std::to_string(focused));
+                            }
+                        }
                         if (response.status != 0) {
                             drop = true;
                         }
