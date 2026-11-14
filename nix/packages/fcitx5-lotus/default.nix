@@ -18,6 +18,7 @@
   python3,
   qt6,
   udev,
+  xvfb-run,
 }:
 
 let
@@ -53,8 +54,10 @@ stdenv.mkDerivation (finalAttrs: {
     qt6.wrapQtAppsHook
   ];
 
-  # Provides dbus-run-session for the private-bus regression when checks run.
-  nativeCheckInputs = [ dbus ];
+  nativeCheckInputs = [
+    dbus
+    xvfb-run
+  ];
 
   buildInputs = [
     acl

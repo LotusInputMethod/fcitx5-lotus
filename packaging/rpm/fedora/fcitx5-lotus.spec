@@ -24,8 +24,8 @@ BuildRequires:  wayland-devel
 BuildRequires:  python3-devel
 
 %if %{with tests}
-# Provides dbus-run-session for the private-bus regression in %check.
 BuildRequires:  dbus-daemon
+BuildRequires:  xorg-x11-server-Xvfb
 %endif
 
 %{?systemd_ordering}
