@@ -581,8 +581,10 @@ namespace lotus::apphook {
         void beforeDispatch(wl_display* display) {
             if (display)
                 runtime().waylandDisplay.store(display, std::memory_order_release);
-            scanProxies(runtime().waylandDisplay.load(std::memory_order_acquire));
-            pump();
+            if (runtime().lateAttached.load(std::memory_order_acquire))
+                scanProxies(runtime().waylandDisplay.load(std::memory_order_acquire));
+            if (runtime().workersStarted.load(std::memory_order_acquire))
+                pump();
         }
 
         /**
@@ -651,9 +653,18 @@ LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(void), v
         loadWayland();
     if (!originalAddListener)
         return -1;
-    const int result = originalAddListener(proxy, callbacks, data);
-    if (result == 0 && originalClass && proxy && std::strcmp(originalClass(proxy), "wl_keyboard") == 0)
-        wrapProxy(proxy);
+    if (!proxy || !callbacks || !originalClass || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || lookupKeyboard(proxy))
+        return originalAddListener(proxy, callbacks, data);
+
+    auto keyboard = std::make_unique<Keyboard>();
+    keyboard->proxy        = proxy;
+    keyboard->listener     = reinterpret_cast<const KeyboardListener*>(callbacks);
+    keyboard->originalData = data;
+    Keyboard* tracked = keyboard.get();
+    keyboards.push_back(std::move(keyboard));
+    const int result = originalAddListener(proxy, reinterpret_cast<void (**)(void)>(const_cast<KeyboardListener*>(&wrapper)), tracked);
+    if (result != 0)
+        keyboards.pop_back();
     return result;
 }
 
@@ -671,9 +682,19 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
         loadWayland();
     if (!originalAddDispatcher)
         return -1;
-    const int result = originalAddDispatcher(proxy, dispatcher, implementation, data);
-    if (result == 0 && originalClass && proxy && std::strcmp(originalClass(proxy), "wl_keyboard") == 0)
-        wrapProxy(proxy);
+    if (!proxy || !dispatcher || !originalClass || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || lookupKeyboard(proxy))
+        return originalAddDispatcher(proxy, dispatcher, implementation, data);
+
+    auto keyboard = std::make_unique<Keyboard>();
+    keyboard->proxy          = proxy;
+    keyboard->dispatcher     = dispatcher;
+    keyboard->implementation = implementation;
+    keyboard->originalData   = data;
+    Keyboard* tracked = keyboard.get();
+    keyboards.push_back(std::move(keyboard));
+    const int result = originalAddDispatcher(proxy, &dispatchWrapper, implementation, tracked);
+    if (result != 0)
+        keyboards.pop_back();
     return result;
 }
 
@@ -683,10 +704,12 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
  */
 LH_EXPORT void wl_proxy_destroy(wl_proxy* proxy) {
     using namespace lotus::apphook;
-    keyboards.remove_if([&](const auto& keyboard) { return keyboard->proxy == proxy; });
-    const bool focused = focusedKeyboard() != nullptr;
-    runtime().readyWayland.store(focused);
-    noteWaylandFocus(focused);
+    if (lookupKeyboard(proxy)) {
+        keyboards.remove_if([&](const auto& keyboard) { return keyboard->proxy == proxy; });
+        const bool focused = focusedKeyboard() != nullptr;
+        runtime().readyWayland.store(focused);
+        noteWaylandFocus(focused);
+    }
     if (!originalDestroy)
         loadWayland();
     if (originalDestroy)
