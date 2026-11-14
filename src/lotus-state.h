@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: 2022-2022 CSSlayer <wengxt@gmail.com>
  * SPDX-FileCopyrightText: 2025 Võ Ngô Hoàng Thành <thanhpy2009@gmail.com>
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
+ * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -130,6 +131,7 @@ namespace fcitx {
             None,               ///< No injected burst; the uinput server drives it
             WlrVirtualKeyboard, ///< zwp_virtual_keyboard_v1 on a wlroots compositor
             X11Test,            ///< Xtest on an X11 session
+            AppHook,            ///< Event dispatch inside the focused application
         };
 
         LotusEngine&                          engine_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
@@ -142,7 +144,9 @@ namespace fcitx {
         bool                                  realSelect_            = false;                  ///< when real shift +left is send
         bool                                  echoTriggerPending_    = false;                  ///< the injected burst commits on its last echo
         InjectionBackend                      injectionBackend_      = InjectionBackend::None; ///< backend delivering the in-flight burst
-        bool                                  lastSelect_            = false;                  ///< kind of the most recent burst, for replay
+        pid_t                                 appHookPid_            = 0;
+        uint64_t                              appHookRequestId_      = 0;
+        bool                                  lastSelect_            = false; ///< kind of the most recent burst, for replay
         std::u32string                        pendingCommitString_;
         std::u32string                        commitBatch_;                   ///< Text of the replacement batch, sent as one commitString
         std::unique_ptr<EventSourceTime>      deferredCommitTimer_;           ///< Pending dbus commit timer
@@ -416,13 +420,15 @@ namespace fcitx {
          * @brief Commits the pending replacement without touching the key event.
          */
         void finishReplacementNow();
+        /** @brief Aborts an apphook replacement whose delivery cannot be determined. */
+        void abortUncertainAppHookReplacement();
 
         /**
          * @brief Performs text replacement via virtual-keyboard-unstable-v1 when
          * the compositor supports it, otherwise via uinput.
          * @param diffPart pairs of deleted part and added part
          */
-        void performReplacement(DiffPart diffPart);
+        void performReplacement(DiffPart diffPart, bool allowAppHook = true);
 
         /**
          * @brief Replaces the last character, either through surrounding text or through uinput.

@@ -1,5 +1,23 @@
 # Core sources are compiled once here and consumed by both the module and
 # lotus_test_core; LOTUS_EXPORT keeps the test-facing API linkable.
+# The injected application hook is a separate library; the Fcitx addon owns its IPC server.
+add_library(lotus-apphook SHARED
+    apphook/lotus-apphook-target.cpp
+    apphook/lotus-apphook-protocol.cpp
+    apphook/lotus-apphook-x11.cpp
+    apphook/lotus-apphook-xcb.cpp
+    apphook/lotus-apphook-wayland.cpp
+    apphook/lotus-apphook-elfhook.cpp
+)
+set_target_properties(lotus-apphook PROPERTIES OUTPUT_NAME "lotus-apphook")
+target_compile_options(lotus-apphook PRIVATE -fvisibility=hidden)
+target_include_directories(lotus-apphook PRIVATE ${PROJECT_SOURCE_DIR}/common)
+target_link_libraries(lotus-apphook PRIVATE ${CMAKE_DL_LIBS} Pthread::Pthread)
+target_link_options(lotus-apphook PRIVATE
+    "-Wl,-Bsymbolic-functions"
+    "-Wl,-z,nodelete"
+)
+install(TARGETS lotus-apphook LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 add_library(lotus_core_objects OBJECT ${fcitx_lotus_core_sources})
 set_target_properties(lotus_core_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(lotus_core_objects PRIVATE

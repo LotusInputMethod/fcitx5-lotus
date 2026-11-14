@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2025 Võ Ngô Hoàng Thành <thanhpy2009@gmail.com>
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
  * SPDX-FileCopyrightText: 2026 kimxuanhong <kimxuanhong@outlook.com>
+ * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -20,7 +21,9 @@
 #include "input_method.h"
 #include "utf8.h"
 
+#include <cerrno>
 #include <cstddef>
+#include <cstdint>
 #include <fcitx-utils/keysym.h>
 #include <fcitx-utils/utf8.h>
 #include <fcitx/candidatelist.h>
@@ -28,6 +31,7 @@
 #include <fcitx/userinterface.h>
 
 #include <algorithm>
+#include <linux/input-event-codes.h>
 #include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -102,7 +106,7 @@ namespace fcitx {
     }
 
     bool LotusState::injectionUsable() const {
-        return vkUsable() || x11Usable();
+        return vkUsable() || x11Usable() || (*engine_.config().preferVirtualKeyboard && engine_.appHook().ready(engine_.appHookPid()));
     }
 
     bool LotusState::setupUinput() {
@@ -124,6 +128,12 @@ namespace fcitx {
 
     void LotusState::cancelPendingUinput() {
         if (!g_isDeleting.load(std::memory_order_acquire)) {
+            return;
+        }
+        if (appHookPid_ > 0) {
+            engine_.appHook().cancel(appHookPid_, appHookRequestId_);
+            appHookPid_       = 0;
+            appHookRequestId_ = 0;
             return;
         }
         sendKbMsg(KbOp::Cancel, 0, 0, 0, 0);
@@ -556,6 +566,8 @@ namespace fcitx {
     void LotusState::finishReplacementNow() {
         ++replacementToken_;
         cancelSelectAbort();
+        appHookPid_       = 0;
+        appHookRequestId_ = 0;
         appendCommit(pendingCommitString_);
         pendingCommitString_.clear();
         deferCommits_          = getFrontendName(&ic_) == "dbus";
@@ -570,6 +582,26 @@ namespace fcitx {
             replayBufferedKeys();
             flushCommitBatch();
         }
+    }
+
+    void LotusState::abortUncertainAppHookReplacement() {
+        ++replacementToken_;
+        cancelSelectAbort();
+        appHookPid_       = 0;
+        appHookRequestId_ = 0;
+        pendingCommitString_.clear();
+        expectedBackspaces_    = 0;
+        currentBackspaceCount_ = 0;
+        replacementDeadlineMs_ = 0;
+        realSelect_            = false;
+        lastSelect_            = false;
+        g_isDeleting.store(false, std::memory_order_release);
+        (*lotusEngine_).reset();
+        oldPreBuffer_.clear();
+        hasHistory_ = false;
+        // Unknown partial deletion invalidates the replay context. Do not
+        // trigger another replacement from keys buffered during this burst.
+        bufferedKeys_.clear();
     }
 
     void LotusState::finishScheduledReplacement(uint64_t token) {
@@ -625,9 +657,14 @@ namespace fcitx {
         return true;
     }
 
-    void LotusState::performReplacement(DiffPart diffPart) {
+    void LotusState::performReplacement(DiffPart diffPart, bool allowAppHook) {
         LOTUS_INFO("Perform replacement: " + lotus::utf8::encode(diffPart.deletedPart) + " -> " + lotus::utf8::encode(diffPart.addedPart)); //NOLINT
         echoTriggerPending_ = false;
+        if (appHookPid_ > 0) {
+            engine_.appHook().cancel(appHookPid_, appHookRequestId_);
+            appHookPid_       = 0;
+            appHookRequestId_ = 0;
+        }
         ++replacementToken_;
         // WA for libreoffice (issue #162)
         // force use deleteSurroundingText func
@@ -671,7 +708,77 @@ namespace fcitx {
         bool              echoDriven   = false;
         injectionBackend_              = InjectionBackend::None;
 
-        bool selectMode = uinputSelect;
+        bool        selectMode  = uinputSelect;
+        const pid_t hookPid     = engine_.appHookPid();
+        const bool  hookEnabled = *engine_.config().preferVirtualKeyboard;
+        const bool  hookReady   = hookEnabled && engine_.appHook().ready(hookPid);
+        if (hookEnabled && !hookReady) {
+            LOTUS_DEBUG("apphook: unavailable pid=" + std::to_string(hookPid) + ", using fallback");
+        }
+        if (allowAppHook && hookReady) {
+            using lotus::apphook::KeyOperation;
+            std::vector<KeyOperation> keys;
+            if (burstCount > 0) {
+                keys.push_back({.keycode   = static_cast<uint32_t>(selectMode ? KEY_LEFT : KEY_BACKSPACE),
+                                .modifiers = selectMode ? lotus::apphook::kModifierShift : 0U,
+                                .count     = static_cast<uint32_t>(burstCount)});
+            }
+            if (selectMode && burstCount > 0) {
+                keys.push_back({.keycode = KEY_DELETE, .modifiers = 0, .count = 1});
+            }
+            if (keys.empty()) {
+                lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
+                return;
+            }
+            const uint64_t token     = replacementToken_;
+            const uint64_t requestId = engine_.appHook().nextRequestId();
+            auto           icRef     = ic_.watch();
+            LotusEngine*   engine    = &engine_;
+            pendingCommitString_     = diffPart.addedPart;
+            currentBackspaceCount_   = 0;
+            expectedBackspaces_      = 0;
+            realSelect_              = false;
+            lastSelect_              = false;
+            appHookPid_              = hookPid;
+            appHookRequestId_        = requestId;
+            g_isDeleting.store(true, std::memory_order_release);
+            replacementDeadlineMs_ = nowMs() + 5000;
+            if (engine_.appHook().emit(
+                    hookPid, std::move(keys), requestId, preDelay, postDelay,
+                    [engine, icRef, token, hookPid, requestId, deletedText = std::u32string(diffPart.deletedPart), addedText = std::u32string(diffPart.addedPart)](int result) {
+                        engine->scheduleOnMainThread([engine, icRef, token, hookPid, requestId, deletedText, addedText, result] {
+                            LOTUS_DEBUG("apphook: completed pid=" + std::to_string(hookPid) + " request=" + std::to_string(requestId) + " status=" + std::to_string(result));
+                            auto* state = engine->stateFor(icRef.get());
+                            if (!state || state->replacementToken_ != token || state->appHookPid_ != hookPid || state->appHookRequestId_ != requestId) {
+                                LOTUS_DEBUG("apphook: stale completion ignored request=" + std::to_string(requestId));
+                                return;
+                            }
+                            state->appHookPid_       = 0;
+                            state->appHookRequestId_ = 0;
+                            if (result == 0) {
+                                state->finishScheduledReplacement(token);
+                            } else if (result == -EINPROGRESS) {
+                                // The target may have applied some keys. Replaying the full
+                                // burst via uinput would delete text twice.
+                                LOTUS_WARN("apphook: uncertain partial delivery, aborting replacement without replay");
+                                state->abortUncertainAppHookReplacement();
+                            } else {
+                                LOTUS_DEBUG("apphook: failed request=" + std::to_string(requestId) + ", using standard backend fallback");
+                                // No keys were applied: retry through the existing display-server
+                                // backend selection, with apphook disabled for this one attempt.
+                                state->performReplacement({.deletedPart = deletedText, .addedPart = addedText}, false);
+                            }
+                        });
+                    })) {
+                LOTUS_DEBUG("apphook: selected pid=" + std::to_string(hookPid) + " request=" + std::to_string(requestId) + " keys=" + std::to_string(burstCount));
+                return;
+            }
+            LOTUS_DEBUG("apphook: queue rejected pid=" + std::to_string(hookPid) + ", using fallback");
+            appHookPid_       = 0;
+            appHookRequestId_ = 0;
+            g_isDeleting.store(false, std::memory_order_release);
+            pendingCommitString_.clear();
+        }
         if (selectMode && x11Backend && LotusX11Keyboard::shiftHeld()) {
             // Xtest shares the server modifier state with the user's keyboard: a Shift we press and release would
             // release the user's own Shift, so Select falls back to BackSpace like the uinput server does.
@@ -782,6 +889,7 @@ namespace fcitx {
                 return select ? wlr.emitSelect(static_cast<int>(count), "", false) : wlr.emit(static_cast<int>(count), "", false);
             }
             case InjectionBackend::X11Test: return LotusX11Keyboard::instance().emit(static_cast<int>(count), "", static_cast<int>(burstIntervalMs_), select);
+            case InjectionBackend::AppHook:
             case InjectionBackend::None: break;
         }
         return false;
@@ -1332,6 +1440,12 @@ namespace fcitx {
             return;
         }
 
+        if (appHookPid_ > 0) {
+            cancelPendingUinput();
+            LOTUS_WARN("apphook: replacement deadline elapsed; aborting without replay");
+            abortUncertainAppHookReplacement();
+            return;
+        }
         cancelPendingUinput();
         LOTUS_WARN("Replacement ack timed out, finishing without the remaining backspace echoes");
         appendCommit(pendingCommitString_);
