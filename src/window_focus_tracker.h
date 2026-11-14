@@ -1,8 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2026 kimxuanhong <kimxuanhong@outlook.com>
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
- * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
- *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 /**
