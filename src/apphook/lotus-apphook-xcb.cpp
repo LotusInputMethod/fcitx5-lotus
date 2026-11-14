@@ -15,7 +15,6 @@
 #endif
 
 #include "lotus-apphook-target.h"
-#include "lotus-apphook-fd.h"
 #include "lotus-apphook-sequence.h"
 #include "lotus-apphook-xfocus.h"
 
@@ -27,33 +26,36 @@
 #include <dlfcn.h>
 #include <linux/input-event-codes.h>
 #include <mutex>
-#include <sys/eventfd.h>
 #include <time.h>
 #include <poll.h>
 #include <unordered_map>
 #include <unordered_set>
-#include <unistd.h>
 
 namespace lotus::apphook {
     namespace {
 
         struct XcbFocus : XFocusState<xcb_window_t, XCB_NONE> {
             xcb_window_t          root              = XCB_NONE;
+            xcb_window_t          wakeWindow        = XCB_NONE;
             bool                  keyboardAvailable = false;
             std::shared_ptr<Task> active;
             xcb_window_t          activeTarget = XCB_NONE;
             xcb_window_t          activeRoot   = XCB_NONE;
             KeySequence           sequence;
-            OwnedFd               wakeFd;
-            uint32_t              lastTime = 0;
+            uint32_t              lastTime        = 0;
+            unsigned              blockingWaiters = 0;
         };
 
         std::mutex                                      xcbMutex;
         std::unordered_map<xcb_connection_t*, XcbFocus> connections;
         std::unordered_set<xcb_connection_t*>           xlibOwned;
         std::unordered_set<xcb_connection_t*>           xcbEventOwners;
-        std::mutex                                      resolveMutex;
-        void*                                           xcbLibrary = nullptr;
+        // A self-directed ClientMessage wakes libxcb's native event waiters.
+        // Never bypass libxcb's internal event queue synchronization with poll().
+        constexpr char kWakePayload[] = "lotus-apphook-wakeup";
+        static_assert(sizeof(kWakePayload) - 1 == sizeof(xcb_client_message_data_t::data8));
+        std::mutex resolveMutex;
+        void*      xcbLibrary = nullptr;
 
         const xcb_setup_t* (*originalGetSetup)(xcb_connection_t*)                                                    = nullptr;
         xcb_screen_iterator_t (*originalRootsIterator)(const xcb_setup_t*)                                           = nullptr;
@@ -61,10 +63,13 @@ namespace lotus::apphook {
         int (*originalHasError)(xcb_connection_t*)                                                                   = nullptr;
         xcb_connection_t* (*originalConnect)(const char*, int*)                                                      = nullptr;
         xcb_connection_t* (*originalConnectFd)(int, xcb_auth_info_t*)                                                = nullptr;
+        uint32_t (*originalGenerateId)(xcb_connection_t*)                                                            = nullptr;
         void (*originalDisconnect)(xcb_connection_t*)                                                                = nullptr;
         xcb_generic_event_t* (*originalPoll)(xcb_connection_t*)                                                      = nullptr;
         xcb_generic_event_t* (*originalPollQueued)(xcb_connection_t*)                                                = nullptr;
         xcb_generic_event_t* (*originalWait)(xcb_connection_t*)                                                      = nullptr;
+        xcb_void_cookie_t (*originalSendEvent)(xcb_connection_t*, uint8_t, xcb_window_t, uint32_t, const char*)      = nullptr;
+        int (*originalFlush)(xcb_connection_t*)                                                                      = nullptr;
         xcb_void_cookie_t (*originalChangeAttributes)(xcb_connection_t*, xcb_window_t, uint32_t, const void*)        = nullptr;
         xcb_void_cookie_t (*originalChangeAttributesChecked)(xcb_connection_t*, xcb_window_t, uint32_t, const void*) = nullptr;
         xcb_void_cookie_t (*originalCreateWindow)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_window_t, int16_t, int16_t, uint16_t, uint16_t, uint16_t, uint16_t, xcb_visualid_t,
@@ -249,14 +254,48 @@ namespace lotus::apphook {
             return !ownedByXlib(connection) && it != connections.end() && it->second.active && it->second.sequence.needsRelease();
         }
 
+        bool isWakeEvent(xcb_connection_t* connection, const xcb_generic_event_t* event) {
+            if (!event || (event->response_type & 0x7f) != XCB_CLIENT_MESSAGE || !(event->response_type & 0x80))
+                return false;
+            const auto* message = reinterpret_cast<const xcb_client_message_event_t*>(event);
+            if (message->format != 8 || message->type != XCB_ATOM_NONE || std::memcmp(message->data.data8, kWakePayload, 20) != 0)
+                return false;
+            std::scoped_lock lock(xcbMutex);
+            const auto       it = connections.find(connection);
+            return it != connections.end() && it->second.wakeWindow == message->window;
+        }
+
+        void ensureWakeWindow(xcb_connection_t* connection, XcbFocus& state) {
+            if (state.wakeWindow != XCB_NONE || !originalGenerateId || !originalCreateWindow)
+                return;
+            const xcb_window_t root = rootWindow(connection);
+            if (root == XCB_NONE)
+                return;
+            const xcb_window_t window = originalGenerateId(connection);
+            if (window == XCB_NONE)
+                return;
+            // An unmapped, connection-owned InputOnly window receives the wake
+            // ClientMessage even when the focused application window is replaced.
+            const auto cookie = originalCreateWindow(connection, XCB_COPY_FROM_PARENT, window, root, 0, 0, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_ONLY, XCB_COPY_FROM_PARENT, 0, nullptr);
+            if (cookie.sequence)
+                state.wakeWindow = window;
+        }
+
         xcb_generic_event_t* checkedPoll(xcb_connection_t* connection, bool queuedOnly) {
             // Keep each press/release pair together; between taps, native events
             // (especially FocusOut) take priority over the remainder of a burst.
             if (needsKeyRelease(connection))
                 return trySynthetic(connection);
-            auto                 pollEvent = queuedOnly ? originalPollQueued : originalPoll;
-            xcb_generic_event_t* event     = pollEvent ? pollEvent(connection) : nullptr;
-            if (event) {
+            const auto pollEvent = queuedOnly ? originalPollQueued : originalPoll;
+            while (xcb_generic_event_t* event = pollEvent ? pollEvent(connection) : nullptr) {
+                if (isWakeEvent(connection, event)) {
+                    std::free(event);
+                    // A wake is ordered behind all earlier native events on the server.
+                    // Claim the pending task here even if another thread is waiting.
+                    if (auto* synthetic = trySynthetic(connection))
+                        return synthetic;
+                    continue;
+                }
                 observeNative(connection, event);
                 return event;
             }
@@ -283,10 +322,13 @@ namespace lotus::apphook {
         originalHasError                = resolve<decltype(originalHasError)>("xcb_connection_has_error");
         originalConnect                 = resolve<decltype(originalConnect)>("xcb_connect");
         originalConnectFd               = resolve<decltype(originalConnectFd)>("xcb_connect_to_fd");
+        originalGenerateId              = resolve<decltype(originalGenerateId)>("xcb_generate_id");
         originalDisconnect              = resolve<decltype(originalDisconnect)>("xcb_disconnect");
         originalPoll                    = resolve<decltype(originalPoll)>("xcb_poll_for_event");
         originalPollQueued              = resolve<decltype(originalPollQueued)>("xcb_poll_for_queued_event");
         originalWait                    = resolve<decltype(originalWait)>("xcb_wait_for_event");
+        originalSendEvent               = resolve<decltype(originalSendEvent)>("xcb_send_event");
+        originalFlush                   = resolve<decltype(originalFlush)>("xcb_flush");
         originalChangeAttributes        = resolve<decltype(originalChangeAttributes)>("xcb_change_window_attributes");
         originalChangeAttributesChecked = resolve<decltype(originalChangeAttributesChecked)>("xcb_change_window_attributes_checked");
         originalCreateWindow            = resolve<decltype(originalCreateWindow)>("xcb_create_window");
@@ -313,11 +355,24 @@ namespace lotus::apphook {
 
     void wakeXcb() {
         std::scoped_lock lock(xcbMutex);
+        if (!originalSendEvent || !originalFlush)
+            return;
         for (const auto& [connection, state] : connections) {
-            if ((state.focused || state.active) && !ownedByXlib(connection) && state.wakeFd.get() >= 0) {
-                const uint64_t one = 1;
-                (void)write(state.wakeFd.get(), &one, sizeof(one));
-            }
+            if (!(state.focused || state.active) || ownedByXlib(connection) || !state.blockingWaiters || state.wakeWindow == XCB_NONE)
+                continue;
+            xcb_client_message_event_t event{};
+            event.response_type = XCB_CLIENT_MESSAGE;
+            event.format        = 8;
+            event.window        = state.wakeWindow;
+            event.type          = XCB_ATOM_NONE;
+            std::memcpy(event.data.data8, kWakePayload, 20);
+            // Wake each native libxcb waiter, without using its socket fd as an
+            // external event queue (which would miss internally queued events).
+            bool sent = false;
+            for (unsigned i = 0; i < state.blockingWaiters; ++i)
+                sent |= originalSendEvent(connection, 0, state.wakeWindow, 0, reinterpret_cast<const char*>(&event)).sequence != 0;
+            if (sent)
+                (void)originalFlush(connection);
         }
     }
 
@@ -428,35 +483,44 @@ LH_EXPORT xcb_generic_event_t* xcb_wait_for_event(xcb_connection_t* connection) 
         loadXcb();
     if (!originalWait)
         return nullptr;
-    int wake = -1;
-    {
-        std::scoped_lock lock(xcbMutex);
-        auto&            state = connections[connection];
-        if (state.wakeFd.get() < 0)
-            state.wakeFd.reset(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC));
-        wake = state.wakeFd.get();
-    }
-    if (wake < 0 || !originalPoll) {
-        auto* event = originalWait(connection);
-        observeNative(connection, event);
-        return event;
-    }
     while (true) {
         if (auto* event = checkedPoll(connection, false))
             return event;
-        if (originalHasError && originalHasError(connection))
-            return nullptr;
-        pollfd fds[2]{{.fd = (originalGetFd ? originalGetFd(connection) : -1), .events = POLLIN, .revents = 0}, {.fd = wake, .events = POLLIN, .revents = 0}};
-        int    ready;
-        do {
-            ready = poll(fds, 2, -1);
-        } while (ready < 0 && errno == EINTR);
-        if (ready < 0)
-            return nullptr;
-        if (fds[1].revents & POLLIN) {
-            uint64_t value;
-            while (read(wake, &value, sizeof(value)) == sizeof(value)) {}
+        // Use libxcb's own blocking wait: other threads may have consumed socket
+        // bytes while queuing events internally, so polling the raw fd can hang.
+        {
+            std::scoped_lock lock(xcbMutex);
+            auto&            state = connections[connection];
+            if ((state.focused && state.keyboardAvailable) || state.active)
+                ensureWakeWindow(connection, state);
+            ++state.blockingWaiters;
         }
+        // Recheck after registering as a waiter: a task may have arrived
+        // between the first check and wakeup registration.
+        if (auto* event = checkedPoll(connection, false)) {
+            std::scoped_lock lock(xcbMutex);
+            auto             it = connections.find(connection);
+            if (it != connections.end() && it->second.blockingWaiters)
+                --it->second.blockingWaiters;
+            return event;
+        }
+        auto* event = originalWait(connection);
+        {
+            std::scoped_lock lock(xcbMutex);
+            auto             it = connections.find(connection);
+            if (it != connections.end() && it->second.blockingWaiters)
+                --it->second.blockingWaiters;
+        }
+        if (!event)
+            return nullptr;
+        if (isWakeEvent(connection, event)) {
+            std::free(event);
+            if (auto* synthetic = trySynthetic(connection))
+                return synthetic;
+            continue;
+        }
+        observeNative(connection, event);
+        return event;
     }
 }
 
