@@ -89,7 +89,7 @@ namespace lotus::apphook {
     /** @brief Updates Xlib keyboard focus and starts lazy IPC on focus-in. */
     void noteX11Focus(bool focused);
     /** @brief Starts IPC when an Xlib window selects keyboard events, before focus-in. */
-    void noteX11KeyboardAvailable();
+    void noteX11KeyboardAvailable(bool available = true);
     /** @brief Updates Wayland keyboard focus. */
     void noteWaylandFocus(bool focused);
     /** @brief Starts IPC when a Wayland keyboard listener is registered, before focus-in. */
@@ -99,7 +99,7 @@ namespace lotus::apphook {
     void markXlibOwnedXcbConnection(void* connection);
     void markXcbKeyboardSubscribed(void* connection);
     void forgetXlibXcbConnection(void* connection);
-    void setXcbEventQueueOwner(void* connection, bool xcbOwns);
+    void setXcbEventQueueOwner(void* connection, bool xcbOwns, uint32_t root = 0);
     bool xcbOwnsXlibConnection(void* connection);
     void wakeXcb();
     void loadXcb();

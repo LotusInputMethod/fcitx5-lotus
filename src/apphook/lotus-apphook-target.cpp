@@ -170,11 +170,12 @@ namespace lotus::apphook {
         }
     }
 
-    void noteX11KeyboardAvailable() {
-        if (!runtime().readyX11.exchange(true, std::memory_order_acq_rel)) {
+    void noteX11KeyboardAvailable(bool available) {
+        if (runtime().readyX11.exchange(available, std::memory_order_acq_rel) != available) {
             signalChange();
         }
-        startWorkers();
+        if (available)
+            startWorkers();
     }
 
     void noteWaylandFocus(bool focused) {
@@ -312,7 +313,7 @@ namespace lotus::apphook {
             for (size_t i = 0; i < request.count; ++i) {
                 const auto& op = request.ops[i];
                 taps += op.count;
-                if (!op.count || op.modifiers > 15 || taps > kMaxTaps) {
+                if (!op.count || op.keycode == KEY_RESERVED || op.keycode > KEY_MAX || op.modifiers > 15 || taps > kMaxTaps) {
                     return -EINVAL;
                 }
             }
