@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2025 Võ Ngô Hoàng Thành <thanhpy2009@gmail.com>
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
  * SPDX-FileCopyrightText: 2026 kimxuanhong <kimxuanhong@outlook.com>
+ * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -32,6 +33,7 @@
 #include <fcitx-utils/keysym.h>
 #include "common-export.h"
 #include "lotus-kb-sender.h"
+#include "apphook/lotus-apphook-server.h"
 
 // Owned through shared/unique pointers, so the full types stay in the .cpp files.
 namespace lotus {
@@ -237,6 +239,18 @@ namespace fcitx {
          * @return True when the focused accessibility node is the Omnibox of a Chromium browser.
          */
         [[nodiscard]] bool isLikeAddressBarChromium() const;
+        /**
+         * @brief Reports the PID of the focused application for injection.
+         * @return Focused application process ID, or zero if unknown.
+         */
+        [[nodiscard]] pid_t appHookPid() const;
+        /**
+         * @brief Provides the application-hook loader owned by the Lotus engine.
+         * @return Reference to the loader.
+         */
+        LotusAppHook& appHook() {
+            return appHook_;
+        }
 
       private:
         Instance&                                            instance_;
@@ -273,6 +287,7 @@ namespace fcitx {
         FCITX_ADDON_DEPENDENCY_LOADER(emoji, instance_.addonManager());
         std::unique_ptr<EmojiLoader>           emojiLoader_;
         std::unique_ptr<WindowFocusTracker>    windowFocusTracker_;
+        LotusAppHook                           appHook_;
         EventDispatcher                        appRuleDispatcher_;
         TrackableObjectReference<InputContext> activeContext_;
         std::string                            activeProgram_;
@@ -312,7 +327,7 @@ namespace fcitx {
          * @param textLong The long text
          * @param textOnOff The text to display when on/off
          * @param uiManager The UI manager
-         * 
+         *
         */
         void initToggleAction(std::unique_ptr<SimpleAction>& action, Option<bool>& option, const std::string& actionId, const std::string& iconName, const std::string& textLong,
                               const std::string& textOnOff, UserInterfaceManager& uiManager);
