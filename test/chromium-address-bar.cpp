@@ -6,6 +6,7 @@
 //   - the Delete echo has to reach the application, otherwise the suggestion survives (dđ);
 //   - a key buffered during the burst carries the synthetic Shift, so the replay must strip it as
 //     long as the physical Shift is not held.
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
@@ -15,17 +16,6 @@
 #include <string>
 
 namespace {
-
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::Key key, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, key, false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + key.toString(), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())), "unexpected key outcome");
-            return false;
-        }
-        return true;
-    }
 
     std::string commitText(const TestInputContext& context) {
         std::string text;
@@ -44,11 +34,11 @@ namespace {
         fcitx::InputContextEvent focus(context.get(), fcitx::EventType::InputContextFocusIn);
         engine.activate(entry, focus);
 
-        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_d), false))
+        if (!sendKey(engine, entry, *context, fcitx::Key(FcitxKey_d), false))
             return false;
         context->surroundingText().setText("docs.google.com", 1, 16);
         context->updateSurroundingText();
-        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_d), true))
+        if (!sendKey(engine, entry, *context, fcitx::Key(FcitxKey_d), true))
             return false;
 
         KbMsg msg{};
@@ -59,19 +49,19 @@ namespace {
             return false;
         }
         for (size_t i = 0; i < msg.count; ++i) {
-            if (!send(engine, entry, *context, fcitx::Key(FcitxKey_Left), false))
+            if (!sendKey(engine, entry, *context, fcitx::Key(FcitxKey_Left), false))
                 return false;
         }
-        if (bufferedKey.has_value() && !send(engine, entry, *context, *bufferedKey, true))
+        if (bufferedKey.has_value() && !sendKey(engine, entry, *context, *bufferedKey, true))
             return false;
         // The Delete echo must reach the application: the addon leaves the event unaccepted (the app
         // drops the autocomplete selection); a swallowed echo means the old character survives (dđ).
-        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_Delete), false)) {
+        if (!sendKey(engine, entry, *context, fcitx::Key(FcitxKey_Delete), false)) {
             reportFailure("Delete echo reaches the application", "accepted=false", "accepted=true",
                           "the app could not drop the autocomplete selection, so the old character survives (dđ)");
             return false;
         }
-        if (!send(engine, entry, *context, fcitx::Key(FcitxKey_Pause), true))
+        if (!sendKey(engine, entry, *context, fcitx::Key(FcitxKey_Pause), true))
             return false;
 
         const std::string expected = bufferedKey.has_value() ? "đn" : "đ";

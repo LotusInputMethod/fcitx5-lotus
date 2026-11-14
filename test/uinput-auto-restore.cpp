@@ -8,6 +8,7 @@
  * key the engine lets through is appended as the client would.
  */
 
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
@@ -23,18 +24,6 @@ namespace {
     using lotus::utf8::decode;
     using lotus::utf8::encode;
 
-    bool sendKey(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()),
-                          "the uinput auto restore test saw an unexpected key outcome");
-            return false;
-        }
-        return true;
-    }
-
     bool completeOneBurst(const KbMsg& msg, KbSocketListener& listener, fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context,
                           std::u32string& text, std::vector<std::string>& trace) {
         (void)listener;
@@ -49,14 +38,14 @@ namespace {
         text.resize(text.size() - msg.count);
         const fcitx::KeySym injected = isSelect ? FcitxKey_Left : FcitxKey_BackSpace;
         for (size_t i = 0; i < msg.count; ++i) {
-            if (!sendKey(engine, entry, context, injected, false)) {
+            if (!sendKey(engine, entry, context, injected, false, "the injected echoes must pass through so the client buffer shrinks")) {
                 return false;
             }
         }
-        if (isSelect && !sendKey(engine, entry, context, FcitxKey_Delete, false)) {
+        if (isSelect && !sendKey(engine, entry, context, FcitxKey_Delete, false, "the selection's Delete echo must reach the application")) {
             return false;
         }
-        return sendKey(engine, entry, context, FcitxKey_Pause, true);
+        return sendKey(engine, entry, context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement");
     }
 
     bool completeBurst(KbSocketListener& listener, fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, std::u32string& text,

@@ -6,6 +6,7 @@
 // must still clear it.
 #include "lotus-engine.h"
 #include "test-input-context.h"
+#include "test-util.h"
 
 #include <chrono>
 #include <cstdio>
@@ -21,10 +22,6 @@ namespace {
         fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
         engine.keyEvent(entry, event);
         return event.key().sym();
-    }
-
-    void reportFailure(const char* step, const std::string& expected, const std::string& actual, const char* meaning) {
-        std::printf("FAIL %s\nExpected: %s\nActual: %s\nMeaning: %s\n", step, expected.c_str(), actual.c_str(), meaning);
     }
 
     // Runs one reset event, the way a frontend reports it to the engine.

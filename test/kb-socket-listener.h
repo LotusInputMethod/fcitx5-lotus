@@ -14,6 +14,7 @@
 #include "common-fd-guard.h"
 #include "common-protocol.h"
 #include "lotus-utils.h"
+#include "test-util.h"
 
 #include <cerrno>
 #include <cstddef>
@@ -27,13 +28,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-
-inline void reportFailure(std::string_view step, std::string_view expected, std::string_view actual, std::string_view meaning) {
-    std::cerr << "Step: " << step << '\n';
-    std::cerr << "Expected: " << expected << '\n';
-    std::cerr << "Actual: " << actual << '\n';
-    std::cerr << "Meaning: " << meaning << '\n';
-}
 
 class KbSocketListener {
   public:

@@ -1,21 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "lotus-engine.h"
 #include "test-input-context.h"
+#include "test-util.h"
 
 #include <iostream>
 #include <memory>
 #include <string>
-
-namespace {
-
-    void reportFailure(const std::string& step, const std::string& expected, const std::string& actual, const std::string& meaning) {
-        std::cerr << "Step: " << step << '\n';
-        std::cerr << "Expected: " << expected << '\n';
-        std::cerr << "Actual: " << actual << '\n';
-        std::cerr << "Meaning: " << meaning << '\n';
-    }
-
-} // namespace
 
 int main() {
     configureTestPaths("fcitx5-lotus-modifier-key-bypasses-surrounding-text");

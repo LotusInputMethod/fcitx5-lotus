@@ -24,6 +24,7 @@
 #include "utf8.h"
 
 #include "golden-reader.h"
+#include "test-util.h"
 
 #include <algorithm>
 #include <array>
@@ -63,17 +64,6 @@ namespace {
     lotus::EngineFlags withoutFreeToneMarking() {
         lotus::EngineFlags flags = lotus::kEstdFlags;
         return flags.remove(lotus::EngineFlag::FreeToneMarking);
-    }
-
-    // Renders a code point list as "U+XXXX U+YYYY", used to report mismatching expectations.
-    std::string hexOf(std::u32string_view text) {
-        std::string          out;
-        std::array<char, 16> buffer{};
-        for (const char32_t codePoint : text) {
-            std::snprintf(buffer.data(), buffer.size(), "%sU+%04X", out.empty() ? "" : " ", static_cast<unsigned int>(codePoint));
-            out += buffer.data();
-        }
-        return out;
     }
 
     // Renders a byte string as lowercase hex, used to report golden mismatches.
@@ -712,6 +702,11 @@ namespace {
         typeKeys(engine, "as1");
         checkBool("tab macro on [as1] accepted", engine.processKey(lotus::kFcitxTab, {}), true);
         checkU32("tab macro commit on [as1] expected [Á một]", engine.takeCommit(), U"Á một");
+
+        // A digit no macro key starts with still restores, so the prefix gate is not over-broad.
+        typeKeys(engine, "as9");
+        checkU32("preedit after [as9] (no macro starts with á9) expected [as9]", engine.preedit(), U"as9");
+        engine.commitPreeditAndReset(U"");
 
         // Disabled autoNonVnRestore leaves composed Vietnamese syllable intact before digits.
         engine.options().autoNonVnRestore = false;
