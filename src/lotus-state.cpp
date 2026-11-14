@@ -656,7 +656,7 @@ namespace fcitx {
         finishReplacement(event);
         return true;
     }
-    void LotusState::performReplacement(DiffPart diffPart) {
+    void LotusState::performReplacement(DiffPart diffPart, bool allowAppHook) {
         LOTUS_INFO("Perform replacement: " + lotus::utf8::encode(diffPart.deletedPart) + " -> " + lotus::utf8::encode(diffPart.addedPart)); //NOLINT
         echoTriggerPending_ = false;
         if (appHookPid_ > 0) {
@@ -714,7 +714,7 @@ namespace fcitx {
         if (hookEnabled && !hookReady) {
             LOTUS_DEBUG("apphook: unavailable pid=" + std::to_string(hookPid) + ", using fallback");
         }
-        if (hookReady) {
+        if (allowAppHook && hookReady) {
             using lotus::apphook::KeyOperation;
             std::vector<KeyOperation> keys;
             if (burstCount > 0) {
@@ -743,8 +743,9 @@ namespace fcitx {
             g_isDeleting.store(true, std::memory_order_release);
             replacementDeadlineMs_ = nowMs() + 5000;
             if (engine_.appHook().emit(
-                    hookPid, std::move(keys), requestId, preDelay, postDelay, [engine, icRef, token, hookPid, requestId, burstCount, selectMode, interval, postDelay](int result) {
-                        engine->scheduleOnMainThread([engine, icRef, token, hookPid, requestId, burstCount, selectMode, interval, postDelay, result] {
+                    hookPid, std::move(keys), requestId, preDelay, postDelay,
+                    [engine, icRef, token, hookPid, requestId, deletedText = std::u32string(diffPart.deletedPart), addedText = std::u32string(diffPart.addedPart)](int result) {
+                        engine->scheduleOnMainThread([engine, icRef, token, hookPid, requestId, deletedText, addedText, result] {
                             LOTUS_DEBUG("apphook: completed pid=" + std::to_string(hookPid) + " request=" + std::to_string(requestId) + " status=" + std::to_string(result));
                             auto* state = engine->stateFor(icRef.get());
                             if (!state || state->replacementToken_ != token || state->appHookPid_ != hookPid || state->appHookRequestId_ != requestId) {
@@ -761,15 +762,10 @@ namespace fcitx {
                                 LOTUS_WARN("apphook: uncertain partial delivery, aborting replacement without replay");
                                 state->abortUncertainAppHookReplacement();
                             } else {
-                                LOTUS_DEBUG("apphook: failed request=" + std::to_string(requestId) + ", falling back to uinput");
-                                state->expectedBackspaces_ = static_cast<size_t>(burstCount);
-                                state->realSelect_         = selectMode;
-                                state->lastSelect_         = selectMode;
-                                if (selectMode) {
-                                    state->sendSelectUinput(burstCount, 0, interval, postDelay);
-                                } else {
-                                    state->sendBackspaceUinput(burstCount, 0, interval, postDelay);
-                                }
+                                LOTUS_DEBUG("apphook: failed request=" + std::to_string(requestId) + ", using standard backend fallback");
+                                // No keys were applied: retry through the existing display-server
+                                // backend selection, with apphook disabled for this one attempt.
+                                state->performReplacement({.deletedPart = deletedText, .addedPart = addedText}, false);
                             }
                         });
                     })) {

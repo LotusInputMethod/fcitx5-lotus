@@ -428,7 +428,7 @@ namespace fcitx {
          * the compositor supports it, otherwise via uinput.
          * @param diffPart pairs of deleted part and added part
          */
-        void performReplacement(DiffPart diffPart);
+        void performReplacement(DiffPart diffPart, bool allowAppHook = true);
 
         /**
          * @brief Replaces the last character, either through surrounding text or through uinput.
