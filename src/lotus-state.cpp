@@ -131,7 +131,7 @@ namespace fcitx {
         }
         if (appHookPid_ > 0) {
             engine_.appHook().cancel(appHookPid_, appHookRequestId_);
-            appHookPid_ = 0;
+            appHookPid_       = 0;
             appHookRequestId_ = 0;
             return;
         }
@@ -565,7 +565,7 @@ namespace fcitx {
     void LotusState::finishReplacementNow() {
         ++replacementToken_;
         cancelSelectAbort();
-        appHookPid_ = 0;
+        appHookPid_       = 0;
         appHookRequestId_ = 0;
         appendCommit(pendingCommitString_);
         pendingCommitString_.clear();
@@ -641,7 +641,7 @@ namespace fcitx {
         echoTriggerPending_ = false;
         if (appHookPid_ > 0) {
             engine_.appHook().cancel(appHookPid_, appHookRequestId_);
-            appHookPid_ = 0;
+            appHookPid_       = 0;
             appHookRequestId_ = 0;
         }
         ++replacementToken_;
@@ -687,7 +687,7 @@ namespace fcitx {
         bool              echoDriven   = false;
         injectionBackend_              = InjectionBackend::None;
 
-        bool selectMode = uinputSelect;
+        bool        selectMode  = uinputSelect;
         const pid_t hookPid     = engine_.appHookPid();
         const bool  hookEnabled = *engine_.config().preferVirtualKeyboard;
         const bool  hookReady   = hookEnabled && engine_.appHook().ready(hookPid);
@@ -698,8 +698,9 @@ namespace fcitx {
             using lotus::apphook::KeyOperation;
             std::vector<KeyOperation> keys;
             if (burstCount > 0) {
-                keys.push_back(
-                    {.keycode = static_cast<uint32_t>(selectMode ? KEY_LEFT : KEY_BACKSPACE), .modifiers = selectMode ? lotus::apphook::kModifierShift : 0U, .count = static_cast<uint32_t>(burstCount)});
+                keys.push_back({.keycode   = static_cast<uint32_t>(selectMode ? KEY_LEFT : KEY_BACKSPACE),
+                                .modifiers = selectMode ? lotus::apphook::kModifierShift : 0U,
+                                .count     = static_cast<uint32_t>(burstCount)});
             }
             if (selectMode && burstCount > 0) {
                 keys.push_back({.keycode = KEY_DELETE, .modifiers = 0, .count = 1});
@@ -721,35 +722,33 @@ namespace fcitx {
             appHookRequestId_        = requestId;
             g_isDeleting.store(true, std::memory_order_release);
             replacementDeadlineMs_ = nowMs() + 5000;
-            if (engine_.appHook().emit(hookPid, std::move(keys), requestId, preDelay, postDelay,
-                                       [engine, icRef, token, hookPid, requestId, burstCount, selectMode, interval, postDelay](int result) {
-                                           engine->scheduleOnMainThread([engine, icRef, token, hookPid, requestId, burstCount, selectMode, interval, postDelay, result] {
-                                               LOTUS_DEBUG("apphook: completed pid=" + std::to_string(hookPid) + " request=" + std::to_string(requestId) +
-                                                           " status=" + std::to_string(result));
-                                               auto* state = engine->stateFor(icRef.get());
-                                               if (!state || state->replacementToken_ != token || state->appHookPid_ != hookPid) {
-                                                   LOTUS_DEBUG("apphook: stale completion ignored request=" + std::to_string(requestId));
-                                                   return;
-                                               }
-                                               state->appHookPid_       = 0;
-                                               state->appHookRequestId_ = 0;
-                                               if (result == 0) {
-                                                   state->finishScheduledReplacement(token);
-                                               } else {
-                                                   LOTUS_DEBUG("apphook: failed request=" + std::to_string(requestId) + ", falling back to uinput");
-                                                   state->expectedBackspaces_ = static_cast<size_t>(burstCount);
-                                                   state->realSelect_         = selectMode;
-                                                   state->lastSelect_         = selectMode;
-                                                   if (selectMode) {
-                                                       state->sendSelectUinput(burstCount, 0, interval, postDelay);
-                                                   } else {
-                                                       state->sendBackspaceUinput(burstCount, 0, interval, postDelay);
-                                                   }
-                                               }
-                                           });
-                                       })) {
-                LOTUS_DEBUG("apphook: selected pid=" + std::to_string(hookPid) + " request=" + std::to_string(requestId) +
-                            " keys=" + std::to_string(burstCount));
+            if (engine_.appHook().emit(
+                    hookPid, std::move(keys), requestId, preDelay, postDelay, [engine, icRef, token, hookPid, requestId, burstCount, selectMode, interval, postDelay](int result) {
+                        engine->scheduleOnMainThread([engine, icRef, token, hookPid, requestId, burstCount, selectMode, interval, postDelay, result] {
+                            LOTUS_DEBUG("apphook: completed pid=" + std::to_string(hookPid) + " request=" + std::to_string(requestId) + " status=" + std::to_string(result));
+                            auto* state = engine->stateFor(icRef.get());
+                            if (!state || state->replacementToken_ != token || state->appHookPid_ != hookPid) {
+                                LOTUS_DEBUG("apphook: stale completion ignored request=" + std::to_string(requestId));
+                                return;
+                            }
+                            state->appHookPid_       = 0;
+                            state->appHookRequestId_ = 0;
+                            if (result == 0) {
+                                state->finishScheduledReplacement(token);
+                            } else {
+                                LOTUS_DEBUG("apphook: failed request=" + std::to_string(requestId) + ", falling back to uinput");
+                                state->expectedBackspaces_ = static_cast<size_t>(burstCount);
+                                state->realSelect_         = selectMode;
+                                state->lastSelect_         = selectMode;
+                                if (selectMode) {
+                                    state->sendSelectUinput(burstCount, 0, interval, postDelay);
+                                } else {
+                                    state->sendBackspaceUinput(burstCount, 0, interval, postDelay);
+                                }
+                            }
+                        });
+                    })) {
+                LOTUS_DEBUG("apphook: selected pid=" + std::to_string(hookPid) + " request=" + std::to_string(requestId) + " keys=" + std::to_string(burstCount));
                 return;
             }
             LOTUS_DEBUG("apphook: queue rejected pid=" + std::to_string(hookPid) + ", using fallback");

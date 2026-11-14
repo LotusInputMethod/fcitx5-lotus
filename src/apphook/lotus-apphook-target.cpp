@@ -190,7 +190,7 @@ namespace lotus::apphook {
                     return -EINVAL;
                 }
                 std::scoped_lock lock(state.mutex);
-                const auto it = std::find_if(state.pending.begin(), state.pending.end(), [&](const auto& task) { return task->requestId == request.requestId; });
+                const auto       it = std::find_if(state.pending.begin(), state.pending.end(), [&](const auto& task) { return task->requestId == request.requestId; });
                 if (it != state.pending.end()) {
                     auto task = *it;
                     state.pending.erase(it);
@@ -236,7 +236,7 @@ namespace lotus::apphook {
          * @return False when writing a completion failed.
          */
         bool flushCompleted(int fd, std::unordered_map<uint64_t, std::shared_ptr<Task>>& tasks) {
-            Runtime& state = runtime();
+            Runtime&                              state = runtime();
             std::vector<std::pair<uint64_t, int>> finished;
             {
                 std::scoped_lock lock(state.mutex);
@@ -263,7 +263,7 @@ namespace lotus::apphook {
          * @param tasks Outstanding tasks owned by this connection.
          */
         void discard(std::unordered_map<uint64_t, std::shared_ptr<Task>>& tasks) {
-            Runtime& state = runtime();
+            Runtime&         state = runtime();
             std::scoped_lock lock(state.mutex);
             for (const auto& [requestId, task] : tasks) {
                 const auto it = std::find(state.pending.begin(), state.pending.end(), task);
@@ -279,7 +279,7 @@ namespace lotus::apphook {
         /** @brief Reconnects to the shared Fcitx5 listener and handles its requests. */
         void connectLoop() {
             using namespace std::chrono_literals;
-            Runtime& state = runtime();
+            Runtime&    state = runtime();
             sockaddr_un address{};
             socklen_t   addressSize = 0;
             if (!socketAddress(address, addressSize)) {
@@ -305,15 +305,14 @@ namespace lotus::apphook {
                 if (!backendReady()) {
                     continue;
                 }
-                const bool reportedReady = true;
-                bool reportedFocused    = hasKeyboardFocus();
-                if (!reply(connection.get(), ResponseKind::Ready, 0, 0) ||
-                    !reply(connection.get(), ResponseKind::Focus, 0, reportedFocused ? 1 : 0)) {
+                const bool reportedReady   = true;
+                bool       reportedFocused = hasKeyboardFocus();
+                if (!reply(connection.get(), ResponseKind::Ready, 0, 0) || !reply(connection.get(), ResponseKind::Focus, 0, reportedFocused ? 1 : 0)) {
                     continue;
                 }
                 std::unordered_map<uint64_t, std::shared_ptr<Task>> tasks;
                 while (!state.shuttingDown.load()) {
-                    pollfd fds[2] = {{connection.get(), POLLIN, 0}, {state.completionFd.load(), POLLIN, 0}};
+                    pollfd    fds[2] = {{connection.get(), POLLIN, 0}, {state.completionFd.load(), POLLIN, 0}};
                     const int result = poll(fds, 2, -1);
                     if (result < 0 && errno == EINTR) {
                         continue;
@@ -322,9 +321,10 @@ namespace lotus::apphook {
                         break;
                     }
                     if (fds[0].revents & POLLIN) {
-                        Request request{};
+                        Request       request{};
                         const ssize_t received = recv(connection.get(), &request, sizeof(request), MSG_TRUNC);
-                        if (received < static_cast<ssize_t>(kRequestHeaderSize) || received > static_cast<ssize_t>(sizeof(request)) || request.magic != kMagic || request.version != kVersion) {
+                        if (received < static_cast<ssize_t>(kRequestHeaderSize) || received > static_cast<ssize_t>(sizeof(request)) || request.magic != kMagic ||
+                            request.version != kVersion) {
                             break;
                         }
                         const int status = dispatch(request, received, tasks);
@@ -371,7 +371,7 @@ namespace lotus::apphook {
         /** @brief Continues scanning for libraries loaded after focus or keyboard activity. */
         void scanForHooks() {
             using namespace std::chrono_literals;
-            Runtime& state = runtime();
+            Runtime& state     = runtime();
             bool     lastReady = backendReady();
             while (!state.shuttingDown.load()) {
                 installHookPass();
@@ -387,23 +387,23 @@ namespace lotus::apphook {
         /** @brief Distinguishes an executable preload from a library loaded after process startup. */
         bool isLateLoad() {
             struct LinkOrder {
-                bool seenLibc = false;
+                bool seenLibc  = false;
                 bool foundSelf = false;
-                bool late = false;
+                bool late      = false;
             } order;
             dl_iterate_phdr(
                 [](dl_phdr_info* info, size_t, void* context) {
-                    auto& order = *static_cast<LinkOrder*>(context);
-                    const char* name = info->dlpi_name;
+                    auto&       order = *static_cast<LinkOrder*>(context);
+                    const char* name  = info->dlpi_name;
                     if (!name)
                         return 0;
                     if (std::strstr(name, "liblotus-apphook.so")) {
                         order.foundSelf = true;
-                        order.late = order.seenLibc;
+                        order.late      = order.seenLibc;
                         return 1;
                     }
                     const char* base = std::strrchr(name, '/');
-                    base = base ? base + 1 : name;
+                    base             = base ? base + 1 : name;
                     if (std::strcmp(base, "libc.so.6") == 0)
                         order.seenLibc = true;
                     return 0;
@@ -414,8 +414,8 @@ namespace lotus::apphook {
 
         /** @brief Keeps global preloads dormant; installs relocation hooks for late-loaded copies. */
         __attribute__((constructor)) void initialize() {
-            Runtime& state = runtime();
-            const bool late = isLateLoad();
+            Runtime&   state = runtime();
+            const bool late  = isLateLoad();
             state.lateAttached.store(late, std::memory_order_release);
             if (late)
                 installHookPass();

@@ -23,8 +23,8 @@ namespace lotus::apphook {
         if (name.size() + 1 > sizeof(address.sun_path)) {
             return false;
         }
-        address            = {};
-        address.sun_family = AF_UNIX;
+        address             = {};
+        address.sun_family  = AF_UNIX;
         address.sun_path[0] = '\0';
         std::memcpy(address.sun_path + 1, name.data(), name.size());
         size = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + 1 + name.size());

@@ -213,7 +213,7 @@ namespace fcitx {
             std::string windowBus;
             std::string windowPath;
             std::string windowProgram;
-            pid_t       windowPid = 0;
+            pid_t       windowPid      = 0;
             auto        clearNodeFocus = [&] {
                 browserUIFocused_.store(false, std::memory_order_relaxed);
                 focusBus.clear();
@@ -282,7 +282,7 @@ namespace fcitx {
                             }
                             focusBus                  = sender;
                             focusPath                 = path;
-                            const pid_t pid           = dbusConnectionPid(bus.get(), sender);
+                            const pid_t       pid     = dbusConnectionPid(bus.get(), sender);
                             const std::string program = programForPid(pid);
                             // Focus remains valid until a matching blur or disconnect, not merely until the
                             // next second. Publish before querying optional Chromium attributes, which may block.
