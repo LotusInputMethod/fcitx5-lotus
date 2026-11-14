@@ -20,11 +20,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <linux/input-event-codes.h>
-#include <link.h>
 #include <poll.h>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
@@ -35,14 +31,13 @@
 namespace lotus::apphook {
 
     Runtime& runtime() {
-        // Injected libraries remain resident for the lifetime of the application.
+        // The preloaded hook keeps its runtime for the lifetime of the application.
         static Runtime state;
         return state;
     }
 
     namespace {
         void connectLoop();
-        void scanForHooks();
 
         /** @brief Starts the workers on first focus or keyboard activity, outside library initialization. */
         void startWorkers() {
@@ -71,13 +66,6 @@ namespace lotus::apphook {
                 close(completion);
                 state.workersStarted.store(false, std::memory_order_release);
                 return;
-            }
-            if (state.lateAttached.load(std::memory_order_acquire)) {
-                try {
-                    std::thread(scanForHooks).detach();
-                } catch (const std::system_error&) {
-                    // IPC remains active even if the optional retroactive scanner fails.
-                }
             }
         }
 
@@ -402,71 +390,9 @@ namespace lotus::apphook {
             }
         }
 
-        /** @brief Installs hooks for keyboard libraries already loaded in this process. */
-        void installHookPass() {
-            loadX11();
-            loadWayland();
-            loadXcb();
-            const int x11     = installX11Hooks();
-            const int wayland = installWaylandHooks();
-            const int xcb     = installXcbHooks();
-            if (std::getenv("LOTUS_HOOK_DEBUG") && (x11 || wayland || xcb)) {
-                std::fprintf(stderr, "LH hooks patched x=%d w=%d xcb=%d\n", x11, wayland, xcb);
-            }
-        }
-
-        /** @brief Continues scanning for libraries loaded after focus or keyboard activity. */
-        void scanForHooks() {
-            using namespace std::chrono_literals;
-            Runtime& state     = runtime();
-            bool     lastReady = backendReady();
-            while (!state.shuttingDown.load()) {
-                installHookPass();
-                const bool currentReady = backendReady();
-                if (currentReady != lastReady) {
-                    lastReady = currentReady;
-                    signalChange();
-                }
-                std::this_thread::sleep_for(250ms);
-            }
-        }
-
-        /** @brief Distinguishes an executable preload from a library loaded after process startup. */
-        bool isLateLoad() {
-            struct LinkOrder {
-                bool seenLibc  = false;
-                bool foundSelf = false;
-                bool late      = false;
-            } order;
-            dl_iterate_phdr(
-                [](dl_phdr_info* info, size_t, void* context) {
-                    auto&       order = *static_cast<LinkOrder*>(context);
-                    const char* name  = info->dlpi_name;
-                    if (!name)
-                        return 0;
-                    if (std::strstr(name, "liblotus-apphook.so")) {
-                        order.foundSelf = true;
-                        order.late      = order.seenLibc;
-                        return 1;
-                    }
-                    const char* base = std::strrchr(name, '/');
-                    base             = base ? base + 1 : name;
-                    if (std::strcmp(base, "libc.so.6") == 0)
-                        order.seenLibc = true;
-                    return 0;
-                },
-                &order);
-            return !order.foundSelf || order.late;
-        }
-
-        /** @brief Keeps global preloads dormant; installs relocation hooks for late-loaded copies. */
+        /** @brief Marks the preload runtime ready without starting IPC before keyboard activity. */
         __attribute__((constructor)) void initialize() {
-            Runtime&   state = runtime();
-            const bool late  = isLateLoad();
-            state.lateAttached.store(late, std::memory_order_release);
-            if (late)
-                installHookPass();
-            state.initialized.store(true, std::memory_order_release);
+            runtime().initialized.store(true, std::memory_order_release);
         }
 
     } // namespace

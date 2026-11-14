@@ -21,7 +21,6 @@
 
 #include <xcb/xcb.h>
 #include <algorithm>
-#include <array>
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
@@ -491,23 +490,3 @@ LH_EXPORT xcb_void_cookie_t xcb_create_window_checked(xcb_connection_t* connecti
         subscribedKeyboard(connection, mask, values);
     return result;
 }
-
-namespace lotus::apphook {
-    int installXcbHooks() {
-        if (!xcbLibrary)
-            return 0;
-        const std::array hooks{
-            HookSpec{"xcb_connect", reinterpret_cast<void*>(&xcb_connect)},
-            HookSpec{"xcb_connect_to_fd", reinterpret_cast<void*>(&xcb_connect_to_fd)},
-            HookSpec{"xcb_disconnect", reinterpret_cast<void*>(&xcb_disconnect)},
-            HookSpec{"xcb_poll_for_event", reinterpret_cast<void*>(&xcb_poll_for_event)},
-            HookSpec{"xcb_poll_for_queued_event", reinterpret_cast<void*>(&xcb_poll_for_queued_event)},
-            HookSpec{"xcb_wait_for_event", reinterpret_cast<void*>(&xcb_wait_for_event)},
-            HookSpec{"xcb_change_window_attributes", reinterpret_cast<void*>(&xcb_change_window_attributes)},
-            HookSpec{"xcb_change_window_attributes_checked", reinterpret_cast<void*>(&xcb_change_window_attributes_checked)},
-            HookSpec{"xcb_create_window", reinterpret_cast<void*>(&xcb_create_window)},
-            HookSpec{"xcb_create_window_checked", reinterpret_cast<void*>(&xcb_create_window_checked)},
-        };
-        return installHooks(hooks);
-    }
-} // namespace lotus::apphook

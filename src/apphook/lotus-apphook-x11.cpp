@@ -21,7 +21,6 @@
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 #include <algorithm>
-#include <array>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
@@ -771,30 +770,3 @@ LH_EXPORT Bool XCheckIfEvent(Display* target, XEvent* event, Bool (*predicate)(D
         recordEvent(*event, true);
     return found;
 }
-
-namespace lotus::apphook {
-
-    int installX11Hooks() {
-        if (!xlib)
-            return 0;
-        const std::array hooks{
-            HookSpec{"XSetEventQueueOwner", reinterpret_cast<void*>(&XSetEventQueueOwner)},
-            HookSpec{"XCloseDisplay", reinterpret_cast<void*>(&XCloseDisplay)},
-            HookSpec{"XSelectInput", reinterpret_cast<void*>(&XSelectInput)},
-            HookSpec{"XChangeWindowAttributes", reinterpret_cast<void*>(&XChangeWindowAttributes)},
-            HookSpec{"XCreateWindow", reinterpret_cast<void*>(&XCreateWindow)},
-            HookSpec{"XNextEvent", reinterpret_cast<void*>(&XNextEvent)},
-            HookSpec{"XPeekEvent", reinterpret_cast<void*>(&XPeekEvent)},
-            HookSpec{"XMaskEvent", reinterpret_cast<void*>(&XMaskEvent)},
-            HookSpec{"XWindowEvent", reinterpret_cast<void*>(&XWindowEvent)},
-            HookSpec{"XCheckMaskEvent", reinterpret_cast<void*>(&XCheckMaskEvent)},
-            HookSpec{"XCheckWindowEvent", reinterpret_cast<void*>(&XCheckWindowEvent)},
-            HookSpec{"XCheckTypedEvent", reinterpret_cast<void*>(&XCheckTypedEvent)},
-            HookSpec{"XCheckTypedWindowEvent", reinterpret_cast<void*>(&XCheckTypedWindowEvent)},
-            HookSpec{"XIfEvent", reinterpret_cast<void*>(&XIfEvent)},
-            HookSpec{"XCheckIfEvent", reinterpret_cast<void*>(&XCheckIfEvent)},
-        };
-        return installHooks(hooks);
-    }
-
-} // namespace lotus::apphook

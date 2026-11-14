@@ -7,7 +7,7 @@
 
 /**
  * @file lotus-apphook-wayland.cpp
- * @brief Intercepts Wayland keyboard callbacks, including existing proxies.
+ * @brief Intercepts Wayland keyboard callbacks registered by the application.
  */
 
 #ifndef _GNU_SOURCE
@@ -21,8 +21,6 @@
 #include <array>
 #include <cerrno>
 #include <cstdint>
-#include <cstdarg>
-#include <cctype>
 #include <cstring>
 #include <dlfcn.h>
 #include <list>
@@ -32,8 +30,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-// Protocol layout and private proxy offsets are taken from idk-overlay's
-// libwayland-client input hook. No generated Wayland bindings are required.
+// Minimal public Wayland protocol types; no generated bindings are required.
 struct wl_proxy;
 struct wl_display;
 struct wl_keyboard;
@@ -80,17 +77,6 @@ using Dispatcher = int (*)(const void*, void*, uint32_t, const WlMessage*, WlArg
 
 namespace lotus::apphook {
     namespace {
-
-        constexpr size_t kImplementationOffset = 8;
-        constexpr size_t kDispatcherOffset     = 56;
-        constexpr size_t kDisplayQueueOffset   = 32;
-        constexpr size_t kProxyListOffset      = 16;
-        constexpr size_t kProxyQueueLinkOffset = 80;
-
-        struct WlList {
-            WlList* previous;
-            WlList* next;
-        };
 
         struct Keyboard {
             wl_proxy*               proxy          = nullptr;
@@ -146,28 +132,6 @@ namespace lotus::apphook {
         void* (*newXkbKeymap)(void*, const char*, int, int) = nullptr;
         void (*releaseXkbKeymap)(void*)                     = nullptr;
         uint32_t (*lookupXkbModifier)(void*, const char*)   = nullptr;
-
-        /**
-         * @brief Reads a field from an existing Wayland proxy.
-         * @param proxy Wayland proxy address.
-         * @param offset Offset of the private field.
-         * @return Field value.
-         */
-        template <typename Type>
-        Type proxyField(wl_proxy* proxy, size_t offset) {
-            return *reinterpret_cast<Type*>(reinterpret_cast<char*>(proxy) + offset);
-        }
-
-        /**
-         * @brief Writes a field into an existing Wayland proxy.
-         * @param proxy Wayland proxy address.
-         * @param offset Offset of the private field.
-         * @param value New field value.
-         */
-        template <typename Type>
-        void setProxyField(wl_proxy* proxy, size_t offset, Type value) {
-            *reinterpret_cast<Type*>(reinterpret_cast<char*>(proxy) + offset) = value;
-        }
 
         /**
          * @brief Resolves a Wayland or XKB function address.
@@ -540,53 +504,6 @@ namespace lotus::apphook {
         }
 
         /**
-         * @brief Replaces an existing keyboard proxy listener/dispatcher with a wrapper.
-         * @param proxy Wayland keyboard proxy.
-         */
-        void wrapProxy(wl_proxy* proxy) {
-            if (!proxy || lookupKeyboard(proxy))
-                return;
-            std::scoped_lock lock(keyboardMutex);
-            auto             keyboard = std::make_shared<Keyboard>();
-            keyboard->proxy           = proxy;
-            keyboard->display         = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
-            keyboard->implementation  = proxyField<void*>(proxy, kImplementationOffset);
-            keyboard->dispatcher      = proxyField<Dispatcher>(proxy, kDispatcherOffset);
-            if (!keyboard->implementation && !keyboard->dispatcher)
-                return;
-            if (keyboard->dispatcher) {
-                setProxyField(proxy, kImplementationOffset, static_cast<const void*>(keyboard.get()));
-                setProxyField(proxy, kDispatcherOffset, &dispatchWrapper);
-            } else {
-                keyboard->listener = static_cast<const KeyboardListener*>(keyboard->implementation);
-                setProxyField(proxy, kImplementationOffset, static_cast<const void*>(&wrapper));
-            }
-            keyboards.push_back(std::move(keyboard));
-        }
-
-        /**
-         * @brief Retroactively wraps keyboards on an existing Wayland event queue.
-         * @param display Application Wayland display.
-         */
-        void scanProxies(wl_display* display) {
-            if (!display || !originalClass)
-                return;
-            auto* queue = *reinterpret_cast<void**>(reinterpret_cast<char*>(display) + kDisplayQueueOffset);
-            if (!queue)
-                return;
-            auto*    head    = reinterpret_cast<WlList*>(reinterpret_cast<char*>(queue) + kProxyListOffset);
-            unsigned visited = 0;
-            for (WlList* node = head->next; node && node != head && visited < 512; ++visited) {
-                WlList*     next  = node->next;
-                auto*       proxy = reinterpret_cast<wl_proxy*>(reinterpret_cast<char*>(node) - kProxyQueueLinkOffset);
-                const char* name  = originalClass(proxy);
-                if (name && std::strcmp(name, "wl_keyboard") == 0)
-                    wrapProxy(proxy);
-                node = next;
-            }
-        }
-
-        /**
          * @brief Converts Lotus modifier bits to the target keyboard keymap mask.
          * @param keyboard Tracked keyboard state.
          * @param modifiers Lotus modifier bitmask.
@@ -674,7 +591,7 @@ namespace lotus::apphook {
         }
 
         /**
-         * @brief Attaches existing proxies and processes keys only after queued Wayland events.
+         * @brief Processes keys only after queued Wayland events.
          * @param display Current Wayland display.
          * @param completed Whether the original dispatch has returned successfully.
          */
@@ -683,8 +600,6 @@ namespace lotus::apphook {
                 wl_display* expected = nullptr;
                 (void)runtime().waylandDisplay.compare_exchange_strong(expected, display, std::memory_order_acq_rel);
             }
-            if (runtime().lateAttached.load(std::memory_order_acquire))
-                scanProxies(runtime().waylandDisplay.load(std::memory_order_acquire));
             if (completed && runtime().workersStarted.load(std::memory_order_acquire))
                 pump(display, queue);
         }
@@ -840,46 +755,6 @@ LH_EXPORT void (**wl_proxy_get_listener(wl_proxy* proxy))(void) {
     return originalGetListener(proxy);
 }
 
-/** Forward Wayland's variadic marshaller through the equivalent argument-array API. */
-LH_EXPORT wl_proxy* wl_proxy_marshal_flags(wl_proxy* proxy, uint32_t opcode, const WlInterface* interface, uint32_t version, uint32_t flags, ...) {
-    using namespace lotus::apphook;
-    if (!originalMarshalArrayFlags)
-        loadWayland();
-    if (!originalMarshalArrayFlags || !proxy)
-        return nullptr;
-    const auto* protocol = proxyField<const WlInterface*>(proxy, 0);
-    if (!protocol || opcode >= static_cast<uint32_t>(protocol->methodCount))
-        return nullptr;
-    const auto* methods   = static_cast<const WlMessage*>(protocol->methods);
-    const char* signature = methods[opcode].signature;
-    WlArgument  arguments[20]{};
-    unsigned    count = 0;
-    va_list     ap;
-    va_start(ap, flags);
-    for (const char* p = signature; p && *p && count < 20; ++p) {
-        if (*p == '?' || (*p >= '0' && *p <= '9'))
-            continue;
-        switch (*p) {
-            case 'u': arguments[count++].u = va_arg(ap, uint32_t); break;
-            case 'i':
-            case 'f':
-            case 'h': arguments[count++].i = va_arg(ap, int32_t); break;
-            case 's': arguments[count++].s = va_arg(ap, const char*); break;
-            case 'o':
-            case 'n':
-            case 'a': arguments[count++].o = va_arg(ap, void*); break;
-            default: break;
-        }
-    }
-    va_end(ap);
-    const bool destroy = (flags & 1U) != 0;
-    // Lifetime stays valid until the real marshaller has finished with the proxy.
-    wl_proxy* result = originalMarshalArrayFlags(proxy, opcode, interface, version, flags, arguments);
-    if (destroy)
-        forgetProxy(proxy);
-    return result;
-}
-
 /** Array-based marshals use the same destruction flag. */
 LH_EXPORT wl_proxy* wl_proxy_marshal_array_flags(wl_proxy* proxy, uint32_t opcode, const WlInterface* interface, uint32_t version, uint32_t flags, WlArgument* args) {
     using namespace lotus::apphook;
@@ -1022,28 +897,3 @@ LH_EXPORT wl_display* wl_display_connect_to_fd(int fd) {
         runtime().waylandDisplay.store(display);
     return display;
 }
-
-namespace lotus::apphook {
-
-    int installWaylandHooks() {
-        if (!wayland)
-            return 0;
-        const std::array hooks{
-            HookSpec{"wl_proxy_add_listener", reinterpret_cast<void*>(&wl_proxy_add_listener)},
-            HookSpec{"wl_proxy_add_dispatcher", reinterpret_cast<void*>(&wl_proxy_add_dispatcher)},
-            HookSpec{"wl_proxy_get_listener", reinterpret_cast<void*>(&wl_proxy_get_listener)},
-            HookSpec{"wl_proxy_destroy", reinterpret_cast<void*>(&wl_proxy_destroy)},
-            HookSpec{"wl_proxy_marshal_flags", reinterpret_cast<void*>(&wl_proxy_marshal_flags)},
-            HookSpec{"wl_proxy_marshal_array_flags", reinterpret_cast<void*>(&wl_proxy_marshal_array_flags)},
-            HookSpec{"wl_display_disconnect", reinterpret_cast<void*>(&wl_display_disconnect)},
-            HookSpec{"wl_display_dispatch_queue_pending", reinterpret_cast<void*>(&wl_display_dispatch_queue_pending)},
-            HookSpec{"wl_display_dispatch_pending", reinterpret_cast<void*>(&wl_display_dispatch_pending)},
-            HookSpec{"wl_display_dispatch", reinterpret_cast<void*>(&wl_display_dispatch)},
-            HookSpec{"wl_display_dispatch_queue", reinterpret_cast<void*>(&wl_display_dispatch_queue)},
-            HookSpec{"wl_display_connect", reinterpret_cast<void*>(&wl_display_connect)},
-            HookSpec{"wl_display_connect_to_fd", reinterpret_cast<void*>(&wl_display_connect_to_fd)},
-        };
-        return installHooks(hooks);
-    }
-
-} // namespace lotus::apphook

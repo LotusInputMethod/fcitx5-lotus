@@ -13,7 +13,6 @@
 #ifndef _SRC_LOTUS_APPHOOK_TARGET_H_
 #define _SRC_LOTUS_APPHOOK_TARGET_H_
 
-#include "lotus-apphook-elfhook.h"
 #include "lotus-apphook-protocol.h"
 
 #include <atomic>
@@ -49,7 +48,6 @@ namespace lotus::apphook {
         std::mutex                        mutex;
         std::atomic<bool>                 workersStarted{false};
         std::atomic<bool>                 initialized{false};
-        std::atomic<bool>                 lateAttached{false};
         std::atomic<bool>                 focusedX11{false};
         std::atomic<bool>                 observedX11Focus{false};
         std::atomic<bool>                 focusedWayland{false};
@@ -91,7 +89,6 @@ namespace lotus::apphook {
     bool xcbOwnsXlibConnection(void* connection);
     void wakeXcb();
     void loadXcb();
-    int  installXcbHooks();
     /**
      * @brief Takes the next pending keyboard request.
      * @return Pending request or an empty pointer.
@@ -119,16 +116,6 @@ namespace lotus::apphook {
      * @brief Resolves original Wayland client symbols.
      */
     void loadWayland();
-    /**
-     * @brief Patches Xlib keyboard event entry points.
-     * @return Number of newly patched relocation slots.
-     */
-    int installX11Hooks();
-    /**
-     * @brief Patches Wayland client keyboard event entry points.
-     * @return Number of newly patched relocation slots.
-     */
-    int installWaylandHooks();
 
 } // namespace lotus::apphook
 
