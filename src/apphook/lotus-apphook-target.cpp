@@ -22,7 +22,9 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <linux/input-event-codes.h>
+#include <link.h>
 #include <poll.h>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
@@ -45,13 +47,38 @@ namespace lotus::apphook {
         /** @brief Starts the workers on first focus or keyboard activity, outside library initialization. */
         void startWorkers() {
             Runtime& state = runtime();
-            if (!state.initialized.load(std::memory_order_acquire) ||
-                state.completionFd.load(std::memory_order_acquire) < 0 ||
-                state.workersStarted.exchange(true, std::memory_order_acq_rel)) {
+            if (!state.initialized.load(std::memory_order_acquire) || state.workersStarted.exchange(true, std::memory_order_acq_rel)) {
                 return;
             }
-            std::thread(connectLoop).detach();
-            std::thread(scanForHooks).detach();
+            const int wake       = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+            const int completion = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+            if (wake < 0 || completion < 0) {
+                if (wake >= 0)
+                    close(wake);
+                if (completion >= 0)
+                    close(completion);
+                state.workersStarted.store(false, std::memory_order_release);
+                return;
+            }
+            state.wakeFd.store(wake, std::memory_order_release);
+            state.completionFd.store(completion, std::memory_order_release);
+            try {
+                std::thread(connectLoop).detach();
+            } catch (const std::system_error&) {
+                state.wakeFd.store(-1, std::memory_order_release);
+                state.completionFd.store(-1, std::memory_order_release);
+                close(wake);
+                close(completion);
+                state.workersStarted.store(false, std::memory_order_release);
+                return;
+            }
+            if (state.lateAttached.load(std::memory_order_acquire)) {
+                try {
+                    std::thread(scanForHooks).detach();
+                } catch (const std::system_error&) {
+                    // IPC remains active even if the optional retroactive scanner fails.
+                }
+            }
         }
 
         /** @brief Signals the IPC worker when a keyboard focus state changes. */
@@ -357,12 +384,41 @@ namespace lotus::apphook {
             }
         }
 
-        /** @brief Installs initial hooks without creating a thread before application startup. */
+        /** @brief Distinguishes an executable preload from a library loaded after process startup. */
+        bool isLateLoad() {
+            struct LinkOrder {
+                bool seenLibc = false;
+                bool foundSelf = false;
+                bool late = false;
+            } order;
+            dl_iterate_phdr(
+                [](dl_phdr_info* info, size_t, void* context) {
+                    auto& order = *static_cast<LinkOrder*>(context);
+                    const char* name = info->dlpi_name;
+                    if (!name)
+                        return 0;
+                    if (std::strstr(name, "liblotus-apphook.so")) {
+                        order.foundSelf = true;
+                        order.late = order.seenLibc;
+                        return 1;
+                    }
+                    const char* base = std::strrchr(name, '/');
+                    base = base ? base + 1 : name;
+                    if (std::strcmp(base, "libc.so.6") == 0)
+                        order.seenLibc = true;
+                    return 0;
+                },
+                &order);
+            return !order.foundSelf || order.late;
+        }
+
+        /** @brief Keeps global preloads dormant; installs relocation hooks for late-loaded copies. */
         __attribute__((constructor)) void initialize() {
             Runtime& state = runtime();
-            state.wakeFd       = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-            state.completionFd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-            installHookPass();
+            const bool late = isLateLoad();
+            state.lateAttached.store(late, std::memory_order_release);
+            if (late)
+                installHookPass();
             state.initialized.store(true, std::memory_order_release);
         }
 

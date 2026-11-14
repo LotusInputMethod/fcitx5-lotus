@@ -47,9 +47,10 @@ namespace lotus::apphook {
         std::mutex                        mutex;
         std::atomic<bool>                 workersStarted{false};
         std::atomic<bool>                 initialized{false};
+        std::atomic<bool>                 lateAttached{false};
         std::atomic<bool>                 focusedX11{false};
         std::atomic<bool>                 focusedWayland{false};
-            std::deque<std::shared_ptr<Task>> pending;
+        std::deque<std::shared_ptr<Task>> pending;
         std::shared_ptr<Task>             activeX11;
         size_t                            inFlight = 0;
         std::atomic<int>                  wakeFd{-1};
