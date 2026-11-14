@@ -156,19 +156,13 @@ namespace fcitx {
         return focusedProgram_;
     }
 
-    pid_t WindowFocusTracker::focusedPid() const {
-        std::scoped_lock lock(programMutex_);
-        return focusedPid_;
-    }
-
-    void WindowFocusTracker::updateFocusedProgram(std::string_view program, pid_t pid) {
+    void WindowFocusTracker::updateFocusedProgram(std::string_view program) {
         {
             std::scoped_lock lock(programMutex_);
-            if (focusedProgram_ == program && focusedPid_ == pid) {
+            if (focusedProgram_ == program) {
                 return;
             }
             focusedProgram_ = program;
-            focusedPid_     = pid;
         }
         if (focusChanged_) {
             focusChanged_();
@@ -213,7 +207,6 @@ namespace fcitx {
             std::string windowBus;
             std::string windowPath;
             std::string windowProgram;
-            pid_t       windowPid      = 0;
             auto        clearNodeFocus = [&] {
                 browserUIFocused_.store(false, std::memory_order_relaxed);
                 focusBus.clear();
@@ -223,7 +216,6 @@ namespace fcitx {
                 windowBus.clear();
                 windowPath.clear();
                 windowProgram.clear();
-                windowPid = 0;
                 clearNodeFocus();
                 updateFocusedProgram({});
             };
@@ -244,7 +236,7 @@ namespace fcitx {
                                 clearWindowFocus();
                             } else if (name == focusBus) {
                                 clearNodeFocus();
-                                updateFocusedProgram(windowProgram, windowPid);
+                                updateFocusedProgram(windowProgram);
                             }
                         }
                     }
@@ -257,10 +249,9 @@ namespace fcitx {
                                 // Window activation is authoritative over any cached background field.
                                 windowBus     = sender;
                                 windowPath    = path;
-                                windowPid     = dbusConnectionPid(bus.get(), sender);
-                                windowProgram = programForPid(windowPid);
+                                windowProgram = programForPid(dbusConnectionPid(bus.get(), sender));
                                 clearNodeFocus();
-                                updateFocusedProgram(windowProgram, windowPid);
+                                updateFocusedProgram(windowProgram);
                             } else if (windowBus == sender && windowPath == path) {
                                 clearWindowFocus();
                             }
@@ -273,7 +264,7 @@ namespace fcitx {
                         if (!*focused) {
                             if (sender != nullptr && focusBus == sender && (path == nullptr || focusPath == path)) {
                                 clearNodeFocus();
-                                updateFocusedProgram(windowProgram, windowPid);
+                                updateFocusedProgram(windowProgram);
                             }
                         } else if (sender != nullptr && path != nullptr) {
                             if (!windowBus.empty() && windowBus != sender) {
@@ -282,11 +273,10 @@ namespace fcitx {
                             }
                             focusBus                  = sender;
                             focusPath                 = path;
-                            const pid_t       pid     = dbusConnectionPid(bus.get(), sender);
-                            const std::string program = programForPid(pid);
+                            const std::string program = programForPid(dbusConnectionPid(bus.get(), sender));
                             // Focus remains valid until a matching blur or disconnect, not merely until the
                             // next second. Publish before querying optional Chromium attributes, which may block.
-                            updateFocusedProgram(program, pid);
+                            updateFocusedProgram(program);
                             const bool        chromium  = isChromiumProgram(program);
                             const std::string className = chromium ? queryFocusClass(bus, sender, path) : std::string{};
                             browserUIFocused_.store(className.find("Omnibox") != std::string::npos, std::memory_order_relaxed);
