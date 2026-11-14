@@ -137,6 +137,14 @@ namespace lotus::utils {
     bool inKeyList(std::u32string_view keys, char32_t key);
 
     /**
+     * @brief Counts the run of one code point at the end of a word.
+     * @param word Input word.
+     * @param codePoint Code point to count.
+     * @return Length of the trailing run; 0 when the last code point differs.
+     */
+    [[nodiscard]] std::size_t countTrailingRepeat(std::u32string_view word, char32_t codePoint);
+
+    /**
      * @brief Reports whether the engine can process a key, like Go's canProcessKey.
      * @param lowerKey Lowercase key.
      * @param effectKeys Effect keys of the input method.

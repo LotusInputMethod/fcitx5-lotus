@@ -504,10 +504,8 @@ namespace lotus {
         if (tailChar != U'a' && tailChar != U'e') {
             return false;
         }
-        std::size_t tailCount = 0U;
-        while (tailCount < vnSeq.size() && vnSeq[vnSeq.size() - 1U - tailCount] == tailChar) {
-            ++tailCount;
-        }
+
+        const std::size_t tailCount = utils::countTrailingRepeat(vnSeq, tailChar);
         if (tailCount < 3U || tailCount >= vnSeq.size()) {
             return false;
         }
@@ -517,22 +515,12 @@ namespace lotus {
             return false;
         }
         const std::u32string rawSeq = getProcessedString(toMask(Mode::EnglishMode) | toMask(Mode::LowerCase));
-        if (!rawSeq.empty() && rawSeq.front() == U'w' && utils::findToneFromChar(head.back()) == Tone::None) {
+
+        if (!rawSeq.empty() && rawSeq.front() == U'w') {
             return false;
         }
         if (options_.spellCheckWithDicts) {
-            if (dictionary_ == nullptr) {
-                return false;
-            }
-            if (dictionary_->hasWord(head)) {
-                return true;
-            }
-            if (tailChar == U'a') {
-                std::u32string withA(head);
-                withA.push_back(U'a');
-                return dictionary_->hasWord(withA);
-            }
-            return false;
+            return dictionary_ != nullptr && dictionary_->hasWordOrPrefix(head);
         }
         if (lotus::isValid(processWordToComposition(head, !options_.modernStyle), true)) {
             return true;

@@ -747,6 +747,39 @@ namespace {
         checkU32("horn elongation dict=true: [zuwfaaa] commit", dictEngine.takeCommit(), U"zuwfaaa ");
     }
 
+    // The repeated 'e' elongation must be kept exactly like the 'a' one when the horn head only
+    // occurs in the dictionary as the start of a longer word ("vừ" -> "vừa", "mư" -> "mưa").
+    // The 'a' shape already works through the head + "a" fallback; the 'e' shape used to be
+    // restored to the raw key strokes instead, which is inconsistent.
+    void case_horn_elongation_dict_edges() {
+        const std::vector<std::string> dict = {"ừ", "ừa", "mưa", "vừa", "tư", "ơ", "ờ"};
+        struct Case {
+            std::string_view    keys;
+            std::u32string_view want;
+        };
+        const std::vector<Case> kept = {
+            {.keys = "vuwfeee", .want = U"vừeee "},
+            {.keys = "muweeee", .want = U"mưeeee "},
+            {.keys = "muwaaa", .want = U"mưaaa "},
+        };
+        for (const Case& c : kept) {
+            KeyProcessor engine = newTestEngine(dict, true);
+            typeKeys(engine, c.keys);
+            engine.processKey(lotus::kFcitxSpace, {});
+            const std::string name = "horn elongation dict=true: [" + std::string(c.keys) + "] commit";
+            checkU32(name.c_str(), engine.takeCommit(), c.want);
+        }
+        // Two repeated letters are below the expressive-elongation threshold: the word must still be
+        // restored to the raw key strokes, in both spell-check modes.
+        for (const bool withDicts : {true, false}) {
+            KeyProcessor engine = newTestEngine(dict, withDicts);
+            typeKeys(engine, "uwfaa");
+            engine.processKey(lotus::kFcitxSpace, {});
+            const std::string name = "horn elongation dict=" + std::string(withDicts ? "true" : "false") + ": [uwfaa] commit";
+            checkU32(name.c_str(), engine.takeCommit(), U"uwfaa ");
+        }
+    }
+
     // Replays test/golden/key_processor.tsv: one processor per case id, built from the opts/flags/
     // w2u/bracket of its first row exactly like bamboo/golden_dump_test.go dumpKeyProcessor does,
     // then one preeditProcessKeyEvent per step. Columns are case, step, keyHex, state, opts, flags,
@@ -874,12 +907,13 @@ int run_key_processor() {
     case_free_marking_flag();
     case_restore_word_before_digits_in_macro_mode();
     case_horn_vowel_elongation();
+    case_horn_elongation_dict_edges();
     const long goldenRows = replayGolden();
 
     if (failures != 0) {
         std::printf("%d failure(s)\n", failures);
         return 1;
     }
-    std::printf("lotus key processor: all checks passed (34 cases + golden %ld rows)\n", goldenRows);
+    std::printf("lotus key processor: all checks passed (35 cases + golden %ld rows)\n", goldenRows);
     return 0;
 }

@@ -633,9 +633,9 @@ namespace {
             std::u32string_view want;
         };
         const std::vector<Case> cases = {
-            {.keys = U"uwfaaa", .want = U"ừaaa"}, {.keys = U"owfaaa", .want = U"ờaaa"},  {.keys = U"vuwfaaa", .want = U"vừaaa"}, {.keys = U"muwaaaa", .want = U"mưaaaa"},
-            {.keys = U"uwfeee", .want = U"ừeee"}, {.keys = U"Uwfaaa", .want = U"Ừaaa"},  {.keys = U"quaa", .want = U"quâ"},      {.keys = U"taa", .want = U"tâ"},
-            {.keys = U"uwoo", .want = U"uô"},     {.keys = U"uwfa aa", .want = U"ừa â"}, {.keys = U"owuwee", .want = U"ơưê"},
+            {.keys = U"uwfaaa", .want = U"ừaaa"}, {.keys = U"owfaaa", .want = U"ờaaa"}, {.keys = U"vuwfaaa", .want = U"vừaaa"}, {.keys = U"muwaaaa", .want = U"mưaaaa"},
+            {.keys = U"muwaa", .want = U"mưaa"},  {.keys = U"uwfeee", .want = U"ừeee"}, {.keys = U"Uwfaaa", .want = U"Ừaaa"},   {.keys = U"quaa", .want = U"quâ"},
+            {.keys = U"taa", .want = U"tâ"},      {.keys = U"uwoo", .want = U"uô"},     {.keys = U"uwfa aa", .want = U"ừa â"},  {.keys = U"owuwee", .want = U"ơưê"},
         };
         for (const Case& c : cases) {
             Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::kEstdFlags);
