@@ -675,7 +675,7 @@ namespace lotus::apphook {
         }
         if (!queue)
             return;
-        wl_proxy* callback = originalMarshalConstructor(reinterpret_cast<wl_proxy*>(display), 0, callbackInterface, 1);
+        wl_proxy* callback = originalMarshalConstructor(reinterpret_cast<wl_proxy*>(display), 0, callbackInterface, 1, nullptr);
         if (!callback)
             return;
         originalSetQueue(callback, queue);
