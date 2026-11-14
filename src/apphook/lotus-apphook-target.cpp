@@ -42,6 +42,18 @@ namespace lotus::apphook {
         void connectLoop();
         void scanForHooks();
 
+        /** @brief Starts the workers on first focus or keyboard activity, outside library initialization. */
+        void startWorkers() {
+            Runtime& state = runtime();
+            if (!state.initialized.load(std::memory_order_acquire) ||
+                state.completionFd.load(std::memory_order_acquire) < 0 ||
+                state.workersStarted.exchange(true, std::memory_order_acq_rel)) {
+                return;
+            }
+            std::thread(connectLoop).detach();
+            std::thread(scanForHooks).detach();
+        }
+
         /** @brief Signals the IPC worker when a keyboard focus state changes. */
         void signalChange() {
             const int fd = runtime().completionFd.load(std::memory_order_acquire);
@@ -62,11 +74,17 @@ namespace lotus::apphook {
         if (runtime().focusedX11.exchange(focused, std::memory_order_acq_rel) != focused) {
             signalChange();
         }
+        if (focused) {
+            startWorkers();
+        }
     }
 
     void noteWaylandFocus(bool focused) {
         if (runtime().focusedWayland.exchange(focused, std::memory_order_acq_rel) != focused) {
             signalChange();
+        }
+        if (focused) {
+            startWorkers();
         }
     }
 
@@ -76,11 +94,7 @@ namespace lotus::apphook {
         } else {
             noteX11Focus(true);
         }
-        Runtime& state = runtime();
-        if (state.completionFd.load(std::memory_order_acquire) >= 0 && !state.keyboardActivity.exchange(true, std::memory_order_acq_rel)) {
-            std::thread(connectLoop).detach();
-            std::thread(scanForHooks).detach();
-        }
+        startWorkers();
     }
 
     std::shared_ptr<Task> takeTask() {
@@ -327,7 +341,7 @@ namespace lotus::apphook {
             }
         }
 
-        /** @brief Continues scanning for libraries loaded after the first keyboard event. */
+        /** @brief Continues scanning for libraries loaded after focus or keyboard activity. */
         void scanForHooks() {
             using namespace std::chrono_literals;
             Runtime& state = runtime();
@@ -349,6 +363,7 @@ namespace lotus::apphook {
             state.wakeFd       = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
             state.completionFd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
             installHookPass();
+            state.initialized.store(true, std::memory_order_release);
         }
 
     } // namespace
