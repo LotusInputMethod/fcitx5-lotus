@@ -84,6 +84,10 @@ namespace fcitx {
          * @return The state, or null when the context is gone.
          */
         LotusState* stateFor(InputContext* ic);
+        /** @brief Whether a different input context currently owns focus. */
+        bool otherContextActive(const InputContext* ic) const {
+            return activeContext_.get() && activeContext_.get() != ic;
+        }
 
         /**
          * @brief Schedules a task on the fcitx event loop thread.

@@ -420,6 +420,17 @@ namespace lotus::apphook {
 
 } // namespace lotus::apphook
 
+namespace lotus::apphook {
+    void prepareX11Fork() {
+        focusMutex.lock();
+    }
+    void finishX11Fork(bool child) {
+        if (child)
+            focusByDisplay.clear();
+        focusMutex.unlock();
+    }
+}
+
 #define LH_EXPORT extern "C" __attribute__((visibility("default")))
 
 /**

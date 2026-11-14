@@ -359,6 +359,20 @@ namespace lotus::apphook {
 
 } // namespace lotus::apphook
 
+namespace lotus::apphook {
+    void prepareXcbFork() {
+        xcbMutex.lock();
+    }
+    void finishXcbFork(bool child) {
+        if (child) {
+            connections.clear(); // closes inherited per-connection eventfds
+            xlibOwned.clear();
+            xcbEventOwners.clear();
+        }
+        xcbMutex.unlock();
+    }
+}
+
 #define LH_EXPORT extern "C" __attribute__((visibility("default")))
 
 LH_EXPORT xcb_connection_t* xcb_connect(const char* display, int* screen) {

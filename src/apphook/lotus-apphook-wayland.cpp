@@ -84,7 +84,7 @@ namespace lotus::apphook {
             const KeyboardListener* listener       = nullptr;
             const void*             implementation = nullptr;
             Dispatcher              dispatcher     = nullptr;
-            bool                    focused        = false;
+            std::atomic<bool>       focused{false};
             std::atomic<bool>       alive{true};
             uint32_t                serial     = 0;
             uint32_t                time       = 0;
@@ -103,6 +103,7 @@ namespace lotus::apphook {
         std::mutex                           waylandConnectionMutex;
         void*                                wayland = nullptr;
         void*                                xkb     = nullptr;
+        std::mutex                           xkbMutex;
         std::mutex                           resolveMutex;
 
         int (*originalAddListener)(wl_proxy*, void (**)(void), void*)                                                    = nullptr;
@@ -208,6 +209,7 @@ namespace lotus::apphook {
          * @brief Resolves optional XKB keymap symbols for modifier mapping.
          */
         void loadXkb() {
+            std::scoped_lock lock(xkbMutex);
             if (xkb)
                 return;
             xkb = dlopen("libxkbcommon.so.0", RTLD_NOW | RTLD_LOCAL);
@@ -571,12 +573,12 @@ namespace lotus::apphook {
             const uint32_t prior = keyboard->depressed;
             KeySequence    sequence(task->ops);
             while (const KeyOperation* op = sequence.operation()) {
-                if (!keyboard->alive || task->cancelled.load(std::memory_order_acquire))
+                if (!keyboard->alive || !keyboard->focused || task->cancelled.load(std::memory_order_acquire))
                     break;
                 const uint32_t combined = prior | modifierMask(*keyboard, op->modifiers);
                 if (combined != prior)
                     emitModifiers(keyboard.get(), combined);
-                while (sequence.operation() == op && keyboard->alive && (!task->cancelled.load(std::memory_order_acquire) || sequence.needsRelease())) {
+                while (sequence.operation() == op && keyboard->alive && ((keyboard->focused && !task->cancelled.load(std::memory_order_acquire)) || sequence.needsRelease())) {
                     const auto edge = sequence.current();
                     if (edge->pressed)
                         task->applied.store(true, std::memory_order_release);
@@ -587,7 +589,7 @@ namespace lotus::apphook {
                     emitModifiers(keyboard.get(), prior);
             }
             std::scoped_lock lock(runtime().mutex);
-            finishLocked(task, !keyboard->alive ? -ENOTCONN : task->cancelled.load(std::memory_order_acquire) ? -ECANCELED : 0);
+            finishLocked(task, !keyboard->alive ? -ENOTCONN : (!keyboard->focused || task->cancelled.load(std::memory_order_acquire)) ? -ECANCELED : 0);
         }
 
         /**
@@ -674,6 +676,21 @@ namespace lotus::apphook {
     }
 
 } // namespace lotus::apphook
+
+namespace lotus::apphook {
+    void prepareWaylandFork() {
+        waylandConnectionMutex.lock();
+        keyboardMutex.lock();
+        xkbMutex.lock();
+    }
+    void finishWaylandFork(bool child) {
+        if (child)
+            keyboards.clear();
+        xkbMutex.unlock();
+        keyboardMutex.unlock();
+        waylandConnectionMutex.unlock();
+    }
+}
 
 #define LH_EXPORT extern "C" __attribute__((visibility("default")))
 

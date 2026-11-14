@@ -784,10 +784,10 @@ namespace fcitx {
         auto*      state      = ic->propertyFor(&factory_);
         const bool uinputMode = isUinputMode(currentMode());
 
-        if (uinputMode && g_isDeleting.load(std::memory_order_acquire) && state->expectedBackspaces_ > 0) {
+        if (g_isDeleting.load(std::memory_order_acquire) && ((uinputMode && state->expectedBackspaces_ > 0) || state->appHookPid_ > 0)) {
             state->lastDeactivateTime_    = nowMs();
             state->deletionInterruptedAt_ = state->lastDeactivateTime_;
-            if (state->realSelect_) {
+            if (state->realSelect_ && state->appHookPid_ == 0) {
                 state->deferSelectAbort();
             }
             LOTUS_INFO("Replacement interrupted by focus out");

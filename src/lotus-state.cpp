@@ -222,6 +222,10 @@ namespace fcitx {
         if (!g_isDeleting.load(std::memory_order_acquire)) {
             return;
         }
+        if (appHookPid_ > 0) {
+            replacementDeadlineMs_ = nowMs() + 5000;
+            return;
+        }
         const auto remaining   = static_cast<int64_t>(expectedBackspaces_ - std::min(expectedBackspaces_, currentBackspaceCount_));
         replacementDeadlineMs_ = nowMs() + (remaining * static_cast<int64_t>(burstIntervalMs_)) + replacementEchoGrace_;
     }
@@ -584,6 +588,22 @@ namespace fcitx {
         }
     }
 
+    void LotusState::deferCompletedAppHookReplacement() {
+        // The target finished deleting text, but the input context is no longer
+        // focused. Never commit into another application; reconcile on refocus.
+        stashedCommit_      = pendingCommitString_;
+        stashedNewWord_     = oldPreBuffer_;
+        uinputAbortTimeMs_  = nowMs();
+        uinputAbortPending_ = !stashedCommit_.empty() || !bufferedKeys_.empty();
+        pendingCommitString_.clear();
+        replacementDeadlineMs_ = 0;
+        expectedBackspaces_    = 0;
+        currentBackspaceCount_ = 0;
+        deletionInterruptedAt_ = 0;
+        if (!engine_.otherContextActive(&ic_))
+            g_isDeleting.store(false, std::memory_order_release);
+    }
+
     void LotusState::abortUncertainAppHookReplacement() {
         ++replacementToken_;
         cancelSelectAbort();
@@ -595,7 +615,8 @@ namespace fcitx {
         replacementDeadlineMs_ = 0;
         realSelect_            = false;
         lastSelect_            = false;
-        g_isDeleting.store(false, std::memory_order_release);
+        if (!engine_.otherContextActive(&ic_))
+            g_isDeleting.store(false, std::memory_order_release);
         (*lotusEngine_).reset();
         oldPreBuffer_.clear();
         hasHistory_ = false;
@@ -751,13 +772,22 @@ namespace fcitx {
                             state->appHookPid_       = 0;
                             state->appHookRequestId_ = 0;
                             if (result == 0) {
-                                state->finishScheduledReplacement(token);
+                                if (!icRef.get()->hasFocus())
+                                    state->deferCompletedAppHookReplacement();
+                                else
+                                    state->finishScheduledReplacement(token);
                             } else if (result == -EINPROGRESS) {
                                 // The target may have applied some keys. Replaying the full
                                 // burst via uinput would delete text twice.
                                 LOTUS_WARN("apphook: uncertain partial delivery, aborting replacement without replay");
                                 state->abortUncertainAppHookReplacement();
                             } else {
+                                if (!icRef.get()->hasFocus()) {
+                                    // The failure occurred after focus was lost. Do not
+                                    // replay a burst into the newly focused application.
+                                    state->abortUncertainAppHookReplacement();
+                                    return;
+                                }
                                 LOTUS_DEBUG("apphook: failed request=" + std::to_string(requestId) + ", using standard backend fallback");
                                 // No keys were applied: discard the AppHook burst state before
                                 // retrying the existing display-server backend selection.

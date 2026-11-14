@@ -422,6 +422,8 @@ namespace fcitx {
         void finishReplacementNow();
         /** @brief Aborts an apphook replacement whose delivery cannot be determined. */
         void abortUncertainAppHookReplacement();
+        /** @brief Stages a completed AppHook replacement for the original context to refocus. */
+        void deferCompletedAppHookReplacement();
 
         /**
          * @brief Performs text replacement via virtual-keyboard-unstable-v1 when

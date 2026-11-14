@@ -22,6 +22,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <pthread.h>
 #include <vector>
 
 struct wl_display;
@@ -45,7 +46,11 @@ namespace lotus::apphook {
      * @brief Shared request queue and input backend state in the target process.
      */
     struct Runtime {
+        ~Runtime();
         std::mutex                        mutex;
+        std::mutex                        workerMutex;
+        pthread_t                         worker{};
+        bool                              workerJoinable = false;
         std::atomic<bool>                 workersStarted{false};
         std::atomic<bool>                 initialized{false};
         std::atomic<bool>                 focusedX11{false};
@@ -58,6 +63,7 @@ namespace lotus::apphook {
         size_t                            inFlight         = 0;
         std::atomic<int>                  wakeFd{-1};
         std::atomic<int>                  completionFd{-1};
+        std::atomic<int>                  connectionFd{-1};
         std::atomic<bool>                 readyX11{false};
         std::atomic<bool>                 readyWayland{false};
         std::atomic<bool>                 readyXcb{false};
@@ -70,6 +76,14 @@ namespace lotus::apphook {
      * @return Shared runtime instance.
      */
     Runtime& runtime();
+    // Per-backend fork guards protect their registries while the child resets
+    // inherited connections; called by the central pthread_atfork handlers.
+    void prepareX11Fork();
+    void finishX11Fork(bool child);
+    void prepareXcbFork();
+    void finishXcbFork(bool child);
+    void prepareWaylandFork();
+    void finishWaylandFork(bool child);
     /** @brief Starts the IPC worker after keyboard focus or the first delivered key. */
     void noteKeyboardActivity(bool wayland);
     /** @brief Updates Xlib keyboard focus and starts lazy IPC on focus-in. */

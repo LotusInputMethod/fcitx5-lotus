@@ -22,6 +22,7 @@
 #include <chrono>
 #include <linux/input-event-codes.h>
 #include <poll.h>
+#include <pthread.h>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <thread>
@@ -30,6 +31,25 @@
 
 namespace lotus::apphook {
 
+    Runtime::~Runtime() {
+        std::scoped_lock lock(workerMutex);
+        initialized.store(false, std::memory_order_release);
+        shuttingDown.store(true, std::memory_order_release);
+        const int completion = completionFd.load(std::memory_order_acquire);
+        if (completion >= 0) {
+            const uint64_t one = 1;
+            (void)write(completion, &one, sizeof(one));
+        }
+        if (workerJoinable)
+            (void)pthread_join(worker, nullptr);
+        const int wake = wakeFd.exchange(-1, std::memory_order_acq_rel);
+        if (wake >= 0)
+            close(wake);
+        const int done = completionFd.exchange(-1, std::memory_order_acq_rel);
+        if (done >= 0)
+            close(done);
+    }
+
     Runtime& runtime() {
         // The preloaded hook keeps its runtime for the lifetime of the application.
         static Runtime state;
@@ -37,12 +57,69 @@ namespace lotus::apphook {
     }
 
     namespace {
-        void connectLoop();
+        void  connectLoop();
+        void* runWorker(void*) {
+            connectLoop();
+            return nullptr;
+        }
+
+        void prepareFork() {
+            // Match backend -> worker -> request locking order used by hooks.
+            prepareXcbFork();
+            prepareWaylandFork();
+            prepareX11Fork();
+            Runtime& state = runtime();
+            state.workerMutex.lock();
+            state.mutex.lock();
+        }
+
+        void parentFork() {
+            Runtime& state = runtime();
+            state.mutex.unlock();
+            state.workerMutex.unlock();
+            finishX11Fork(false);
+            finishWaylandFork(false);
+            finishXcbFork(false);
+        }
+
+        void childFork() {
+            Runtime& state = runtime();
+            // Only the calling thread survives fork(). The parent's pthread
+            // cannot be joined in the child.
+            state.worker         = pthread_t{};
+            state.workerJoinable = false;
+            for (auto* fd : {&state.wakeFd, &state.completionFd, &state.connectionFd}) {
+                const int inherited = fd->exchange(-1, std::memory_order_acq_rel);
+                if (inherited >= 0)
+                    close(inherited);
+            }
+            state.pending.clear();
+            state.activeX11.reset();
+            state.activeX11Display = nullptr;
+            state.inFlight         = 0;
+            state.workersStarted.store(false, std::memory_order_release);
+            state.shuttingDown.store(false, std::memory_order_release);
+            state.focusedX11.store(false, std::memory_order_release);
+            state.focusedWayland.store(false, std::memory_order_release);
+            state.focusedXcb.store(false, std::memory_order_release);
+            state.observedX11Focus.store(false, std::memory_order_release);
+            state.readyX11.store(false, std::memory_order_release);
+            state.readyWayland.store(false, std::memory_order_release);
+            state.readyXcb.store(false, std::memory_order_release);
+            state.waylandDisplay.store(nullptr, std::memory_order_release);
+            state.mutex.unlock();
+            state.workerMutex.unlock();
+            finishX11Fork(true);
+            finishWaylandFork(true);
+            finishXcbFork(true);
+        }
 
         /** @brief Starts the workers on first focus or keyboard activity, outside library initialization. */
         void startWorkers() {
-            Runtime& state = runtime();
-            if (!state.initialized.load(std::memory_order_acquire) || state.workersStarted.exchange(true, std::memory_order_acq_rel)) {
+            Runtime&         state = runtime();
+            std::scoped_lock workerLock(state.workerMutex);
+            if (!state.initialized.load(std::memory_order_acquire) || state.shuttingDown.load(std::memory_order_acquire) ||
+                state.workersStarted.exchange(true, std::memory_order_acq_rel)) {
                 return;
             }
             const int wake       = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
@@ -57,9 +134,7 @@ namespace lotus::apphook {
             }
             state.wakeFd.store(wake, std::memory_order_release);
             state.completionFd.store(completion, std::memory_order_release);
-            try {
-                std::thread(connectLoop).detach();
-            } catch (const std::system_error&) {
+            if (pthread_create(&state.worker, nullptr, &runWorker, nullptr) != 0) {
                 state.wakeFd.store(-1, std::memory_order_release);
                 state.completionFd.store(-1, std::memory_order_release);
                 close(wake);
@@ -67,6 +142,7 @@ namespace lotus::apphook {
                 state.workersStarted.store(false, std::memory_order_release);
                 return;
             }
+            state.workerJoinable = true;
         }
 
         /** @brief Signals the IPC worker when a keyboard focus state changes. */
@@ -309,6 +385,17 @@ namespace lotus::apphook {
             tasks.clear();
         }
 
+        struct ConnectionRegistration {
+            Runtime& state;
+            explicit ConnectionRegistration(Runtime& state) : state(state) {}
+            void set(int fd) {
+                state.connectionFd.store(fd, std::memory_order_release);
+            }
+            ~ConnectionRegistration() {
+                state.connectionFd.store(-1, std::memory_order_release);
+            }
+        };
+
         /** @brief Reconnects to the shared Fcitx5 listener and handles its requests. */
         void connectLoop() {
             using namespace std::chrono_literals;
@@ -324,7 +411,9 @@ namespace lotus::apphook {
                     std::this_thread::sleep_for(250ms);
                     continue;
                 }
-                FdGuard connection(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0));
+                ConnectionRegistration registration(state);
+                FdGuard                connection(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
+                registration.set(connection.get());
                 if (connection.get() < 0 || connect(connection.get(), reinterpret_cast<sockaddr*>(&address), addressSize) != 0) {
                     std::this_thread::sleep_for(250ms);
                     continue;
@@ -347,6 +436,8 @@ namespace lotus::apphook {
                 while (!state.shuttingDown.load()) {
                     pollfd    fds[2] = {{connection.get(), POLLIN, 0}, {state.completionFd.load(), POLLIN, 0}};
                     const int result = poll(fds, 2, -1);
+                    if (state.shuttingDown.load(std::memory_order_acquire))
+                        break;
                     if (result < 0 && errno == EINTR) {
                         continue;
                     }
@@ -393,6 +484,7 @@ namespace lotus::apphook {
         /** @brief Marks the preload runtime ready without starting IPC before keyboard activity. */
         __attribute__((constructor)) void initialize() {
             runtime().initialized.store(true, std::memory_order_release);
+            (void)pthread_atfork(&prepareFork, &parentFork, &childFork);
         }
 
     } // namespace
