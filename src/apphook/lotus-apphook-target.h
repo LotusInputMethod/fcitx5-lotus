@@ -38,6 +38,8 @@ namespace lotus::apphook {
         size_t                    x11Remaining = 0;
         int                       status       = 0;
         bool                      done         = false;
+        std::atomic<bool>         cancelled{false};
+        std::atomic<bool>         applied{false};
     };
 
     /**
@@ -49,6 +51,7 @@ namespace lotus::apphook {
         std::atomic<bool>                 initialized{false};
         std::atomic<bool>                 lateAttached{false};
         std::atomic<bool>                 focusedX11{false};
+        std::atomic<bool>                 observedX11Focus{false};
         std::atomic<bool>                 focusedWayland{false};
         std::deque<std::shared_ptr<Task>> pending;
         std::shared_ptr<Task>             activeX11;

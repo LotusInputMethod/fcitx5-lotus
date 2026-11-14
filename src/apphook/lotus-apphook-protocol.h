@@ -29,7 +29,8 @@ namespace lotus::apphook {
     constexpr size_t   kMaxTaps      = 4096;
     constexpr size_t   kMaxTasks     = 64;
     constexpr size_t   kMaxPeers     = 128;
-    constexpr uint32_t kReadyFocused = 1U; ///< Focus snapshot carried by Ready.
+    constexpr uint32_t kReadyFocused           = 1U; ///< Focus snapshot carried by Ready.
+    constexpr uint32_t kCompleteMayHaveApplied = 1U; ///< A failed request already delivered synthetic input.
 
     /** @brief Commands sent from the Fcitx5 addon to an application hook. */
     enum class Command : uint16_t {
@@ -61,7 +62,7 @@ namespace lotus::apphook {
         uint16_t     version   = kVersion;
         ResponseKind type      = ResponseKind::Ready;
         int32_t      status    = 0;
-        uint32_t     reserved  = 0; ///< kReadyFocused is set for a focused Ready response.
+        uint32_t     reserved  = 0; ///< Ready: focus flag; Complete: partial-delivery flag.
         uint64_t     requestId = 0;
     };
 

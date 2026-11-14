@@ -212,9 +212,18 @@ namespace fcitx {
         }
 
         std::unique_lock lock(session->mutex);
-        const bool done   = session->completed.wait_for(lock, std::chrono::milliseconds(3000), [&] { return session->hasReply || !session->connected.load() || stopping_.load(); });
-        const int  status = !done ? -ETIMEDOUT : !session->connected.load() || stopping_ ? -ENOTCONN : session->result;
+        const bool done = session->completed.wait_for(lock, std::chrono::milliseconds(3000), [&] { return session->hasReply || !session->connected.load() || stopping_.load(); });
+        // Once Emit was accepted by the socket, neither a timeout nor a lost
+        // connection proves that no keys reached the application.
+        const int status = session->hasReply ? session->result : -EINPROGRESS;
         session->waitingId = 0;
+        lock.unlock();
+        if (!done || status == -EINPROGRESS) {
+            Request cancel{};
+            cancel.type      = Command::Cancel;
+            cancel.requestId = work.requestId;
+            (void)sendRequest(session, cancel, kRequestHeaderSize);
+        }
         return status;
     }
 
@@ -363,7 +372,7 @@ namespace fcitx {
                     } else if (!drop && response.type == ResponseKind::Complete && response.requestId != 0) {
                         std::scoped_lock lock(session->mutex);
                         if (response.requestId == session->waitingId) {
-                            session->result   = response.status;
+                            session->result   = response.status != 0 && (response.reserved & kCompleteMayHaveApplied) ? -EINPROGRESS : response.status;
                             session->hasReply = true;
                             session->completed.notify_all();
                         }
