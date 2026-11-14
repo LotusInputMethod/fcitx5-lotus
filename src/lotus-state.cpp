@@ -21,6 +21,7 @@
 #include "input_method.h"
 #include "utf8.h"
 
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <fcitx-utils/keysym.h>
@@ -105,7 +106,7 @@ namespace fcitx {
     }
 
     bool LotusState::injectionUsable() const {
-        return vkUsable() || x11Usable();
+        return vkUsable() || x11Usable() || (*engine_.config().preferVirtualKeyboard && engine_.appHook().ready(engine_.appHookPid()));
     }
 
     bool LotusState::setupUinput() {
@@ -583,6 +584,26 @@ namespace fcitx {
         }
     }
 
+    void LotusState::abortUncertainAppHookReplacement() {
+        ++replacementToken_;
+        cancelSelectAbort();
+        appHookPid_          = 0;
+        appHookRequestId_    = 0;
+        pendingCommitString_.clear();
+        expectedBackspaces_    = 0;
+        currentBackspaceCount_ = 0;
+        replacementDeadlineMs_ = 0;
+        realSelect_            = false;
+        lastSelect_            = false;
+        g_isDeleting.store(false, std::memory_order_release);
+        (*lotusEngine_).reset();
+        oldPreBuffer_.clear();
+        hasHistory_ = false;
+        // Unknown partial deletion invalidates the replay context. Do not
+        // trigger another replacement from keys buffered during this burst.
+        bufferedKeys_.clear();
+    }
+
     void LotusState::finishScheduledReplacement(uint64_t token) {
         if (token != replacementToken_ || !g_isDeleting.load(std::memory_order_acquire)) {
             return;
@@ -727,7 +748,7 @@ namespace fcitx {
                         engine->scheduleOnMainThread([engine, icRef, token, hookPid, requestId, burstCount, selectMode, interval, postDelay, result] {
                             LOTUS_DEBUG("apphook: completed pid=" + std::to_string(hookPid) + " request=" + std::to_string(requestId) + " status=" + std::to_string(result));
                             auto* state = engine->stateFor(icRef.get());
-                            if (!state || state->replacementToken_ != token || state->appHookPid_ != hookPid) {
+                            if (!state || state->replacementToken_ != token || state->appHookPid_ != hookPid || state->appHookRequestId_ != requestId) {
                                 LOTUS_DEBUG("apphook: stale completion ignored request=" + std::to_string(requestId));
                                 return;
                             }
@@ -735,6 +756,11 @@ namespace fcitx {
                             state->appHookRequestId_ = 0;
                             if (result == 0) {
                                 state->finishScheduledReplacement(token);
+                            } else if (result == -EINPROGRESS) {
+                                // The target may have applied some keys. Replaying the full
+                                // burst via uinput would delete text twice.
+                                LOTUS_WARN("apphook: uncertain partial delivery, aborting replacement without replay");
+                                state->abortUncertainAppHookReplacement();
                             } else {
                                 LOTUS_DEBUG("apphook: failed request=" + std::to_string(requestId) + ", falling back to uinput");
                                 state->expectedBackspaces_ = static_cast<size_t>(burstCount);
@@ -1418,6 +1444,12 @@ namespace fcitx {
             return;
         }
 
+        if (appHookPid_ > 0) {
+            cancelPendingUinput();
+            LOTUS_WARN("apphook: replacement deadline elapsed; aborting without replay");
+            abortUncertainAppHookReplacement();
+            return;
+        }
         cancelPendingUinput();
         LOTUS_WARN("Replacement ack timed out, finishing without the remaining backspace echoes");
         appendCommit(pendingCommitString_);

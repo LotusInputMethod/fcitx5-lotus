@@ -558,10 +558,13 @@ namespace lotus::apphook {
                 return;
             const uint32_t prior = keyboard->depressed;
             for (const KeyOperation& op : task->ops) {
+                if (task->cancelled.load(std::memory_order_acquire))
+                    break;
                 const uint32_t combined = prior | modifierMask(*keyboard, op.modifiers);
                 if (combined != prior)
                     emitModifiers(keyboard, combined);
-                for (uint32_t i = 0; i < op.count; ++i) {
+                for (uint32_t i = 0; i < op.count && !task->cancelled.load(std::memory_order_acquire); ++i) {
+                    task->applied.store(true, std::memory_order_release);
                     emitKey(keyboard, op.keycode, 1);
                     emitKey(keyboard, op.keycode, 0);
                 }
@@ -569,7 +572,7 @@ namespace lotus::apphook {
                     emitModifiers(keyboard, prior);
             }
             std::scoped_lock lock(runtime().mutex);
-            finishLocked(task, 0);
+            finishLocked(task, task->cancelled.load(std::memory_order_acquire) ? -ECANCELED : 0);
         }
 
         /**

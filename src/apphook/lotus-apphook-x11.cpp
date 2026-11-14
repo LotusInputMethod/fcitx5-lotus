@@ -56,6 +56,8 @@ namespace lotus::apphook {
         Bool (*originalCheckIf)(Display*, XEvent*, Bool (*)(Display*, XEvent*, XPointer), XPointer)   = nullptr;
         int (*originalPending)(Display*)                                                              = nullptr;
         int (*originalPutBack)(Display*, XEvent*)                                                     = nullptr;
+        void (*originalLockDisplay)(Display*)                                                         = nullptr;
+        void (*originalUnlockDisplay)(Display*)                                                       = nullptr;
         int (*originalConnectionNumber)(Display*)                                                     = nullptr;
         Status (*originalGetFocus)(Display*, Window*, int*)                                           = nullptr;
         KeyCode (*originalKeysymToKeycode)(Display*, KeySym)                                          = nullptr;
@@ -71,14 +73,32 @@ namespace lotus::apphook {
             return reinterpret_cast<Function>(dlsym(xlib, name));
         }
 
-        /**
-         * @brief Acknowledges a batch after all synthetic X11 events have been consumed.
-         */
-        void acknowledgeCompleted() {
-            Runtime&         state = runtime();
+        /** @brief Matches application-local synthetic events in the Xlib queue. */
+        Bool syntheticEvent(Display*, XEvent* event, XPointer) {
+            return (event->type == KeyPress || event->type == KeyRelease) && event->xkey.serial == kInjectedSerial;
+        }
+
+        /** @brief Removes a cancelled task's undelivered events on the application thread. */
+        void purgeCancelled(Display* target) {
+            Runtime& state = runtime();
+            std::shared_ptr<Task> task;
+            {
+                std::scoped_lock lock(state.mutex);
+                task = state.activeX11;
+                if (!task || !task->cancelled.load(std::memory_order_acquire))
+                    return;
+            }
+            if (originalCheckIf) {
+                XEvent discarded{};
+                while (originalCheckIf(target, &discarded, &syntheticEvent, nullptr)) {
+                    std::scoped_lock lock(state.mutex);
+                    if (task->x11Remaining > 0)
+                        --task->x11Remaining;
+                }
+            }
             std::scoped_lock lock(state.mutex);
-            if (state.activeX11 && state.activeX11->x11Remaining == 0) {
-                finishLocked(state.activeX11, 0);
+            if (state.activeX11 == task && task->x11Remaining == 0) {
+                finishLocked(task, -ECANCELED);
                 state.activeX11.reset();
             }
         }
@@ -93,15 +113,22 @@ namespace lotus::apphook {
                 return;
             }
             if (event.type == FocusIn) {
+                runtime().observedX11Focus.store(true, std::memory_order_release);
                 noteX11Focus(true);
             } else if (event.type == FocusOut) {
+                runtime().observedX11Focus.store(true, std::memory_order_release);
                 noteX11Focus(false);
             }
             if ((event.type == KeyPress || event.type == KeyRelease) && event.xkey.serial == kInjectedSerial) {
                 Runtime&         state = runtime();
                 std::scoped_lock lock(state.mutex);
                 if (state.activeX11 && state.activeX11->x11Remaining > 0) {
-                    --state.activeX11->x11Remaining;
+                    auto task = state.activeX11;
+                    task->applied.store(true, std::memory_order_release);
+                    if (--task->x11Remaining == 0) {
+                        finishLocked(task, task->cancelled.load(std::memory_order_acquire) ? -ECANCELED : 0);
+                        state.activeX11.reset();
+                    }
                 }
             } else if (event.xany.window != None) {
                 targetWindow = event.xany.window;
@@ -149,78 +176,110 @@ namespace lotus::apphook {
         }
 
         /**
-         * @brief Prepends queued synthetic keyboard events to the Xlib event queue.
+         * @brief Appends synthetic keyboard events after already-queued native events.
          * @param target Application Xlib display.
          */
         void pump(Display* target) {
-            if (!target || !originalPutBack) {
+            if (!target || !originalPutBack || !originalNext || !originalPending || !originalLockDisplay || !originalUnlockDisplay)
                 return;
-            }
+            if (runtime().observedX11Focus.load(std::memory_order_acquire) && !runtime().focusedX11.load(std::memory_order_acquire))
+                return;
             {
                 std::scoped_lock lock(runtime().mutex);
-                if (runtime().activeX11) {
+                if (runtime().activeX11 || runtime().pending.empty())
                     return;
-                }
             }
             if (!targetWindow) {
                 Window focused = None;
                 int    revert  = 0;
-                if (originalGetFocus && originalGetFocus(target, &focused, &revert) && focused != None && focused != PointerRoot) {
+                if (originalGetFocus && originalGetFocus(target, &focused, &revert) && focused != None && focused != PointerRoot)
                     targetWindow = focused;
-                }
             }
-            if (!targetWindow) {
+            if (!targetWindow)
                 return;
-            }
             runtime().readyX11.store(true, std::memory_order_release);
-            auto task = takeTask();
-            if (!task) {
+
+            // Keep the native queue order intact even when an XCheck* filter
+            // ignores an unrelated event at its head. Serialise Xlib calls so
+            // other application threads cannot observe the temporary drain.
+            originalLockDisplay(target);
+            const int queued = originalPending(target);
+            if (queued < 0 || queued > 4096) {
+                originalUnlockDisplay(target);
                 return;
             }
-            {
-                std::scoped_lock lock(runtime().mutex);
-                runtime().activeX11 = task;
-            }
-
+            std::vector<XEvent> native;
+            std::vector<XEvent> injected;
             try {
-                size_t taps = 0;
-                for (const auto& op : task->ops) {
-                    taps += op.count;
+                native.reserve(static_cast<size_t>(queued));
+                for (int i = 0; i < queued; ++i) {
+                    XEvent event{};
+                    originalNext(target, &event);
+                    native.push_back(event);
                 }
-                std::vector<XEvent> events;
-                events.reserve(taps * 2);
-                for (const auto& op : task->ops) {
-                    const KeyCode code = keycode(target, op.keycode);
-                    for (uint32_t i = 0; i < op.count; ++i) {
-                        for (int edge = 0; edge < 2; ++edge) {
-                            XEvent event{};
-                            event.xkey.type        = edge ? KeyRelease : KeyPress;
-                            event.xkey.display     = target;
-                            event.xkey.window      = targetWindow;
-                            event.xkey.root        = originalRootWindow ? originalRootWindow(target) : targetWindow;
-                            event.xkey.time        = CurrentTime;
-                            event.xkey.keycode     = code;
-                            event.xkey.state       = modifiers(op.modifiers);
-                            event.xkey.same_screen = True;
-                            event.xkey.send_event  = True;
-                            event.xkey.serial      = kInjectedSerial;
-                            events.push_back(event);
+
+                // A pending focus transition must be delivered to the app first.
+                // In particular, a filtered KeyPress lookup must not bypass FocusOut.
+                const bool focusTransition = std::any_of(native.begin(), native.end(), [](const XEvent& event) {
+                    return event.type == FocusIn || event.type == FocusOut;
+                });
+                if (!focusTransition) {
+                    auto task = takeTask();
+                    if (task) {
+                        {
+                            std::scoped_lock lock(runtime().mutex);
+                            runtime().activeX11 = task;
+                        }
+                        size_t taps = 0;
+                        for (const auto& op : task->ops)
+                            taps += op.count;
+                        injected.reserve(taps * 2);
+                        for (const auto& op : task->ops) {
+                            const KeyCode code = keycode(target, op.keycode);
+                            for (uint32_t i = 0; i < op.count; ++i) {
+                                for (int edge = 0; edge < 2; ++edge) {
+                                    XEvent event{};
+                                    event.xkey.type        = edge ? KeyRelease : KeyPress;
+                                    event.xkey.display     = target;
+                                    event.xkey.window      = targetWindow;
+                                    event.xkey.root        = originalRootWindow ? originalRootWindow(target) : targetWindow;
+                                    event.xkey.time        = CurrentTime;
+                                    event.xkey.keycode     = code;
+                                    event.xkey.state       = modifiers(op.modifiers);
+                                    event.xkey.same_screen = True;
+                                    event.xkey.send_event  = True;
+                                    event.xkey.serial      = kInjectedSerial;
+                                    injected.push_back(event);
+                                }
+                            }
+                        }
+                        if (task->cancelled.load(std::memory_order_acquire)) {
+                            std::scoped_lock lock(runtime().mutex);
+                            finishLocked(task, -ECANCELED);
+                            runtime().activeX11.reset();
+                            injected.clear();
+                        } else {
+                            std::scoped_lock lock(runtime().mutex);
+                            task->x11Remaining = injected.size();
                         }
                     }
                 }
-                {
-                    std::scoped_lock lock(runtime().mutex);
-                    task->x11Remaining = events.size();
-                }
-                // XPutBackEvent prepends, so insert in reverse order.
-                for (auto it = events.rbegin(); it != events.rend(); ++it) {
-                    originalPutBack(target, &*it);
-                }
             } catch (const std::bad_alloc&) {
                 std::scoped_lock lock(runtime().mutex);
-                finishLocked(task, -ENOMEM);
-                runtime().activeX11.reset();
+                if (runtime().activeX11) {
+                    finishLocked(runtime().activeX11, -ENOMEM);
+                    runtime().activeX11.reset();
+                }
+                injected.clear();
             }
+            // XPutBackEvent prepends; restoring in reverse yields native FIFO
+            // followed by synthetic FIFO, without changing any original event.
+            for (auto it = injected.rbegin(); it != injected.rend(); ++it)
+                originalPutBack(target, &*it);
+            for (auto it = native.rbegin(); it != native.rend(); ++it)
+                originalPutBack(target, &*it);
+            purgeCancelled(target);
+            originalUnlockDisplay(target);
         }
 
         /**
@@ -252,7 +311,7 @@ namespace lotus::apphook {
          */
         void onEntry(Display* target) {
             display = target;
-            acknowledgeCompleted();
+            purgeCancelled(target);
             // XPutBackEvent prepends events, so never overtake native events already queued.
             if (originalPending && originalPending(target) == 0) {
                 pump(target);
@@ -306,6 +365,8 @@ namespace lotus::apphook {
         originalCheckIf                = resolve<decltype(originalCheckIf)>("XCheckIfEvent");
         originalPending                = resolve<decltype(originalPending)>("XPending");
         originalPutBack                = resolve<decltype(originalPutBack)>("XPutBackEvent");
+        originalLockDisplay            = resolve<decltype(originalLockDisplay)>("XLockDisplay");
+        originalUnlockDisplay          = resolve<decltype(originalUnlockDisplay)>("XUnlockDisplay");
         originalConnectionNumber       = resolve<decltype(originalConnectionNumber)>("XConnectionNumber");
         originalGetFocus               = resolve<decltype(originalGetFocus)>("XGetInputFocus");
         originalKeysymToKeycode        = resolve<decltype(originalKeysymToKeycode)>("XKeysymToKeycode");

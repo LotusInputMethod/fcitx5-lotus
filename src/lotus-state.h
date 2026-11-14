@@ -420,6 +420,8 @@ namespace fcitx {
          * @brief Commits the pending replacement without touching the key event.
          */
         void finishReplacementNow();
+        /** @brief Aborts an apphook replacement whose delivery cannot be determined. */
+        void abortUncertainAppHookReplacement();
 
         /**
          * @brief Performs text replacement via virtual-keyboard-unstable-v1 when

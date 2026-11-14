@@ -206,13 +206,20 @@ namespace lotus::apphook {
                 if (received != static_cast<ssize_t>(kRequestHeaderSize)) {
                     return -EINVAL;
                 }
-                std::scoped_lock lock(state.mutex);
-                const auto       it = std::find_if(state.pending.begin(), state.pending.end(), [&](const auto& task) { return task->requestId == request.requestId; });
-                if (it != state.pending.end()) {
-                    auto task = *it;
-                    state.pending.erase(it);
-                    finishLocked(task, -ECANCELED);
+                {
+                    std::scoped_lock lock(state.mutex);
+                    const auto taskIt = tasks.find(request.requestId);
+                    if (taskIt != tasks.end()) {
+                        const auto& task = taskIt->second;
+                        task->cancelled.store(true, std::memory_order_release);
+                        const auto pendingIt = std::find(state.pending.begin(), state.pending.end(), task);
+                        if (pendingIt != state.pending.end()) {
+                            state.pending.erase(pendingIt);
+                            finishLocked(task, -ECANCELED);
+                        }
+                    }
                 }
+                wakeApplication();
                 return 0;
             }
             if (request.type != Command::Emit || request.requestId == 0 || request.count == 0 || request.count > kMaxOps ||
@@ -254,12 +261,17 @@ namespace lotus::apphook {
          */
         bool flushCompleted(int fd, std::unordered_map<uint64_t, std::shared_ptr<Task>>& tasks) {
             Runtime&                              state = runtime();
-            std::vector<std::pair<uint64_t, int>> finished;
+            struct Completion {
+                uint64_t requestId;
+                int      status;
+                bool     applied;
+            };
+            std::vector<Completion> finished;
             {
                 std::scoped_lock lock(state.mutex);
                 for (auto it = tasks.begin(); it != tasks.end();) {
                     if (it->second->done) {
-                        finished.emplace_back(it->first, it->second->status);
+                        finished.push_back({it->first, it->second->status, it->second->applied.load(std::memory_order_acquire)});
                         --state.inFlight;
                         it = tasks.erase(it);
                     } else {
@@ -267,8 +279,8 @@ namespace lotus::apphook {
                     }
                 }
             }
-            for (const auto& [requestId, status] : finished) {
-                if (!reply(fd, ResponseKind::Complete, requestId, status)) {
+            for (const auto& finishedTask : finished) {
+                if (!reply(fd, ResponseKind::Complete, finishedTask.requestId, finishedTask.status, finishedTask.applied ? kCompleteMayHaveApplied : 0)) {
                     return false;
                 }
             }
@@ -283,6 +295,7 @@ namespace lotus::apphook {
             Runtime&         state = runtime();
             std::scoped_lock lock(state.mutex);
             for (const auto& [requestId, task] : tasks) {
+                task->cancelled.store(true, std::memory_order_release);
                 const auto it = std::find(state.pending.begin(), state.pending.end(), task);
                 if (it != state.pending.end()) {
                     state.pending.erase(it);
