@@ -224,13 +224,39 @@ namespace lotus::apphook {
         }
 
         /**
-         * @brief Processes queued events when an application enters the Xlib event loop.
+         * @brief Retrieves an eligible native event before considering synthetic events.
+         * @param target Application Xlib display.
+         * @param check Nonblocking Xlib filter that removes an eligible event.
+         * @return Whether an eligible event was retrieved.
+         */
+        template <typename Check>
+        bool nextMatching(Display* target, Check&& check) {
+            if (check()) {
+                return true;
+            }
+            // An application may leave unrelated events queued while using a filtered API.
+            // After no native event matches the filter, synthetic input may satisfy it.
+            {
+                std::scoped_lock lock(runtime().mutex);
+                if (runtime().pending.empty() || runtime().activeX11) {
+                    return false;
+                }
+            }
+            pump(target);
+            return check();
+        }
+
+        /**
+         * @brief Processes synthetic events only after older Xlib events have been consumed.
          * @param target Application Xlib display.
          */
         void onEntry(Display* target) {
             display = target;
             acknowledgeCompleted();
-            pump(target);
+            // XPutBackEvent prepends events, so never overtake native events already queued.
+            if (originalPending && originalPending(target) == 0) {
+                pump(target);
+            }
         }
 
         /**
@@ -416,7 +442,7 @@ LH_EXPORT int XMaskEvent(Display* target, long mask, XEvent* event) {
         return -1;
     onEntry(target);
     if (originalCheckMask && originalConnectionNumber && runtime().wakeFd >= 0) {
-        while (!originalCheckMask(target, mask, event))
+        while (!nextMatching(target, [&] { return originalCheckMask(target, mask, event); }))
             waitForEvent(target);
         recordEvent(*event, true);
         return 0;
@@ -443,7 +469,7 @@ LH_EXPORT int XWindowEvent(Display* target, Window window, long mask, XEvent* ev
         return -1;
     onEntry(target);
     if (originalCheckWindow && originalConnectionNumber && runtime().wakeFd >= 0) {
-        while (!originalCheckWindow(target, window, mask, event))
+        while (!nextMatching(target, [&] { return originalCheckWindow(target, window, mask, event); }))
             waitForEvent(target);
         recordEvent(*event, true);
         return 0;
@@ -468,7 +494,7 @@ LH_EXPORT Bool XCheckMaskEvent(Display* target, long mask, XEvent* event) {
     if (!originalCheckMask)
         return False;
     onEntry(target);
-    const Bool found = originalCheckMask(target, mask, event);
+    const Bool found = nextMatching(target, [&] { return originalCheckMask(target, mask, event); });
     if (found)
         recordEvent(*event, true);
     return found;
@@ -489,7 +515,7 @@ LH_EXPORT Bool XCheckWindowEvent(Display* target, Window window, long mask, XEve
     if (!originalCheckWindow)
         return False;
     onEntry(target);
-    const Bool found = originalCheckWindow(target, window, mask, event);
+    const Bool found = nextMatching(target, [&] { return originalCheckWindow(target, window, mask, event); });
     if (found)
         recordEvent(*event, true);
     return found;
@@ -509,7 +535,7 @@ LH_EXPORT Bool XCheckTypedEvent(Display* target, int type, XEvent* event) {
     if (!originalCheckTyped)
         return False;
     onEntry(target);
-    const Bool found = originalCheckTyped(target, type, event);
+    const Bool found = nextMatching(target, [&] { return originalCheckTyped(target, type, event); });
     if (found)
         recordEvent(*event, true);
     return found;
@@ -530,7 +556,7 @@ LH_EXPORT Bool XCheckTypedWindowEvent(Display* target, Window window, int type, 
     if (!originalCheckTypedWindow)
         return False;
     onEntry(target);
-    const Bool found = originalCheckTypedWindow(target, window, type, event);
+    const Bool found = nextMatching(target, [&] { return originalCheckTypedWindow(target, window, type, event); });
     if (found)
         recordEvent(*event, true);
     return found;
@@ -552,7 +578,7 @@ LH_EXPORT int XIfEvent(Display* target, XEvent* event, Bool (*predicate)(Display
         return -1;
     onEntry(target);
     if (originalCheckIf && originalConnectionNumber && runtime().wakeFd >= 0) {
-        while (!originalCheckIf(target, event, predicate, arg))
+        while (!nextMatching(target, [&] { return originalCheckIf(target, event, predicate, arg); }))
             waitForEvent(target);
         recordEvent(*event, true);
         return 0;
@@ -578,7 +604,7 @@ LH_EXPORT Bool XCheckIfEvent(Display* target, XEvent* event, Bool (*predicate)(D
     if (!originalCheckIf)
         return False;
     onEntry(target);
-    const Bool found = originalCheckIf(target, event, predicate, arg);
+    const Bool found = nextMatching(target, [&] { return originalCheckIf(target, event, predicate, arg); });
     if (found)
         recordEvent(*event, true);
     return found;
