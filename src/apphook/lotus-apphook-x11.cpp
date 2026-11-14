@@ -44,8 +44,11 @@ namespace lotus::apphook {
         };
         std::mutex                                 focusMutex;
         std::unordered_map<Display*, DisplayFocus> focusByDisplay;
-        void*                                      xlib = nullptr;
-        std::mutex                                 resolveMutex;
+        void*                                      xlib    = nullptr;
+        void*                                      xlibXcb = nullptr;
+        void* (*getXcbConnection)(Display*)                = nullptr;
+        void (*originalSetEventQueueOwner)(Display*, int)  = nullptr;
+        std::mutex resolveMutex;
 
         int (*originalSelectInput)(Display*, Window, long)                                            = nullptr;
         int (*originalChangeWindowAttributes)(Display*, Window, unsigned long, XSetWindowAttributes*) = nullptr;
@@ -349,6 +352,10 @@ namespace lotus::apphook {
          * @param target Application Xlib display.
          */
         void onEntry(Display* target) {
+            if (getXcbConnection)
+                markXlibOwnedXcbConnection(getXcbConnection(target));
+            if (getXcbConnection && xcbOwnsXlibConnection(getXcbConnection(target)))
+                return;
             purgeCancelled(target);
             // XPutBackEvent prepends events, so never overtake native events already queued.
             if (originalPending && originalPending(target) == 0) {
@@ -387,6 +394,11 @@ namespace lotus::apphook {
         xlib = dlopen("libX11.so.6", RTLD_NOW | RTLD_NOLOAD);
         if (!xlib) {
             return;
+        }
+        xlibXcb = dlopen("libX11-xcb.so.1", RTLD_LAZY | RTLD_LOCAL);
+        if (xlibXcb) {
+            getXcbConnection           = reinterpret_cast<decltype(getXcbConnection)>(dlsym(xlibXcb, "XGetXCBConnection"));
+            originalSetEventQueueOwner = reinterpret_cast<decltype(originalSetEventQueueOwner)>(dlsym(xlibXcb, "XSetEventQueueOwner"));
         }
         originalSelectInput            = resolve<decltype(originalSelectInput)>("XSelectInput");
         originalChangeWindowAttributes = resolve<decltype(originalChangeWindowAttributes)>("XChangeWindowAttributes");
@@ -429,9 +441,14 @@ LH_EXPORT int XSelectInput(Display* target, Window window, long mask) {
         loadX11();
     if (!originalSelectInput)
         return 0;
+    if (getXcbConnection)
+        markXlibOwnedXcbConnection(getXcbConnection(target));
     const int result = originalSelectInput(target, window, mask);
-    if (result && (mask & (KeyPressMask | KeyReleaseMask)))
+    if (result && (mask & (KeyPressMask | KeyReleaseMask))) {
         noteX11KeyboardAvailable();
+        if (getXcbConnection)
+            markXcbKeyboardSubscribed(getXcbConnection(target));
+    }
     return result;
 }
 
@@ -449,9 +466,14 @@ LH_EXPORT int XChangeWindowAttributes(Display* target, Window window, unsigned l
         loadX11();
     if (!originalChangeWindowAttributes)
         return 0;
+    if (getXcbConnection)
+        markXlibOwnedXcbConnection(getXcbConnection(target));
     const int result = originalChangeWindowAttributes(target, window, mask, attributes);
-    if (result && (mask & CWEventMask) && attributes && (attributes->event_mask & (KeyPressMask | KeyReleaseMask)))
+    if (result && (mask & CWEventMask) && attributes && (attributes->event_mask & (KeyPressMask | KeyReleaseMask))) {
         noteX11KeyboardAvailable();
+        if (getXcbConnection)
+            markXcbKeyboardSubscribed(getXcbConnection(target));
+    }
     return result;
 }
 
@@ -478,10 +500,29 @@ LH_EXPORT Window XCreateWindow(Display* target, Window parent, int x, int y, uns
         loadX11();
     if (!originalCreateWindow)
         return None;
+    if (getXcbConnection)
+        markXlibOwnedXcbConnection(getXcbConnection(target));
     const Window window = originalCreateWindow(target, parent, x, y, width, height, borderWidth, depth, windowClass, visual, mask, attributes);
-    if (window != None && (mask & CWEventMask) && attributes && (attributes->event_mask & (KeyPressMask | KeyReleaseMask)))
+    if (window != None && (mask & CWEventMask) && attributes && (attributes->event_mask & (KeyPressMask | KeyReleaseMask))) {
         noteX11KeyboardAvailable();
+        if (getXcbConnection)
+            markXcbKeyboardSubscribed(getXcbConnection(target));
+    }
     return window;
+}
+
+/** Tracks Xlib/XCB event queue ownership (XCBOwnsEventQueue is 1). */
+LH_EXPORT void XSetEventQueueOwner(Display* target, int owner) {
+    using namespace lotus::apphook;
+    if (!originalSetEventQueueOwner)
+        loadX11();
+    if (originalSetEventQueueOwner)
+        originalSetEventQueueOwner(target, owner);
+    if (getXcbConnection) {
+        auto* connection = getXcbConnection(target);
+        markXlibOwnedXcbConnection(connection);
+        setXcbEventQueueOwner(connection, owner == 1);
+    }
 }
 
 /** Removes focus state and rejects undelivered keys when a Display is closed. */
@@ -489,6 +530,8 @@ LH_EXPORT int XCloseDisplay(Display* target) {
     using namespace lotus::apphook;
     if (!originalCloseDisplay)
         loadX11();
+    if (getXcbConnection)
+        forgetXlibXcbConnection(getXcbConnection(target));
     bool focused = false;
     {
         std::scoped_lock lock(focusMutex);
@@ -740,6 +783,7 @@ namespace lotus::apphook {
         if (!xlib)
             return 0;
         const std::array hooks{
+            HookSpec{"XSetEventQueueOwner", reinterpret_cast<void*>(&XSetEventQueueOwner)},
             HookSpec{"XCloseDisplay", reinterpret_cast<void*>(&XCloseDisplay)},
             HookSpec{"XSelectInput", reinterpret_cast<void*>(&XSelectInput)},
             HookSpec{"XChangeWindowAttributes", reinterpret_cast<void*>(&XChangeWindowAttributes)},

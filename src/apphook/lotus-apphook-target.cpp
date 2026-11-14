@@ -93,7 +93,7 @@ namespace lotus::apphook {
         /** @brief Returns whether either application keyboard frontend owns focus. */
         bool hasKeyboardFocus() {
             Runtime& state = runtime();
-            return state.focusedX11.load(std::memory_order_acquire) || state.focusedWayland.load(std::memory_order_acquire);
+            return state.focusedX11.load(std::memory_order_acquire) || state.focusedWayland.load(std::memory_order_acquire) || state.focusedXcb.load(std::memory_order_acquire);
         }
     } // namespace
 
@@ -129,6 +129,20 @@ namespace lotus::apphook {
         if (available) {
             startWorkers();
         }
+    }
+
+    void noteXcbFocus(bool focused) {
+        if (runtime().focusedXcb.exchange(focused, std::memory_order_acq_rel) != focused)
+            signalChange();
+        if (focused)
+            startWorkers();
+    }
+
+    void noteXcbKeyboardAvailable(bool available) {
+        if (runtime().readyXcb.exchange(available, std::memory_order_acq_rel) != available)
+            signalChange();
+        if (available)
+            startWorkers();
     }
 
     void noteKeyboardActivity(bool wayland) {
@@ -170,6 +184,7 @@ namespace lotus::apphook {
             (void)write(fd, &one, sizeof(one));
         }
         wakeWayland();
+        wakeXcb();
     }
 
     namespace {
@@ -190,7 +205,7 @@ namespace lotus::apphook {
         /** @brief Reports whether a supported application keyboard backend is installed. */
         bool backendReady() {
             Runtime& state = runtime();
-            return state.readyX11.load() || state.readyWayland.load();
+            return state.readyX11.load() || state.readyWayland.load() || state.readyXcb.load();
         }
 
         /**
@@ -391,10 +406,12 @@ namespace lotus::apphook {
         void installHookPass() {
             loadX11();
             loadWayland();
+            loadXcb();
             const int x11     = installX11Hooks();
             const int wayland = installWaylandHooks();
-            if (std::getenv("LOTUS_HOOK_DEBUG") && (x11 || wayland)) {
-                std::fprintf(stderr, "LH hooks patched x=%d w=%d\n", x11, wayland);
+            const int xcb     = installXcbHooks();
+            if (std::getenv("LOTUS_HOOK_DEBUG") && (x11 || wayland || xcb)) {
+                std::fprintf(stderr, "LH hooks patched x=%d w=%d xcb=%d\n", x11, wayland, xcb);
             }
         }
 
