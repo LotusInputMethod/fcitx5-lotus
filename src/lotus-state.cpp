@@ -763,8 +763,11 @@ namespace fcitx {
                                 state->abortUncertainAppHookReplacement();
                             } else {
                                 LOTUS_DEBUG("apphook: failed request=" + std::to_string(requestId) + ", using standard backend fallback");
-                                // No keys were applied: retry through the existing display-server
-                                // backend selection, with apphook disabled for this one attempt.
+                                // No keys were applied: discard the AppHook burst state before
+                                // retrying the existing display-server backend selection.
+                                state->pendingCommitString_.clear();
+                                state->replacementDeadlineMs_ = 0;
+                                g_isDeleting.store(false, std::memory_order_release);
                                 state->performReplacement({.deletedPart = deletedText, .addedPart = addedText}, false);
                             }
                         });
@@ -777,6 +780,7 @@ namespace fcitx {
             appHookRequestId_ = 0;
             g_isDeleting.store(false, std::memory_order_release);
             pendingCommitString_.clear();
+            replacementDeadlineMs_ = 0;
         }
         if (selectMode && x11Backend && LotusX11Keyboard::shiftHeld()) {
             // Xtest shares the server modifier state with the user's keyboard: a Shift we press and release would
