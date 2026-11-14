@@ -719,6 +719,34 @@ namespace {
         checkU32("preedit after [Sose2026] with autoNonVnRestore=false expected [Sóe2026]", engine.preedit(), U"Sóe2026");
     }
 
+    // TestHornVowelElongation.
+    void case_horn_vowel_elongation() {
+        struct Case {
+            std::string_view    keys;
+            std::u32string_view want;
+        };
+        const std::vector<Case> cases = {
+            {.keys = "uwfaaa", .want = U"ừaaa "}, {.keys = "owfaaa", .want = U"ờaaa "}, {.keys = "vuwfaaa", .want = U"vừaaa "}, {.keys = "muwaaaa", .want = U"mưaaaa "},
+            {.keys = "uwfeee", .want = U"ừeee "}, {.keys = "Uwfaaa", .want = U"Ừaaa "}, {.keys = "owe", .want = U"owe "},       {.keys = "twee", .want = U"twee "},
+            {.keys = "wee", .want = U"wee "},     {.keys = "weee", .want = U"weee "},   {.keys = "waaa", .want = U"waaa "},     {.keys = "bluwfaaa", .want = U"bluwfaaa "},
+        };
+        const std::vector<std::string> dict = {"ừa", "ờ", "vừa", "mưa", "ừ", "tư", "ư"};
+        for (const bool withDicts : {true, false}) {
+            for (const Case& c : cases) {
+                KeyProcessor engine = newTestEngine(dict, withDicts);
+                typeKeys(engine, c.keys);
+                engine.processKey(lotus::kFcitxSpace, {});
+                const std::string name = "horn elongation dict=" + std::string(withDicts ? "true" : "false") + ": [" + std::string(c.keys) + "] commit";
+                checkU32(name.c_str(), engine.takeCommit(), c.want);
+            }
+        }
+        // In dictionary mode, a horn syllable absent from the dictionary (e.g. "zừa") still restores.
+        KeyProcessor dictEngine = newTestEngine(dict, true);
+        typeKeys(dictEngine, "zuwfaaa");
+        dictEngine.processKey(lotus::kFcitxSpace, {});
+        checkU32("horn elongation dict=true: [zuwfaaa] commit", dictEngine.takeCommit(), U"zuwfaaa ");
+    }
+
     // Replays test/golden/key_processor.tsv: one processor per case id, built from the opts/flags/
     // w2u/bracket of its first row exactly like bamboo/golden_dump_test.go dumpKeyProcessor does,
     // then one preeditProcessKeyEvent per step. Columns are case, step, keyHex, state, opts, flags,
@@ -845,12 +873,13 @@ int run_key_processor() {
     case_bracket_transform();
     case_free_marking_flag();
     case_restore_word_before_digits_in_macro_mode();
+    case_horn_vowel_elongation();
     const long goldenRows = replayGolden();
 
     if (failures != 0) {
         std::printf("%d failure(s)\n", failures);
         return 1;
     }
-    std::printf("lotus key processor: all checks passed (33 cases + golden %ld rows)\n", goldenRows);
+    std::printf("lotus key processor: all checks passed (34 cases + golden %ld rows)\n", goldenRows);
     return 0;
 }

@@ -13,8 +13,10 @@
 #include "case_map.h"
 #include "engine_utils.h"
 #include "flattener.h"
+#include "rebuild.h"
 #include "utils.h"
 
+#include <algorithm>
 #include <utility>
 
 namespace lotus {
@@ -194,6 +196,31 @@ namespace lotus {
     }
 
     Composition Engine::newComposition(const Composition& composition, char32_t key, bool isUpperCase) const {
+        const char32_t lowerKey = case_map::toLower(key);
+        if (lowerKey == U'a' || lowerKey == U'e') {
+            const std::vector<Rule> applicableRules = getApplicableRules(lowerKey);
+            const bool              hasHatRule =
+                std::ranges::any_of(applicableRules, [](const Rule& rule) { return rule.effectType == EffectType::MarkTransformation && rule.mark() == Mark::Hat; });
+            if (hasHatRule) {
+                const WordSplit      wordSplit = extractLastWord(composition, effectKeys());
+                const std::u32string wordStr   = flatten(wordSplit.last, toMask(Mode::VietnameseMode) | toMask(Mode::ToneLess) | toMask(Mode::LowerCase));
+                std::size_t          tailCount = 0U;
+                while (tailCount < wordStr.size() && wordStr[wordStr.size() - 1U - tailCount] == lowerKey) {
+                    ++tailCount;
+                }
+                if (tailCount >= 1U && tailCount < wordStr.size()) {
+                    const std::u32string_view stem     = std::u32string_view(wordStr).substr(0U, wordStr.size() - tailCount);
+                    const char32_t            prevChar = stem.back();
+                    if ((prevChar == U'ư' || prevChar == U'ơ') && lotus::isValid(processWordToComposition(stem, flags_.has(EngineFlag::StdToneStyle)), true)) {
+                        Composition       result   = composition;
+                        const Composition fallback = generateFallbackTransformations(applicableRules, lowerKey, isUpperCase);
+                        result.insert(result.end(), fallback.begin(), fallback.end());
+                        return result;
+                    }
+                }
+            }
+        }
+
         const WordSplit   split    = extractLastSyllable(composition);
         Composition       syllable = split.last;
         const Composition produced = generateTransformations(syllable, key, isUpperCase);

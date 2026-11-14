@@ -13,6 +13,8 @@
 #include "key_processor.h"
 
 #include "case_map.h"
+#include "engine_utils.h"
+#include "rebuild.h"
 #include "utf8.h"
 #include "utils.h"
 
@@ -494,6 +496,55 @@ namespace lotus {
         engine_.reset();
     }
 
+    bool KeyProcessor::isHornElongatedWord(std::u32string_view vnSeq) const {
+        if (vnSeq.size() < 4U) {
+            return false;
+        }
+        const char32_t tailChar = vnSeq.back();
+        if (tailChar != U'a' && tailChar != U'e') {
+            return false;
+        }
+        std::size_t tailCount = 0U;
+        while (tailCount < vnSeq.size() && vnSeq[vnSeq.size() - 1U - tailCount] == tailChar) {
+            ++tailCount;
+        }
+        if (tailCount < 3U || tailCount >= vnSeq.size()) {
+            return false;
+        }
+        const std::u32string_view head = vnSeq.substr(0U, vnSeq.size() - tailCount);
+        const char32_t            bare = utils::addToneToChar(head.back(), Tone::None);
+        if (bare != U'ư' && bare != U'ơ') {
+            return false;
+        }
+        const std::u32string rawSeq = getProcessedString(toMask(Mode::EnglishMode) | toMask(Mode::LowerCase));
+        if (!rawSeq.empty() && rawSeq.front() == U'w' && utils::findToneFromChar(head.back()) == Tone::None) {
+            return false;
+        }
+        if (options_.spellCheckWithDicts) {
+            if (dictionary_ == nullptr) {
+                return false;
+            }
+            if (dictionary_->hasWord(head)) {
+                return true;
+            }
+            if (tailChar == U'a') {
+                std::u32string withA(head);
+                withA.push_back(U'a');
+                return dictionary_->hasWord(withA);
+            }
+            return false;
+        }
+        if (lotus::isValid(processWordToComposition(head, !options_.modernStyle), true)) {
+            return true;
+        }
+        if (tailChar == U'a') {
+            std::u32string withA(head);
+            withA.push_back(U'a');
+            return lotus::isValid(processWordToComposition(withA, !options_.modernStyle), true);
+        }
+        return false;
+    }
+
     bool KeyProcessor::mustFallbackToEnglish() const {
         if (!options_.autoNonVnRestore) {
             return false;
@@ -504,6 +555,9 @@ namespace lotus {
         }
         // dd is allowed even in a non-Vietnamese sequence because it is a common abbreviation.
         if (options_.ddFreeStyle && vnSeq.find(U'đ') != std::u32string::npos) {
+            return false;
+        }
+        if (isHornElongatedWord(vnSeq)) {
             return false;
         }
         if (options_.spellCheckWithDicts) {
@@ -530,6 +584,9 @@ namespace lotus {
             return false;
         }
         if (checkVnRune && !utils::hasAnyVietnameseRune(vnSeq)) {
+            return false;
+        }
+        if (isHornElongatedWord(vnSeq)) {
             return false;
         }
         // A dictionary word (or the beginning of one) must not be restored to the raw key strokes
