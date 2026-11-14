@@ -15,6 +15,9 @@
 #endif
 
 #include "lotus-apphook-target.h"
+#include "lotus-apphook-fd.h"
+#include "lotus-apphook-sequence.h"
+#include "lotus-apphook-xfocus.h"
 
 #include <xcb/xcb.h>
 #include <algorithm>
@@ -35,21 +38,15 @@
 namespace lotus::apphook {
     namespace {
 
-        struct XcbFocus {
-            xcb_window_t          target            = XCB_NONE;
-            xcb_window_t          focus             = XCB_NONE;
+        struct XcbFocus : XFocusState<xcb_window_t, XCB_NONE> {
             xcb_window_t          root              = XCB_NONE;
-            bool                  observedFocus     = false;
-            bool                  focused           = false;
             bool                  keyboardAvailable = false;
             std::shared_ptr<Task> active;
             xcb_window_t          activeTarget = XCB_NONE;
             xcb_window_t          activeRoot   = XCB_NONE;
-            size_t                opIndex      = 0;
-            uint32_t              tapIndex     = 0;
-            bool                  pressed      = false;
-            int                   wakeFd       = -1;
-            uint32_t              lastTime     = 0;
+            KeySequence           sequence;
+            OwnedFd               wakeFd;
+            uint32_t              lastTime = 0;
         };
 
         std::mutex                                      xcbMutex;
@@ -120,31 +117,25 @@ namespace lotus::apphook {
                 auto* focus = reinterpret_cast<const xcb_focus_in_event_t*>(event);
                 if (state.active && (type == XCB_FOCUS_OUT || state.activeTarget != focus->event)) {
                     state.active->cancelled.store(true, std::memory_order_release);
-                    if (!state.pressed)
+                    if (!state.sequence.needsRelease())
                         finishXcb(state, -ECANCELED);
                 }
-                if (type == XCB_FOCUS_IN) {
-                    state.target  = focus->event;
-                    state.focus   = focus->event;
-                    state.focused = true;
-                } else if (!state.observedFocus || state.focus == focus->event) {
-                    state.target  = XCB_NONE;
-                    state.focus   = XCB_NONE;
-                    state.focused = false;
-                }
-                state.observedFocus = true;
+                if (type == XCB_FOCUS_IN)
+                    state.enter(focus->event);
+                else
+                    state.leave(focus->event, true);
                 updateFocusState();
             } else if (type == XCB_KEY_PRESS || type == XCB_KEY_RELEASE) {
                 const auto* key = reinterpret_cast<const xcb_key_press_event_t*>(event);
                 // A key event can identify the target before the first FocusIn,
                 // but must not resurrect a focus already revoked by FocusOut.
-                if (!state.observedFocus || state.focused) {
-                    state.target   = key->event;
+                if (state.acceptsKey()) {
+                    state.keyTarget(key->event);
                     state.root     = key->root;
                     state.lastTime = key->time;
                 }
                 state.keyboardAvailable = true;
-                if (type == XCB_KEY_PRESS && !(event->response_type & 0x80) && (!state.observedFocus || state.focused)) {
+                if (type == XCB_KEY_PRESS && !(event->response_type & 0x80) && state.acceptsKey()) {
                     state.focused = true;
                     updateFocusState();
                 }
@@ -179,9 +170,7 @@ namespace lotus::apphook {
             state.active.reset();
             state.activeTarget = XCB_NONE;
             state.activeRoot   = XCB_NONE;
-            state.opIndex      = 0;
-            state.tapIndex     = 0;
-            state.pressed      = false;
+            state.sequence.reset();
         }
 
         unsigned modifierMask(uint32_t modifiers) {
@@ -193,11 +182,12 @@ namespace lotus::apphook {
             if (!state.active)
                 return nullptr;
             auto& task = state.active;
-            if (task->cancelled.load(std::memory_order_acquire) && !state.pressed) {
+            if (task->cancelled.load(std::memory_order_acquire) && !state.sequence.needsRelease()) {
                 finishXcb(state, -ECANCELED);
                 return nullptr;
             }
-            if (state.opIndex >= task->ops.size()) {
+            const auto edge = state.sequence.current();
+            if (!edge) {
                 finishXcb(state, 0);
                 return nullptr;
             }
@@ -206,10 +196,9 @@ namespace lotus::apphook {
                 finishXcb(state, -ENOMEM);
                 return nullptr;
             }
-            const KeyOperation& operation = task->ops[state.opIndex];
-            event->response_type          = static_cast<uint8_t>((state.pressed ? XCB_KEY_RELEASE : XCB_KEY_PRESS) | 0x80);
-            event->detail                 = static_cast<xcb_keycode_t>(operation.keycode + 8);
-            event->event                  = state.activeTarget;
+            event->response_type = static_cast<uint8_t>((edge->pressed ? XCB_KEY_PRESS : XCB_KEY_RELEASE) | 0x80);
+            event->detail        = static_cast<xcb_keycode_t>(edge->keycode + 8);
+            event->event         = state.activeTarget;
             if (!state.lastTime) {
                 timespec now{};
                 clock_gettime(CLOCK_MONOTONIC, &now);
@@ -217,20 +206,15 @@ namespace lotus::apphook {
             }
             event->time        = ++state.lastTime;
             event->root        = state.activeRoot != XCB_NONE ? state.activeRoot : rootWindow(connection);
-            event->state       = static_cast<uint16_t>(modifierMask(operation.modifiers));
+            event->state       = static_cast<uint16_t>(modifierMask(edge->modifiers));
             event->same_screen = 1;
-            if (!state.pressed) {
+            if (edge->pressed)
                 task->applied.store(true, std::memory_order_release);
-                state.pressed = true;
-            } else {
-                state.pressed = false;
-                if (++state.tapIndex == operation.count) {
-                    state.tapIndex = 0;
-                    ++state.opIndex;
-                }
+            state.sequence.advance();
+            if (!edge->pressed) {
                 if (task->cancelled.load(std::memory_order_acquire))
                     finishXcb(state, -ECANCELED);
-                else if (state.opIndex == task->ops.size())
+                else if (state.sequence.completed())
                     finishXcb(state, 0);
             }
             return reinterpret_cast<xcb_generic_event_t*>(event);
@@ -256,13 +240,14 @@ namespace lotus::apphook {
                 return nullptr;
             state.activeTarget = state.target;
             state.activeRoot   = state.root;
+            state.sequence.reset(state.active->ops);
             return syntheticEdge(connection, state);
         }
 
         bool needsKeyRelease(xcb_connection_t* connection) {
             std::scoped_lock lock(xcbMutex);
             const auto       it = connections.find(connection);
-            return !ownedByXlib(connection) && it != connections.end() && it->second.active && it->second.pressed;
+            return !ownedByXlib(connection) && it != connections.end() && it->second.active && it->second.sequence.needsRelease();
         }
 
         xcb_generic_event_t* checkedPoll(xcb_connection_t* connection, bool queuedOnly) {
@@ -330,9 +315,9 @@ namespace lotus::apphook {
     void wakeXcb() {
         std::scoped_lock lock(xcbMutex);
         for (const auto& [connection, state] : connections) {
-            if ((state.focused || state.active) && !ownedByXlib(connection) && state.wakeFd >= 0) {
+            if ((state.focused || state.active) && !ownedByXlib(connection) && state.wakeFd.get() >= 0) {
                 const uint64_t one = 1;
-                (void)write(state.wakeFd, &one, sizeof(one));
+                (void)write(state.wakeFd.get(), &one, sizeof(one));
             }
         }
     }
@@ -345,8 +330,6 @@ namespace lotus::apphook {
         auto             it = connections.find(connection);
         if (it != connections.end()) {
             finishXcb(it->second, -ENOTCONN);
-            if (it->second.wakeFd >= 0)
-                close(it->second.wakeFd);
             connections.erase(it);
         }
         xlibOwned.erase(connection);
@@ -402,8 +385,6 @@ LH_EXPORT void xcb_disconnect(xcb_connection_t* connection) {
         auto             it = connections.find(connection);
         if (it != connections.end()) {
             finishXcb(it->second, -ENOTCONN);
-            if (it->second.wakeFd >= 0)
-                close(it->second.wakeFd);
             connections.erase(it);
         }
         xlibOwned.erase(connection);
@@ -438,9 +419,9 @@ LH_EXPORT xcb_generic_event_t* xcb_wait_for_event(xcb_connection_t* connection) 
     {
         std::scoped_lock lock(xcbMutex);
         auto&            state = connections[connection];
-        if (state.wakeFd < 0)
-            state.wakeFd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-        wake = state.wakeFd;
+        if (state.wakeFd.get() < 0)
+            state.wakeFd.reset(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC));
+        wake = state.wakeFd.get();
     }
     if (wake < 0 || !originalPoll) {
         auto* event = originalWait(connection);

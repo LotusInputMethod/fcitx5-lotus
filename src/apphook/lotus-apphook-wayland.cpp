@@ -15,6 +15,7 @@
 #endif
 
 #include "lotus-apphook-target.h"
+#include "lotus-apphook-sequence.h"
 
 #include <algorithm>
 #include <array>
@@ -651,17 +652,19 @@ namespace lotus::apphook {
             if (!task)
                 return;
             const uint32_t prior = keyboard->depressed;
-            for (const KeyOperation& op : task->ops) {
+            KeySequence    sequence(task->ops);
+            while (const KeyOperation* op = sequence.operation()) {
                 if (!keyboard->alive || task->cancelled.load(std::memory_order_acquire))
                     break;
-                const uint32_t combined = prior | modifierMask(*keyboard, op.modifiers);
+                const uint32_t combined = prior | modifierMask(*keyboard, op->modifiers);
                 if (combined != prior)
                     emitModifiers(keyboard.get(), combined);
-                for (uint32_t i = 0; i < op.count && keyboard->alive && !task->cancelled.load(std::memory_order_acquire); ++i) {
-                    task->applied.store(true, std::memory_order_release);
-                    emitKey(keyboard.get(), op.keycode, 1);
-                    if (keyboard->alive)
-                        emitKey(keyboard.get(), op.keycode, 0);
+                while (sequence.operation() == op && keyboard->alive && (!task->cancelled.load(std::memory_order_acquire) || sequence.needsRelease())) {
+                    const auto edge = sequence.current();
+                    if (edge->pressed)
+                        task->applied.store(true, std::memory_order_release);
+                    emitKey(keyboard.get(), edge->keycode, edge->pressed ? 1 : 0);
+                    sequence.advance();
                 }
                 if (combined != prior && keyboard->alive)
                     emitModifiers(keyboard.get(), prior);

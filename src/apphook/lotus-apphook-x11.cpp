@@ -15,6 +15,8 @@
 #endif
 
 #include "lotus-apphook-target.h"
+#include "lotus-apphook-sequence.h"
+#include "lotus-apphook-xfocus.h"
 
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
@@ -36,12 +38,7 @@ namespace lotus::apphook {
 
         constexpr unsigned long kInjectedSerial = 0x4c485831UL;
 
-        struct DisplayFocus {
-            Window targetWindow  = None;
-            Window focusWindow   = None;
-            bool   observedFocus = false;
-            bool   focused       = false;
-        };
+        using DisplayFocus = XFocusState<Window, None>;
         std::mutex                                 focusMutex;
         std::unordered_map<Display*, DisplayFocus> focusByDisplay;
         void*                                      xlib    = nullptr;
@@ -129,16 +126,10 @@ namespace lotus::apphook {
                 {
                     std::scoped_lock lock(focusMutex);
                     auto&            tracked = focusByDisplay[event.xfocus.display];
-                    if (event.type == FocusIn) {
-                        tracked.targetWindow = event.xfocus.window;
-                        tracked.focusWindow  = event.xfocus.window;
-                        tracked.focused      = true;
-                    } else if (tracked.focusWindow == event.xfocus.window) {
-                        tracked.targetWindow = None;
-                        tracked.focusWindow  = None;
-                        tracked.focused      = false;
-                    }
-                    tracked.observedFocus = true;
+                    if (event.type == FocusIn)
+                        tracked.enter(event.xfocus.window);
+                    else
+                        tracked.leave(event.xfocus.window);
                     for (const auto& [ignored, state] : focusByDisplay)
                         focused |= state.focused;
                 }
@@ -163,7 +154,7 @@ namespace lotus::apphook {
                 // Other X11 event classes must never change the injection target.
                 {
                     std::scoped_lock lock(focusMutex);
-                    focusByDisplay[event.xkey.display].targetWindow = event.xkey.window;
+                    focusByDisplay[event.xkey.display].keyTarget(event.xkey.window, false);
                 }
                 runtime().readyX11.store(true, std::memory_order_release);
                 if (event.type == KeyPress)
@@ -226,7 +217,7 @@ namespace lotus::apphook {
                 if (it != focusByDisplay.end()) {
                     if (it->second.observedFocus && !it->second.focused)
                         return;
-                    window = it->second.targetWindow;
+                    window = it->second.target;
                 }
             }
             if (window == None) {
@@ -236,7 +227,7 @@ namespace lotus::apphook {
                     return;
                 window = focused;
                 std::scoped_lock lock(focusMutex);
-                focusByDisplay[target].targetWindow = focused;
+                focusByDisplay[target].target = focused;
             }
             runtime().readyX11.store(true, std::memory_order_release);
 
@@ -274,24 +265,28 @@ namespace lotus::apphook {
                         for (const auto& op : task->ops)
                             taps += op.count;
                         injected.reserve(taps * 2);
-                        for (const auto& op : task->ops) {
-                            const KeyCode code = keycode(target, op.keycode);
-                            for (uint32_t i = 0; i < op.count; ++i) {
-                                for (int edge = 0; edge < 2; ++edge) {
-                                    XEvent event{};
-                                    event.xkey.type        = edge ? KeyRelease : KeyPress;
-                                    event.xkey.display     = target;
-                                    event.xkey.window      = window;
-                                    event.xkey.root        = originalRootWindow ? originalRootWindow(target) : window;
-                                    event.xkey.time        = CurrentTime;
-                                    event.xkey.keycode     = code;
-                                    event.xkey.state       = modifiers(op.modifiers);
-                                    event.xkey.same_screen = True;
-                                    event.xkey.send_event  = True;
-                                    event.xkey.serial      = kInjectedSerial;
-                                    injected.push_back(event);
-                                }
+                        KeySequence         sequence(task->ops);
+                        const KeyOperation* lastOp = nullptr;
+                        KeyCode             code   = 0;
+                        while (const auto edge = sequence.current()) {
+                            const auto* op = sequence.operation();
+                            if (op != lastOp) {
+                                code   = keycode(target, op->keycode);
+                                lastOp = op;
                             }
+                            XEvent event{};
+                            event.xkey.type        = edge->pressed ? KeyPress : KeyRelease;
+                            event.xkey.display     = target;
+                            event.xkey.window      = window;
+                            event.xkey.root        = originalRootWindow ? originalRootWindow(target) : window;
+                            event.xkey.time        = CurrentTime;
+                            event.xkey.keycode     = code;
+                            event.xkey.state       = modifiers(edge->modifiers);
+                            event.xkey.same_screen = True;
+                            event.xkey.send_event  = True;
+                            event.xkey.serial      = kInjectedSerial;
+                            injected.push_back(event);
+                            sequence.advance();
                         }
                         if (task->cancelled.load(std::memory_order_acquire)) {
                             std::scoped_lock lock(runtime().mutex);
