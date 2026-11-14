@@ -81,7 +81,7 @@ namespace fcitx {
 
     pid_t LotusAppHook::focusedPid() const {
         std::scoped_lock lock(mutex_);
-        const auto it = sessions_.find(focusedPid_);
+        const auto       it = sessions_.find(focusedPid_);
         return it != sessions_.end() && it->second->connected.load() && it->second->ready.load() && it->second->focused.load() ? focusedPid_ : 0;
     }
 
@@ -120,10 +120,10 @@ namespace fcitx {
     }
 
     int LotusAppHook::cancel(pid_t pid, uint64_t requestId) {
-        Completion                completion;
-        std::shared_ptr<Session>  session;
-        bool                      removed = false;
-        bool                      active  = false;
+        Completion               completion;
+        std::shared_ptr<Session> session;
+        bool                     removed = false;
+        bool                     active  = false;
         {
             std::scoped_lock lock(mutex_);
             const auto       it = std::find_if(queue_.begin(), queue_.end(), [pid, requestId](const Work& item) { return item.pid == pid && item.requestId == requestId; });
@@ -133,7 +133,7 @@ namespace fcitx {
                 removed = true;
             } else if (activeRequestId_ == requestId) {
                 cancelled_.insert(requestId);
-                active = true;
+                active           = true;
                 const auto found = sessions_.find(pid);
                 if (found != sessions_.end()) {
                     session = found->second;
@@ -212,10 +212,8 @@ namespace fcitx {
         }
 
         std::unique_lock lock(session->mutex);
-        const bool done = session->completed.wait_for(lock, std::chrono::milliseconds(3000), [&] {
-            return session->hasReply || !session->connected.load() || stopping_.load();
-        });
-        const int status = !done ? -ETIMEDOUT : !session->connected.load() || stopping_ ? -ENOTCONN : session->result;
+        const bool done   = session->completed.wait_for(lock, std::chrono::milliseconds(3000), [&] { return session->hasReply || !session->connected.load() || stopping_.load(); });
+        const int  status = !done ? -ETIMEDOUT : !session->connected.load() || stopping_ ? -ENOTCONN : session->result;
         session->waitingId = 0;
         return status;
     }
@@ -327,9 +325,9 @@ namespace fcitx {
                 }
                 bool drop = (events & (POLLERR | POLLHUP | POLLNVAL)) != 0;
                 if (!drop && (events & POLLIN)) {
-                    Response response{};
+                    Response      response{};
                     const ssize_t got = recv(session->fd.get(), &response, sizeof(response), MSG_DONTWAIT | MSG_TRUNC);
-                    drop = got != sizeof(response) || response.magic != kMagic || response.version != kVersion;
+                    drop              = got != sizeof(response) || response.magic != kMagic || response.version != kVersion;
                     if (!drop && response.type == ResponseKind::Ready && response.requestId == 0) {
                         session->ready.store(response.status == 0);
                         LOTUS_DEBUG("apphook: readiness pid=" + std::to_string(session->pid) + " status=" + std::to_string(response.status));
@@ -338,7 +336,7 @@ namespace fcitx {
                         }
                     } else if (!drop && response.type == ResponseKind::Focus && response.requestId == 0 && (response.status == 0 || response.status == 1)) {
                         std::scoped_lock lock(mutex_);
-                        const auto found = sessions_.find(session->pid);
+                        const auto       found = sessions_.find(session->pid);
                         if (found != sessions_.end() && found->second == session) {
                             session->focused.store(response.status == 1);
                             if (response.status == 1) {
@@ -362,7 +360,7 @@ namespace fcitx {
                 if (drop) {
                     disconnect(session);
                     std::scoped_lock lock(mutex_);
-                    const auto found = sessions_.find(session->pid);
+                    const auto       found = sessions_.find(session->pid);
                     if (found != sessions_.end() && found->second == session) {
                         if (focusedPid_ == session->pid) {
                             focusedPid_ = 0;

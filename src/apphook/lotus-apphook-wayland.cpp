@@ -656,11 +656,11 @@ LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(void), v
     if (!proxy || !callbacks || !originalClass || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || lookupKeyboard(proxy))
         return originalAddListener(proxy, callbacks, data);
 
-    auto keyboard = std::make_unique<Keyboard>();
+    auto keyboard          = std::make_unique<Keyboard>();
     keyboard->proxy        = proxy;
     keyboard->listener     = reinterpret_cast<const KeyboardListener*>(callbacks);
     keyboard->originalData = data;
-    Keyboard* tracked = keyboard.get();
+    Keyboard* tracked      = keyboard.get();
     keyboards.push_back(std::move(keyboard));
     const int result = originalAddListener(proxy, reinterpret_cast<void (**)(void)>(const_cast<KeyboardListener*>(&wrapper)), tracked);
     if (result != 0)
@@ -685,12 +685,12 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
     if (!proxy || !dispatcher || !originalClass || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || lookupKeyboard(proxy))
         return originalAddDispatcher(proxy, dispatcher, implementation, data);
 
-    auto keyboard = std::make_unique<Keyboard>();
+    auto keyboard            = std::make_unique<Keyboard>();
     keyboard->proxy          = proxy;
     keyboard->dispatcher     = dispatcher;
     keyboard->implementation = implementation;
     keyboard->originalData   = data;
-    Keyboard* tracked = keyboard.get();
+    Keyboard* tracked        = keyboard.get();
     keyboards.push_back(std::move(keyboard));
     const int result = originalAddDispatcher(proxy, &dispatchWrapper, implementation, tracked);
     if (result != 0)

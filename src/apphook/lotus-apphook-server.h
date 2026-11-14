@@ -127,19 +127,19 @@ namespace fcitx {
          * @brief Marks a session disconnected and wakes its pending request.
          * @param session Session to close.
          */
-        static void disconnect(const std::shared_ptr<Session>& session);
+        static void                                         disconnect(const std::shared_ptr<Session>& session);
 
-        mutable std::mutex                                   mutex_;
-        std::condition_variable                              condition_;
-        std::deque<Work>                                     queue_;
-        std::unordered_map<pid_t, std::shared_ptr<Session>>  sessions_;
-        pid_t                                                focusedPid_ = 0;
-        std::unordered_set<uint64_t>                         cancelled_;
-        uint64_t                                             activeRequestId_ = 0;
-        std::atomic<uint64_t>                                nextRequest_{1};
-        std::atomic<bool>                                    stopping_{false};
-        std::thread                                          server_;
-        std::thread                                          worker_;
+        mutable std::mutex                                  mutex_;
+        std::condition_variable                             condition_;
+        std::deque<Work>                                    queue_;
+        std::unordered_map<pid_t, std::shared_ptr<Session>> sessions_;
+        pid_t                                               focusedPid_ = 0;
+        std::unordered_set<uint64_t>                        cancelled_;
+        uint64_t                                            activeRequestId_ = 0;
+        std::atomic<uint64_t>                               nextRequest_{1};
+        std::atomic<bool>                                   stopping_{false};
+        std::thread                                         server_;
+        std::thread                                         worker_;
     };
 
 } // namespace fcitx
