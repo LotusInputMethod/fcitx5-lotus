@@ -18,6 +18,7 @@
 #include "lotus-apphook-sequence.h"
 
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <cerrno>
 #include <cstdint>
@@ -28,6 +29,7 @@
 #include <mutex>
 #include <string>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 
 // Minimal public Wayland protocol types; no generated bindings are required.
@@ -102,7 +104,8 @@ namespace lotus::apphook {
         std::recursive_mutex                 keyboardMutex;
         std::mutex                           waylandConnectionMutex;
         void*                                wayland = nullptr;
-        void*                                xkb     = nullptr;
+        std::atomic<bool>                    waylandCapable{false};
+        void*                                xkb = nullptr;
         std::mutex                           xkbMutex;
         std::mutex                           resolveMutex;
 
@@ -112,6 +115,8 @@ namespace lotus::apphook {
         int (*originalDispatchPending)(wl_display*)                                                                      = nullptr;
         int (*originalDispatch)(wl_display*)                                                                             = nullptr;
         int (*originalDispatchQueue)(wl_display*, wl_event_queue*)                                                       = nullptr;
+        int (*originalDispatchTimeout)(wl_display*, const timespec*)                                                     = nullptr;
+        int (*originalDispatchQueueTimeout)(wl_display*, wl_event_queue*, const timespec*)                               = nullptr;
         wl_display* (*originalConnect)(const char*)                                                                      = nullptr;
         wl_display* (*originalConnectFd)(int)                                                                            = nullptr;
         void (*originalDestroy)(wl_proxy*)                                                                               = nullptr;
@@ -630,6 +635,8 @@ namespace lotus::apphook {
         originalDispatchPending      = resolve<decltype(originalDispatchPending)>(wayland, "wl_display_dispatch_pending");
         originalDispatch             = resolve<decltype(originalDispatch)>(wayland, "wl_display_dispatch");
         originalDispatchQueue        = resolve<decltype(originalDispatchQueue)>(wayland, "wl_display_dispatch_queue");
+        originalDispatchTimeout      = resolve<decltype(originalDispatchTimeout)>(wayland, "wl_display_dispatch_timeout");
+        originalDispatchQueueTimeout = resolve<decltype(originalDispatchQueueTimeout)>(wayland, "wl_display_dispatch_queue_timeout");
         originalConnect              = resolve<decltype(originalConnect)>(wayland, "wl_display_connect");
         originalConnectFd            = resolve<decltype(originalConnectFd)>(wayland, "wl_display_connect_to_fd");
         originalDestroy              = resolve<decltype(originalDestroy)>(wayland, "wl_proxy_destroy");
@@ -644,12 +651,18 @@ namespace lotus::apphook {
         originalFlush                = resolve<decltype(originalFlush)>(wayland, "wl_display_flush");
         originalMarshalConstructor   = resolve<decltype(originalMarshalConstructor)>(wayland, "wl_proxy_marshal_constructor_versioned");
         callbackInterface            = resolve<const WlInterface*>(wayland, "wl_callback_interface");
+        // Required primitives for event ordering, per-queue injection, and wakeups.
+        // The timeout dispatch APIs (Wayland 1.24+) are optional.
+        const bool capable = originalAddListener && originalAddDispatcher && originalDispatchQueuePending && originalDispatchPending && originalDispatch && originalDispatchQueue &&
+            originalDestroy && originalDisconnect && originalGetQueue && originalSetQueue && originalMarshalArrayFlags && originalGetProxyDisplay && originalGetUserData &&
+            originalGetListener && originalClass && originalFlush && originalMarshalConstructor && callbackInterface;
+        waylandCapable.store(capable, std::memory_order_release);
     }
 
     void wakeWayland() {
         std::scoped_lock connectionLock(waylandConnectionMutex);
         wl_display*      display = nullptr;
-        if (!originalMarshalConstructor || !originalFlush || !originalAddListener || !originalSetQueue || !originalGetQueue || !callbackInterface)
+        if (!waylandCapable.load(std::memory_order_acquire))
             return;
         wl_event_queue* queue = nullptr;
         {
@@ -707,6 +720,8 @@ LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(void), v
         loadWayland();
     if (!originalAddListener)
         return -1;
+    if (!waylandCapable.load(std::memory_order_acquire))
+        return originalAddListener(proxy, callbacks, data);
     if (!proxy || !callbacks || !originalClass || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || lookupKeyboard(proxy))
         return originalAddListener(proxy, callbacks, data);
 
@@ -738,6 +753,8 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
         loadWayland();
     if (!originalAddDispatcher)
         return -1;
+    if (!waylandCapable.load(std::memory_order_acquire))
+        return originalAddDispatcher(proxy, dispatcher, implementation, data);
     if (!proxy || !dispatcher || !originalClass || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || lookupKeyboard(proxy))
         return originalAddDispatcher(proxy, dispatcher, implementation, data);
 
@@ -880,6 +897,50 @@ LH_EXPORT int wl_display_dispatch_queue(wl_display* display, wl_event_queue* que
     if (!originalDispatchQueue)
         loadWayland();
     const int result = originalDispatchQueue ? originalDispatchQueue(display, queue) : -1;
+    if (result >= 0)
+        onDispatch(display, queue, true);
+    return result;
+}
+
+/**
+ * @brief Intercepts timeout-limited dispatch of the default Wayland queue (1.24+).
+ * @param display Application Wayland display.
+ * @param timeout Maximum wait duration.
+ * @return Original dispatch result, or -1 with ENOSYS if unavailable.
+ */
+LH_EXPORT int wl_display_dispatch_timeout(wl_display* display, const timespec* timeout) {
+    using namespace lotus::apphook;
+    if (!originalDispatchTimeout)
+        loadWayland();
+    if (!originalDispatchTimeout) {
+        errno = ENOSYS;
+        return -1;
+    }
+    wl_event_queue* queue = originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr;
+    onDispatch(display, queue, false);
+    const int result = originalDispatchTimeout(display, timeout);
+    if (result >= 0)
+        onDispatch(display, queue, true);
+    return result;
+}
+
+/**
+ * @brief Intercepts timeout-limited dispatch of a custom Wayland queue (1.24+).
+ * @param display Application Wayland display.
+ * @param queue Queue being dispatched.
+ * @param timeout Maximum wait duration.
+ * @return Original dispatch result, or -1 with ENOSYS if unavailable.
+ */
+LH_EXPORT int wl_display_dispatch_queue_timeout(wl_display* display, wl_event_queue* queue, const timespec* timeout) {
+    using namespace lotus::apphook;
+    if (!originalDispatchQueueTimeout)
+        loadWayland();
+    if (!originalDispatchQueueTimeout) {
+        errno = ENOSYS;
+        return -1;
+    }
+    onDispatch(display, queue, false);
+    const int result = originalDispatchQueueTimeout(display, queue, timeout);
     if (result >= 0)
         onDispatch(display, queue, true);
     return result;
