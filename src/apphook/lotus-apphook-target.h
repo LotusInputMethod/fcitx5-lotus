@@ -53,6 +53,7 @@ namespace lotus::apphook {
         std::atomic<bool>                 focusedX11{false};
         std::atomic<bool>                 observedX11Focus{false};
         std::atomic<bool>                 focusedWayland{false};
+        std::atomic<bool>                 focusedXcb{false};
         std::deque<std::shared_ptr<Task>> pending;
         std::shared_ptr<Task>             activeX11;
         void*                             activeX11Display = nullptr;
@@ -61,6 +62,7 @@ namespace lotus::apphook {
         std::atomic<int>                  completionFd{-1};
         std::atomic<bool>                 readyX11{false};
         std::atomic<bool>                 readyWayland{false};
+        std::atomic<bool>                 readyXcb{false};
         std::atomic<bool>                 shuttingDown{false};
         std::atomic<wl_display*>          waylandDisplay{nullptr};
     };
@@ -80,6 +82,16 @@ namespace lotus::apphook {
     void noteWaylandFocus(bool focused);
     /** @brief Starts IPC when a Wayland keyboard listener is registered, before focus-in. */
     void noteWaylandKeyboardAvailable(bool available);
+    void noteXcbFocus(bool focused);
+    void noteXcbKeyboardAvailable(bool available);
+    void markXlibOwnedXcbConnection(void* connection);
+    void markXcbKeyboardSubscribed(void* connection);
+    void forgetXlibXcbConnection(void* connection);
+    void setXcbEventQueueOwner(void* connection, bool xcbOwns);
+    bool xcbOwnsXlibConnection(void* connection);
+    void wakeXcb();
+    void loadXcb();
+    int  installXcbHooks();
     /**
      * @brief Takes the next pending keyboard request.
      * @return Pending request or an empty pointer.

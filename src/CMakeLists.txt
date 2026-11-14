@@ -5,6 +5,7 @@ add_library(lotus-apphook SHARED
     apphook/lotus-apphook-target.cpp
     apphook/lotus-apphook-protocol.cpp
     apphook/lotus-apphook-x11.cpp
+    apphook/lotus-apphook-xcb.cpp
     apphook/lotus-apphook-wayland.cpp
     apphook/lotus-apphook-elfhook.cpp
 )
