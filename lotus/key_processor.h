@@ -363,6 +363,14 @@ namespace lotus {
         [[nodiscard]] bool shouldRestoreBeforeDigit(char32_t digitRune) const;
 
         /**
+         * @brief Reports whether a Vietnamese sequence is a horn-vowel word with expressive repeated
+         *        trailing 'a' or 'e' vowels (e.g. "ừaaa", "ờaaa", "vừaaa", "mưaaaa", "ừeee").
+         * @param vnSeq Lowercase Vietnamese rendering of the current word.
+         * @return True when the base horn syllable is valid and elongated by at least three 'a'/'e's.
+         */
+        [[nodiscard]] bool isHornElongatedWord(std::u32string_view vnSeq) const;
+
+        /**
          * @brief Replaces every occurrence of a needle, like Go's strings.ReplaceAll.
          * @param text Input text.
          * @param needle Text to replace; an empty one returns text unchanged.

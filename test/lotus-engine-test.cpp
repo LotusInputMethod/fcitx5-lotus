@@ -627,6 +627,24 @@ namespace {
         checkU32("Bracket Disabled + Tone: m[f", processed(engine, kVietnameseFullText), U"m[f");
     }
 
+    void case_horn_vowel_elongation() {
+        struct Case {
+            std::u32string_view keys;
+            std::u32string_view want;
+        };
+        const std::vector<Case> cases = {
+            {.keys = U"uwfaaa", .want = U"ừaaa"}, {.keys = U"owfaaa", .want = U"ờaaa"}, {.keys = U"vuwfaaa", .want = U"vừaaa"}, {.keys = U"muwaaaa", .want = U"mưaaaa"},
+            {.keys = U"muwaa", .want = U"mưaa"},  {.keys = U"uwfeee", .want = U"ừeee"}, {.keys = U"Uwfaaa", .want = U"Ừaaa"},   {.keys = U"quaa", .want = U"quâ"},
+            {.keys = U"taa", .want = U"tâ"},      {.keys = U"uwoo", .want = U"uô"},     {.keys = U"uwfa aa", .want = U"ừa â"},  {.keys = U"owuwee", .want = U"ơưê"},
+        };
+        for (const Case& c : cases) {
+            Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::kEstdFlags);
+            type(engine, c.keys, kVietnamese);
+            const std::string name = "Horn elongation: " + lotus::utf8::encode(c.keys);
+            checkU32(name.c_str(), processed(engine, kVietnameseFullText), c.want);
+        }
+    }
+
     // Replays test/golden/engine_core.tsv: one engine per case id, built from the flags/w2u/bracket
     // of its first row, then one ProcessKey per step. Returns the number of rows checked.
     // LOTUS_GOLDEN_DIR redirects the replay to a locally generated sweep; the compiled in
@@ -750,12 +768,13 @@ int run_engine() {
     case_bracket_transform_global();
     case_bracket_transform_with_tone();
     case_bracket_disabled_with_tone();
+    case_horn_vowel_elongation();
     const long goldenRows = replayGolden();
 
     if (failures != 0) {
         std::printf("%d failure(s)\n", failures);
         return 1;
     }
-    std::printf("lotus engine: all checks passed (46 cases + golden %ld rows)\n", goldenRows);
+    std::printf("lotus engine: all checks passed (47 cases + golden %ld rows)\n", goldenRows);
     return 0;
 }
