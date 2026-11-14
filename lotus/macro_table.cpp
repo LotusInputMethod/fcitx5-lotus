@@ -13,6 +13,8 @@
 #include "case_map.h"
 #include "utf8.h"
 
+#include <algorithm>
+
 namespace lotus {
 
     bool MacroTable::empty() const {
@@ -32,6 +34,17 @@ namespace lotus {
             return std::nullopt;
         }
         return found->second;
+    }
+
+    bool MacroTable::hasPrefix(std::u32string_view prefix) const {
+        if (prefix.empty() || empty()) {
+            return false;
+        }
+        std::u32string lowered(prefix);
+        for (char32_t& codePoint : lowered) {
+            codePoint = case_map::toLower(codePoint);
+        }
+        return std::ranges::any_of(table_, [&lowered](const auto& entry) { return entry.first.starts_with(lowered); });
     }
 
     void MacroTable::set(std::string_view keyUtf8, std::string_view valueUtf8) {
