@@ -23,12 +23,12 @@
 
 namespace lotus::apphook {
 
-    constexpr uint32_t kMagic    = 0x4c485031; // LHP1
-    constexpr uint16_t kVersion  = 1;
-    constexpr size_t   kMaxOps   = 128;
-    constexpr size_t   kMaxTaps  = 4096;
-    constexpr size_t   kMaxTasks = 64;
-    constexpr size_t   kMaxPeers = 128;
+    constexpr uint32_t kMagic        = 0x4c485031; // LHP1
+    constexpr uint16_t kVersion      = 1;
+    constexpr size_t   kMaxOps       = 128;
+    constexpr size_t   kMaxTaps      = 4096;
+    constexpr size_t   kMaxTasks     = 64;
+    constexpr size_t   kMaxPeers     = 128;
     constexpr uint32_t kReadyFocused = 1U; ///< Focus snapshot carried by Ready.
 
     /** @brief Commands sent from the Fcitx5 addon to an application hook. */

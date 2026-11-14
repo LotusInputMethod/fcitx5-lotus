@@ -40,26 +40,26 @@ namespace lotus::apphook {
         void*                   xlib         = nullptr;
         std::mutex              resolveMutex;
 
-        int (*originalSelectInput)(Display*, Window, long)                                             = nullptr;
-        int (*originalChangeWindowAttributes)(Display*, Window, unsigned long, XSetWindowAttributes*)   = nullptr;
+        int (*originalSelectInput)(Display*, Window, long)                                            = nullptr;
+        int (*originalChangeWindowAttributes)(Display*, Window, unsigned long, XSetWindowAttributes*) = nullptr;
         Window (*originalCreateWindow)(Display*, Window, int, int, unsigned int, unsigned int, unsigned int, int, unsigned int, Visual*, unsigned long,
-                                        XSetWindowAttributes*)                                         = nullptr;
-        int (*originalNext)(Display*, XEvent*)                                                      = nullptr;
-        int (*originalPeek)(Display*, XEvent*)                                                      = nullptr;
-        int (*originalMask)(Display*, long, XEvent*)                                                = nullptr;
-        int (*originalWindow)(Display*, Window, long, XEvent*)                                      = nullptr;
-        Bool (*originalCheckMask)(Display*, long, XEvent*)                                          = nullptr;
-        Bool (*originalCheckWindow)(Display*, Window, long, XEvent*)                                = nullptr;
-        Bool (*originalCheckTyped)(Display*, int, XEvent*)                                          = nullptr;
-        Bool (*originalCheckTypedWindow)(Display*, Window, int, XEvent*)                            = nullptr;
-        int (*originalIf)(Display*, XEvent*, Bool (*)(Display*, XEvent*, XPointer), XPointer)       = nullptr;
-        Bool (*originalCheckIf)(Display*, XEvent*, Bool (*)(Display*, XEvent*, XPointer), XPointer) = nullptr;
-        int (*originalPending)(Display*)                                                            = nullptr;
-        int (*originalPutBack)(Display*, XEvent*)                                                   = nullptr;
-        int (*originalConnectionNumber)(Display*)                                                   = nullptr;
-        Status (*originalGetFocus)(Display*, Window*, int*)                                         = nullptr;
-        KeyCode (*originalKeysymToKeycode)(Display*, KeySym)                                        = nullptr;
-        Window (*originalRootWindow)(Display*)                                                      = nullptr;
+                                       XSetWindowAttributes*)                                         = nullptr;
+        int (*originalNext)(Display*, XEvent*)                                                        = nullptr;
+        int (*originalPeek)(Display*, XEvent*)                                                        = nullptr;
+        int (*originalMask)(Display*, long, XEvent*)                                                  = nullptr;
+        int (*originalWindow)(Display*, Window, long, XEvent*)                                        = nullptr;
+        Bool (*originalCheckMask)(Display*, long, XEvent*)                                            = nullptr;
+        Bool (*originalCheckWindow)(Display*, Window, long, XEvent*)                                  = nullptr;
+        Bool (*originalCheckTyped)(Display*, int, XEvent*)                                            = nullptr;
+        Bool (*originalCheckTypedWindow)(Display*, Window, int, XEvent*)                              = nullptr;
+        int (*originalIf)(Display*, XEvent*, Bool (*)(Display*, XEvent*, XPointer), XPointer)         = nullptr;
+        Bool (*originalCheckIf)(Display*, XEvent*, Bool (*)(Display*, XEvent*, XPointer), XPointer)   = nullptr;
+        int (*originalPending)(Display*)                                                              = nullptr;
+        int (*originalPutBack)(Display*, XEvent*)                                                     = nullptr;
+        int (*originalConnectionNumber)(Display*)                                                     = nullptr;
+        Status (*originalGetFocus)(Display*, Window*, int*)                                           = nullptr;
+        KeyCode (*originalKeysymToKeycode)(Display*, KeySym)                                          = nullptr;
+        Window (*originalRootWindow)(Display*)                                                        = nullptr;
 
         /**
          * @brief Looks up an original Xlib function.
@@ -265,25 +265,25 @@ namespace lotus::apphook {
         if (!xlib) {
             return;
         }
-        originalSelectInput      = resolve<decltype(originalSelectInput)>("XSelectInput");
+        originalSelectInput            = resolve<decltype(originalSelectInput)>("XSelectInput");
         originalChangeWindowAttributes = resolve<decltype(originalChangeWindowAttributes)>("XChangeWindowAttributes");
-        originalCreateWindow     = resolve<decltype(originalCreateWindow)>("XCreateWindow");
-        originalNext             = resolve<decltype(originalNext)>("XNextEvent");
-        originalPeek             = resolve<decltype(originalPeek)>("XPeekEvent");
-        originalMask             = resolve<decltype(originalMask)>("XMaskEvent");
-        originalWindow           = resolve<decltype(originalWindow)>("XWindowEvent");
-        originalCheckMask        = resolve<decltype(originalCheckMask)>("XCheckMaskEvent");
-        originalCheckWindow      = resolve<decltype(originalCheckWindow)>("XCheckWindowEvent");
-        originalCheckTyped       = resolve<decltype(originalCheckTyped)>("XCheckTypedEvent");
-        originalCheckTypedWindow = resolve<decltype(originalCheckTypedWindow)>("XCheckTypedWindowEvent");
-        originalIf               = resolve<decltype(originalIf)>("XIfEvent");
-        originalCheckIf          = resolve<decltype(originalCheckIf)>("XCheckIfEvent");
-        originalPending          = resolve<decltype(originalPending)>("XPending");
-        originalPutBack          = resolve<decltype(originalPutBack)>("XPutBackEvent");
-        originalConnectionNumber = resolve<decltype(originalConnectionNumber)>("XConnectionNumber");
-        originalGetFocus         = resolve<decltype(originalGetFocus)>("XGetInputFocus");
-        originalKeysymToKeycode  = resolve<decltype(originalKeysymToKeycode)>("XKeysymToKeycode");
-        originalRootWindow       = resolve<decltype(originalRootWindow)>("XDefaultRootWindow");
+        originalCreateWindow           = resolve<decltype(originalCreateWindow)>("XCreateWindow");
+        originalNext                   = resolve<decltype(originalNext)>("XNextEvent");
+        originalPeek                   = resolve<decltype(originalPeek)>("XPeekEvent");
+        originalMask                   = resolve<decltype(originalMask)>("XMaskEvent");
+        originalWindow                 = resolve<decltype(originalWindow)>("XWindowEvent");
+        originalCheckMask              = resolve<decltype(originalCheckMask)>("XCheckMaskEvent");
+        originalCheckWindow            = resolve<decltype(originalCheckWindow)>("XCheckWindowEvent");
+        originalCheckTyped             = resolve<decltype(originalCheckTyped)>("XCheckTypedEvent");
+        originalCheckTypedWindow       = resolve<decltype(originalCheckTypedWindow)>("XCheckTypedWindowEvent");
+        originalIf                     = resolve<decltype(originalIf)>("XIfEvent");
+        originalCheckIf                = resolve<decltype(originalCheckIf)>("XCheckIfEvent");
+        originalPending                = resolve<decltype(originalPending)>("XPending");
+        originalPutBack                = resolve<decltype(originalPutBack)>("XPutBackEvent");
+        originalConnectionNumber       = resolve<decltype(originalConnectionNumber)>("XConnectionNumber");
+        originalGetFocus               = resolve<decltype(originalGetFocus)>("XGetInputFocus");
+        originalKeysymToKeycode        = resolve<decltype(originalKeysymToKeycode)>("XKeysymToKeycode");
+        originalRootWindow             = resolve<decltype(originalRootWindow)>("XDefaultRootWindow");
     }
 
 } // namespace lotus::apphook
@@ -345,8 +345,8 @@ LH_EXPORT int XChangeWindowAttributes(Display* target, Window window, unsigned l
  * @param attributes Initial X11 window attributes.
  * @return Created X11 window or None on failure.
  */
-LH_EXPORT Window XCreateWindow(Display* target, Window parent, int x, int y, unsigned int width, unsigned int height, unsigned int borderWidth, int depth,
-                               unsigned int windowClass, Visual* visual, unsigned long mask, XSetWindowAttributes* attributes) {
+LH_EXPORT Window XCreateWindow(Display* target, Window parent, int x, int y, unsigned int width, unsigned int height, unsigned int borderWidth, int depth, unsigned int windowClass,
+                               Visual* visual, unsigned long mask, XSetWindowAttributes* attributes) {
     using namespace lotus::apphook;
     if (!originalCreateWindow)
         loadX11();
