@@ -177,7 +177,7 @@ namespace lotus {
         }
         const bool canProcess = engine_.canProcessKey(keyRune);
         if (canProcess || (options_.macroEnabled && keyRune >= U'0' && keyRune <= U'9')) {
-            if (!canProcess && shouldFallbackToEnglish(true)) {
+            if (!canProcess && shouldRestoreBeforeDigit(keyRune)) {
                 engine_.restoreLastWord(false);
             }
             if (states.has(KeyState::Lock)) {
@@ -307,6 +307,24 @@ namespace lotus {
 
     bool KeyProcessor::macroTableEmpty() const {
         return macroTable_ == nullptr || macroTable_->empty();
+    }
+
+    bool KeyProcessor::shouldRestoreBeforeDigit(char32_t digitRune) const {
+        if (shouldFallbackToEnglish(true)) {
+            return true;
+        }
+        const std::u32string lastWord = getProcessedString(toMask(Mode::VietnameseMode));
+        if (!utils::hasAnyVietnameseRune(lastWord) || !mustFallbackToEnglish()) {
+            return false;
+        }
+        if (options_.macroEnabled && !macroTableEmpty()) {
+            std::u32string candidate = getProcessedString(toMask(Mode::PunctuationMode));
+            candidate.push_back(digitRune);
+            if (macroTable_->hasPrefix(candidate)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     std::u32string KeyProcessor::replaceAllText(std::u32string_view text, std::u32string_view needle, std::u32string_view replacement) {

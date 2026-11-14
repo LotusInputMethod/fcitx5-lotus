@@ -356,6 +356,13 @@ namespace lotus {
         [[nodiscard]] bool macroTableEmpty() const;
 
         /**
+         * @brief Reports whether the syllable before a non-effect digit must be restored to raw keys.
+         * @param digitRune ASCII digit about to be appended in macro mode.
+         * @return True when the active syllable would fall back to English and does not start a macro.
+         */
+        [[nodiscard]] bool shouldRestoreBeforeDigit(char32_t digitRune) const;
+
+        /**
          * @brief Replaces every occurrence of a needle, like Go's strings.ReplaceAll.
          * @param text Input text.
          * @param needle Text to replace; an empty one returns text unchanged.
