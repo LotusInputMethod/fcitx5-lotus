@@ -27,6 +27,8 @@
 #include <dlfcn.h>
 #include <linux/input-event-codes.h>
 #include <mutex>
+#include <new>
+#include <unordered_set>
 #include <poll.h>
 #include <vector>
 #include <unordered_map>
@@ -37,14 +39,28 @@ namespace lotus::apphook {
 
         constexpr unsigned long kInjectedSerial = 0x4c485831UL;
 
-        using DisplayFocus = XFocusState<Window, None>;
+        struct DisplayFocus : XFocusState<Window, None> {
+            std::unordered_map<Window, long> keyboardMasks;
+            bool                             sawKeyboard = false;
+            [[nodiscard]] bool               ready() const {
+                if (sawKeyboard)
+                    return true;
+                for (const auto& [window, mask] : keyboardMasks)
+                    if (mask & (KeyPressMask | KeyReleaseMask))
+                        return true;
+                return false;
+            }
+        };
         std::mutex                                 focusMutex;
         std::unordered_map<Display*, DisplayFocus> focusByDisplay;
-        void*                                      xlib    = nullptr;
-        void*                                      xlibXcb = nullptr;
-        void* (*getXcbConnection)(Display*)                = nullptr;
-        void (*originalSetEventQueueOwner)(Display*, int)  = nullptr;
-        std::mutex resolveMutex;
+        std::unordered_set<Display*>               xcbOwnerDisplays;
+        // The last press already returned to the consumer, keyed by Display.
+        std::unordered_map<Display*, XEvent> pressedEvents;
+        void*                                xlib         = nullptr;
+        void*                                xlibXcb      = nullptr;
+        void* (*getXcbConnection)(Display*)               = nullptr;
+        void (*originalSetEventQueueOwner)(Display*, int) = nullptr;
+        std::once_flag resolveOnce;
 
         int (*originalSelectInput)(Display*, Window, long)                                            = nullptr;
         int (*originalChangeWindowAttributes)(Display*, Window, unsigned long, XSetWindowAttributes*) = nullptr;
@@ -59,6 +75,7 @@ namespace lotus::apphook {
         Bool (*originalCheckTyped)(Display*, int, XEvent*)                                            = nullptr;
         Bool (*originalCheckTypedWindow)(Display*, Window, int, XEvent*)                              = nullptr;
         int (*originalIf)(Display*, XEvent*, Bool (*)(Display*, XEvent*, XPointer), XPointer)         = nullptr;
+        int (*originalPeekIf)(Display*, XEvent*, Bool (*)(Display*, XEvent*, XPointer), XPointer)     = nullptr;
         Bool (*originalCheckIf)(Display*, XEvent*, Bool (*)(Display*, XEvent*, XPointer), XPointer)   = nullptr;
         int (*originalPending)(Display*)                                                              = nullptr;
         int (*originalPutBack)(Display*, XEvent*)                                                     = nullptr;
@@ -85,30 +102,103 @@ namespace lotus::apphook {
             return (event->type == KeyPress || event->type == KeyRelease) && event->xkey.serial == kInjectedSerial;
         }
 
-        /** @brief Removes a cancelled task's undelivered events on the application thread. */
+        /** @brief Recomputes readiness across eligible Xlib displays. Called with focusMutex. */
+        bool xlibReady() {
+            for (const auto& [display, focus] : focusByDisplay)
+                if (!xcbOwnerDisplays.contains(display) && focus.ready())
+                    return true;
+            return false;
+        }
+
+        void updateKeyboardMask(Display* display, Window window, long mask) {
+            bool ready;
+            {
+                std::scoped_lock lock(focusMutex);
+                auto&            state = focusByDisplay[display];
+                if (mask & (KeyPressMask | KeyReleaseMask))
+                    state.keyboardMasks[window] = mask;
+                else
+                    state.keyboardMasks.erase(window);
+                ready = xlibReady();
+            }
+            noteX11KeyboardAvailable(ready);
+        }
+
+        /** @brief Cancels undelivered edges, preserving release of a delivered press. */
         void purgeCancelled(Display* target) {
-            Runtime&              state = runtime();
-            std::shared_ptr<Task> task;
+            if (!originalLockDisplay || !originalUnlockDisplay)
+                return;
+            originalLockDisplay(target);
+            Runtime& state = runtime();
             {
                 std::scoped_lock lock(state.mutex);
-                task = state.activeX11;
-                if (!task || state.activeX11Display != target || !task->cancelled.load(std::memory_order_acquire))
-                    return;
-            }
-            if (originalCheckIf) {
-                XEvent discarded{};
-                while (originalCheckIf(target, &discarded, &syntheticEvent, nullptr)) {
-                    std::scoped_lock lock(state.mutex);
-                    if (task->x11Remaining > 0)
-                        --task->x11Remaining;
+                const auto       task = state.activeX11;
+                if (task && state.activeX11Display == target && task->cancelled.load(std::memory_order_acquire)) {
+                    XEvent discarded{};
+                    if (originalCheckIf) {
+                        while (originalCheckIf(target, &discarded, &syntheticEvent, nullptr)) {
+                            if (task->x11Remaining)
+                                --task->x11Remaining;
+                        }
+                    }
+                    auto pressed = pressedEvents.find(target);
+                    if (pressed != pressedEvents.end()) {
+                        XEvent release    = pressed->second;
+                        release.type      = KeyRelease;
+                        release.xkey.type = KeyRelease;
+                        if (originalPutBack) {
+                            (void)originalPutBack(target, &release);
+                            task->x11Remaining = 1;
+                        }
+                    } else {
+                        finishLocked(task, -ECANCELED);
+                        state.activeX11.reset();
+                        state.activeX11Display = nullptr;
+                    }
                 }
             }
-            std::scoped_lock lock(state.mutex);
-            if (state.activeX11 == task && task->x11Remaining == 0) {
-                finishLocked(task, -ECANCELED);
-                state.activeX11.reset();
-                state.activeX11Display = nullptr;
+            originalUnlockDisplay(target);
+        }
+
+        /** @brief Moves a queued focus transition ahead of an active synthetic burst. */
+        void promoteFocusTransition(Display* target) {
+            if (!originalLockDisplay || !originalUnlockDisplay || !originalNext || !originalPending || !originalPutBack)
+                return;
+            {
+                std::scoped_lock lock(runtime().mutex);
+                if (!runtime().activeX11 || runtime().activeX11Display != target)
+                    return;
             }
+            originalLockDisplay(target);
+            const int count = originalPending(target);
+            if (count > 0 && count <= 4096) {
+                std::vector<XEvent> queued;
+                try {
+                    queued.reserve(static_cast<size_t>(count));
+                } catch (const std::bad_alloc&) {
+                    originalUnlockDisplay(target);
+                    return;
+                }
+                for (int i = 0; i < count; ++i) {
+                    XEvent event{};
+                    originalNext(target, &event);
+                    queued.push_back(event);
+                }
+                const bool transition = std::any_of(queued.begin(), queued.end(), [](const auto& event) { return event.type == FocusIn || event.type == FocusOut; });
+                if (transition) {
+                    // Native events must precede synthetic events before a focus change.
+                    for (auto it = queued.rbegin(); it != queued.rend(); ++it)
+                        if ((it->type == KeyPress || it->type == KeyRelease) && it->xkey.serial == kInjectedSerial)
+                            (void)originalPutBack(target, &*it);
+                    for (auto it = queued.rbegin(); it != queued.rend(); ++it)
+                        if (!((it->type == KeyPress || it->type == KeyRelease) && it->xkey.serial == kInjectedSerial))
+                            (void)originalPutBack(target, &*it);
+                } else {
+                    for (auto it = queued.rbegin(); it != queued.rend(); ++it)
+                        (void)originalPutBack(target, &*it);
+                }
+            }
+            originalUnlockDisplay(target);
         }
 
         /**
@@ -122,18 +212,29 @@ namespace lotus::apphook {
             }
             if (event.type == FocusIn || event.type == FocusOut) {
                 bool focused = false;
+                bool cancel  = false;
                 {
                     std::scoped_lock lock(focusMutex);
-                    auto&            tracked = focusByDisplay[event.xfocus.display];
+                    auto&            tracked       = focusByDisplay[event.xfocus.display];
+                    const bool       wasFocused    = tracked.focused;
+                    const Window     previousOwner = tracked.focus;
                     if (event.type == FocusIn)
                         tracked.enter(event.xfocus.window);
                     else
                         tracked.leave(event.xfocus.window);
+                    cancel = (wasFocused && !tracked.focused) || (event.type == FocusIn && wasFocused && previousOwner != event.xfocus.window);
                     for (const auto& [ignored, state] : focusByDisplay)
                         focused |= state.focused;
                 }
+                if (cancel) {
+                    std::scoped_lock lock(runtime().mutex);
+                    if (runtime().activeX11 && runtime().activeX11Display == event.xfocus.display)
+                        runtime().activeX11->cancelled.store(true, std::memory_order_release);
+                }
                 runtime().observedX11Focus.store(true, std::memory_order_release);
                 noteX11Focus(focused);
+                if (cancel)
+                    purgeCancelled(event.xfocus.display);
             }
             if ((event.type == KeyPress || event.type == KeyRelease) && event.xkey.serial == kInjectedSerial) {
                 Runtime&         state = runtime();
@@ -141,10 +242,15 @@ namespace lotus::apphook {
                 if (state.activeX11 && state.activeX11Display == event.xkey.display && state.activeX11->x11Remaining > 0) {
                     auto task = state.activeX11;
                     task->applied.store(true, std::memory_order_release);
+                    if (event.type == KeyPress)
+                        pressedEvents[event.xkey.display] = event;
+                    else
+                        pressedEvents.erase(event.xkey.display);
                     if (--task->x11Remaining == 0) {
                         finishLocked(task, task->cancelled.load(std::memory_order_acquire) ? -ECANCELED : 0);
                         state.activeX11.reset();
                         state.activeX11Display = nullptr;
+                        pressedEvents.erase(event.xkey.display);
                     }
                 }
             }
@@ -153,9 +259,11 @@ namespace lotus::apphook {
                 // Other X11 event classes must never change the injection target.
                 {
                     std::scoped_lock lock(focusMutex);
-                    focusByDisplay[event.xkey.display].keyTarget(event.xkey.window, false);
+                    auto&            tracked = focusByDisplay[event.xkey.display];
+                    tracked.keyTarget(event.xkey.window, false);
+                    tracked.sawKeyboard = true;
                 }
-                runtime().readyX11.store(true, std::memory_order_release);
+                noteX11KeyboardAvailable(true);
                 if (event.type == KeyPress)
                     noteKeyboardActivity(false);
             }
@@ -184,7 +292,7 @@ namespace lotus::apphook {
                     return resolved;
                 }
             }
-            return static_cast<KeyCode>(evdev + 8);
+            return evdev <= 247 ? static_cast<KeyCode>(evdev + 8) : 0;
         }
 
         /**
@@ -228,7 +336,11 @@ namespace lotus::apphook {
                 std::scoped_lock lock(focusMutex);
                 focusByDisplay[target].target = focused;
             }
-            runtime().readyX11.store(true, std::memory_order_release);
+            {
+                std::scoped_lock lock(focusMutex);
+                focusByDisplay[target].sawKeyboard = true;
+            }
+            noteX11KeyboardAvailable(true);
 
             // Keep the native queue order intact even when an XCheck* filter
             // ignores an unrelated event at its head. Serialise Xlib calls so
@@ -265,13 +377,18 @@ namespace lotus::apphook {
                             taps += op.count;
                         injected.reserve(taps * 2);
                         KeySequence         sequence(task->ops);
-                        const KeyOperation* lastOp = nullptr;
-                        KeyCode             code   = 0;
+                        const KeyOperation* lastOp     = nullptr;
+                        KeyCode             code       = 0;
+                        bool                invalidKey = false;
                         while (const auto edge = sequence.current()) {
                             const auto* op = sequence.operation();
                             if (op != lastOp) {
                                 code   = keycode(target, op->keycode);
                                 lastOp = op;
+                                if (!code) {
+                                    invalidKey = true;
+                                    break;
+                                }
                             }
                             XEvent event{};
                             event.xkey.type        = edge->pressed ? KeyPress : KeyRelease;
@@ -287,9 +404,9 @@ namespace lotus::apphook {
                             injected.push_back(event);
                             sequence.advance();
                         }
-                        if (task->cancelled.load(std::memory_order_acquire)) {
+                        if (invalidKey || task->cancelled.load(std::memory_order_acquire)) {
                             std::scoped_lock lock(runtime().mutex);
-                            finishLocked(task, -ECANCELED);
+                            finishLocked(task, invalidKey ? -EINVAL : -ECANCELED);
                             runtime().activeX11.reset();
                             runtime().activeX11Display = nullptr;
                             injected.clear();
@@ -311,9 +428,9 @@ namespace lotus::apphook {
             // XPutBackEvent prepends; restoring in reverse yields native FIFO
             // followed by synthetic FIFO, without changing any original event.
             for (auto it = injected.rbegin(); it != injected.rend(); ++it)
-                originalPutBack(target, &*it);
+                (void)originalPutBack(target, &*it);
             for (auto it = native.rbegin(); it != native.rend(); ++it)
-                originalPutBack(target, &*it);
+                (void)originalPutBack(target, &*it);
             purgeCancelled(target);
             originalUnlockDisplay(target);
         }
@@ -351,6 +468,7 @@ namespace lotus::apphook {
             if (getXcbConnection && xcbOwnsXlibConnection(getXcbConnection(target)))
                 return;
             purgeCancelled(target);
+            promoteFocusTransition(target);
             // XPutBackEvent prepends events, so never overtake native events already queued.
             if (originalPending && originalPending(target) == 0) {
                 pump(target);
@@ -381,41 +499,39 @@ namespace lotus::apphook {
     } // namespace
 
     void loadX11() {
-        std::scoped_lock lock(resolveMutex);
-        if (xlib) {
-            return;
-        }
-        xlib = dlopen("libX11.so.6", RTLD_NOW | RTLD_NOLOAD);
-        if (!xlib) {
-            return;
-        }
-        xlibXcb = dlopen("libX11-xcb.so.1", RTLD_LAZY | RTLD_LOCAL);
-        if (xlibXcb) {
-            getXcbConnection           = reinterpret_cast<decltype(getXcbConnection)>(dlsym(xlibXcb, "XGetXCBConnection"));
-            originalSetEventQueueOwner = reinterpret_cast<decltype(originalSetEventQueueOwner)>(dlsym(xlibXcb, "XSetEventQueueOwner"));
-        }
-        originalSelectInput            = resolve<decltype(originalSelectInput)>("XSelectInput");
-        originalChangeWindowAttributes = resolve<decltype(originalChangeWindowAttributes)>("XChangeWindowAttributes");
-        originalCreateWindow           = resolve<decltype(originalCreateWindow)>("XCreateWindow");
-        originalNext                   = resolve<decltype(originalNext)>("XNextEvent");
-        originalPeek                   = resolve<decltype(originalPeek)>("XPeekEvent");
-        originalMask                   = resolve<decltype(originalMask)>("XMaskEvent");
-        originalWindow                 = resolve<decltype(originalWindow)>("XWindowEvent");
-        originalCheckMask              = resolve<decltype(originalCheckMask)>("XCheckMaskEvent");
-        originalCheckWindow            = resolve<decltype(originalCheckWindow)>("XCheckWindowEvent");
-        originalCheckTyped             = resolve<decltype(originalCheckTyped)>("XCheckTypedEvent");
-        originalCheckTypedWindow       = resolve<decltype(originalCheckTypedWindow)>("XCheckTypedWindowEvent");
-        originalIf                     = resolve<decltype(originalIf)>("XIfEvent");
-        originalCheckIf                = resolve<decltype(originalCheckIf)>("XCheckIfEvent");
-        originalPending                = resolve<decltype(originalPending)>("XPending");
-        originalPutBack                = resolve<decltype(originalPutBack)>("XPutBackEvent");
-        originalLockDisplay            = resolve<decltype(originalLockDisplay)>("XLockDisplay");
-        originalUnlockDisplay          = resolve<decltype(originalUnlockDisplay)>("XUnlockDisplay");
-        originalConnectionNumber       = resolve<decltype(originalConnectionNumber)>("XConnectionNumber");
-        originalCloseDisplay           = resolve<decltype(originalCloseDisplay)>("XCloseDisplay");
-        originalGetFocus               = resolve<decltype(originalGetFocus)>("XGetInputFocus");
-        originalKeysymToKeycode        = resolve<decltype(originalKeysymToKeycode)>("XKeysymToKeycode");
-        originalRootWindow             = resolve<decltype(originalRootWindow)>("XDefaultRootWindow");
+        std::call_once(resolveOnce, [] {
+            xlib = dlopen("libX11.so.6", RTLD_NOW | RTLD_NOLOAD);
+            if (!xlib)
+                return;
+            xlibXcb = dlopen("libX11-xcb.so.1", RTLD_LAZY | RTLD_LOCAL);
+            if (xlibXcb) {
+                getXcbConnection           = reinterpret_cast<decltype(getXcbConnection)>(dlsym(xlibXcb, "XGetXCBConnection"));
+                originalSetEventQueueOwner = reinterpret_cast<decltype(originalSetEventQueueOwner)>(dlsym(xlibXcb, "XSetEventQueueOwner"));
+            }
+            originalSelectInput            = resolve<decltype(originalSelectInput)>("XSelectInput");
+            originalChangeWindowAttributes = resolve<decltype(originalChangeWindowAttributes)>("XChangeWindowAttributes");
+            originalCreateWindow           = resolve<decltype(originalCreateWindow)>("XCreateWindow");
+            originalNext                   = resolve<decltype(originalNext)>("XNextEvent");
+            originalPeek                   = resolve<decltype(originalPeek)>("XPeekEvent");
+            originalMask                   = resolve<decltype(originalMask)>("XMaskEvent");
+            originalWindow                 = resolve<decltype(originalWindow)>("XWindowEvent");
+            originalCheckMask              = resolve<decltype(originalCheckMask)>("XCheckMaskEvent");
+            originalCheckWindow            = resolve<decltype(originalCheckWindow)>("XCheckWindowEvent");
+            originalCheckTyped             = resolve<decltype(originalCheckTyped)>("XCheckTypedEvent");
+            originalCheckTypedWindow       = resolve<decltype(originalCheckTypedWindow)>("XCheckTypedWindowEvent");
+            originalIf                     = resolve<decltype(originalIf)>("XIfEvent");
+            originalPeekIf                 = resolve<decltype(originalPeekIf)>("XPeekIfEvent");
+            originalCheckIf                = resolve<decltype(originalCheckIf)>("XCheckIfEvent");
+            originalPending                = resolve<decltype(originalPending)>("XPending");
+            originalPutBack                = resolve<decltype(originalPutBack)>("XPutBackEvent");
+            originalLockDisplay            = resolve<decltype(originalLockDisplay)>("XLockDisplay");
+            originalUnlockDisplay          = resolve<decltype(originalUnlockDisplay)>("XUnlockDisplay");
+            originalConnectionNumber       = resolve<decltype(originalConnectionNumber)>("XConnectionNumber");
+            originalCloseDisplay           = resolve<decltype(originalCloseDisplay)>("XCloseDisplay");
+            originalGetFocus               = resolve<decltype(originalGetFocus)>("XGetInputFocus");
+            originalKeysymToKeycode        = resolve<decltype(originalKeysymToKeycode)>("XKeysymToKeycode");
+            originalRootWindow             = resolve<decltype(originalRootWindow)>("XDefaultRootWindow");
+        });
     }
 
 } // namespace lotus::apphook
@@ -425,8 +541,11 @@ namespace lotus::apphook {
         focusMutex.lock();
     }
     void finishX11Fork(bool child) {
-        if (child)
+        if (child) {
             focusByDisplay.clear();
+            xcbOwnerDisplays.clear();
+            pressedEvents.clear();
+        }
         focusMutex.unlock();
     }
 }
@@ -442,16 +561,15 @@ namespace lotus::apphook {
  */
 LH_EXPORT int XSelectInput(Display* target, Window window, long mask) {
     using namespace lotus::apphook;
-    if (!originalSelectInput)
-        loadX11();
+    loadX11();
     if (!originalSelectInput)
         return 0;
     if (getXcbConnection)
         markXlibOwnedXcbConnection(getXcbConnection(target));
     const int result = originalSelectInput(target, window, mask);
-    if (result && (mask & (KeyPressMask | KeyReleaseMask))) {
-        noteX11KeyboardAvailable();
-        if (getXcbConnection)
+    if (result) {
+        updateKeyboardMask(target, window, mask);
+        if ((mask & (KeyPressMask | KeyReleaseMask)) && getXcbConnection)
             markXcbKeyboardSubscribed(getXcbConnection(target));
     }
     return result;
@@ -467,16 +585,15 @@ LH_EXPORT int XSelectInput(Display* target, Window window, long mask) {
  */
 LH_EXPORT int XChangeWindowAttributes(Display* target, Window window, unsigned long mask, XSetWindowAttributes* attributes) {
     using namespace lotus::apphook;
-    if (!originalChangeWindowAttributes)
-        loadX11();
+    loadX11();
     if (!originalChangeWindowAttributes)
         return 0;
     if (getXcbConnection)
         markXlibOwnedXcbConnection(getXcbConnection(target));
     const int result = originalChangeWindowAttributes(target, window, mask, attributes);
-    if (result && (mask & CWEventMask) && attributes && (attributes->event_mask & (KeyPressMask | KeyReleaseMask))) {
-        noteX11KeyboardAvailable();
-        if (getXcbConnection)
+    if (result && (mask & CWEventMask) && attributes) {
+        updateKeyboardMask(target, window, attributes->event_mask);
+        if ((attributes->event_mask & (KeyPressMask | KeyReleaseMask)) && getXcbConnection)
             markXcbKeyboardSubscribed(getXcbConnection(target));
     }
     return result;
@@ -501,16 +618,15 @@ LH_EXPORT int XChangeWindowAttributes(Display* target, Window window, unsigned l
 LH_EXPORT Window XCreateWindow(Display* target, Window parent, int x, int y, unsigned int width, unsigned int height, unsigned int borderWidth, int depth, unsigned int windowClass,
                                Visual* visual, unsigned long mask, XSetWindowAttributes* attributes) {
     using namespace lotus::apphook;
-    if (!originalCreateWindow)
-        loadX11();
+    loadX11();
     if (!originalCreateWindow)
         return None;
     if (getXcbConnection)
         markXlibOwnedXcbConnection(getXcbConnection(target));
     const Window window = originalCreateWindow(target, parent, x, y, width, height, borderWidth, depth, windowClass, visual, mask, attributes);
-    if (window != None && (mask & CWEventMask) && attributes && (attributes->event_mask & (KeyPressMask | KeyReleaseMask))) {
-        noteX11KeyboardAvailable();
-        if (getXcbConnection)
+    if (window != None && (mask & CWEventMask) && attributes) {
+        updateKeyboardMask(target, window, attributes->event_mask);
+        if ((attributes->event_mask & (KeyPressMask | KeyReleaseMask)) && getXcbConnection)
             markXcbKeyboardSubscribed(getXcbConnection(target));
     }
     return window;
@@ -519,38 +635,61 @@ LH_EXPORT Window XCreateWindow(Display* target, Window parent, int x, int y, uns
 /** Tracks Xlib/XCB event queue ownership (XCBOwnsEventQueue is 1). */
 LH_EXPORT void XSetEventQueueOwner(Display* target, int owner) {
     using namespace lotus::apphook;
-    if (!originalSetEventQueueOwner)
-        loadX11();
+    loadX11();
     if (originalSetEventQueueOwner)
         originalSetEventQueueOwner(target, owner);
     if (getXcbConnection) {
         auto* connection = getXcbConnection(target);
         markXlibOwnedXcbConnection(connection);
-        setXcbEventQueueOwner(connection, owner == 1);
+        setXcbEventQueueOwner(connection, owner == 1, originalRootWindow ? static_cast<uint32_t>(originalRootWindow(target)) : 0);
     }
+    bool focused = false;
+    bool ready   = false;
+    {
+        std::scoped_lock lock(focusMutex);
+        if (owner == 1) {
+            xcbOwnerDisplays.insert(target);
+            focusByDisplay[target].focused = false;
+            focusByDisplay[target].target  = None;
+            focusByDisplay[target].focus   = None;
+        } else {
+            xcbOwnerDisplays.erase(target);
+        }
+        for (const auto& [display, state] : focusByDisplay)
+            if (!xcbOwnerDisplays.contains(display))
+                focused |= state.focused;
+        ready = xlibReady();
+    }
+    noteX11Focus(focused);
+    noteX11KeyboardAvailable(ready);
 }
 
 /** Removes focus state and rejects undelivered keys when a Display is closed. */
 LH_EXPORT int XCloseDisplay(Display* target) {
     using namespace lotus::apphook;
-    if (!originalCloseDisplay)
-        loadX11();
+    loadX11();
     if (getXcbConnection)
         forgetXlibXcbConnection(getXcbConnection(target));
     bool focused = false;
+    bool ready   = false;
     {
         std::scoped_lock lock(focusMutex);
         focusByDisplay.erase(target);
-        for (const auto& [ignored, state] : focusByDisplay)
-            focused |= state.focused;
+        xcbOwnerDisplays.erase(target);
+        for (const auto& [display, state] : focusByDisplay)
+            if (!xcbOwnerDisplays.contains(display))
+                focused |= state.focused;
+        ready = xlibReady();
     }
     noteX11Focus(focused);
+    noteX11KeyboardAvailable(ready);
     {
         std::scoped_lock lock(runtime().mutex);
         if (runtime().activeX11 && runtime().activeX11Display == target) {
             finishLocked(runtime().activeX11, -ENOTCONN);
             runtime().activeX11.reset();
             runtime().activeX11Display = nullptr;
+            pressedEvents.erase(target);
         }
     }
     return originalCloseDisplay ? originalCloseDisplay(target) : -1;
@@ -564,8 +703,7 @@ LH_EXPORT int XCloseDisplay(Display* target) {
  */
 LH_EXPORT int XNextEvent(Display* target, XEvent* event) {
     using namespace lotus::apphook;
-    if (!originalNext)
-        loadX11();
+    loadX11();
     if (!originalNext)
         return -1;
     onEntry(target);
@@ -587,8 +725,7 @@ LH_EXPORT int XNextEvent(Display* target, XEvent* event) {
  */
 LH_EXPORT int XPeekEvent(Display* target, XEvent* event) {
     using namespace lotus::apphook;
-    if (!originalPeek)
-        loadX11();
+    loadX11();
     if (!originalPeek)
         return -1;
     onEntry(target);
@@ -608,8 +745,7 @@ LH_EXPORT int XPeekEvent(Display* target, XEvent* event) {
  */
 LH_EXPORT int XMaskEvent(Display* target, long mask, XEvent* event) {
     using namespace lotus::apphook;
-    if (!originalMask)
-        loadX11();
+    loadX11();
     if (!originalMask)
         return -1;
     onEntry(target);
@@ -635,8 +771,7 @@ LH_EXPORT int XMaskEvent(Display* target, long mask, XEvent* event) {
  */
 LH_EXPORT int XWindowEvent(Display* target, Window window, long mask, XEvent* event) {
     using namespace lotus::apphook;
-    if (!originalWindow)
-        loadX11();
+    loadX11();
     if (!originalWindow)
         return -1;
     onEntry(target);
@@ -661,8 +796,7 @@ LH_EXPORT int XWindowEvent(Display* target, Window window, long mask, XEvent* ev
  */
 LH_EXPORT Bool XCheckMaskEvent(Display* target, long mask, XEvent* event) {
     using namespace lotus::apphook;
-    if (!originalCheckMask)
-        loadX11();
+    loadX11();
     if (!originalCheckMask)
         return False;
     onEntry(target);
@@ -682,8 +816,7 @@ LH_EXPORT Bool XCheckMaskEvent(Display* target, long mask, XEvent* event) {
  */
 LH_EXPORT Bool XCheckWindowEvent(Display* target, Window window, long mask, XEvent* event) {
     using namespace lotus::apphook;
-    if (!originalCheckWindow)
-        loadX11();
+    loadX11();
     if (!originalCheckWindow)
         return False;
     onEntry(target);
@@ -702,8 +835,7 @@ LH_EXPORT Bool XCheckWindowEvent(Display* target, Window window, long mask, XEve
  */
 LH_EXPORT Bool XCheckTypedEvent(Display* target, int type, XEvent* event) {
     using namespace lotus::apphook;
-    if (!originalCheckTyped)
-        loadX11();
+    loadX11();
     if (!originalCheckTyped)
         return False;
     onEntry(target);
@@ -723,8 +855,7 @@ LH_EXPORT Bool XCheckTypedEvent(Display* target, int type, XEvent* event) {
  */
 LH_EXPORT Bool XCheckTypedWindowEvent(Display* target, Window window, int type, XEvent* event) {
     using namespace lotus::apphook;
-    if (!originalCheckTypedWindow)
-        loadX11();
+    loadX11();
     if (!originalCheckTypedWindow)
         return False;
     onEntry(target);
@@ -744,8 +875,7 @@ LH_EXPORT Bool XCheckTypedWindowEvent(Display* target, Window window, int type, 
  */
 LH_EXPORT int XIfEvent(Display* target, XEvent* event, Bool (*predicate)(Display*, XEvent*, XPointer), XPointer arg) {
     using namespace lotus::apphook;
-    if (!originalIf)
-        loadX11();
+    loadX11();
     if (!originalIf)
         return -1;
     onEntry(target);
@@ -771,8 +901,7 @@ LH_EXPORT int XIfEvent(Display* target, XEvent* event, Bool (*predicate)(Display
  */
 LH_EXPORT Bool XCheckIfEvent(Display* target, XEvent* event, Bool (*predicate)(Display*, XEvent*, XPointer), XPointer arg) {
     using namespace lotus::apphook;
-    if (!originalCheckIf)
-        loadX11();
+    loadX11();
     if (!originalCheckIf)
         return False;
     onEntry(target);
@@ -780,4 +909,14 @@ LH_EXPORT Bool XCheckIfEvent(Display* target, XEvent* event, Bool (*predicate)(D
     if (found)
         recordEvent(*event, true);
     return found;
+}
+
+/** Preserves the predicate-based peek API without consuming any native event. */
+LH_EXPORT int XPeekIfEvent(Display* target, XEvent* event, Bool (*predicate)(Display*, XEvent*, XPointer), XPointer arg) {
+    using namespace lotus::apphook;
+    loadX11();
+    if (!originalPeekIf)
+        return -1;
+    onEntry(target);
+    return originalPeekIf(target, event, predicate, arg);
 }
