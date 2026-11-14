@@ -65,15 +65,14 @@ jobs:
       - name: Install dependencies (glibc)
         if: matrix.install == 'arch'
         run: |
-          pacman -Syu --noconfirm base-devel clang cmake ninja extra-cmake-modules libuv git libinput libevdev libnotify dbus systemd-libs python libxcb wayland
+          pacman -Syu --noconfirm base-devel clang cmake ninja extra-cmake-modules libuv git libinput libevdev libnotify dbus systemd-libs python libxcb wayland xorg-server-xvfb
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5-lotus"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5"
       - name: Install dependencies (musl)
         if: matrix.install == 'alpine'
         run: |
-          # dbus supplies dbus-run-session for the private-bus regression; dbus-dev supplies headers.
-          apk add --no-cache build-base cmake ninja extra-cmake-modules libuv-dev git libinput-dev libevdev-dev libnotify-dev dbus dbus-dev python3 zlib-dev gettext-dev util-linux-dev tar clang linux-headers libxcb-dev wayland-dev
+          apk add --no-cache build-base cmake ninja extra-cmake-modules libuv-dev git libinput-dev libevdev-dev libnotify-dev dbus dbus-dev python3 zlib-dev gettext-dev util-linux-dev tar clang linux-headers libxcb-dev wayland-dev xvfb-run
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5-lotus"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5"

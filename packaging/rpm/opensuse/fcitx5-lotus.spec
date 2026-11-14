@@ -1,3 +1,5 @@
+%bcond_without tests
+
 Name:           fcitx5-lotus
 Version:        6.1.1
 Release:        1
@@ -23,6 +25,11 @@ BuildRequires:  sysuser-tools
 BuildRequires:  python3
 Requires(pre):  sysuser-shadow >= 3.1
 
+%if %{with tests}
+BuildRequires:  dbus-1
+BuildRequires:  xvfb-run
+%endif
+
 %{?systemd_ordering}
 Requires:       fcitx5
 Requires:       python3-QtPy
@@ -38,7 +45,7 @@ Vietnamese input method for fcitx5
 find . -type f -name '*.py' -exec sed -i '1s|^#!.*env python3|#!/usr/bin/python3|' {} +
 
 %build
-%cmake -DLOTUS_BYTECOMPILE_PYTHON:BOOL=OFF -DBUILD_TESTING:BOOL=ON
+%cmake -DLOTUS_BYTECOMPILE_PYTHON:BOOL=OFF -DBUILD_TESTING:BOOL=%{with tests}
 %cmake_build
 cd %{_builddir}/%{name}-%{version}
 %sysusers_generate_pre build/misc/user-lotus.conf lotus lotus.conf
@@ -49,7 +56,9 @@ cd %{_builddir}/%{name}-%{version}
 %py3_compile %{buildroot}%{_datadir}/fcitx5-lotus
 
 %check
+%if %{with tests}
 %ctest
+%endif
 
 %files -f %{name}.lang
 %{_datadir}/licenses/%{name}/LICENSE
