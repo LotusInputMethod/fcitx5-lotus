@@ -5,6 +5,7 @@
 
 import os
 import unittest
+from unittest import mock
 
 import _stubs  # noqa: F401  (installs the qtpy/dbus stand-ins)
 from qtpy.QtWidgets import QHBoxLayout, QLabel
@@ -36,6 +37,11 @@ class ConfigBoolTests(unittest.TestCase):
             with self.subTest(stored=stored):
                 self.assertEqual(config_bool({"Key": stored}, "Key", default), expected)
 
+    def test_real_bool_values_pass_through(self):
+        # Values after a dbus round trip are real booleans, not "True"/"False" strings.
+        self.assertTrue(config_bool({"Key": True}, "Key", "False"))
+        self.assertFalse(config_bool({"Key": False}, "Key", "True"))
+
     def test_missing_key_falls_back_to_default(self):
         self.assertTrue(config_bool({}, "Key", "True"))
         self.assertFalse(config_bool({}, "Key", "False"))
@@ -50,6 +56,7 @@ class AsBoolAndBoolToStrTests(unittest.TestCase):
             (True, True),
             ("True", True),
             ("true", True),
+            ("TRUE", True),
             (False, False),
             ("False", False),
             (1, False),
@@ -152,6 +159,20 @@ class _FakeButton:
 
 
 class SetAddButtonModeTests(unittest.TestCase):
+    def test_update_mode_uses_save_icon(self):
+        with mock.patch("ui.helpers.QIcon") as fake_icon:
+            button = _FakeButton()
+            set_add_button_mode(button, True, "Update", "Add", update_tip="save")
+        fake_icon.fromTheme.assert_called_once_with("document-save")
+        self.assertEqual(len(button.icons), 1)
+
+    def test_add_mode_uses_add_icon(self):
+        with mock.patch("ui.helpers.QIcon") as fake_icon:
+            button = _FakeButton()
+            set_add_button_mode(button, False, "Update", "Add", add_tip="add")
+        fake_icon.fromTheme.assert_called_once_with("list-add")
+        self.assertEqual(len(button.icons), 1)
+
     def test_update_mode(self):
         button = _FakeButton()
         set_add_button_mode(button, True, "Update", "Add", update_tip="save")

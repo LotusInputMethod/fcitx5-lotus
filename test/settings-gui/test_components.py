@@ -12,6 +12,7 @@ from ui.components import (
     HOTKEY_SYM_MAP,
     HOTKEY_UI_UNSHIFT_MAP,
     HotkeyCaptureWidget,
+    HotkeyEditorWidget,
     SingleKeyCaptureWidget,
     clear_layout,
     pretty_format_hotkey_parts,
@@ -156,6 +157,27 @@ class HotkeyCaptureWidgetTests(unittest.TestCase):
         widget._handle_release_event(_key_event(key=Qt.Key_Control))
         self.assertNotIn("Control", widget.record_mods)
 
+    def test_shift_letter_is_stored_as_uppercase(self):
+        # "A" is in HOTKEY_UI_UNSHIFT_MAP, so Shift stays implicit in the stored
+        # key and pretty_format_hotkey_parts re-adds the Shift label for display.
+        widget = HotkeyCaptureWidget()
+        widget._handle_key_event(_key_event(key=Qt.Key_A, text="A", modifiers=Qt.ShiftModifier))
+
+        self.assertEqual(widget.current_key, "A")
+
+    def test_recording_feedback_shows_held_modifiers(self):
+        widget = HotkeyCaptureWidget()
+
+        # Driven directly because the stub does not fire toggled from setChecked.
+        widget._on_toggled(True)
+        self.assertEqual(widget.main_layout.count(), 1)
+
+        widget._handle_key_event(_key_event(key=Qt.Key_Control))
+        self.assertEqual(widget.main_layout.count(), 2)
+
+        widget._handle_release_event(_key_event(key=Qt.Key_Control))
+        self.assertEqual(widget.main_layout.count(), 1)
+
     def test_event_filter_handles_key_press(self):
         widget = HotkeyCaptureWidget()
         event = _key_event(key=Qt.Key_B, text="b")
@@ -194,6 +216,17 @@ class SingleKeyCaptureWidgetTests(unittest.TestCase):
 
         self.assertEqual(widget.current_key, "f5")
         widget.setChecked.assert_called_once_with(False)
+
+
+class HotkeyEditorWidgetTests(unittest.TestCase):
+    def test_clear_resets_capture_and_emits_empty(self):
+        widget = HotkeyEditorWidget("Control+a")
+
+        widget._on_clear()
+
+        self.assertEqual(widget.hotkey_capture.current_key, "")
+        widget.hotkey_capture.setChecked.assert_called_once_with(False)
+        widget.textChanged.emit.assert_called_once_with("")
 
 
 if __name__ == "__main__":

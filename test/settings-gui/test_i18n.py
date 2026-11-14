@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from io import StringIO
+from unittest import mock
 
 import _stubs  # noqa: F401  (installs the qtpy/dbus stand-ins)
 import i18n
@@ -79,17 +80,27 @@ class SetupI18nTests(unittest.TestCase):
         self._install_vietnamese_catalog()
         i18n.LOCALE_DIR = self.localedir
 
-        i18n.setup_i18n()
+        # Spy on the gettext binding calls: the catalog assertions below only
+        # work if setup_i18n actually registered domain and locale dir.
+        with (
+            mock.patch("gettext.bindtextdomain") as fake_bind,
+            mock.patch("gettext.textdomain") as fake_textdomain,
+        ):
+            i18n.setup_i18n()
 
-        found = gettext.find("fcitx5-lotus", self.localedir, languages=["vi"])
-        self.assertIsNotNone(found)
+        fake_bind.assert_called_once_with("fcitx5-lotus", self.localedir)
+        fake_textdomain.assert_called_once_with("fcitx5-lotus")
         translation = gettext.translation("fcitx5-lotus", self.localedir, languages=["vi"])
         self.assertEqual(translation.gettext("Add"), "Th\u00eam")
 
     def test_missing_locale_dir_does_not_raise(self):
         i18n.LOCALE_DIR = os.path.join(self.localedir, "does-not-exist")
 
-        i18n.setup_i18n()
+        # The os.path.exists guard must skip binding for a missing locale dir.
+        with mock.patch("gettext.bindtextdomain") as fake_bind:
+            i18n.setup_i18n()
+
+        fake_bind.assert_not_called()
 
     def test_locale_errors_are_swallowed(self):
         original_setlocale = locale.setlocale
