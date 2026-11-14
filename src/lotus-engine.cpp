@@ -1228,10 +1228,7 @@ namespace fcitx {
 
     void LotusEngine::refreshFocusedAppRule() {
         auto* ic = activeContext_.get();
-        if (ic == nullptr || !ic->hasFocus()) {
-            return;
-        }
-        if (isSelectingAppMode_ || !resolveProgramName(ic->program(), {}).empty()) {
+        if (ic == nullptr || !ic->hasFocus() || isSelectingAppMode_ || !resolveProgramName(ic->program(), {}).empty()) {
             return;
         }
         const auto program = programNameFor(ic);
