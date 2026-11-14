@@ -24,11 +24,12 @@
 namespace lotus::apphook {
 
     constexpr uint32_t kMagic    = 0x4c485031; // LHP1
-    constexpr uint16_t kVersion  = 3;
+    constexpr uint16_t kVersion  = 1;
     constexpr size_t   kMaxOps   = 128;
     constexpr size_t   kMaxTaps  = 4096;
     constexpr size_t   kMaxTasks = 64;
     constexpr size_t   kMaxPeers = 128;
+    constexpr uint32_t kReadyFocused = 1U; ///< Focus snapshot carried by Ready.
 
     /** @brief Commands sent from the Fcitx5 addon to an application hook. */
     enum class Command : uint16_t {
@@ -54,13 +55,13 @@ namespace lotus::apphook {
         std::array<KeyOperation, kMaxOps> ops{};
     };
 
-    /** @brief Hook readiness, keyboard focus notification or request completion. */
+    /** @brief Hook readiness with initial focus, subsequent focus notifications or request completion. */
     struct Response {
         uint32_t     magic     = kMagic;
         uint16_t     version   = kVersion;
         ResponseKind type      = ResponseKind::Ready;
         int32_t      status    = 0;
-        uint32_t     reserved  = 0;
+        uint32_t     reserved  = 0; ///< kReadyFocused is set for a focused Ready response.
         uint64_t     requestId = 0;
     };
 

@@ -19,7 +19,7 @@
 namespace lotus::apphook {
 
     bool socketAddress(sockaddr_un& address, socklen_t& size) {
-        const std::string name = "lotus-apphook-v3-" + std::to_string(getuid());
+        const std::string name = "lotus-apphook-v1-" + std::to_string(getuid());
         if (name.size() + 1 > sizeof(address.sun_path)) {
             return false;
         }

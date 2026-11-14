@@ -70,8 +70,12 @@ namespace lotus::apphook {
     void noteKeyboardActivity(bool wayland);
     /** @brief Updates Xlib keyboard focus and starts lazy IPC on focus-in. */
     void noteX11Focus(bool focused);
-    /** @brief Updates Wayland keyboard focus and starts lazy IPC on focus-in. */
+    /** @brief Starts IPC when an Xlib window selects keyboard events, before focus-in. */
+    void noteX11KeyboardAvailable();
+    /** @brief Updates Wayland keyboard focus. */
     void noteWaylandFocus(bool focused);
+    /** @brief Starts IPC when a Wayland keyboard listener is registered, before focus-in. */
+    void noteWaylandKeyboardAvailable(bool available);
     /**
      * @brief Takes the next pending keyboard request.
      * @return Pending request or an empty pointer.
