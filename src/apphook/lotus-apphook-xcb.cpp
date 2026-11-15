@@ -35,12 +35,13 @@ namespace lotus::apphook {
     namespace {
 
         struct XcbFocus : XFocusState<xcb_window_t, XCB_NONE> {
-            xcb_window_t                               root              = XCB_NONE;
-            xcb_window_t                               wakeWindow        = XCB_NONE;
-            bool                                       keyboardAvailable = false;
-            bool                                       nativeKeyboard    = false;
+            xcb_window_t                               root                 = XCB_NONE;
+            xcb_window_t                               wakeWindow           = XCB_NONE;
+            bool                                       keyboardAvailable    = false;
+            bool                                       nativeKeyboard       = false;
+            xcb_window_t                               nativeKeyboardWindow = XCB_NONE;
             std::unordered_map<xcb_window_t, uint32_t> keyboardMasks;
-            int                                        screenIndex = 0;
+            int                                        screenIndex = -1; ///< Unknown for xcb_connect_to_fd
             std::shared_ptr<Task>                      active;
             xcb_window_t                               activeTarget = XCB_NONE;
             xcb_window_t                               activeRoot   = XCB_NONE;
@@ -74,6 +75,8 @@ namespace lotus::apphook {
         xcb_generic_event_t* (*originalWait)(xcb_connection_t*)                                                      = nullptr;
         xcb_void_cookie_t (*originalSendEvent)(xcb_connection_t*, uint8_t, xcb_window_t, uint32_t, const char*)      = nullptr;
         int (*originalFlush)(xcb_connection_t*)                                                                      = nullptr;
+        xcb_void_cookie_t (*originalDestroyWindow)(xcb_connection_t*, xcb_window_t)                                  = nullptr;
+        xcb_void_cookie_t (*originalDestroyWindowChecked)(xcb_connection_t*, xcb_window_t)                           = nullptr;
         xcb_void_cookie_t (*originalChangeAttributes)(xcb_connection_t*, xcb_window_t, uint32_t, const void*)        = nullptr;
         xcb_void_cookie_t (*originalChangeAttributesChecked)(xcb_connection_t*, xcb_window_t, uint32_t, const void*) = nullptr;
         xcb_void_cookie_t (*originalCreateWindow)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_window_t, int16_t, int16_t, uint16_t, uint16_t, uint16_t, uint16_t, xcb_visualid_t,
@@ -97,6 +100,12 @@ namespace lotus::apphook {
             auto       roots = originalRootsIterator ? originalRootsIterator(setup) : xcb_screen_iterator_t{};
             const auto it    = connections.find(connection);
             const int  index = it != connections.end() ? it->second.screenIndex : 0;
+            if (index < 0) {
+                // xcb_connect_to_fd has no screen argument. A first-screen guess
+                // is unsafe on a multi-screen server before a native key event.
+                if (!roots.data || roots.rem != 1)
+                    return XCB_NONE;
+            }
             if (index > 0 && !originalScreenNext)
                 return XCB_NONE;
             for (int i = 0; roots.rem && i < index && originalScreenNext; ++i)
@@ -118,6 +127,30 @@ namespace lotus::apphook {
         }
 
         void finishXcb(XcbFocus& state, int status);
+
+        void forgetWindow(xcb_connection_t* connection, xcb_window_t window) {
+            std::scoped_lock lock(xcbMutex);
+            auto             it = connections.find(connection);
+            if (it == connections.end())
+                return;
+            auto& state = it->second;
+            state.keyboardMasks.erase(window);
+            if (state.nativeKeyboardWindow == window) {
+                state.nativeKeyboardWindow = XCB_NONE;
+                state.nativeKeyboard       = false;
+            }
+            if (state.target == window)
+                state.target = XCB_NONE;
+            if (state.focus == window)
+                state.leave(window);
+            if (state.active && state.activeTarget == window) {
+                state.active->cancelled.store(true, std::memory_order_release);
+                if (!state.sequence.needsRelease())
+                    finishXcb(state, -ECANCELED);
+            }
+            state.keyboardAvailable = state.nativeKeyboard || !state.keyboardMasks.empty();
+            updateFocusState();
+        }
 
         void observeNative(xcb_connection_t* connection, const xcb_generic_event_t* event) {
             if (!event)
@@ -154,8 +187,9 @@ namespace lotus::apphook {
                     state.root     = key->root;
                     state.lastTime = key->time;
                 }
-                state.nativeKeyboard    = true;
-                state.keyboardAvailable = true;
+                state.nativeKeyboard       = true;
+                state.nativeKeyboardWindow = key->event;
+                state.keyboardAvailable    = true;
                 if (type == XCB_KEY_PRESS && !(event->response_type & 0x80) && state.acceptsKey()) {
                     state.focused = true;
                     updateFocusState();
@@ -183,8 +217,13 @@ namespace lotus::apphook {
             auto& state = connections[connection];
             if (keys)
                 state.keyboardMasks[window] = keys;
-            else
+            else {
                 state.keyboardMasks.erase(window);
+                if (state.nativeKeyboardWindow == window) {
+                    state.nativeKeyboardWindow = XCB_NONE;
+                    state.nativeKeyboard       = false;
+                }
+            }
             state.keyboardAvailable = state.nativeKeyboard || !state.keyboardMasks.empty();
             updateFocusState();
         }
@@ -274,8 +313,20 @@ namespace lotus::apphook {
                     return nullptr;
                 }
             }
+            // Do not claim a task until its root can be resolved safely.
+            const xcb_window_t root = state.root != XCB_NONE ? state.root : rootWindow(connection);
+            if (root == XCB_NONE) {
+                // Put it back at the head for a later native keyboard event.
+                // Still under xcbMutex; takeTask() itself only holds runtime.mutex.
+                {
+                    std::scoped_lock pendingLock(runtime().mutex);
+                    runtime().pending.push_front(state.active);
+                }
+                state.active.reset();
+                return nullptr;
+            }
             state.activeTarget = state.target;
-            state.activeRoot   = state.root;
+            state.activeRoot   = root;
             state.sequence.reset(state.active->ops);
             return syntheticEdge(connection, state);
         }
@@ -333,8 +384,18 @@ namespace lotus::apphook {
             }
             if (queuedOnly) {
                 pollfd fd{.fd = (originalGetFd ? originalGetFd(connection) : -1), .events = POLLIN, .revents = 0};
-                if (poll(&fd, 1, 0) > 0)
-                    return nullptr; // Unread server events are older than a synthetic burst.
+                if (poll(&fd, 1, 0) > 0 && originalPoll) {
+                    // Read via libxcb to distinguish an actual native event from
+                    // an unread reply. Never let a native event be overtaken.
+                    if (auto* event = originalPoll(connection)) {
+                        if (isWakeEvent(connection, event)) {
+                            std::free(event);
+                        } else {
+                            observeNative(connection, event);
+                            return event;
+                        }
+                    }
+                }
             }
             return trySynthetic(connection);
         }
@@ -361,6 +422,8 @@ namespace lotus::apphook {
             originalWait                    = resolve<decltype(originalWait)>("xcb_wait_for_event");
             originalSendEvent               = resolve<decltype(originalSendEvent)>("xcb_send_event");
             originalFlush                   = resolve<decltype(originalFlush)>("xcb_flush");
+            originalDestroyWindow           = resolve<decltype(originalDestroyWindow)>("xcb_destroy_window");
+            originalDestroyWindowChecked    = resolve<decltype(originalDestroyWindowChecked)>("xcb_destroy_window_checked");
             originalChangeAttributes        = resolve<decltype(originalChangeAttributes)>("xcb_change_window_attributes");
             originalChangeAttributesChecked = resolve<decltype(originalChangeAttributesChecked)>("xcb_change_window_attributes_checked");
             originalCreateWindow            = resolve<decltype(originalCreateWindow)>("xcb_create_window");
@@ -490,7 +553,30 @@ LH_EXPORT xcb_connection_t* xcb_connect(const char* display, int* screen) {
 LH_EXPORT xcb_connection_t* xcb_connect_to_fd(int fd, xcb_auth_info_t* auth) {
     using namespace lotus::apphook;
     loadXcb();
-    return originalConnectFd ? originalConnectFd(fd, auth) : nullptr;
+    auto* connection = originalConnectFd ? originalConnectFd(fd, auth) : nullptr;
+    if (connection) {
+        std::scoped_lock lock(xcbMutex);
+        connections[connection].screenIndex = -1;
+    }
+    return connection;
+}
+
+LH_EXPORT xcb_void_cookie_t xcb_destroy_window(xcb_connection_t* connection, xcb_window_t window) {
+    using namespace lotus::apphook;
+    loadXcb();
+    const auto result = originalDestroyWindow ? originalDestroyWindow(connection, window) : xcb_void_cookie_t{};
+    if (result.sequence)
+        forgetWindow(connection, window);
+    return result;
+}
+
+LH_EXPORT xcb_void_cookie_t xcb_destroy_window_checked(xcb_connection_t* connection, xcb_window_t window) {
+    using namespace lotus::apphook;
+    loadXcb();
+    const auto result = originalDestroyWindowChecked ? originalDestroyWindowChecked(connection, window) : xcb_void_cookie_t{};
+    if (result.sequence)
+        forgetWindow(connection, window);
+    return result;
 }
 
 LH_EXPORT void xcb_disconnect(xcb_connection_t* connection) {

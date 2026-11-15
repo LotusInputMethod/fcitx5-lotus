@@ -344,7 +344,26 @@ __attribute__((visibility("default"))) xcb_connection_t* xcb_connect(const char*
     }
     return c;
 }
-RELAY(xcb_connection_t*, xcb_connect_to_fd, (int fd, xcb_auth_info_t* auth), (fd, auth), NULL, 0)
+__attribute__((visibility("default"))) xcb_connection_t* xcb_connect_to_fd(int fd, xcb_auth_info_t* auth) {
+    typedef xcb_connection_t* (*Proc)(int, xcb_auth_info_t*);
+    static _Atomic(void*) native;
+    static _Atomic(void*) hook;
+    Proc                  fn         = (Proc)resolve("xcb_connect_to_fd", &native, &hook, 0);
+    xcb_connection_t*     connection = fn ? fn(fd, auth) : NULL;
+    if (connection) {
+        record_xcb(connection, -1);
+        void* library = atomic_load_explicit(&runtime_library, memory_order_acquire);
+        if (library) {
+            typedef void (*AdoptXcb)(xcb_connection_t*, int);
+            AdoptXcb adopt = (AdoptXcb)dlsym(library, "lotus_apphook_adopt_xcb_connection");
+            if (adopt)
+                adopt(connection, -1);
+        }
+    }
+    return connection;
+}
+RELAY(xcb_void_cookie_t, xcb_destroy_window, (xcb_connection_t * c, xcb_window_t w), (c, w), (xcb_void_cookie_t){0}, 0)
+RELAY(xcb_void_cookie_t, xcb_destroy_window_checked, (xcb_connection_t * c, xcb_window_t w), (c, w), (xcb_void_cookie_t){0}, 0)
 __attribute__((visibility("default"))) void xcb_disconnect(xcb_connection_t* c) {
     typedef void (*Proc)(xcb_connection_t*);
     static _Atomic(void*) native;
