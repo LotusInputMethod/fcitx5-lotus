@@ -88,9 +88,9 @@ namespace lotus::apphook {
             Dispatcher              dispatcher     = nullptr;
             std::atomic<bool>       focused{false};
             std::atomic<bool>       alive{true};
-            uint32_t                serial     = 0;
-            uint32_t                time       = 0;
-            uint32_t                depressed  = 0;
+            uint32_t                serial = 0;
+            uint32_t                time   = 0;
+            std::atomic<uint32_t>   depressed{0};
             uint32_t                latched    = 0;
             uint32_t                locked     = 0;
             uint32_t                group      = 0;
@@ -171,9 +171,18 @@ namespace lotus::apphook {
          */
         Keyboard* focusedKeyboard(wl_display* display = nullptr) {
             std::scoped_lock lock(keyboardMutex);
-            const auto       it = std::find_if(keyboards.begin(), keyboards.end(),
-                                               [display](const auto& keyboard) { return keyboard->focused && (!display || !keyboard->display || keyboard->display == display); });
-            return it == keyboards.end() ? nullptr : it->get();
+            Keyboard*        unique = nullptr;
+            for (const auto& keyboard : keyboards) {
+                if (!keyboard->alive || !keyboard->focused || (display && keyboard->display && keyboard->display != display))
+                    continue;
+                // Distinct wl_seats can be focused simultaneously on one display.
+                // Without a seat identifier from Fcitx, ambiguous routing must
+                // fail closed rather than silently inject into the first seat.
+                if (unique)
+                    return nullptr;
+                unique = keyboard.get();
+            }
+            return unique;
         }
 
         std::shared_ptr<Keyboard> retainKeyboard(Keyboard* keyboard) {
@@ -333,10 +342,8 @@ namespace lotus::apphook {
         void observe(Keyboard* keyboard, uint32_t opcode, const WlArgument* args) {
             std::scoped_lock lock(keyboardMutex);
             if (opcode == 1) {
-                for (auto& other : keyboards) {
-                    if (other->display == keyboard->display)
-                        other->focused = false;
-                }
+                // wl_keyboard focus is per seat, not per wl_display. An enter
+                // on another seat does not revoke this keyboard's focus.
                 keyboard->focused = true;
                 keyboard->serial  = args[0].u;
                 if (keyboard->display)
@@ -579,13 +586,13 @@ namespace lotus::apphook {
             auto task = takeTask();
             if (!task)
                 return;
-            const uint32_t prior = keyboard->depressed;
-            KeySequence    sequence(task->ops);
+            KeySequence sequence(task->ops);
             while (const KeyOperation* op = sequence.operation()) {
                 if (!keyboard->alive || !keyboard->focused || task->cancelled.load(std::memory_order_acquire))
                     break;
-                const uint32_t combined = prior | modifierMask(*keyboard, op->modifiers);
-                if (combined != prior)
+                const uint32_t base     = keyboard->depressed.load(std::memory_order_acquire);
+                const uint32_t combined = base | modifierMask(*keyboard, op->modifiers);
+                if (combined != base)
                     emitModifiers(keyboard.get(), combined);
                 while (sequence.operation() == op && keyboard->alive && ((keyboard->focused && !task->cancelled.load(std::memory_order_acquire)) || sequence.needsRelease())) {
                     const auto edge = sequence.current();
@@ -594,8 +601,12 @@ namespace lotus::apphook {
                     emitKey(keyboard.get(), edge->keycode, edge->pressed ? 1 : 0);
                     sequence.advance();
                 }
-                if (combined != prior && keyboard->alive)
-                    emitModifiers(keyboard.get(), prior);
+                if (combined != base && keyboard->alive) {
+                    // Reentrant dispatch may have delivered real modifiers while
+                    // synthetic keys were being consumed. Restore the latest
+                    // compositor state, not the stale pre-burst snapshot.
+                    emitModifiers(keyboard.get(), keyboard->depressed.load(std::memory_order_acquire));
+                }
             }
             std::scoped_lock lock(runtime().mutex);
             finishLocked(task, !keyboard->alive ? -ENOTCONN : (!keyboard->focused || task->cancelled.load(std::memory_order_acquire)) ? -ECANCELED : 0);
