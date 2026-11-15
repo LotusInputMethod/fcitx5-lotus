@@ -140,6 +140,7 @@ namespace fcitx {
         std::unordered_set<pid_t>                           activePids_;
         std::atomic<uint64_t>                               nextRequest_{1};
         std::atomic<bool>                                   stopping_{false};
+        FdGuard                                             stopFd_;
         std::thread                                         server_;
         // Separate sessions may wait for completion concurrently; each PID is
         // still serialized to protect Session::waitingId and event ordering.

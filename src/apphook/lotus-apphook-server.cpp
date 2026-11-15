@@ -21,8 +21,10 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <cstring>
 #include <poll.h>
 #include <string>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -42,7 +44,7 @@ namespace fcitx {
         }
     } // namespace
 
-    LotusAppHook::LotusAppHook() : server_(&LotusAppHook::serve, this) {
+    LotusAppHook::LotusAppHook() : stopFd_(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)), server_(&LotusAppHook::serve, this) {
         for (auto& worker : workers_)
             worker = std::thread(&LotusAppHook::run, this);
     }
@@ -56,6 +58,11 @@ namespace fcitx {
             return;
         }
         condition_.notify_all();
+        if (stopFd_.isValid()) {
+            const uint64_t one     = 1;
+            const ssize_t  written = write(stopFd_.get(), &one, sizeof(one));
+            (void)written; // EAGAIN means the eventfd is already signalled.
+        }
         if (server_.joinable()) {
             server_.join();
         }
@@ -279,8 +286,16 @@ namespace fcitx {
             return;
         }
         FdGuard listener(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
-        if (listener.get() < 0 || bind(listener.get(), reinterpret_cast<sockaddr*>(&address), addressSize) != 0 || listen(listener.get(), 64) != 0) {
-            LOTUS_WARN("apphook: cannot listen on the abstract IPC socket");
+        if (listener.get() < 0) {
+            LOTUS_WARN("apphook: socket failed: " << std::strerror(errno));
+            return;
+        }
+        if (bind(listener.get(), reinterpret_cast<sockaddr*>(&address), addressSize) != 0) {
+            LOTUS_WARN("apphook: bind failed: " << std::strerror(errno));
+            return;
+        }
+        if (listen(listener.get(), 64) != 0) {
+            LOTUS_WARN("apphook: listen failed: " << std::strerror(errno));
             return;
         }
         while (!stopping_) {
@@ -293,18 +308,19 @@ namespace fcitx {
                 }
             }
             std::vector<pollfd> fds;
-            fds.reserve(clients.size() + 1);
+            const size_t        clientOffset = stopFd_.isValid() ? 2 : 1;
+            fds.reserve(clients.size() + clientOffset);
             fds.push_back({listener.get(), POLLIN, 0});
-            for (const auto& session : clients) {
+            if (stopFd_.isValid())
+                fds.push_back({stopFd_.get(), POLLIN, 0});
+            for (const auto& session : clients)
                 fds.push_back({session->fd.get(), POLLIN, 0});
-            }
-            const int polled = poll(fds.data(), fds.size(), 200);
-            if (polled < 0 && errno == EINTR) {
+            // Fall back to bounded polling if eventfd creation failed.
+            const int polled = poll(fds.data(), fds.size(), stopFd_.isValid() ? -1 : 200);
+            if (polled < 0 && errno == EINTR)
                 continue;
-            }
-            if (polled < 0) {
+            if (polled < 0 || stopping_ || (stopFd_.isValid() && fds[1].revents))
                 break;
-            }
             if (fds[0].revents & POLLIN) {
                 while (true) {
                     FdGuard peer(accept4(listener.get(), nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK));
@@ -335,7 +351,7 @@ namespace fcitx {
             }
             for (size_t i = 0; i < clients.size(); ++i) {
                 const auto& session = clients[i];
-                const short events  = fds[i + 1].revents;
+                const short events  = fds[i + clientOffset].revents;
                 if (!events) {
                     continue;
                 }
