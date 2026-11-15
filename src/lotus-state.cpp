@@ -686,13 +686,14 @@ namespace fcitx {
             if (!echoDriven) {
                 auto& wlr     = LotusWlrVirtualKeyboard::instance();
                 auto  emitNow = [&wlr, burstCount, addedUtf8, uinputSelect] { return uinputSelect ? wlr.emitSelect(burstCount, addedUtf8) : wlr.emit(burstCount, addedUtf8); };
+                const std::string wlrLog = "wlr-virtual-keyboard: sent " + std::to_string(burstCount) + (uinputSelect ? " Shift+Left" : " backspaces") + " + keys for [" + addedUtf8 + "]";
                 if (preDelay > 0) {
                     wlr.runAfter(static_cast<int>(preDelay), emitNow);
-                    LOTUS_INFO(std::string("wlr-virtual-keyboard: sent ") + (uinputSelect ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
+                    LOTUS_INFO(wlrLog);
                     return;
                 }
                 if (emitNow()) {
-                    LOTUS_INFO(std::string("wlr-virtual-keyboard: sent ") + (uinputSelect ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
+                    LOTUS_INFO(wlrLog);
                     return;
                 }
                 LOTUS_WARN("wlr-virtual-keyboard emit failed, fallback use uinput");
