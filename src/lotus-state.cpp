@@ -624,7 +624,9 @@ namespace fcitx {
         finishReplacement(event);
         return true;
     }
-
+    static size_t clusterCount(std::u32string_view text) {
+        return text.empty() ? 0 : 1 + std::ranges::count_if(text.substr(1), [](char32_t c) { return c < 0x0300 || c > 0x036F; });
+    }
     void LotusState::performReplacement(DiffPart diffPart) {
         LOTUS_INFO("Perform replacement: " + lotus::utf8::encode(diffPart.deletedPart) + " -> " + lotus::utf8::encode(diffPart.addedPart)); //NOLINT
         echoTriggerPending_ = false;
@@ -640,7 +642,7 @@ namespace fcitx {
             return;
         }
 
-        const size_t delSize      = diffPart.deletedPart.size();
+        const size_t delSize      = clusterCount(diffPart.deletedPart);
         const bool   autofill     = isAutofillCertain(ic_.surroundingText());
         const bool   addressBar   = isChromium_ && (ic_.capabilityFlags().test(CapabilityFlag::Url) || engine_.isLikeAddressBarChromium());
         const bool   uinputSelect = (currentMode() == LotusMode::Select && !autofill) || (isUinputMode(currentMode()) && addressBar);
