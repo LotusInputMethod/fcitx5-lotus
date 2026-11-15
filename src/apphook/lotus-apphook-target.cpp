@@ -30,18 +30,31 @@
 #include <unistd.h>
 
 namespace lotus::apphook {
+    namespace {
+        // An eventfd notification is complete once its 8-byte write succeeds,
+        // or the counter is already nonzero/saturated (EAGAIN).
+        void notifyFd(int fd) {
+            if (fd < 0)
+                return;
+            const uint64_t one = 1;
+            ssize_t        result;
+            do {
+                result = write(fd, &one, sizeof(one));
+            } while (result < 0 && errno == EINTR);
+            // Runtime shutdown/connection teardown handles permanent fd errors.
+        }
+    } // namespace
 
     Runtime::~Runtime() {
         std::scoped_lock lock(workerMutex);
         initialized.store(false, std::memory_order_release);
         shuttingDown.store(true, std::memory_order_release);
         const int completion = completionFd.load(std::memory_order_acquire);
-        if (completion >= 0) {
-            const uint64_t one = 1;
-            (void)write(completion, &one, sizeof(one));
+        notifyFd(completion);
+        if (workerJoinable) {
+            const int joinStatus = pthread_join(worker, nullptr);
+            (void)joinStatus; // No worker recovery is possible during destruction.
         }
-        if (workerJoinable)
-            (void)pthread_join(worker, nullptr);
         const int done = completionFd.exchange(-1, std::memory_order_acq_rel);
         if (done >= 0)
             close(done);
@@ -137,10 +150,7 @@ namespace lotus::apphook {
         /** @brief Signals the IPC worker when a keyboard focus state changes. */
         void signalChange() {
             const int fd = runtime().completionFd.load(std::memory_order_acquire);
-            if (fd >= 0) {
-                const uint64_t one = 1;
-                (void)write(fd, &one, sizeof(one));
-            }
+            notifyFd(fd);
         }
 
         /** @brief Returns whether either application keyboard frontend owns focus. */
@@ -153,8 +163,9 @@ namespace lotus::apphook {
     void ensureRuntimeInitialized() {
         static std::once_flag once;
         std::call_once(once, [] {
-            (void)pthread_atfork(&prepareFork, &parentFork, &childFork);
-            runtime().initialized.store(true, std::memory_order_release);
+            const int result = pthread_atfork(&prepareFork, &parentFork, &childFork);
+            if (result == 0)
+                runtime().initialized.store(true, std::memory_order_release);
         });
     }
 
@@ -234,10 +245,7 @@ namespace lotus::apphook {
             task->status = status;
             task->done   = true;
             const int fd = runtime().completionFd.load(std::memory_order_acquire);
-            if (fd >= 0) {
-                const uint64_t one = 1;
-                (void)write(fd, &one, sizeof(one));
-            }
+            notifyFd(fd);
         }
     }
 
@@ -474,7 +482,12 @@ namespace lotus::apphook {
                     }
                     if (fds[1].revents & POLLIN) {
                         uint64_t drained;
-                        (void)read(fds[1].fd, &drained, sizeof(drained));
+                        ssize_t  received;
+                        do {
+                            received = read(fds[1].fd, &drained, sizeof(drained));
+                        } while (received < 0 && errno == EINTR);
+                        // A competing notifier may have already drained the fd.
+                        (void)received;
                         if (!flushCompleted(connection.get(), tasks)) {
                             break;
                         }
