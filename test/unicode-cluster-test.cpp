@@ -67,12 +67,18 @@ namespace {
 } // namespace
 
 int main() {
-    // Appending a tone to an existing base needs no deletion: the mark attaches to the base the
-    // client already holds.
+    // A tone added to an existing base still replaces the whole cluster: a client that does not
+    // compose across commits (a terminal) needs the base and its mark together.
     const DiffPart appendTone = compareAndSplitU32(kTo, kToHook);
-    checkText("append tone: deleted part", appendTone.deletedPart, U"");
-    checkText("append tone: added part", appendTone.addedPart, U"\u0309");
+    checkText("append tone: deleted part", appendTone.deletedPart, U"\u00F4");
+    checkText("append tone: added part", appendTone.addedPart, U"\u00F4\u0309");
     checkStartsAtClusterBoundary("append tone", appendTone);
+
+    // Same shape on a plain base: "co" -> "co" + acute must carry the "o".
+    const DiffPart appendTonePlain = compareAndSplitU32(U"co", U"co\u0301");
+    checkText("append tone on [co]: deleted part", appendTonePlain.deletedPart, U"o");
+    checkText("append tone on [co]: added part", appendTonePlain.addedPart, U"o\u0301");
+    checkStartsAtClusterBoundary("append tone on [co]", appendTonePlain);
 
     // Changing the tone must replace the whole cluster, never just its mark.
     const DiffPart changeTone = compareAndSplitU32(kToHook, kToTilde);

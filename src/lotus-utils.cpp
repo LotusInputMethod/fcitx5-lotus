@@ -171,9 +171,10 @@ size_t graphemeClusterCount(std::u32string_view text) {
 }
 
 DiffPart compareAndSplitU32(std::u32string_view oldText, std::u32string_view newText) {
-    auto [itA, itB] = std::ranges::mismatch(oldText, newText);
-    size_t offset   = std::distance(oldText.begin(), itA);
-    while (offset > 0 && offset < oldText.size() && isCombiningMark(oldText[offset])) {
+    auto [itA, itB]     = std::ranges::mismatch(oldText, newText);
+    size_t     offset   = std::distance(oldText.begin(), itA);
+    const auto isMarkAt = [](std::u32string_view text, size_t index) { return index < text.size() && isCombiningMark(text[index]); };
+    while (offset > 0 && (isMarkAt(oldText, offset) || isMarkAt(newText, offset))) {
         --offset;
     }
     return {.deletedPart = oldText.substr(offset), .addedPart = newText.substr(offset)};
