@@ -156,12 +156,26 @@ std::string resolveProgramName(std::string_view icProgram, std::string_view focu
     return std::string(focusedProgram);
 }
 
+bool isCombiningMark(char32_t codePoint) {
+    return codePoint >= 0x0300 && codePoint <= 0x036F;
+}
+
+size_t graphemeClusterCount(std::u32string_view text) {
+    size_t clusters = 0;
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (i == 0 || !isCombiningMark(text[i])) {
+            ++clusters;
+        }
+    }
+    return clusters;
+}
+
 DiffPart compareAndSplitU32(std::u32string_view oldText, std::u32string_view newText) {
-    auto [itA, itB]   = std::ranges::mismatch(oldText, newText);
-    size_t     offset = std::distance(oldText.begin(), itA);
-    const auto isMark = [](std::u32string_view s, size_t i) { return i < s.size() && s[i] >= 0x0300 && s[i] <= 0x036F; };
-    while (offset > 0 && (isMark(oldText, offset) || isMark(newText, offset)))
+    auto [itA, itB] = std::ranges::mismatch(oldText, newText);
+    size_t offset   = std::distance(oldText.begin(), itA);
+    while (offset > 0 && offset < oldText.size() && isCombiningMark(oldText[offset])) {
         --offset;
+    }
     return {.deletedPart = oldText.substr(offset), .addedPart = newText.substr(offset)};
 }
 

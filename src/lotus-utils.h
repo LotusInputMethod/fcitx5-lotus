@@ -161,7 +161,22 @@ std::string LOTUS_EXPORT resolveProgramName(std::string_view icProgram, std::str
  * @param B Second text.
  * @return Pairs of delete part and add part.
  */
-DiffPart compareAndSplitU32(std::u32string_view oldText, std::u32string_view newText);
+LOTUS_EXPORT DiffPart compareAndSplitU32(std::u32string_view oldText, std::u32string_view newText);
+
+/**
+ * @brief Reports whether a code point is a combining mark (U+0300..U+036F).
+ * @param codePoint Code point to check.
+ * @return True for a combining mark, which attaches to the preceding base character.
+ */
+LOTUS_EXPORT bool isCombiningMark(char32_t codePoint);
+
+/**
+ * @brief Number of grapheme clusters in a text, the unit a BackSpace deletes.
+ *
+ * @param text Text to measure.
+ * @return Cluster count; a combining mark at the start counts as a cluster of its own.
+ */
+LOTUS_EXPORT size_t graphemeClusterCount(std::u32string_view text);
 
 /**
  * @brief Get the frontend name from the input context.
