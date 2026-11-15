@@ -91,6 +91,18 @@ namespace lotus::apphook {
         std::atomic<wl_display*>          waylandDisplay{nullptr};
     };
 
+    /** Stop the IPC worker before any backend registry begins destruction. */
+    void stopRuntimeWorker();
+
+    // Backend registries are constructed after Runtime. Their destructors
+    // must join the worker before destroying state it could still access.
+    template <typename Container>
+    struct BackendRegistry : Container {
+        ~BackendRegistry() {
+            stopRuntimeWorker();
+        }
+    };
+
     /**
      * @brief Returns the target-process runtime that remains resident after loading.
      * @return Shared runtime instance.

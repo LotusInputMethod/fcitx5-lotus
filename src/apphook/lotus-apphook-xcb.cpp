@@ -58,19 +58,19 @@ namespace lotus::apphook {
         std::atomic<ConnectionSet*> initializedXlibOwned{nullptr};
         std::atomic<ConnectionSet*> initializedXcbEventOwners{nullptr};
         ConnectionMap&              connectionsStorage() {
-            static ConnectionMap state;
+            static BackendRegistry<ConnectionMap> state;
             initializedConnections.store(&state, std::memory_order_release);
             return state;
         }
 #define connections (connectionsStorage())
         ConnectionSet& xlibOwnedStorage() {
-            static ConnectionSet state;
+            static BackendRegistry<ConnectionSet> state;
             initializedXlibOwned.store(&state, std::memory_order_release);
             return state;
         }
 #define xlibOwned (xlibOwnedStorage())
         ConnectionSet& xcbEventOwnersStorage() {
-            static ConnectionSet state;
+            static BackendRegistry<ConnectionSet> state;
             initializedXcbEventOwners.store(&state, std::memory_order_release);
             return state;
         }

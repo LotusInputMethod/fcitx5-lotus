@@ -104,7 +104,7 @@ namespace lotus::apphook {
         using KeyboardList = std::list<std::shared_ptr<Keyboard>>;
         std::atomic<KeyboardList*> initializedKeyboards{nullptr};
         KeyboardList&              keyboardsStorage() {
-            static KeyboardList state;
+            static BackendRegistry<KeyboardList> state;
             initializedKeyboards.store(&state, std::memory_order_release);
             return state;
         }

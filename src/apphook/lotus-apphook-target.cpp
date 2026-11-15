@@ -45,19 +45,24 @@ namespace lotus::apphook {
         }
     } // namespace
 
-    Runtime::~Runtime() {
-        std::scoped_lock lock(workerMutex);
-        initialized.store(false, std::memory_order_release);
-        shuttingDown.store(true, std::memory_order_release);
-        const int completion = completionFd.load(std::memory_order_acquire);
-        notifyFd(completion);
-        if (workerJoinable) {
-            const int joinStatus = pthread_join(worker, nullptr);
+    void stopRuntimeWorker() {
+        Runtime&         state = runtime();
+        std::scoped_lock lock(state.workerMutex);
+        state.initialized.store(false, std::memory_order_release);
+        state.shuttingDown.store(true, std::memory_order_release);
+        notifyFd(state.completionFd.load(std::memory_order_acquire));
+        if (state.workerJoinable) {
+            const int joinStatus = pthread_join(state.worker, nullptr);
             (void)joinStatus; // No worker recovery is possible during destruction.
+            state.workerJoinable = false;
         }
-        const int done = completionFd.exchange(-1, std::memory_order_acq_rel);
+        const int done = state.completionFd.exchange(-1, std::memory_order_acq_rel);
         if (done >= 0)
             close(done);
+    }
+
+    Runtime::~Runtime() {
+        stopRuntimeWorker();
     }
 
     Runtime& runtime() {

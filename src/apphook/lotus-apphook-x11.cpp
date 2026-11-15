@@ -68,7 +68,7 @@ namespace lotus::apphook {
         using WaiterList = std::vector<std::weak_ptr<X11Waiter>>;
         std::atomic<WaiterList*> initializedWakeWaiters{nullptr};
         WaiterList&              wakeWaitersStorage() {
-            static WaiterList waiters;
+            static BackendRegistry<WaiterList> waiters;
             initializedWakeWaiters.store(&waiters, std::memory_order_release);
             return waiters;
         }
@@ -82,20 +82,20 @@ namespace lotus::apphook {
         std::atomic<DisplaySet*>      initializedXcbOwnerDisplays{nullptr};
         std::atomic<PressedEventMap*> initializedPressedEvents{nullptr};
         DisplayFocusMap&              focusByDisplayStorage() {
-            static DisplayFocusMap state;
+            static BackendRegistry<DisplayFocusMap> state;
             initializedFocusByDisplay.store(&state, std::memory_order_release);
             return state;
         }
 #define focusByDisplay (focusByDisplayStorage())
         DisplaySet& xcbOwnerDisplaysStorage() {
-            static DisplaySet state;
+            static BackendRegistry<DisplaySet> state;
             initializedXcbOwnerDisplays.store(&state, std::memory_order_release);
             return state;
         }
 #define xcbOwnerDisplays (xcbOwnerDisplaysStorage())
         // The last press already returned to the consumer, keyed by Display.
         PressedEventMap& pressedEventsStorage() {
-            static PressedEventMap state;
+            static BackendRegistry<PressedEventMap> state;
             initializedPressedEvents.store(&state, std::memory_order_release);
             return state;
         }
