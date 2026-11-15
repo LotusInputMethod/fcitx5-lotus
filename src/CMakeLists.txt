@@ -1,26 +1,23 @@
 # Core sources are compiled once here and consumed by both the module and
 # lotus_test_core; LOTUS_EXPORT keeps the test-facing API linkable.
 # The preloaded application hook is a separate library; the Fcitx addon owns its IPC server.
-add_library(lotus-apphook-runtime SHARED
+add_library(lotus-apphook SHARED
+    apphook/lotus-apphook-shim.c
     apphook/lotus-apphook-target.cpp
     apphook/lotus-apphook-protocol.cpp
     apphook/lotus-apphook-x11.cpp
     apphook/lotus-apphook-xcb.cpp
     apphook/lotus-apphook-wayland.cpp
 )
-set_target_properties(lotus-apphook-runtime PROPERTIES OUTPUT_NAME "lotus-apphook-runtime")
-target_compile_options(lotus-apphook-runtime PRIVATE -fvisibility=hidden)
-target_include_directories(lotus-apphook-runtime PRIVATE ${PROJECT_SOURCE_DIR}/common)
-target_link_libraries(lotus-apphook-runtime PRIVATE ${CMAKE_DL_LIBS} Pthread::Pthread)
-target_link_options(lotus-apphook-runtime PRIVATE
-    "-Wl,-Bsymbolic-functions"
-)
-add_library(lotus-apphook SHARED apphook/lotus-apphook-shim.c)
 set_target_properties(lotus-apphook PROPERTIES OUTPUT_NAME "lotus-apphook")
-target_link_libraries(lotus-apphook PRIVATE ${CMAKE_DL_LIBS})
-# The preload shim must not acquire a CRT constructor or depend on C++.
-target_link_options(lotus-apphook PRIVATE "-nostartfiles")
-install(TARGETS lotus-apphook lotus-apphook-runtime LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+target_compile_options(lotus-apphook PRIVATE -fvisibility=hidden)
+target_include_directories(lotus-apphook PRIVATE ${PROJECT_SOURCE_DIR}/common)
+target_link_libraries(lotus-apphook PRIVATE ${CMAKE_DL_LIBS} Pthread::Pthread)
+target_link_options(lotus-apphook PRIVATE
+    "-Wl,-Bsymbolic-functions"
+    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/apphook/lotus-apphook.map"
+)
+install(TARGETS lotus-apphook LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 add_library(lotus_core_objects OBJECT ${fcitx_lotus_core_sources})
 set_target_properties(lotus_core_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(lotus_core_objects PRIVATE

@@ -52,13 +52,25 @@ namespace lotus::apphook {
                 return false;
             }
         };
-        std::mutex                                 focusMutex;
-        std::unordered_map<Display*, DisplayFocus> focusByDisplay;
-        std::unordered_set<Display*>               xcbOwnerDisplays;
+        std::mutex                                  focusMutex;
+        std::unordered_map<Display*, DisplayFocus>& focusByDisplayStorage() {
+            static std::unordered_map<Display*, DisplayFocus> state;
+            return state;
+        }
+#define focusByDisplay (focusByDisplayStorage())
+        std::unordered_set<Display*>& xcbOwnerDisplaysStorage() {
+            static std::unordered_set<Display*> state;
+            return state;
+        }
+#define xcbOwnerDisplays (xcbOwnerDisplaysStorage())
         // The last press already returned to the consumer, keyed by Display.
-        std::unordered_map<Display*, XEvent> pressedEvents;
-        void*                                xlib         = nullptr;
-        void*                                xlibXcb      = nullptr;
+        std::unordered_map<Display*, XEvent>& pressedEventsStorage() {
+            static std::unordered_map<Display*, XEvent> state;
+            return state;
+        }
+#define pressedEvents (pressedEventsStorage())
+        void* xlib                                        = nullptr;
+        void* xlibXcb                                     = nullptr;
         void* (*getXcbConnection)(Display*)               = nullptr;
         void (*originalSetEventQueueOwner)(Display*, int) = nullptr;
         std::once_flag resolveOnce;
@@ -644,7 +656,25 @@ namespace lotus::apphook {
     }
 }
 
-#define LH_EXPORT extern "C" __attribute__((visibility("default")))
+// The preloaded C shim is the only externally visible interposer.
+#define XSelectInput            lotus_apphook_impl_XSelectInput
+#define XChangeWindowAttributes lotus_apphook_impl_XChangeWindowAttributes
+#define XCreateWindow           lotus_apphook_impl_XCreateWindow
+#define XSetEventQueueOwner     lotus_apphook_impl_XSetEventQueueOwner
+#define XDestroyWindow          lotus_apphook_impl_XDestroyWindow
+#define XCloseDisplay           lotus_apphook_impl_XCloseDisplay
+#define XNextEvent              lotus_apphook_impl_XNextEvent
+#define XPeekEvent              lotus_apphook_impl_XPeekEvent
+#define XMaskEvent              lotus_apphook_impl_XMaskEvent
+#define XWindowEvent            lotus_apphook_impl_XWindowEvent
+#define XCheckMaskEvent         lotus_apphook_impl_XCheckMaskEvent
+#define XCheckWindowEvent       lotus_apphook_impl_XCheckWindowEvent
+#define XCheckTypedEvent        lotus_apphook_impl_XCheckTypedEvent
+#define XCheckTypedWindowEvent  lotus_apphook_impl_XCheckTypedWindowEvent
+#define XIfEvent                lotus_apphook_impl_XIfEvent
+#define XCheckIfEvent           lotus_apphook_impl_XCheckIfEvent
+#define XPeekIfEvent            lotus_apphook_impl_XPeekIfEvent
+#define LH_EXPORT               extern "C" __attribute__((visibility("hidden")))
 
 /**
  * @brief Detects Xlib keyboard event subscriptions before keyboard focus arrives.

@@ -2,8 +2,8 @@
  * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * The globally preloaded library must have no constructors, background workers,
- * C++ runtime dependencies, or process lifecycle hooks of its own.
+ * The shim forwards natively until keyboard capability is detected.
+ * The C++ backend is linked into this ELF but initialized lazily.
  */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -29,9 +29,9 @@ struct WlMessage;
 typedef int (*WlDispatcher)(const void*, void*, uint32_t, const struct WlMessage*, union WlArgument*);
 typedef void (**WlListener)(void);
 
-static _Atomic(void*) runtime_library;
-static _Atomic(int)   loading_pid;
-static _Atomic(int)   loading_tid;
+static _Atomic(int) runtime_active;
+static _Atomic(int) loading_pid;
+static _Atomic(int) loading_tid;
 
 /* Keep only connection metadata needed when the runtime is first activated. */
 struct xcb_connection_record {
@@ -92,7 +92,7 @@ static void record_xcb(xcb_connection_t* c, int screen) {
     if (!c)
         return;
     lock_metadata();
-    if (!atomic_load_explicit(&runtime_library, memory_order_acquire)) {
+    if (!atomic_load_explicit(&runtime_active, memory_order_acquire)) {
         for (struct xcb_connection_record* it = xcb_records; it; it = it->next) {
             if (it->connection == c) {
                 it->screen = screen;
@@ -126,7 +126,7 @@ static void record_owner(Display* d, int owner) {
     if (!d)
         return;
     lock_metadata();
-    if (!atomic_load_explicit(&runtime_library, memory_order_acquire)) {
+    if (!atomic_load_explicit(&runtime_active, memory_order_acquire)) {
         for (struct xlib_owner_record* it = owner_records; it; it = it->next) {
             if (it->display == d) {
                 it->owner = owner;
@@ -157,23 +157,26 @@ static void forget_owner(Display* d) {
     unlock_metadata();
 }
 
-/* $ORIGIN is expanded by glibc's dynamic loader for dlopen filenames. */
+/* Backend entrypoints are linked into this DSO and never require dlopen(). */
+extern void lotus_apphook_initialize_runtime(void) __attribute__((visibility("hidden")));
+extern void lotus_apphook_adopt_xcb_connection(xcb_connection_t*, int) __attribute__((visibility("hidden")));
+extern void lotus_apphook_adopt_xlib_owner(Display*, int) __attribute__((visibility("hidden")));
+
 static void activate(void) {
-    if (atomic_load_explicit(&runtime_library, memory_order_acquire))
+    if (atomic_load_explicit(&runtime_active, memory_order_acquire))
         return;
     const int pid = (int)getpid();
     const int tid = (int)syscall(SYS_gettid);
     for (;;) {
         int owner = atomic_load_explicit(&loading_pid, memory_order_acquire);
-        if (atomic_load_explicit(&runtime_library, memory_order_acquire))
+        if (atomic_load_explicit(&runtime_active, memory_order_acquire))
             return;
-        // A forked child must not inherit a permanently locked initializer.
         if (owner && owner != pid) {
             (void)atomic_compare_exchange_weak_explicit(&loading_pid, &owner, 0, memory_order_acq_rel, memory_order_acquire);
             continue;
         }
         if (owner) {
-            // Dynamic-loader reentry on the loading thread must use native APIs.
+            // Reentrant calls made while initializing must forward natively.
             if (atomic_load_explicit(&loading_tid, memory_order_acquire) == tid)
                 return;
             sched_yield();
@@ -184,28 +187,19 @@ static void activate(void) {
             break;
     }
     atomic_store_explicit(&loading_tid, tid, memory_order_release);
-    if (!atomic_load_explicit(&runtime_library, memory_order_relaxed)) {
-        void* lib = dlopen("$ORIGIN/liblotus-apphook-runtime.so", RTLD_NOW | RTLD_LOCAL);
-        if (lib) {
-            typedef void (*AdoptXcb)(xcb_connection_t*, int);
-            typedef void (*AdoptOwner)(Display*, int);
-            AdoptXcb   adopt_xcb   = (AdoptXcb)dlsym(lib, "lotus_apphook_adopt_xcb_connection");
-            AdoptOwner adopt_owner = (AdoptOwner)dlsym(lib, "lotus_apphook_adopt_xlib_owner");
-            lock_metadata();
-            for (struct xcb_connection_record* it = xcb_records; it; it = it->next)
-                if (adopt_xcb)
-                    adopt_xcb(it->connection, it->screen);
-            for (struct xlib_owner_record* it = owner_records; it; it = it->next)
-                if (adopt_owner)
-                    adopt_owner(it->display, it->owner);
-            free_records();
-            atomic_store_explicit(&runtime_library, lib, memory_order_release);
-            unlock_metadata();
-        }
-    }
+    lotus_apphook_initialize_runtime();
+    lock_metadata();
+    for (struct xcb_connection_record* it = xcb_records; it; it = it->next)
+        lotus_apphook_adopt_xcb_connection(it->connection, it->screen);
+    for (struct xlib_owner_record* it = owner_records; it; it = it->next)
+        lotus_apphook_adopt_xlib_owner(it->display, it->owner);
+    free_records();
+    atomic_store_explicit(&runtime_active, 1, memory_order_release);
+    unlock_metadata();
     atomic_store_explicit(&loading_tid, 0, memory_order_release);
     atomic_store_explicit(&loading_pid, 0, memory_order_release);
 }
+
 /* RTLD_NEXT cannot resolve symbols from RTLD_LOCAL frontend libraries. */
 static void* resolve_native(const char* symbol) {
     void* fn = dlsym(RTLD_NEXT, symbol);
@@ -233,20 +227,7 @@ static void* resolve_native(const char* symbol) {
     return fn;
 }
 
-static void* resolve(const char* symbol, _Atomic(void*)* native, _Atomic(void*)* hook, int trigger) {
-    if (trigger)
-        activate();
-    void* library = atomic_load_explicit(&runtime_library, memory_order_acquire);
-    if (library) {
-        void* fn = atomic_load_explicit(hook, memory_order_acquire);
-        if (!fn) {
-            fn = dlsym(library, symbol);
-            if (fn)
-                atomic_store_explicit(hook, fn, memory_order_release);
-        }
-        if (fn)
-            return fn;
-    }
+static void* native_function(const char* symbol, _Atomic(void*)* native) {
     void* fn = atomic_load_explicit(native, memory_order_acquire);
     if (!fn) {
         fn = resolve_native(symbol);
@@ -256,22 +237,33 @@ static void* resolve(const char* symbol, _Atomic(void*)* native, _Atomic(void*)*
     return fn;
 }
 
-/* Each wrapper caches both its native and late-loaded implementation. */
+#define CORE(symbol) lotus_apphook_impl_##symbol
 #define RELAY(ret, symbol, params, call, fallback, trigger)                                                                                                                        \
+    extern ret CORE(symbol)                                                                                                                                                        \
+    params __attribute__((visibility("hidden")));                                                                                                                                  \
     __attribute__((visibility("default"))) ret symbol params {                                                                                                                     \
         typedef ret(*Proc) params;                                                                                                                                                 \
         static _Atomic(void*) native;                                                                                                                                              \
-        static _Atomic(void*) hook;                                                                                                                                                \
-        Proc                  fn = (Proc)resolve(#symbol, &native, &hook, (trigger));                                                                                              \
+        if (trigger)                                                                                                                                                               \
+            activate();                                                                                                                                                            \
+        if (atomic_load_explicit(&runtime_active, memory_order_acquire))                                                                                                           \
+            return CORE(symbol) call;                                                                                                                                              \
+        Proc fn = (Proc)native_function(#symbol, &native);                                                                                                                         \
         return fn ? fn call : (fallback);                                                                                                                                          \
     }
 
 #define RELAY_VOID(symbol, params, call, trigger)                                                                                                                                  \
+    extern void                                        CORE(symbol) params __attribute__((visibility("hidden")));                                                                  \
     __attribute__((visibility("default"))) void symbol params {                                                                                                                    \
         typedef void(*Proc) params;                                                                                                                                                \
         static _Atomic(void*) native;                                                                                                                                              \
-        static _Atomic(void*) hook;                                                                                                                                                \
-        Proc                  fn = (Proc)resolve(#symbol, &native, &hook, (trigger));                                                                                              \
+        if (trigger)                                                                                                                                                               \
+            activate();                                                                                                                                                            \
+        if (atomic_load_explicit(&runtime_active, memory_order_acquire)) {                                                                                                         \
+            CORE(symbol) call;                                                                                                                                                     \
+            return;                                                                                                                                                                \
+        }                                                                                                                                                                          \
+        Proc fn = (Proc)native_function(#symbol, &native);                                                                                                                         \
         if (fn)                                                                                                                                                                    \
             fn call;                                                                                                                                                               \
     }
@@ -287,18 +279,24 @@ RELAY(Window, XCreateWindow,
 __attribute__((visibility("default"))) void XSetEventQueueOwner(Display* d, int owner) {
     typedef void (*Proc)(Display*, int);
     static _Atomic(void*) native;
-    static _Atomic(void*) hook;
+    extern void           CORE(XSetEventQueueOwner)(Display*, int) __attribute__((visibility("hidden")));
     record_owner(d, owner);
-    Proc fn = (Proc)resolve("XSetEventQueueOwner", &native, &hook, 0);
+    if (atomic_load_explicit(&runtime_active, memory_order_acquire)) {
+        CORE(XSetEventQueueOwner)(d, owner);
+        return;
+    }
+    Proc fn = (Proc)native_function("XSetEventQueueOwner", &native);
     if (fn)
         fn(d, owner);
 }
 __attribute__((visibility("default"))) int XCloseDisplay(Display* d) {
     typedef int (*Proc)(Display*);
     static _Atomic(void*) native;
-    static _Atomic(void*) hook;
+    extern int            CORE(XCloseDisplay)(Display*) __attribute__((visibility("hidden")));
     forget_owner(d);
-    Proc fn = (Proc)resolve("XCloseDisplay", &native, &hook, 0);
+    if (atomic_load_explicit(&runtime_active, memory_order_acquire))
+        return CORE(XCloseDisplay)(d);
+    Proc fn = (Proc)native_function("XCloseDisplay", &native);
     return fn ? fn(d) : -1;
 }
 RELAY(int, XDestroyWindow, (Display * d, Window w), (d, w), 0, 0)
@@ -326,39 +324,27 @@ static int subscribes_keyboard(uint32_t mask, const void* values) {
 __attribute__((visibility("default"))) xcb_connection_t* xcb_connect(const char* display, int* screen) {
     typedef xcb_connection_t* (*Proc)(const char*, int*);
     static _Atomic(void*) native;
-    static _Atomic(void*) hook;
-    Proc                  fn         = (Proc)resolve("xcb_connect", &native, &hook, 0);
+    Proc                  fn         = (Proc)native_function("xcb_connect", &native);
     int                   selected   = 0;
     int*                  screen_out = screen ? screen : &selected;
     xcb_connection_t*     c          = fn ? fn(display, screen_out) : NULL;
     if (c) {
         record_xcb(c, *screen_out);
         // Connection may have opened while another thread activated runtime.
-        void* library = atomic_load_explicit(&runtime_library, memory_order_acquire);
-        if (library) {
-            typedef void (*AdoptXcb)(xcb_connection_t*, int);
-            AdoptXcb adopt = (AdoptXcb)dlsym(library, "lotus_apphook_adopt_xcb_connection");
-            if (adopt)
-                adopt(c, *screen_out);
-        }
+        if (atomic_load_explicit(&runtime_active, memory_order_acquire))
+            lotus_apphook_adopt_xcb_connection(c, *screen_out);
     }
     return c;
 }
 __attribute__((visibility("default"))) xcb_connection_t* xcb_connect_to_fd(int fd, xcb_auth_info_t* auth) {
     typedef xcb_connection_t* (*Proc)(int, xcb_auth_info_t*);
     static _Atomic(void*) native;
-    static _Atomic(void*) hook;
-    Proc                  fn         = (Proc)resolve("xcb_connect_to_fd", &native, &hook, 0);
+    Proc                  fn         = (Proc)native_function("xcb_connect_to_fd", &native);
     xcb_connection_t*     connection = fn ? fn(fd, auth) : NULL;
     if (connection) {
         record_xcb(connection, -1);
-        void* library = atomic_load_explicit(&runtime_library, memory_order_acquire);
-        if (library) {
-            typedef void (*AdoptXcb)(xcb_connection_t*, int);
-            AdoptXcb adopt = (AdoptXcb)dlsym(library, "lotus_apphook_adopt_xcb_connection");
-            if (adopt)
-                adopt(connection, -1);
-        }
+        if (atomic_load_explicit(&runtime_active, memory_order_acquire))
+            lotus_apphook_adopt_xcb_connection(connection, -1);
     }
     return connection;
 }
@@ -367,9 +353,13 @@ RELAY(xcb_void_cookie_t, xcb_destroy_window_checked, (xcb_connection_t * c, xcb_
 __attribute__((visibility("default"))) void xcb_disconnect(xcb_connection_t* c) {
     typedef void (*Proc)(xcb_connection_t*);
     static _Atomic(void*) native;
-    static _Atomic(void*) hook;
+    extern void           CORE(xcb_disconnect)(xcb_connection_t*) __attribute__((visibility("hidden")));
     forget_xcb(c);
-    Proc fn = (Proc)resolve("xcb_disconnect", &native, &hook, 0);
+    if (atomic_load_explicit(&runtime_active, memory_order_acquire)) {
+        CORE(xcb_disconnect)(c);
+        return;
+    }
+    Proc fn = (Proc)native_function("xcb_disconnect", &native);
     if (fn)
         fn(c);
 }

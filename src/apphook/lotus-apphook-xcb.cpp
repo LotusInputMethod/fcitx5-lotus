@@ -50,10 +50,22 @@ namespace lotus::apphook {
             unsigned                                   blockingWaiters = 0;
         };
 
-        std::mutex                                      xcbMutex;
-        std::unordered_map<xcb_connection_t*, XcbFocus> connections;
-        std::unordered_set<xcb_connection_t*>           xlibOwned;
-        std::unordered_set<xcb_connection_t*>           xcbEventOwners;
+        std::mutex                                       xcbMutex;
+        std::unordered_map<xcb_connection_t*, XcbFocus>& connectionsStorage() {
+            static std::unordered_map<xcb_connection_t*, XcbFocus> state;
+            return state;
+        }
+#define connections (connectionsStorage())
+        std::unordered_set<xcb_connection_t*>& xlibOwnedStorage() {
+            static std::unordered_set<xcb_connection_t*> state;
+            return state;
+        }
+#define xlibOwned (xlibOwnedStorage())
+        std::unordered_set<xcb_connection_t*>& xcbEventOwnersStorage() {
+            static std::unordered_set<xcb_connection_t*> state;
+            return state;
+        }
+#define xcbEventOwners (xcbEventOwnersStorage())
         // A self-directed ClientMessage wakes libxcb's native event waiters.
         // Never bypass libxcb's internal event queue synchronization with poll().
         constexpr char kWakePayload[] = "lotus-apphook-wakeup";
@@ -538,7 +550,20 @@ namespace lotus::apphook {
     }
 }
 
-#define LH_EXPORT extern "C" __attribute__((visibility("default")))
+// The preloaded C shim is the only externally visible interposer.
+#define xcb_connect                          lotus_apphook_impl_xcb_connect
+#define xcb_connect_to_fd                    lotus_apphook_impl_xcb_connect_to_fd
+#define xcb_destroy_window                   lotus_apphook_impl_xcb_destroy_window
+#define xcb_destroy_window_checked           lotus_apphook_impl_xcb_destroy_window_checked
+#define xcb_disconnect                       lotus_apphook_impl_xcb_disconnect
+#define xcb_poll_for_event                   lotus_apphook_impl_xcb_poll_for_event
+#define xcb_poll_for_queued_event            lotus_apphook_impl_xcb_poll_for_queued_event
+#define xcb_wait_for_event                   lotus_apphook_impl_xcb_wait_for_event
+#define xcb_change_window_attributes         lotus_apphook_impl_xcb_change_window_attributes
+#define xcb_change_window_attributes_checked lotus_apphook_impl_xcb_change_window_attributes_checked
+#define xcb_create_window                    lotus_apphook_impl_xcb_create_window
+#define xcb_create_window_checked            lotus_apphook_impl_xcb_create_window_checked
+#define LH_EXPORT                            extern "C" __attribute__((visibility("hidden")))
 
 LH_EXPORT void lotus_apphook_adopt_xcb_connection(xcb_connection_t* connection, int screen) {
     using namespace lotus::apphook;

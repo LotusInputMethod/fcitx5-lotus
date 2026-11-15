@@ -99,15 +99,18 @@ namespace lotus::apphook {
             uint32_t                altIndex   = 3;
             uint32_t                superIndex = 6;
         };
-
-        std::list<std::shared_ptr<Keyboard>> keyboards;
-        std::recursive_mutex                 keyboardMutex;
-        std::mutex                           waylandConnectionMutex;
-        void*                                wayland = nullptr;
-        std::atomic<bool>                    waylandCapable{false};
-        void*                                xkb = nullptr;
-        std::mutex                           xkbMutex;
-        std::once_flag                       resolveOnce;
+        std::list<std::shared_ptr<Keyboard>>& keyboardsStorage() {
+            static std::list<std::shared_ptr<Keyboard>> state;
+            return state;
+        }
+#define keyboards (keyboardsStorage())
+        std::recursive_mutex keyboardMutex;
+        std::mutex           waylandConnectionMutex;
+        void*                wayland = nullptr;
+        std::atomic<bool>    waylandCapable{false};
+        void*                xkb = nullptr;
+        std::mutex           xkbMutex;
+        std::once_flag       resolveOnce;
 
         int (*originalAddListener)(wl_proxy*, void (**)(void), void*)                                                    = nullptr;
         int (*originalAddDispatcher)(wl_proxy*, Dispatcher, const void*, void*)                                          = nullptr;
@@ -746,7 +749,24 @@ namespace lotus::apphook {
     }
 }
 
-#define LH_EXPORT extern "C" __attribute__((visibility("default")))
+// The preloaded C shim is the only externally visible interposer.
+#define wl_proxy_add_listener                    lotus_apphook_impl_wl_proxy_add_listener
+#define wl_proxy_add_dispatcher                  lotus_apphook_impl_wl_proxy_add_dispatcher
+#define wl_proxy_get_listener                    lotus_apphook_impl_wl_proxy_get_listener
+#define wl_proxy_marshal_array_flags             lotus_apphook_impl_wl_proxy_marshal_array_flags
+#define wl_display_disconnect                    lotus_apphook_impl_wl_display_disconnect
+#define wl_proxy_destroy                         lotus_apphook_impl_wl_proxy_destroy
+#define wl_display_dispatch_queue_pending        lotus_apphook_impl_wl_display_dispatch_queue_pending
+#define wl_display_dispatch_pending              lotus_apphook_impl_wl_display_dispatch_pending
+#define wl_display_dispatch                      lotus_apphook_impl_wl_display_dispatch
+#define wl_display_dispatch_queue                lotus_apphook_impl_wl_display_dispatch_queue
+#define wl_display_dispatch_timeout              lotus_apphook_impl_wl_display_dispatch_timeout
+#define wl_display_dispatch_queue_timeout        lotus_apphook_impl_wl_display_dispatch_queue_timeout
+#define wl_display_dispatch_pending_single       lotus_apphook_impl_wl_display_dispatch_pending_single
+#define wl_display_dispatch_queue_pending_single lotus_apphook_impl_wl_display_dispatch_queue_pending_single
+#define wl_display_connect                       lotus_apphook_impl_wl_display_connect
+#define wl_display_connect_to_fd                 lotus_apphook_impl_wl_display_connect_to_fd
+#define LH_EXPORT                                extern "C" __attribute__((visibility("hidden")))
 
 /**
  * @brief Intercepts listener registration and wraps newly registered keyboards.

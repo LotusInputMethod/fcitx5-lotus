@@ -512,3 +512,7 @@ namespace lotus::apphook {
 
     } // namespace
 } // namespace lotus::apphook
+
+extern "C" __attribute__((visibility("hidden"))) void lotus_apphook_initialize_runtime() {
+    lotus::apphook::ensureRuntimeInitialized();
+}
