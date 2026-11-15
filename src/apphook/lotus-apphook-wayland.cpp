@@ -643,12 +643,30 @@ namespace lotus::apphook {
         }
 
         /**
-         * @brief Destroys the internal wakeup callback proxy.
+         * @brief Pumps work from the wake callback, including native single-event dispatch.
          * @param callback Completed callback proxy.
          */
         void callbackDone(void*, wl_proxy* callback, uint32_t) {
+            // Do not export optional Wayland symbols just to intercept dispatch:
+            // the native single-event APIs also deliver this callback.
+            wl_display*     display = originalGetProxyDisplay ? originalGetProxyDisplay(callback) : nullptr;
+            wl_event_queue* queue   = originalGetQueue ? originalGetQueue(callback) : nullptr;
             if (originalDestroy)
                 originalDestroy(callback);
+            if (queueDrained(display, queue)) {
+                onDispatch(display, queue, true);
+            } else {
+                // A native focus change may be queued after this callback. Place
+                // another wake behind it instead of injecting into stale focus.
+                bool pending;
+                {
+                    std::scoped_lock lock(runtime().mutex);
+                    pending = std::any_of(runtime().pending.begin(), runtime().pending.end(),
+                                          [display](const auto& task) { return task->target.backend == HookBackend::Wayland && task->target.connection == display; });
+                }
+                if (pending)
+                    wakeWayland();
+            }
         }
 
     } // namespace
