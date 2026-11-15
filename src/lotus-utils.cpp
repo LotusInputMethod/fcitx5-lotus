@@ -159,6 +159,8 @@ std::string resolveProgramName(std::string_view icProgram, std::string_view focu
 DiffPart compareAndSplitU32(std::u32string_view oldText, std::u32string_view newText) {
     auto [itA, itB] = std::ranges::mismatch(oldText, newText);
     size_t offset   = std::distance(oldText.begin(), itA);
+    const auto isMark = [](std::u32string_view s, size_t i) { return i < s.size() && s[i] >= 0x0300 && s[i] <= 0x036F; };
+    while (offset > 0 && (isMark(oldText, offset) || isMark(newText, offset))) --offset;
     return {.deletedPart = oldText.substr(offset), .addedPart = newText.substr(offset)};
 }
 
