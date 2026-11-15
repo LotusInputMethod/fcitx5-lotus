@@ -153,6 +153,13 @@ class CleanDbusRoundTripTests(unittest.TestCase):
         self.assertIsInstance(cleaned["B"][0], int)
         self.assertIsInstance(cleaned["B"][3], float)
 
+    def test_nested_bool_keeps_identity(self):
+        # False is valid JSON-like config data and must not be lost in nesting.
+        payload = {"A": {"B": [False]}}
+        cleaned = self.handler._clean_dbus(self.handler._prepare_dbus_data(payload))
+        self.assertEqual(cleaned, payload)
+        self.assertIs(cleaned["A"]["B"][0], False)
+
     def test_dbus_containers_become_python_types(self):
         values = self.dbus.Dictionary(
             {
@@ -341,6 +348,16 @@ class SetSubConfigListTests(unittest.TestCase):
             handler._clean_dbus(payload),
             {"ModeList": {"0": {"K": "1"}, "1": {"K": "2"}}},
         )
+
+    def test_empty_list_sends_empty_indexed_dict(self):
+        # Clearing a list (e.g. removing every mode) must still reach SetConfig.
+        iface = FakeController()
+        handler = _handler(iface)
+
+        self.assertTrue(handler.set_sub_config_list("modes", "ModeList", []))
+
+        _, payload = iface.set_calls[0]
+        self.assertEqual(handler._clean_dbus(payload), {"ModeList": {}})
 
     def test_error_returns_false(self):
         handler = _handler(FakeController(set_error=RuntimeError("boom")))
