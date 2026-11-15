@@ -62,8 +62,8 @@ namespace {
     }
 
     // A BackSpace removes one grapheme cluster, never a lone combining mark.
-    void deleteClusters(std::u32string& text, int count) {
-        for (int i = 0; i < count && !text.empty(); ++i) {
+    void deleteClusters(std::u32string& text, size_t count) {
+        for (size_t i = 0; i < count && !text.empty(); ++i) {
             text.pop_back();
             while (!text.empty() && isCombiningMark(text.back())) {
                 text.pop_back();
@@ -102,13 +102,13 @@ int main() {
     fcitx::InputContextEvent focus(context.get(), fcitx::EventType::InputContextFocusIn);
     engine.activate(entry, focus);
 
-    std::u32string   clientText;
-    std::vector<int> backspaceCounts;
-    size_t           forwardedSeen = 0;
-    size_t           commitsSeen   = 0;
+    std::u32string      clientText;
+    std::vector<size_t> backspaceCounts;
+    size_t              forwardedSeen = 0;
+    size_t              commitsSeen   = 0;
 
     // Appends everything the client would receive: forwarded keys and committed text.
-    const auto syncClientText = [&]() {
+    const auto syncClientText = [&] {
         appendForwardedKey(clientText, context->forwarded(), forwardedSeen);
         forwardedSeen = context->forwarded().size();
         for (size_t i = commitsSeen; i < context->commits().size(); ++i) {
@@ -134,14 +134,14 @@ int main() {
         return true;
     };
 
-    const auto drainReplacements = [&]() {
+    const auto drainReplacements = [&] {
         KbMsg msg{};
         while (listener.tryReceive(msg)) {
             if (msg.op != KbOp::Backspace || msg.count <= 0) {
                 reportFailure("read replacement request", "op=backspace, count > 0", "op=" + std::to_string(static_cast<int>(msg.op)), "unexpected request kind");
                 return false;
             }
-            backspaceCounts.push_back(static_cast<int>(msg.count));
+            backspaceCounts.push_back(msg.count);
             for (size_t i = 0; i < msg.count; ++i) {
                 if (!send(engine, entry, *context, FcitxKey_BackSpace, false)) {
                     return false;
@@ -173,8 +173,8 @@ int main() {
         commitHex += "[" + codePoints(lotus::utf8::decode(commit)) + "]";
     }
     std::printf("trace: commits=%s forwarded=%zu backspaces=", commitHex.c_str(), context->forwarded().size());
-    for (const int count : backspaceCounts) {
-        std::printf("%d ", count);
+    for (const size_t count : backspaceCounts) {
+        std::printf("%zu ", count);
     }
     std::printf("client=[%s]\n", codePoints(clientText).c_str());
 
