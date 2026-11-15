@@ -76,6 +76,8 @@ namespace lotus::apphook {
      * @return Shared runtime instance.
      */
     Runtime& runtime();
+    /** @brief Installs fork handlers on the first real keyboard frontend activation. */
+    void ensureRuntimeInitialized();
     // Per-backend fork guards protect their registries while the child resets
     // inherited connections; called by the central pthread_atfork handlers.
     void prepareX11Fork();

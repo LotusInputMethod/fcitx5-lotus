@@ -637,6 +637,7 @@ namespace lotus::apphook {
     } // namespace
 
     void loadWayland() {
+        ensureRuntimeInitialized();
         std::call_once(resolveOnce, [] {
             wayland = dlopen("libwayland-client.so.0", RTLD_NOW | RTLD_NOLOAD);
             if (!wayland)

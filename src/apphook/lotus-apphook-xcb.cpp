@@ -342,6 +342,7 @@ namespace lotus::apphook {
     } // namespace
 
     void loadXcb() {
+        ensureRuntimeInitialized();
         std::call_once(resolveOnce, [] {
             xcbLibrary = dlopen("libxcb.so.1", RTLD_NOW | RTLD_NOLOAD);
             if (!xcbLibrary)
@@ -463,6 +464,15 @@ namespace lotus::apphook {
 }
 
 #define LH_EXPORT extern "C" __attribute__((visibility("default")))
+
+LH_EXPORT void lotus_apphook_adopt_xcb_connection(xcb_connection_t* connection, int screen) {
+    using namespace lotus::apphook;
+    loadXcb();
+    if (!connection)
+        return;
+    std::scoped_lock lock(xcbMutex);
+    connections[connection].screenIndex = screen;
+}
 
 LH_EXPORT xcb_connection_t* xcb_connect(const char* display, int* screen) {
     using namespace lotus::apphook;

@@ -161,6 +161,14 @@ namespace lotus::apphook {
         }
     } // namespace
 
+    void ensureRuntimeInitialized() {
+        static std::once_flag once;
+        std::call_once(once, [] {
+            (void)pthread_atfork(&prepareFork, &parentFork, &childFork);
+            runtime().initialized.store(true, std::memory_order_release);
+        });
+    }
+
     void noteX11Focus(bool focused) {
         if (runtime().focusedX11.exchange(focused, std::memory_order_acq_rel) != focused) {
             signalChange();
@@ -480,12 +488,6 @@ namespace lotus::apphook {
                 discard(tasks);
                 std::this_thread::sleep_for(250ms);
             }
-        }
-
-        /** @brief Marks the preload runtime ready without starting IPC before keyboard activity. */
-        __attribute__((constructor)) void initialize() {
-            runtime().initialized.store(true, std::memory_order_release);
-            (void)pthread_atfork(&prepareFork, &parentFork, &childFork);
         }
 
     } // namespace

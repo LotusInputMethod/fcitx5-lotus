@@ -1,0 +1,377 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
+ * SPDX-License-Identifier: MIT
+ *
+ * The globally preloaded library must have no constructors, background workers,
+ * C++ runtime dependencies, or process lifecycle hooks of its own.
+ */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#include <X11/Xlib.h>
+#include <xcb/xcb.h>
+#include <dlfcn.h>
+#include <sched.h>
+#include <stdlib.h>
+#include <stdatomic.h>
+#include <stdint.h>
+#include <sys/syscall.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+
+struct wl_proxy;
+struct wl_display;
+struct wl_event_queue;
+struct WlInterface;
+union WlArgument;
+struct WlMessage;
+typedef int (*WlDispatcher)(const void*, void*, uint32_t, const struct WlMessage*, union WlArgument*);
+typedef void (**WlListener)(void);
+
+static _Atomic(void*) runtime_library;
+static _Atomic(int)   loading_pid;
+static _Atomic(int)   loading_tid;
+
+/* Keep only connection metadata needed when the runtime is first activated. */
+struct xcb_connection_record {
+    xcb_connection_t*             connection;
+    int                           screen;
+    struct xcb_connection_record* next;
+};
+struct xlib_owner_record {
+    Display*                  display;
+    int                       owner;
+    struct xlib_owner_record* next;
+};
+static struct xcb_connection_record* xcb_records;
+static struct xlib_owner_record*     owner_records;
+static _Atomic(int)                  metadata_lock_pid;
+static int                           metadata_epoch_pid;
+
+static void                          free_records(void) {
+    while (xcb_records) {
+        struct xcb_connection_record* old = xcb_records;
+        xcb_records                       = old->next;
+        free(old);
+    }
+    while (owner_records) {
+        struct xlib_owner_record* old = owner_records;
+        owner_records                 = old->next;
+        free(old);
+    }
+}
+
+static void lock_metadata(void) {
+    int pid = (int)getpid();
+    for (;;) {
+        int owner = atomic_load_explicit(&metadata_lock_pid, memory_order_acquire);
+        if (owner && owner != pid) {
+            (void)atomic_compare_exchange_weak_explicit(&metadata_lock_pid, &owner, 0, memory_order_acq_rel, memory_order_acquire);
+            continue;
+        }
+        if (owner) {
+            sched_yield();
+            continue;
+        }
+        int zero = 0;
+        if (atomic_compare_exchange_weak_explicit(&metadata_lock_pid, &zero, pid, memory_order_acq_rel, memory_order_acquire))
+            break;
+    }
+    // After fork, inherited X connections cannot be reused as active targets.
+    if (metadata_epoch_pid != pid) {
+        free_records();
+        metadata_epoch_pid = pid;
+    }
+}
+static void unlock_metadata(void) {
+    atomic_store_explicit(&metadata_lock_pid, 0, memory_order_release);
+}
+
+static void record_xcb(xcb_connection_t* c, int screen) {
+    if (!c)
+        return;
+    lock_metadata();
+    if (!atomic_load_explicit(&runtime_library, memory_order_acquire)) {
+        for (struct xcb_connection_record* it = xcb_records; it; it = it->next) {
+            if (it->connection == c) {
+                it->screen = screen;
+                unlock_metadata();
+                return;
+            }
+        }
+        struct xcb_connection_record* record = malloc(sizeof(*record));
+        if (record) {
+            *record     = (struct xcb_connection_record){.connection = c, .screen = screen, .next = xcb_records};
+            xcb_records = record;
+        }
+    }
+    unlock_metadata();
+}
+static void forget_xcb(xcb_connection_t* c) {
+    lock_metadata();
+    struct xcb_connection_record** cursor = &xcb_records;
+    while (*cursor) {
+        if ((*cursor)->connection == c) {
+            struct xcb_connection_record* old = *cursor;
+            *cursor                           = old->next;
+            free(old);
+            break;
+        }
+        cursor = &(*cursor)->next;
+    }
+    unlock_metadata();
+}
+static void record_owner(Display* d, int owner) {
+    if (!d)
+        return;
+    lock_metadata();
+    if (!atomic_load_explicit(&runtime_library, memory_order_acquire)) {
+        for (struct xlib_owner_record* it = owner_records; it; it = it->next) {
+            if (it->display == d) {
+                it->owner = owner;
+                unlock_metadata();
+                return;
+            }
+        }
+        struct xlib_owner_record* record = malloc(sizeof(*record));
+        if (record) {
+            *record       = (struct xlib_owner_record){.display = d, .owner = owner, .next = owner_records};
+            owner_records = record;
+        }
+    }
+    unlock_metadata();
+}
+static void forget_owner(Display* d) {
+    lock_metadata();
+    struct xlib_owner_record** cursor = &owner_records;
+    while (*cursor) {
+        if ((*cursor)->display == d) {
+            struct xlib_owner_record* old = *cursor;
+            *cursor                       = old->next;
+            free(old);
+            break;
+        }
+        cursor = &(*cursor)->next;
+    }
+    unlock_metadata();
+}
+
+/* $ORIGIN is expanded by glibc's dynamic loader for dlopen filenames. */
+static void activate(void) {
+    if (atomic_load_explicit(&runtime_library, memory_order_acquire))
+        return;
+    const int pid = (int)getpid();
+    const int tid = (int)syscall(SYS_gettid);
+    for (;;) {
+        int owner = atomic_load_explicit(&loading_pid, memory_order_acquire);
+        if (atomic_load_explicit(&runtime_library, memory_order_acquire))
+            return;
+        // A forked child must not inherit a permanently locked initializer.
+        if (owner && owner != pid) {
+            (void)atomic_compare_exchange_weak_explicit(&loading_pid, &owner, 0, memory_order_acq_rel, memory_order_acquire);
+            continue;
+        }
+        if (owner) {
+            // Dynamic-loader reentry on the loading thread must use native APIs.
+            if (atomic_load_explicit(&loading_tid, memory_order_acquire) == tid)
+                return;
+            sched_yield();
+            continue;
+        }
+        int empty = 0;
+        if (atomic_compare_exchange_weak_explicit(&loading_pid, &empty, pid, memory_order_acq_rel, memory_order_acquire))
+            break;
+    }
+    atomic_store_explicit(&loading_tid, tid, memory_order_release);
+    if (!atomic_load_explicit(&runtime_library, memory_order_relaxed)) {
+        void* lib = dlopen("$ORIGIN/liblotus-apphook-runtime.so", RTLD_NOW | RTLD_LOCAL);
+        if (lib) {
+            typedef void (*AdoptXcb)(xcb_connection_t*, int);
+            typedef void (*AdoptOwner)(Display*, int);
+            AdoptXcb   adopt_xcb   = (AdoptXcb)dlsym(lib, "lotus_apphook_adopt_xcb_connection");
+            AdoptOwner adopt_owner = (AdoptOwner)dlsym(lib, "lotus_apphook_adopt_xlib_owner");
+            lock_metadata();
+            for (struct xcb_connection_record* it = xcb_records; it; it = it->next)
+                if (adopt_xcb)
+                    adopt_xcb(it->connection, it->screen);
+            for (struct xlib_owner_record* it = owner_records; it; it = it->next)
+                if (adopt_owner)
+                    adopt_owner(it->display, it->owner);
+            free_records();
+            atomic_store_explicit(&runtime_library, lib, memory_order_release);
+            unlock_metadata();
+        }
+    }
+    atomic_store_explicit(&loading_tid, 0, memory_order_release);
+    atomic_store_explicit(&loading_pid, 0, memory_order_release);
+}
+
+static void* resolve(const char* symbol, _Atomic(void*)* native, _Atomic(void*)* hook, int trigger) {
+    if (trigger)
+        activate();
+    void* library = atomic_load_explicit(&runtime_library, memory_order_acquire);
+    if (library) {
+        void* fn = atomic_load_explicit(hook, memory_order_acquire);
+        if (!fn) {
+            fn = dlsym(library, symbol);
+            if (fn)
+                atomic_store_explicit(hook, fn, memory_order_release);
+        }
+        if (fn)
+            return fn;
+    }
+    void* fn = atomic_load_explicit(native, memory_order_acquire);
+    if (!fn) {
+        fn = dlsym(RTLD_NEXT, symbol);
+        if (fn)
+            atomic_store_explicit(native, fn, memory_order_release);
+    }
+    return fn;
+}
+
+/* Each wrapper caches both its native and late-loaded implementation. */
+#define RELAY(ret, symbol, params, call, fallback, trigger)                                                                                                                        \
+    __attribute__((visibility("default"))) ret symbol params {                                                                                                                     \
+        typedef ret(*Proc) params;                                                                                                                                                 \
+        static _Atomic(void*) native;                                                                                                                                              \
+        static _Atomic(void*) hook;                                                                                                                                                \
+        Proc                  fn = (Proc)resolve(#symbol, &native, &hook, (trigger));                                                                                              \
+        return fn ? fn call : (fallback);                                                                                                                                          \
+    }
+
+#define RELAY_VOID(symbol, params, call, trigger)                                                                                                                                  \
+    __attribute__((visibility("default"))) void symbol params {                                                                                                                    \
+        typedef void(*Proc) params;                                                                                                                                                \
+        static _Atomic(void*) native;                                                                                                                                              \
+        static _Atomic(void*) hook;                                                                                                                                                \
+        Proc                  fn = (Proc)resolve(#symbol, &native, &hook, (trigger));                                                                                              \
+        if (fn)                                                                                                                                                                    \
+            fn call;                                                                                                                                                               \
+    }
+
+#define XKEY_MASK (KeyPressMask | KeyReleaseMask)
+RELAY(int, XSelectInput, (Display * d, Window w, long mask), (d, w, mask), 0, (mask & XKEY_MASK))
+RELAY(int, XChangeWindowAttributes, (Display * d, Window w, unsigned long mask, XSetWindowAttributes* a), (d, w, mask, a), 0,
+      ((mask & CWEventMask) && a && (a->event_mask & XKEY_MASK)))
+RELAY(Window, XCreateWindow,
+      (Display * d, Window p, int x, int y, unsigned int width, unsigned int height, unsigned int border, int depth, unsigned int cls, Visual* v, unsigned long mask,
+       XSetWindowAttributes* a),
+      (d, p, x, y, width, height, border, depth, cls, v, mask, a), None, ((mask & CWEventMask) && a && (a->event_mask & XKEY_MASK)))
+__attribute__((visibility("default"))) void XSetEventQueueOwner(Display* d, int owner) {
+    typedef void (*Proc)(Display*, int);
+    static _Atomic(void*) native;
+    static _Atomic(void*) hook;
+    record_owner(d, owner);
+    Proc fn = (Proc)resolve("XSetEventQueueOwner", &native, &hook, 0);
+    if (fn)
+        fn(d, owner);
+}
+__attribute__((visibility("default"))) int XCloseDisplay(Display* d) {
+    typedef int (*Proc)(Display*);
+    static _Atomic(void*) native;
+    static _Atomic(void*) hook;
+    forget_owner(d);
+    Proc fn = (Proc)resolve("XCloseDisplay", &native, &hook, 0);
+    return fn ? fn(d) : -1;
+}
+RELAY(int, XNextEvent, (Display * d, XEvent* ev), (d, ev), -1, 0)
+RELAY(int, XPeekEvent, (Display * d, XEvent* ev), (d, ev), -1, 0)
+RELAY(int, XMaskEvent, (Display * d, long mask, XEvent* ev), (d, mask, ev), -1, 0)
+RELAY(int, XWindowEvent, (Display * d, Window w, long mask, XEvent* ev), (d, w, mask, ev), -1, 0)
+RELAY(Bool, XCheckMaskEvent, (Display * d, long mask, XEvent* ev), (d, mask, ev), False, 0)
+RELAY(Bool, XCheckWindowEvent, (Display * d, Window w, long mask, XEvent* ev), (d, w, mask, ev), False, 0)
+RELAY(Bool, XCheckTypedEvent, (Display * d, int type, XEvent* ev), (d, type, ev), False, 0)
+RELAY(Bool, XCheckTypedWindowEvent, (Display * d, Window w, int type, XEvent* ev), (d, w, type, ev), False, 0)
+RELAY(int, XIfEvent, (Display * d, XEvent* ev, Bool (*pred)(Display*, XEvent*, XPointer), XPointer arg), (d, ev, pred, arg), -1, 0)
+RELAY(Bool, XCheckIfEvent, (Display * d, XEvent* ev, Bool (*pred)(Display*, XEvent*, XPointer), XPointer arg), (d, ev, pred, arg), False, 0)
+RELAY(int, XPeekIfEvent, (Display * d, XEvent* ev, Bool (*pred)(Display*, XEvent*, XPointer), XPointer arg), (d, ev, pred, arg), -1, 0)
+
+static int subscribes_keyboard(uint32_t mask, const void* values) {
+    if (!(mask & XCB_CW_EVENT_MASK) || !values)
+        return 0;
+    const uint32_t* items = values;
+    unsigned int    index = __builtin_popcount(mask & (XCB_CW_EVENT_MASK - 1));
+    return (items[index] & (XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE)) != 0;
+}
+
+/* Opening an X connection alone is not evidence of a keyboard frontend. */
+__attribute__((visibility("default"))) xcb_connection_t* xcb_connect(const char* display, int* screen) {
+    typedef xcb_connection_t* (*Proc)(const char*, int*);
+    static _Atomic(void*) native;
+    static _Atomic(void*) hook;
+    Proc                  fn         = (Proc)resolve("xcb_connect", &native, &hook, 0);
+    int                   selected   = 0;
+    int*                  screen_out = screen ? screen : &selected;
+    xcb_connection_t*     c          = fn ? fn(display, screen_out) : NULL;
+    if (c) {
+        record_xcb(c, *screen_out);
+        // Connection may have opened while another thread activated runtime.
+        void* library = atomic_load_explicit(&runtime_library, memory_order_acquire);
+        if (library) {
+            typedef void (*AdoptXcb)(xcb_connection_t*, int);
+            AdoptXcb adopt = (AdoptXcb)dlsym(library, "lotus_apphook_adopt_xcb_connection");
+            if (adopt)
+                adopt(c, *screen_out);
+        }
+    }
+    return c;
+}
+RELAY(xcb_connection_t*, xcb_connect_to_fd, (int fd, xcb_auth_info_t* auth), (fd, auth), NULL, 0)
+__attribute__((visibility("default"))) void xcb_disconnect(xcb_connection_t* c) {
+    typedef void (*Proc)(xcb_connection_t*);
+    static _Atomic(void*) native;
+    static _Atomic(void*) hook;
+    forget_xcb(c);
+    Proc fn = (Proc)resolve("xcb_disconnect", &native, &hook, 0);
+    if (fn)
+        fn(c);
+}
+RELAY(xcb_generic_event_t*, xcb_poll_for_event, (xcb_connection_t * c), (c), NULL, 0)
+RELAY(xcb_generic_event_t*, xcb_poll_for_queued_event, (xcb_connection_t * c), (c), NULL, 0)
+RELAY(xcb_generic_event_t*, xcb_wait_for_event, (xcb_connection_t * c), (c), NULL, 0)
+RELAY(xcb_void_cookie_t, xcb_change_window_attributes, (xcb_connection_t * c, xcb_window_t w, uint32_t mask, const void* v), (c, w, mask, v), (xcb_void_cookie_t){0},
+      subscribes_keyboard(mask, v))
+RELAY(xcb_void_cookie_t, xcb_change_window_attributes_checked, (xcb_connection_t * c, xcb_window_t w, uint32_t mask, const void* v), (c, w, mask, v), (xcb_void_cookie_t){0},
+      subscribes_keyboard(mask, v))
+RELAY(xcb_void_cookie_t, xcb_create_window,
+      (xcb_connection_t * c, uint8_t d, xcb_window_t w, xcb_window_t p, int16_t x, int16_t y, uint16_t width, uint16_t height, uint16_t border, uint16_t cls, xcb_visualid_t visual,
+       uint32_t mask, const void* v),
+      (c, d, w, p, x, y, width, height, border, cls, visual, mask, v), (xcb_void_cookie_t){0}, subscribes_keyboard(mask, v))
+RELAY(xcb_void_cookie_t, xcb_create_window_checked,
+      (xcb_connection_t * c, uint8_t d, xcb_window_t w, xcb_window_t p, int16_t x, int16_t y, uint16_t width, uint16_t height, uint16_t border, uint16_t cls, xcb_visualid_t visual,
+       uint32_t mask, const void* v),
+      (c, d, w, p, x, y, width, height, border, cls, visual, mask, v), (xcb_void_cookie_t){0}, subscribes_keyboard(mask, v))
+
+/* Listener/dispatcher registration is the first keyboard-specific Wayland call. */
+static int is_keyboard(struct wl_proxy* proxy) {
+    typedef const char* (*GetClass)(struct wl_proxy*);
+    static _Atomic(void*) native;
+    GetClass              fn = (GetClass)atomic_load_explicit(&native, memory_order_acquire);
+    if (!fn) {
+        fn = (GetClass)dlsym(RTLD_NEXT, "wl_proxy_get_class");
+        if (fn)
+            atomic_store_explicit(&native, (void*)fn, memory_order_release);
+    }
+    if (!proxy || !fn)
+        return 0;
+    const char* cls = fn(proxy);
+    return cls && strcmp(cls, "wl_keyboard") == 0;
+}
+RELAY(int, wl_proxy_add_listener, (struct wl_proxy * p, void (**callbacks)(void), void* data), (p, callbacks, data), -1, is_keyboard(p))
+RELAY(int, wl_proxy_add_dispatcher, (struct wl_proxy * p, WlDispatcher disp, const void* impl, void* data), (p, disp, impl, data), -1, is_keyboard(p))
+RELAY(WlListener, wl_proxy_get_listener, (struct wl_proxy * p), (p), NULL, 0)
+RELAY(struct wl_proxy*, wl_proxy_marshal_array_flags, (struct wl_proxy * p, uint32_t op, const struct WlInterface* i, uint32_t version, uint32_t flags, union WlArgument* args),
+      (p, op, i, version, flags, args), NULL, 0)
+RELAY_VOID(wl_display_disconnect, (struct wl_display * d), (d), 0)
+RELAY_VOID(wl_proxy_destroy, (struct wl_proxy * p), (p), 0)
+RELAY(int, wl_display_dispatch_queue_pending, (struct wl_display * d, struct wl_event_queue* q), (d, q), -1, 0)
+RELAY(int, wl_display_dispatch_pending, (struct wl_display * d), (d), -1, 0)
+RELAY(int, wl_display_dispatch, (struct wl_display * d), (d), -1, 0)
+RELAY(int, wl_display_dispatch_queue, (struct wl_display * d, struct wl_event_queue* q), (d, q), -1, 0)
+RELAY(int, wl_display_dispatch_timeout, (struct wl_display * d, const struct timespec* t), (d, t), -1, 0)
+RELAY(int, wl_display_dispatch_queue_timeout, (struct wl_display * d, struct wl_event_queue* q, const struct timespec* t), (d, q, t), -1, 0)
+RELAY(int, wl_display_dispatch_pending_single, (struct wl_display * d), (d), -1, 0)
+RELAY(int, wl_display_dispatch_queue_pending_single, (struct wl_display * d, struct wl_event_queue* q), (d, q), -1, 0)
+RELAY(struct wl_display*, wl_display_connect, (const char* name), (name), NULL, 0)
+RELAY(struct wl_display*, wl_display_connect_to_fd, (int fd), (fd), NULL, 0)

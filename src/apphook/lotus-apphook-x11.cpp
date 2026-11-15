@@ -499,6 +499,7 @@ namespace lotus::apphook {
     } // namespace
 
     void loadX11() {
+        ensureRuntimeInitialized();
         std::call_once(resolveOnce, [] {
             xlib = dlopen("libX11.so.6", RTLD_NOW | RTLD_NOLOAD);
             if (!xlib)
@@ -632,12 +633,10 @@ LH_EXPORT Window XCreateWindow(Display* target, Window parent, int x, int y, uns
     return window;
 }
 
-/** Tracks Xlib/XCB event queue ownership (XCBOwnsEventQueue is 1). */
-LH_EXPORT void XSetEventQueueOwner(Display* target, int owner) {
+/** Syncs earlier Xlib/XCB event queue ownership without altering Xlib itself. */
+LH_EXPORT void lotus_apphook_adopt_xlib_owner(Display* target, int owner) {
     using namespace lotus::apphook;
     loadX11();
-    if (originalSetEventQueueOwner)
-        originalSetEventQueueOwner(target, owner);
     if (getXcbConnection) {
         auto* connection = getXcbConnection(target);
         markXlibOwnedXcbConnection(connection);
@@ -662,6 +661,15 @@ LH_EXPORT void XSetEventQueueOwner(Display* target, int owner) {
     }
     noteX11Focus(focused);
     noteX11KeyboardAvailable(ready);
+}
+
+/** Tracks Xlib/XCB event queue ownership (XCBOwnsEventQueue is 1). */
+LH_EXPORT void XSetEventQueueOwner(Display* target, int owner) {
+    using namespace lotus::apphook;
+    loadX11();
+    if (originalSetEventQueueOwner)
+        originalSetEventQueueOwner(target, owner);
+    lotus_apphook_adopt_xlib_owner(target, owner);
 }
 
 /** Removes focus state and rejects undelivered keys when a Display is closed. */
