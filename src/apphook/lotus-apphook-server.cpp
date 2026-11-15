@@ -354,50 +354,63 @@ namespace fcitx {
                 if (!events) {
                     continue;
                 }
-                bool drop = (events & (POLLERR | POLLHUP | POLLNVAL)) != 0;
-                if (!drop && (events & POLLIN)) {
-                    Response      response{};
-                    const ssize_t got = recv(session->fd.get(), &response, sizeof(response), MSG_DONTWAIT | MSG_TRUNC);
-                    drop              = got != sizeof(response) || response.magic != kMagic || response.version != kVersion;
-                    if (!drop && response.type == ResponseKind::Ready && response.requestId == 0 && (response.reserved & ~kReadyFocused) == 0) {
-                        {
+                const bool peerClosed = (events & (POLLERR | POLLHUP | POLLNVAL)) != 0;
+                bool       drop       = peerClosed;
+                if (events & POLLIN) {
+                    bool responseError = false;
+                    // HUP can accompany several queued packets (e.g. Focus,
+                    // then Complete). Drain them before disconnecting the peer.
+                    do {
+                        Response response{};
+                        ssize_t  got;
+                        do {
+                            got = recv(session->fd.get(), &response, sizeof(response), MSG_DONTWAIT | MSG_TRUNC);
+                        } while (got < 0 && errno == EINTR);
+                        if (got != sizeof(response) || response.magic != kMagic || response.version != kVersion) {
+                            drop          = true;
+                            responseError = true;
+                        } else if (response.type == ResponseKind::Ready && response.requestId == 0 && (response.reserved & ~kReadyFocused) == 0) {
+                            {
+                                std::scoped_lock lock(mutex_);
+                                const auto       found = sessions_.find(session->pid);
+                                if (found != sessions_.end() && found->second == session) {
+                                    const bool focused = response.status == 0 && (response.reserved & kReadyFocused) != 0;
+                                    session->ready.store(response.status == 0);
+                                    session->focused.store(focused);
+                                    if (focused) {
+                                        focusedPid_ = session->pid;
+                                    } else if (focusedPid_ == session->pid) {
+                                        focusedPid_ = 0;
+                                    }
+                                }
+                            }
+                            if (response.status != 0) {
+                                drop          = true;
+                                responseError = true;
+                            }
+                        } else if (response.type == ResponseKind::Focus && response.requestId == 0 && (response.status == 0 || response.status == 1)) {
                             std::scoped_lock lock(mutex_);
                             const auto       found = sessions_.find(session->pid);
                             if (found != sessions_.end() && found->second == session) {
-                                const bool focused = response.status == 0 && (response.reserved & kReadyFocused) != 0;
-                                session->ready.store(response.status == 0);
-                                session->focused.store(focused);
-                                if (focused) {
+                                session->focused.store(response.status == 1);
+                                if (response.status == 1) {
                                     focusedPid_ = session->pid;
                                 } else if (focusedPid_ == session->pid) {
                                     focusedPid_ = 0;
                                 }
                             }
-                        }
-                        if (response.status != 0) {
-                            drop = true;
-                        }
-                    } else if (!drop && response.type == ResponseKind::Focus && response.requestId == 0 && (response.status == 0 || response.status == 1)) {
-                        std::scoped_lock lock(mutex_);
-                        const auto       found = sessions_.find(session->pid);
-                        if (found != sessions_.end() && found->second == session) {
-                            session->focused.store(response.status == 1);
-                            if (response.status == 1) {
-                                focusedPid_ = session->pid;
-                            } else if (focusedPid_ == session->pid) {
-                                focusedPid_ = 0;
+                        } else if (response.type == ResponseKind::Complete && response.requestId != 0) {
+                            std::scoped_lock lock(session->mutex);
+                            if (response.requestId == session->waitingId) {
+                                session->result   = response.status != 0 && (response.reserved & kCompleteMayHaveApplied) ? -EINPROGRESS : response.status;
+                                session->hasReply = true;
+                                session->completed.notify_all();
                             }
+                        } else {
+                            drop          = true;
+                            responseError = true;
                         }
-                    } else if (!drop && response.type == ResponseKind::Complete && response.requestId != 0) {
-                        std::scoped_lock lock(session->mutex);
-                        if (response.requestId == session->waitingId) {
-                            session->result   = response.status != 0 && (response.reserved & kCompleteMayHaveApplied) ? -EINPROGRESS : response.status;
-                            session->hasReply = true;
-                            session->completed.notify_all();
-                        }
-                    } else if (!drop) {
-                        drop = true;
-                    }
+                    } while (peerClosed && !responseError);
                 }
                 if (drop) {
                     disconnect(session);
