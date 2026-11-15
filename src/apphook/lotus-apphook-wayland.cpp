@@ -583,7 +583,7 @@ namespace lotus::apphook {
             }
             if (!keyboard)
                 return;
-            auto task = takeTask();
+            auto task = takeTask(HookBackend::Wayland, display, reinterpret_cast<uintptr_t>(keyboard->proxy));
             if (!task)
                 return;
             KeySequence sequence(task->ops);
@@ -646,6 +646,18 @@ namespace lotus::apphook {
         }
 
     } // namespace
+
+    FocusCandidates focusedWaylandCandidates() {
+        std::scoped_lock lock(keyboardMutex);
+        FocusCandidates  candidates;
+        for (const auto& keyboard : keyboards) {
+            if (!keyboard->alive || !keyboard->focused || !keyboard->display)
+                continue;
+            ++candidates.count;
+            candidates.target = {HookBackend::Wayland, keyboard->display, reinterpret_cast<uintptr_t>(keyboard->proxy)};
+        }
+        return candidates;
+    }
 
     void loadWayland() {
         ensureRuntimeInitialized();

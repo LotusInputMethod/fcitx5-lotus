@@ -303,7 +303,7 @@ namespace lotus::apphook {
             if (!state.focused || !state.keyboardAvailable || state.target == XCB_NONE)
                 return nullptr;
             // There is one shared task queue, claimed only by a focused backend.
-            state.active = takeTask();
+            state.active = takeTask(HookBackend::Xcb, connection, static_cast<uintptr_t>(state.target));
             if (!state.active)
                 return nullptr;
             // X11 core keycodes occupy 8..255; reject rather than truncate.
@@ -401,6 +401,18 @@ namespace lotus::apphook {
         }
 
     } // namespace
+
+    FocusCandidates focusedXcbCandidates() {
+        std::scoped_lock lock(xcbMutex);
+        FocusCandidates  candidates;
+        for (const auto& [connection, state] : connections) {
+            if (ownedByXlib(connection) || !state.focused || !state.keyboardAvailable || state.target == XCB_NONE)
+                continue;
+            ++candidates.count;
+            candidates.target = {HookBackend::Xcb, connection, static_cast<uintptr_t>(state.target)};
+        }
+        return candidates;
+    }
 
     void loadXcb() {
         ensureRuntimeInitialized();

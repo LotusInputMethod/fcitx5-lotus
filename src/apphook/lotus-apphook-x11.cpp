@@ -304,6 +304,8 @@ namespace lotus::apphook {
                     tracked.keyTarget(event.xkey.window, false);
                     tracked.sawKeyboard       = true;
                     tracked.sawKeyboardWindow = event.xkey.window;
+                    if (event.type == KeyPress && !tracked.observedFocus)
+                        tracked.focused = true;
                 }
                 noteX11KeyboardAvailable(true);
                 if (event.type == KeyPress)
@@ -407,7 +409,7 @@ namespace lotus::apphook {
                 // In particular, a filtered KeyPress lookup must not bypass FocusOut.
                 const bool focusTransition = std::any_of(native.begin(), native.end(), [](const XEvent& event) { return event.type == FocusIn || event.type == FocusOut; });
                 if (!focusTransition) {
-                    auto task = takeTask();
+                    auto task = takeTask(HookBackend::X11, target, static_cast<uintptr_t>(window));
                     if (task) {
                         {
                             std::scoped_lock lock(runtime().mutex);
@@ -575,6 +577,18 @@ namespace lotus::apphook {
         }
 
     } // namespace
+
+    FocusCandidates focusedX11Candidates() {
+        std::scoped_lock lock(focusMutex);
+        FocusCandidates  candidates;
+        for (const auto& [display, state] : focusByDisplay) {
+            if (xcbOwnerDisplays.contains(display) || !state.ready() || !state.focused || state.target == None)
+                continue;
+            ++candidates.count;
+            candidates.target = {HookBackend::X11, display, static_cast<uintptr_t>(state.target)};
+        }
+        return candidates;
+    }
 
     void loadX11() {
         ensureRuntimeInitialized();

@@ -227,12 +227,14 @@ namespace lotus::apphook {
         startWorkers();
     }
 
-    std::shared_ptr<Task> takeTask() {
+    std::shared_ptr<Task> takeTask(HookBackend backend, const void* connection, uintptr_t focused) {
         Runtime&         state = runtime();
         std::scoped_lock lock(state.mutex);
-        if (state.pending.empty()) {
+        if (state.pending.empty())
             return {};
-        }
+        const auto& selected = state.pending.front()->target;
+        if (selected.backend != backend || selected.connection != connection || selected.focused != focused)
+            return {};
         auto task = std::move(state.pending.front());
         state.pending.pop_front();
         return task;
@@ -281,6 +283,20 @@ namespace lotus::apphook {
             return state.readyX11.load() || state.readyWayland.load() || state.readyXcb.load();
         }
 
+        /** Choose an unambiguous focused frontend without holding runtime.mutex.
+         * Backend focus locks can be acquired before runtime.mutex by event hooks.
+         */
+        HookTarget selectTarget() {
+            HookTarget selected{};
+            unsigned   total = 0;
+            for (const auto candidates : {focusedX11Candidates(), focusedXcbCandidates(), focusedWaylandCandidates()}) {
+                total += candidates.count;
+                if (candidates.count == 1)
+                    selected = candidates.target;
+            }
+            return total == 1 ? selected : HookTarget{};
+        }
+
         /**
          * @brief Validates and enqueues one message received from the Fcitx5 addon.
          * @param request Wire request payload.
@@ -325,7 +341,11 @@ namespace lotus::apphook {
                     return -EINVAL;
                 }
             }
+            const HookTarget target = selectTarget();
+            if (target.backend == HookBackend::None)
+                return -EAGAIN; // No unique active keyboard frontend for this PID.
             auto task       = std::make_shared<Task>();
+            task->target    = target;
             task->requestId = request.requestId;
             task->ops.assign(request.ops.begin(), request.ops.begin() + request.count);
             {

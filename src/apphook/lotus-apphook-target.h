@@ -29,11 +29,32 @@ struct wl_display;
 
 namespace lotus::apphook {
 
+    enum class HookBackend : uint8_t {
+        None,
+        X11,
+        Xcb,
+        Wayland
+    };
+
+    /** A focused frontend and its input target, captured when Emit arrives. */
+    struct HookTarget {
+        HookBackend backend    = HookBackend::None;
+        const void* connection = nullptr;
+        uintptr_t   focused    = 0;
+    };
+
+    /** One frontend's focus snapshot; count > 1 marks ambiguous focus. */
+    struct FocusCandidates {
+        HookTarget target{};
+        unsigned   count = 0;
+    };
+
     /**
      * @brief An in-flight keyboard request and its completion state.
      */
     struct Task {
         uint64_t                  requestId = 0;
+        HookTarget                target{};
         std::vector<KeyOperation> ops;
         size_t                    x11Remaining = 0;
         int                       status       = 0;
@@ -95,21 +116,24 @@ namespace lotus::apphook {
     /** @brief Updates Wayland keyboard focus. */
     void noteWaylandFocus(bool focused);
     /** @brief Starts IPC when a Wayland keyboard listener is registered, before focus-in. */
-    void noteWaylandKeyboardAvailable(bool available);
-    void noteXcbFocus(bool focused);
-    void noteXcbKeyboardAvailable(bool available);
-    void markXlibOwnedXcbConnection(void* connection);
-    void markXcbKeyboardSubscribed(void* connection);
-    void forgetXlibXcbConnection(void* connection);
-    void setXcbEventQueueOwner(void* connection, bool xcbOwns, uint32_t root = 0);
-    bool xcbOwnsXlibConnection(void* connection);
-    void wakeXcb();
-    void loadXcb();
+    void            noteWaylandKeyboardAvailable(bool available);
+    void            noteXcbFocus(bool focused);
+    void            noteXcbKeyboardAvailable(bool available);
+    void            markXlibOwnedXcbConnection(void* connection);
+    void            markXcbKeyboardSubscribed(void* connection);
+    void            forgetXlibXcbConnection(void* connection);
+    void            setXcbEventQueueOwner(void* connection, bool xcbOwns, uint32_t root = 0);
+    bool            xcbOwnsXlibConnection(void* connection);
+    void            wakeXcb();
+    void            loadXcb();
+    FocusCandidates focusedX11Candidates();
+    FocusCandidates focusedXcbCandidates();
+    FocusCandidates focusedWaylandCandidates();
     /**
      * @brief Takes the next pending keyboard request.
      * @return Pending request or an empty pointer.
      */
-    std::shared_ptr<Task> takeTask();
+    std::shared_ptr<Task> takeTask(HookBackend backend, const void* connection, uintptr_t focused);
     /**
      * @brief Marks a task completed while the runtime mutex is held.
      * @param task Request to complete.
