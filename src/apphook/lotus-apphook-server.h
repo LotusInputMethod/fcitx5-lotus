@@ -16,6 +16,7 @@
 #include "lotus-apphook-protocol.h"
 #include "common-fd-guard.h"
 
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -135,11 +136,15 @@ namespace fcitx {
         std::unordered_map<pid_t, std::shared_ptr<Session>> sessions_;
         pid_t                                               focusedPid_ = 0;
         std::unordered_set<uint64_t>                        cancelled_;
-        uint64_t                                            activeRequestId_ = 0;
+        std::unordered_map<uint64_t, pid_t>                 activeRequests_;
+        std::unordered_set<pid_t>                           activePids_;
         std::atomic<uint64_t>                               nextRequest_{1};
         std::atomic<bool>                                   stopping_{false};
         std::thread                                         server_;
-        std::thread                                         worker_;
+        // Separate sessions may wait for completion concurrently; each PID is
+        // still serialized to protect Session::waitingId and event ordering.
+        static constexpr size_t           kWorkers = 4;
+        std::array<std::thread, kWorkers> workers_;
     };
 
 } // namespace fcitx
