@@ -480,8 +480,23 @@ namespace lotus::apphook {
         std::scoped_lock lock(xcbMutex);
         if (!originalSendEvent || !originalFlush)
             return;
-        for (const auto& [connection, state] : connections) {
-            if (!(state.focused || state.active) || ownedByXlib(connection) || !state.blockingWaiters || state.wakeWindow == XCB_NONE)
+        for (auto& [connection, state] : connections) {
+            if (!(state.focused || state.active) || ownedByXlib(connection))
+                continue;
+            bool pending = false;
+            {
+                std::scoped_lock pendingLock(runtime().mutex);
+                if (!runtime().pending.empty()) {
+                    const auto& selected = runtime().pending.front()->target;
+                    pending              = selected.backend == HookBackend::Xcb && selected.connection == connection;
+                }
+            }
+            if (!pending && !state.active)
+                continue;
+            // External poll/select loops never call xcb_wait_for_event, so
+            // neither blockingWaiters nor wakeWindow may have been set.
+            ensureWakeWindow(connection, state);
+            if (state.wakeWindow == XCB_NONE)
                 continue;
             xcb_client_message_event_t event{};
             event.response_type = XCB_CLIENT_MESSAGE;
@@ -489,10 +504,10 @@ namespace lotus::apphook {
             event.window        = state.wakeWindow;
             event.type          = XCB_ATOM_NONE;
             std::memcpy(event.data.data8, kWakePayload, 20);
-            // Wake each native libxcb waiter, without using its socket fd as an
-            // external event queue (which would miss internally queued events).
+            // Wake native waiters plus an external poll/select loop, if any.
+            // Every wake is filtered inside libxcb's event retrieval hooks.
             bool sent = false;
-            for (unsigned i = 0; i < state.blockingWaiters; ++i)
+            for (unsigned i = 0, count = state.blockingWaiters + 1; i < count; ++i)
                 sent |= originalSendEvent(connection, 0, state.wakeWindow, 0, reinterpret_cast<const char*>(&event)).sequence != 0;
             if (sent)
                 (void)originalFlush(connection);

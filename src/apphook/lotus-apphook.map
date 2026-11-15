@@ -13,6 +13,7 @@
         XIfEvent;
         XMaskEvent;
         XNextEvent;
+        XPending;
         XPeekEvent;
         XPeekIfEvent;
         XSelectInput;

@@ -447,6 +447,15 @@ namespace lotus::apphook {
             originalLockDisplay(target);
             const int queued = originalPending(target);
             if (queued < 0 || queued > 4096) {
+                // A filtered blocking Xlib loop cannot consume unrelated
+                // native events to make room. Reject the work instead of
+                // repeatedly waking on an unchanged oversized queue.
+                if (queued > 4096) {
+                    if (auto task = takeTask(HookBackend::X11, target, static_cast<uintptr_t>(window))) {
+                        std::scoped_lock lock(runtime().mutex);
+                        finishLocked(task, -EAGAIN);
+                    }
+                }
                 originalUnlockDisplay(target);
                 return;
             }
@@ -636,13 +645,21 @@ namespace lotus::apphook {
             }
             if (pending) {
                 onEntry(target);
-                if (originalPending && originalPending(target) > 0)
+                // Nonmatching native events were already in Xlib's queue.
+                // They are not evidence that the pending synthetic burst was
+                // inserted, and must not turn a filtered wait into a spin.
+                std::scoped_lock lock(runtime().mutex);
+                if (runtime().activeX11 && runtime().activeX11Display == target)
                     return;
             }
             pollfd fds[2]{{.fd = originalConnectionNumber(target), .events = POLLIN, .revents = 0}, {.fd = waiter->fd, .events = POLLIN, .revents = 0}};
             int    ready;
             do {
-                ready = poll(fds, 2, waiter->fd >= 0 ? -1 : 20);
+                // Another Xlib thread can consume the socket and queue a
+                // native event after our empty-queue check. Its socket fd is
+                // no longer readable, so use a bounded wait and let the
+                // caller recheck Xlib's internal queue.
+                ready = poll(fds, 2, 20);
             } while (ready < 0 && errno == EINTR);
             if (ready > 0 && waiter->fd >= 0 && (fds[1].revents & POLLIN)) {
                 uint64_t value;
@@ -748,6 +765,7 @@ namespace lotus::apphook {
 #define XSetEventQueueOwner     lotus_apphook_impl_XSetEventQueueOwner
 #define XDestroyWindow          lotus_apphook_impl_XDestroyWindow
 #define XCloseDisplay           lotus_apphook_impl_XCloseDisplay
+#define XPending                lotus_apphook_impl_XPending
 #define XNextEvent              lotus_apphook_impl_XNextEvent
 #define XPeekEvent              lotus_apphook_impl_XPeekEvent
 #define XMaskEvent              lotus_apphook_impl_XMaskEvent
@@ -921,6 +939,19 @@ LH_EXPORT int XCloseDisplay(Display* target) {
         }
     }
     return originalCloseDisplay ? originalCloseDisplay(target) : -1;
+}
+
+/**
+ * @brief Makes application-local input visible to XPending-driven event loops.
+ * Native queued events continue to precede synthetic input.
+ */
+LH_EXPORT int XPending(Display* target) {
+    using namespace lotus::apphook;
+    loadX11();
+    if (!originalPending)
+        return 0;
+    onEntry(target);
+    return originalPending(target);
 }
 
 /**
