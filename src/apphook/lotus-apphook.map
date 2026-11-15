@@ -23,12 +23,8 @@
         wl_display_disconnect;
         wl_display_dispatch;
         wl_display_dispatch_pending;
-        wl_display_dispatch_pending_single;
         wl_display_dispatch_queue;
         wl_display_dispatch_queue_pending;
-        wl_display_dispatch_queue_pending_single;
-        wl_display_dispatch_queue_timeout;
-        wl_display_dispatch_timeout;
         wl_proxy_add_dispatcher;
         wl_proxy_add_listener;
         wl_proxy_destroy;

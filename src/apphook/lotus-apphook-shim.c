@@ -405,9 +405,8 @@ RELAY(int, wl_display_dispatch_queue_pending, (struct wl_display * d, struct wl_
 RELAY(int, wl_display_dispatch_pending, (struct wl_display * d), (d), -1, 0)
 RELAY(int, wl_display_dispatch, (struct wl_display * d), (d), -1, 0)
 RELAY(int, wl_display_dispatch_queue, (struct wl_display * d, struct wl_event_queue* q), (d, q), -1, 0)
-RELAY(int, wl_display_dispatch_timeout, (struct wl_display * d, const struct timespec* t), (d, t), -1, 0)
-RELAY(int, wl_display_dispatch_queue_timeout, (struct wl_display * d, struct wl_event_queue* q, const struct timespec* t), (d, q, t), -1, 0)
-RELAY(int, wl_display_dispatch_pending_single, (struct wl_display * d), (d), -1, 0)
-RELAY(int, wl_display_dispatch_queue_pending_single, (struct wl_display * d, struct wl_event_queue* q), (d, q), -1, 0)
+/* Optional Wayland dispatch APIs must not be exported unconditionally: an app
+ * may use dlsym() to detect their presence. The native libwayland-client
+ * handles these calls directly when it supports them. */
 RELAY(struct wl_display*, wl_display_connect, (const char* name), (name), NULL, 0)
 RELAY(struct wl_display*, wl_display_connect_to_fd, (int fd), (fd), NULL, 0)
