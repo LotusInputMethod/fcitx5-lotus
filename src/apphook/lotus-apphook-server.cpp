@@ -266,6 +266,8 @@ namespace fcitx {
             if (result == 0 && work.postDelayMs) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(work.postDelayMs));
             }
+            if (work.completion)
+                work.completion(result);
             {
                 std::scoped_lock lock(mutex_);
                 cancelled_.erase(work.requestId);
@@ -273,9 +275,6 @@ namespace fcitx {
                 activePids_.erase(work.pid);
             }
             condition_.notify_all();
-            if (work.completion) {
-                work.completion(result);
-            }
         }
     }
 
