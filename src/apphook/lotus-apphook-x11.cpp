@@ -52,20 +52,31 @@ namespace lotus::apphook {
                 return false;
             }
         };
-        std::mutex                                  focusMutex;
-        std::unordered_map<Display*, DisplayFocus>& focusByDisplayStorage() {
-            static std::unordered_map<Display*, DisplayFocus> state;
+        std::mutex focusMutex;
+        using DisplayFocusMap = std::unordered_map<Display*, DisplayFocus>;
+        using DisplaySet      = std::unordered_set<Display*>;
+        using PressedEventMap = std::unordered_map<Display*, XEvent>;
+        // These pointers are published only after construction. Fork cleanup must
+        // not initialize an unused backend's function-local statics in the child.
+        std::atomic<DisplayFocusMap*> initializedFocusByDisplay{nullptr};
+        std::atomic<DisplaySet*>      initializedXcbOwnerDisplays{nullptr};
+        std::atomic<PressedEventMap*> initializedPressedEvents{nullptr};
+        DisplayFocusMap&              focusByDisplayStorage() {
+            static DisplayFocusMap state;
+            initializedFocusByDisplay.store(&state, std::memory_order_release);
             return state;
         }
 #define focusByDisplay (focusByDisplayStorage())
-        std::unordered_set<Display*>& xcbOwnerDisplaysStorage() {
-            static std::unordered_set<Display*> state;
+        DisplaySet& xcbOwnerDisplaysStorage() {
+            static DisplaySet state;
+            initializedXcbOwnerDisplays.store(&state, std::memory_order_release);
             return state;
         }
 #define xcbOwnerDisplays (xcbOwnerDisplaysStorage())
         // The last press already returned to the consumer, keyed by Display.
-        std::unordered_map<Display*, XEvent>& pressedEventsStorage() {
-            static std::unordered_map<Display*, XEvent> state;
+        PressedEventMap& pressedEventsStorage() {
+            static PressedEventMap state;
+            initializedPressedEvents.store(&state, std::memory_order_release);
             return state;
         }
 #define pressedEvents (pressedEventsStorage())
@@ -648,9 +659,12 @@ namespace lotus::apphook {
     }
     void finishX11Fork(bool child) {
         if (child) {
-            focusByDisplay.clear();
-            xcbOwnerDisplays.clear();
-            pressedEvents.clear();
+            if (auto* state = initializedFocusByDisplay.load(std::memory_order_acquire))
+                state->clear();
+            if (auto* state = initializedXcbOwnerDisplays.load(std::memory_order_acquire))
+                state->clear();
+            if (auto* state = initializedPressedEvents.load(std::memory_order_acquire))
+                state->clear();
         }
         focusMutex.unlock();
     }

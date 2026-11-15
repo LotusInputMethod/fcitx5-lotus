@@ -99,8 +99,11 @@ namespace lotus::apphook {
             uint32_t                altIndex   = 3;
             uint32_t                superIndex = 6;
         };
-        std::list<std::shared_ptr<Keyboard>>& keyboardsStorage() {
-            static std::list<std::shared_ptr<Keyboard>> state;
+        using KeyboardList = std::list<std::shared_ptr<Keyboard>>;
+        std::atomic<KeyboardList*> initializedKeyboards{nullptr};
+        KeyboardList&              keyboardsStorage() {
+            static KeyboardList state;
+            initializedKeyboards.store(&state, std::memory_order_release);
             return state;
         }
 #define keyboards (keyboardsStorage())
@@ -741,8 +744,10 @@ namespace lotus::apphook {
         xkbMutex.lock();
     }
     void finishWaylandFork(bool child) {
-        if (child)
-            keyboards.clear();
+        if (child) {
+            if (auto* state = initializedKeyboards.load(std::memory_order_acquire))
+                state->clear();
+        }
         xkbMutex.unlock();
         keyboardMutex.unlock();
         waylandConnectionMutex.unlock();

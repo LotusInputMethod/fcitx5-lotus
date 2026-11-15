@@ -50,19 +50,28 @@ namespace lotus::apphook {
             unsigned                                   blockingWaiters = 0;
         };
 
-        std::mutex                                       xcbMutex;
-        std::unordered_map<xcb_connection_t*, XcbFocus>& connectionsStorage() {
-            static std::unordered_map<xcb_connection_t*, XcbFocus> state;
+        std::mutex xcbMutex;
+        using ConnectionMap = std::unordered_map<xcb_connection_t*, XcbFocus>;
+        using ConnectionSet = std::unordered_set<xcb_connection_t*>;
+        // Fork cleanup reads these without invoking any lazy storage accessor.
+        std::atomic<ConnectionMap*> initializedConnections{nullptr};
+        std::atomic<ConnectionSet*> initializedXlibOwned{nullptr};
+        std::atomic<ConnectionSet*> initializedXcbEventOwners{nullptr};
+        ConnectionMap&              connectionsStorage() {
+            static ConnectionMap state;
+            initializedConnections.store(&state, std::memory_order_release);
             return state;
         }
 #define connections (connectionsStorage())
-        std::unordered_set<xcb_connection_t*>& xlibOwnedStorage() {
-            static std::unordered_set<xcb_connection_t*> state;
+        ConnectionSet& xlibOwnedStorage() {
+            static ConnectionSet state;
+            initializedXlibOwned.store(&state, std::memory_order_release);
             return state;
         }
 #define xlibOwned (xlibOwnedStorage())
-        std::unordered_set<xcb_connection_t*>& xcbEventOwnersStorage() {
-            static std::unordered_set<xcb_connection_t*> state;
+        ConnectionSet& xcbEventOwnersStorage() {
+            static ConnectionSet state;
+            initializedXcbEventOwners.store(&state, std::memory_order_release);
             return state;
         }
 #define xcbEventOwners (xcbEventOwnersStorage())
@@ -542,9 +551,12 @@ namespace lotus::apphook {
     }
     void finishXcbFork(bool child) {
         if (child) {
-            connections.clear(); // closes inherited per-connection eventfds
-            xlibOwned.clear();
-            xcbEventOwners.clear();
+            if (auto* state = initializedConnections.load(std::memory_order_acquire))
+                state->clear(); // closes inherited per-connection eventfds
+            if (auto* state = initializedXlibOwned.load(std::memory_order_acquire))
+                state->clear();
+            if (auto* state = initializedXcbEventOwners.load(std::memory_order_acquire))
+                state->clear();
         }
         xcbMutex.unlock();
     }
