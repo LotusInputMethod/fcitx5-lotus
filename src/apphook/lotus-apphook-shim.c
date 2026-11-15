@@ -301,6 +301,7 @@ __attribute__((visibility("default"))) int XCloseDisplay(Display* d) {
     Proc fn = (Proc)resolve("XCloseDisplay", &native, &hook, 0);
     return fn ? fn(d) : -1;
 }
+RELAY(int, XDestroyWindow, (Display * d, Window w), (d, w), 0, 0)
 RELAY(int, XNextEvent, (Display * d, XEvent* ev), (d, ev), -1, 0)
 RELAY(int, XPeekEvent, (Display * d, XEvent* ev), (d, ev), -1, 0)
 RELAY(int, XMaskEvent, (Display * d, long mask, XEvent* ev), (d, mask, ev), -1, 0)

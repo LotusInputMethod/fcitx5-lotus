@@ -41,7 +41,8 @@ namespace lotus::apphook {
 
         struct DisplayFocus : XFocusState<Window, None> {
             std::unordered_map<Window, long> keyboardMasks;
-            bool                             sawKeyboard = false;
+            bool                             sawKeyboard       = false;
+            Window                           sawKeyboardWindow = None;
             [[nodiscard]] bool               ready() const {
                 if (sawKeyboard)
                     return true;
@@ -82,6 +83,7 @@ namespace lotus::apphook {
         void (*originalLockDisplay)(Display*)                                                         = nullptr;
         void (*originalUnlockDisplay)(Display*)                                                       = nullptr;
         int (*originalCloseDisplay)(Display*)                                                         = nullptr;
+        int (*originalDestroyWindow)(Display*, Window)                                                = nullptr;
         int (*originalConnectionNumber)(Display*)                                                     = nullptr;
         Status (*originalGetFocus)(Display*, Window*, int*)                                           = nullptr;
         KeyCode (*originalKeysymToKeycode)(Display*, KeySym)                                          = nullptr;
@@ -117,11 +119,50 @@ namespace lotus::apphook {
                 auto&            state = focusByDisplay[display];
                 if (mask & (KeyPressMask | KeyReleaseMask))
                     state.keyboardMasks[window] = mask;
-                else
+                else {
                     state.keyboardMasks.erase(window);
+                    if (state.sawKeyboardWindow == window) {
+                        state.sawKeyboard       = false;
+                        state.sawKeyboardWindow = None;
+                    }
+                }
                 ready = xlibReady();
             }
             noteX11KeyboardAvailable(ready);
+        }
+
+        void forgetWindow(Display* display, Window window) {
+            bool focused         = false;
+            bool ready           = false;
+            bool targetDestroyed = false;
+            {
+                std::scoped_lock lock(focusMutex);
+                auto             it = focusByDisplay.find(display);
+                if (it != focusByDisplay.end()) {
+                    it->second.keyboardMasks.erase(window);
+                    if (it->second.sawKeyboardWindow == window) {
+                        it->second.sawKeyboard       = false;
+                        it->second.sawKeyboardWindow = None;
+                    }
+                    if (it->second.target == window) {
+                        targetDestroyed   = true;
+                        it->second.target = None;
+                    }
+                    if (it->second.focus == window)
+                        it->second.leave(window);
+                }
+                for (const auto& [current, state] : focusByDisplay)
+                    if (!xcbOwnerDisplays.contains(current))
+                        focused |= state.focused;
+                ready = xlibReady();
+            }
+            {
+                std::scoped_lock lock(runtime().mutex);
+                if (targetDestroyed && runtime().activeX11 && runtime().activeX11Display == display)
+                    runtime().activeX11->cancelled.store(true, std::memory_order_release);
+            }
+            noteX11KeyboardAvailable(ready);
+            noteX11Focus(focused);
         }
 
         /** @brief Cancels undelivered edges, preserving release of a delivered press. */
@@ -261,7 +302,8 @@ namespace lotus::apphook {
                     std::scoped_lock lock(focusMutex);
                     auto&            tracked = focusByDisplay[event.xkey.display];
                     tracked.keyTarget(event.xkey.window, false);
-                    tracked.sawKeyboard = true;
+                    tracked.sawKeyboard       = true;
+                    tracked.sawKeyboardWindow = event.xkey.window;
                 }
                 noteX11KeyboardAvailable(true);
                 if (event.type == KeyPress)
@@ -458,6 +500,42 @@ namespace lotus::apphook {
             return check();
         }
 
+        /** XPeekIfEvent must not remove/reorder matching or unrelated events. */
+        bool peekMatching(Display* display, XEvent* result, Bool (*predicate)(Display*, XEvent*, XPointer), XPointer arg) {
+            if (!originalPending || !originalNext || !originalPutBack || !originalLockDisplay || !originalUnlockDisplay)
+                return false;
+            originalLockDisplay(display);
+            const int count = originalPending(display);
+            if (count < 0 || count > 4096) {
+                originalUnlockDisplay(display);
+                return false;
+            }
+            std::vector<XEvent> events;
+            bool                found = false;
+            try {
+                events.reserve(static_cast<size_t>(count));
+                for (int i = 0; i < count; ++i) {
+                    XEvent current{};
+                    originalNext(display, &current);
+                    events.push_back(current);
+                }
+                for (const auto& current : events) {
+                    XEvent candidate = current;
+                    if (predicate(display, &candidate, arg)) {
+                        *result = current;
+                        found   = true;
+                        break;
+                    }
+                }
+            } catch (const std::bad_alloc&) {
+                // Restore all events already removed, even when allocation fails.
+            }
+            for (auto it = events.rbegin(); it != events.rend(); ++it)
+                (void)originalPutBack(display, &*it);
+            originalUnlockDisplay(display);
+            return found;
+        }
+
         /**
          * @brief Processes synthetic events only after older Xlib events have been consumed.
          * @param target Application Xlib display.
@@ -529,6 +607,7 @@ namespace lotus::apphook {
             originalUnlockDisplay          = resolve<decltype(originalUnlockDisplay)>("XUnlockDisplay");
             originalConnectionNumber       = resolve<decltype(originalConnectionNumber)>("XConnectionNumber");
             originalCloseDisplay           = resolve<decltype(originalCloseDisplay)>("XCloseDisplay");
+            originalDestroyWindow          = resolve<decltype(originalDestroyWindow)>("XDestroyWindow");
             originalGetFocus               = resolve<decltype(originalGetFocus)>("XGetInputFocus");
             originalKeysymToKeycode        = resolve<decltype(originalKeysymToKeycode)>("XKeysymToKeycode");
             originalRootWindow             = resolve<decltype(originalRootWindow)>("XDefaultRootWindow");
@@ -670,6 +749,18 @@ LH_EXPORT void XSetEventQueueOwner(Display* target, int owner) {
     if (originalSetEventQueueOwner)
         originalSetEventQueueOwner(target, owner);
     lotus_apphook_adopt_xlib_owner(target, owner);
+}
+
+/** Forgets destroyed windows without leaving stale keyboard subscriptions. */
+LH_EXPORT int XDestroyWindow(Display* target, Window window) {
+    using namespace lotus::apphook;
+    loadX11();
+    if (!originalDestroyWindow)
+        return 0;
+    const int result = originalDestroyWindow(target, window);
+    if (result)
+        forgetWindow(target, window);
+    return result;
 }
 
 /** Removes focus state and rejects undelivered keys when a Display is closed. */
@@ -926,5 +1017,17 @@ LH_EXPORT int XPeekIfEvent(Display* target, XEvent* event, Bool (*predicate)(Dis
     if (!originalPeekIf)
         return -1;
     onEntry(target);
-    return originalPeekIf(target, event, predicate, arg);
+    if (!predicate || !originalPending || !originalConnectionNumber || runtime().wakeFd < 0)
+        return originalPeekIf(target, event, predicate, arg);
+    while (true) {
+        if (originalPending(target) > 4096)
+            return originalPeekIf(target, event, predicate, arg);
+        if (peekMatching(target, event, predicate, arg))
+            return 0;
+        // Filtered peeks must also see tasks behind unrelated native events.
+        pump(target);
+        if (peekMatching(target, event, predicate, arg))
+            return 0;
+        waitForEvent(target);
+    }
 }
