@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * The globally preloaded library must have no constructors, background workers,
  * C++ runtime dependencies, or process lifecycle hooks of its own.
@@ -206,6 +206,32 @@ static void activate(void) {
     atomic_store_explicit(&loading_tid, 0, memory_order_release);
     atomic_store_explicit(&loading_pid, 0, memory_order_release);
 }
+/* RTLD_NEXT cannot resolve symbols from RTLD_LOCAL frontend libraries. */
+static void* resolve_native(const char* symbol) {
+    void* fn = dlsym(RTLD_NEXT, symbol);
+    if (fn)
+        return fn;
+
+    const char* soname = NULL;
+    if (strncmp(symbol, "xcb_", 4) == 0)
+        soname = "libxcb.so.1";
+    else if (strncmp(symbol, "wl_", 3) == 0)
+        soname = "libwayland-client.so.0";
+    else if (strcmp(symbol, "XSetEventQueueOwner") == 0)
+        soname = "libX11-xcb.so.1";
+    else if (symbol[0] == 'X')
+        soname = "libX11.so.6";
+
+    if (!soname)
+        return NULL;
+    /* Probe only an already-loaded library; do not activate a frontend. */
+    void* handle = dlopen(soname, RTLD_LAZY | RTLD_NOLOAD | RTLD_LOCAL);
+    if (!handle)
+        return NULL;
+    fn = dlsym(handle, symbol);
+    dlclose(handle);
+    return fn;
+}
 
 static void* resolve(const char* symbol, _Atomic(void*)* native, _Atomic(void*)* hook, int trigger) {
     if (trigger)
@@ -223,7 +249,7 @@ static void* resolve(const char* symbol, _Atomic(void*)* native, _Atomic(void*)*
     }
     void* fn = atomic_load_explicit(native, memory_order_acquire);
     if (!fn) {
-        fn = dlsym(RTLD_NEXT, symbol);
+        fn = resolve_native(symbol);
         if (fn)
             atomic_store_explicit(native, fn, memory_order_release);
     }
@@ -349,7 +375,7 @@ static int is_keyboard(struct wl_proxy* proxy) {
     static _Atomic(void*) native;
     GetClass              fn = (GetClass)atomic_load_explicit(&native, memory_order_acquire);
     if (!fn) {
-        fn = (GetClass)dlsym(RTLD_NEXT, "wl_proxy_get_class");
+        fn = (GetClass)resolve_native("wl_proxy_get_class");
         if (fn)
             atomic_store_explicit(&native, (void*)fn, memory_order_release);
     }
