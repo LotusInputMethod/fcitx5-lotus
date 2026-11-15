@@ -624,7 +624,6 @@ namespace fcitx {
         finishReplacement(event);
         return true;
     }
-
     void LotusState::performReplacement(DiffPart diffPart) {
         LOTUS_INFO("Perform replacement: " + lotus::utf8::encode(diffPart.deletedPart) + " -> " + lotus::utf8::encode(diffPart.addedPart)); //NOLINT
         echoTriggerPending_ = false;
@@ -640,7 +639,7 @@ namespace fcitx {
             return;
         }
 
-        const size_t delSize      = diffPart.deletedPart.size();
+        const size_t delSize      = graphemeClusterCount(diffPart.deletedPart);
         const bool   autofill     = isAutofillCertain(ic_.surroundingText());
         const bool   addressBar   = isChromium_ && (ic_.capabilityFlags().test(CapabilityFlag::Url) || engine_.isLikeAddressBarChromium());
         const bool   uinputSelect = (currentMode() == LotusMode::Select && !autofill) || (isUinputMode(currentMode()) && addressBar);
@@ -684,13 +683,15 @@ namespace fcitx {
             if (!echoDriven) {
                 auto& wlr     = LotusWlrVirtualKeyboard::instance();
                 auto  emitNow = [&wlr, burstCount, addedUtf8, uinputSelect] { return uinputSelect ? wlr.emitSelect(burstCount, addedUtf8) : wlr.emit(burstCount, addedUtf8); };
+                const std::string wlrLog =
+                    "wlr-virtual-keyboard: sent " + std::to_string(burstCount) + (uinputSelect ? " Shift+Left" : " backspaces") + " + keys for [" + addedUtf8 + "]";
                 if (preDelay > 0) {
                     wlr.runAfter(static_cast<int>(preDelay), emitNow);
-                    LOTUS_INFO(std::string("wlr-virtual-keyboard: sent ") + (uinputSelect ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
+                    LOTUS_INFO(wlrLog);
                     return;
                 }
                 if (emitNow()) {
-                    LOTUS_INFO(std::string("wlr-virtual-keyboard: sent ") + (uinputSelect ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
+                    LOTUS_INFO(wlrLog);
                     return;
                 }
                 LOTUS_WARN("wlr-virtual-keyboard emit failed, fallback use uinput");

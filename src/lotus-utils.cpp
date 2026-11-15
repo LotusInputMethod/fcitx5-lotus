@@ -156,9 +156,27 @@ std::string resolveProgramName(std::string_view icProgram, std::string_view focu
     return std::string(focusedProgram);
 }
 
+bool isCombiningMark(char32_t codePoint) {
+    return codePoint >= 0x0300 && codePoint <= 0x036F;
+}
+
+size_t graphemeClusterCount(std::u32string_view text) {
+    size_t clusters = 0;
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (i == 0 || !isCombiningMark(text[i])) {
+            ++clusters;
+        }
+    }
+    return clusters;
+}
+
 DiffPart compareAndSplitU32(std::u32string_view oldText, std::u32string_view newText) {
-    auto [itA, itB] = std::ranges::mismatch(oldText, newText);
-    size_t offset   = std::distance(oldText.begin(), itA);
+    auto [itA, itB]     = std::ranges::mismatch(oldText, newText);
+    size_t     offset   = std::distance(oldText.begin(), itA);
+    const auto isMarkAt = [](std::u32string_view text, size_t index) { return index < text.size() && isCombiningMark(text[index]); };
+    while (offset > 0 && (isMarkAt(oldText, offset) || isMarkAt(newText, offset))) {
+        --offset;
+    }
     return {.deletedPart = oldText.substr(offset), .addedPart = newText.substr(offset)};
 }
 
