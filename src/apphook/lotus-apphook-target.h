@@ -82,7 +82,6 @@ namespace lotus::apphook {
         std::shared_ptr<Task>             activeX11;
         void*                             activeX11Display = nullptr;
         size_t                            inFlight         = 0;
-        std::atomic<int>                  wakeFd{-1};
         std::atomic<int>                  completionFd{-1};
         std::atomic<int>                  connectionFd{-1};
         std::atomic<bool>                 readyX11{false};
@@ -124,6 +123,7 @@ namespace lotus::apphook {
     void            forgetXlibXcbConnection(void* connection);
     void            setXcbEventQueueOwner(void* connection, bool xcbOwns, uint32_t root = 0);
     bool            xcbOwnsXlibConnection(void* connection);
+    void            wakeX11();
     void            wakeXcb();
     void            loadXcb();
     FocusCandidates focusedX11Candidates();

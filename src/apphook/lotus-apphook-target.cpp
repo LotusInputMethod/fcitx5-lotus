@@ -42,9 +42,6 @@ namespace lotus::apphook {
         }
         if (workerJoinable)
             (void)pthread_join(worker, nullptr);
-        const int wake = wakeFd.exchange(-1, std::memory_order_acq_rel);
-        if (wake >= 0)
-            close(wake);
         const int done = completionFd.exchange(-1, std::memory_order_acq_rel);
         if (done >= 0)
             close(done);
@@ -88,7 +85,7 @@ namespace lotus::apphook {
             // cannot be joined in the child.
             state.worker         = pthread_t{};
             state.workerJoinable = false;
-            for (auto* fd : {&state.wakeFd, &state.completionFd, &state.connectionFd}) {
+            for (auto* fd : {&state.completionFd, &state.connectionFd}) {
                 const int inherited = fd->exchange(-1, std::memory_order_acq_rel);
                 if (inherited >= 0)
                     close(inherited);
@@ -122,22 +119,14 @@ namespace lotus::apphook {
                 state.workersStarted.exchange(true, std::memory_order_acq_rel)) {
                 return;
             }
-            const int wake       = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
             const int completion = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-            if (wake < 0 || completion < 0) {
-                if (wake >= 0)
-                    close(wake);
-                if (completion >= 0)
-                    close(completion);
+            if (completion < 0) {
                 state.workersStarted.store(false, std::memory_order_release);
                 return;
             }
-            state.wakeFd.store(wake, std::memory_order_release);
             state.completionFd.store(completion, std::memory_order_release);
             if (pthread_create(&state.worker, nullptr, &runWorker, nullptr) != 0) {
-                state.wakeFd.store(-1, std::memory_order_release);
                 state.completionFd.store(-1, std::memory_order_release);
-                close(wake);
                 close(completion);
                 state.workersStarted.store(false, std::memory_order_release);
                 return;
@@ -253,11 +242,9 @@ namespace lotus::apphook {
     }
 
     void wakeApplication() {
-        const int fd = runtime().wakeFd.load(std::memory_order_acquire);
-        if (fd >= 0) {
-            const uint64_t one = 1;
-            (void)write(fd, &one, sizeof(one));
-        }
+        // Xlib waiters have independent eventfds: another Display must never
+        // consume a wake intended for the focused target.
+        wakeX11();
         wakeWayland();
         wakeXcb();
     }

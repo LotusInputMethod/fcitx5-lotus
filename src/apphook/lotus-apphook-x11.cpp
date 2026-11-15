@@ -30,6 +30,7 @@
 #include <new>
 #include <unordered_set>
 #include <poll.h>
+#include <sys/eventfd.h>
 #include <vector>
 #include <unordered_map>
 #include <unistd.h>
@@ -53,6 +54,25 @@ namespace lotus::apphook {
             }
         };
         std::mutex focusMutex;
+        // Every blocking Xlib waiter owns its own notification descriptor.
+        // Broadcasting is safe even across Displays: unrelated waiters cannot
+        // consume the focused waiter's eventfd counter.
+        struct X11Waiter {
+            int fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+            ~X11Waiter() {
+                if (fd >= 0)
+                    close(fd);
+            }
+        };
+        std::mutex wakeWaitersMutex;
+        using WaiterList = std::vector<std::weak_ptr<X11Waiter>>;
+        std::atomic<WaiterList*> initializedWakeWaiters{nullptr};
+        WaiterList&              wakeWaitersStorage() {
+            static WaiterList waiters;
+            initializedWakeWaiters.store(&waiters, std::memory_order_release);
+            return waiters;
+        }
+
         using DisplayFocusMap = std::unordered_map<Display*, DisplayFocus>;
         using DisplaySet      = std::unordered_set<Display*>;
         using PressedEventMap = std::unordered_map<Display*, XEvent>;
@@ -583,23 +603,58 @@ namespace lotus::apphook {
          * @param target Application Xlib display.
          */
         void waitForEvent(Display* target) {
-            const int fd = runtime().wakeFd.load(std::memory_order_acquire);
-            if (!originalConnectionNumber || fd < 0) {
+            if (!originalConnectionNumber)
                 return;
+            auto waiter = std::make_shared<X11Waiter>();
+            if (waiter->fd >= 0) {
+                std::scoped_lock lock(wakeWaitersMutex);
+                auto&            waiters = wakeWaitersStorage();
+                std::erase_if(waiters, [](const auto& entry) { return entry.expired(); });
+                waiters.emplace_back(waiter);
             }
-            pollfd fds[2]{{.fd = originalConnectionNumber(target), .events = POLLIN, .revents = 0}, {.fd = fd, .events = POLLIN, .revents = 0}};
+            // Close the gap between an IPC enqueue and registering the waiter.
+            // A pending task could have been signalled before registration.
+            bool pending = false;
+            {
+                std::scoped_lock lock(runtime().mutex);
+                if (!runtime().pending.empty()) {
+                    const auto& selected = runtime().pending.front()->target;
+                    pending              = selected.backend == HookBackend::X11 && selected.connection == target;
+                }
+            }
+            if (pending) {
+                onEntry(target);
+                if (originalPending && originalPending(target) > 0)
+                    return;
+            }
+            pollfd fds[2]{{.fd = originalConnectionNumber(target), .events = POLLIN, .revents = 0}, {.fd = waiter->fd, .events = POLLIN, .revents = 0}};
             int    ready;
             do {
-                ready = poll(fds, 2, -1);
+                ready = poll(fds, 2, waiter->fd >= 0 ? -1 : 20);
             } while (ready < 0 && errno == EINTR);
-            if (ready > 0 && (fds[1].revents & POLLIN)) {
+            if (ready > 0 && waiter->fd >= 0 && (fds[1].revents & POLLIN)) {
                 uint64_t value;
-                while (read(fd, &value, sizeof(value)) == sizeof(value)) {}
+                while (read(waiter->fd, &value, sizeof(value)) == sizeof(value)) {}
                 onEntry(target);
             }
         }
 
     } // namespace
+
+    void wakeX11() {
+        std::scoped_lock lock(wakeWaitersMutex);
+        if (auto* waiters = initializedWakeWaiters.load(std::memory_order_acquire)) {
+            for (const auto& entry : *waiters) {
+                if (auto waiter = entry.lock()) {
+                    if (waiter->fd >= 0) {
+                        const uint64_t one     = 1;
+                        const ssize_t  written = write(waiter->fd, &one, sizeof(one));
+                        (void)written; // An already-signalled eventfd needs no extra notification.
+                    }
+                }
+            }
+        }
+    }
 
     FocusCandidates focusedX11Candidates() {
         std::scoped_lock lock(focusMutex);
@@ -656,9 +711,12 @@ namespace lotus::apphook {
 namespace lotus::apphook {
     void prepareX11Fork() {
         focusMutex.lock();
+        wakeWaitersMutex.lock();
     }
     void finishX11Fork(bool child) {
         if (child) {
+            if (auto* waiters = initializedWakeWaiters.load(std::memory_order_acquire))
+                waiters->clear();
             if (auto* state = initializedFocusByDisplay.load(std::memory_order_acquire))
                 state->clear();
             if (auto* state = initializedXcbOwnerDisplays.load(std::memory_order_acquire))
@@ -666,6 +724,7 @@ namespace lotus::apphook {
             if (auto* state = initializedPressedEvents.load(std::memory_order_acquire))
                 state->clear();
         }
+        wakeWaitersMutex.unlock();
         focusMutex.unlock();
     }
 }
@@ -864,7 +923,7 @@ LH_EXPORT int XNextEvent(Display* target, XEvent* event) {
     if (!originalNext)
         return -1;
     onEntry(target);
-    if (originalPending && originalConnectionNumber && runtime().wakeFd >= 0) {
+    if (originalPending && originalConnectionNumber && runtime().workersStarted.load(std::memory_order_acquire)) {
         while (originalPending(target) == 0)
             waitForEvent(target);
     }
@@ -886,7 +945,7 @@ LH_EXPORT int XPeekEvent(Display* target, XEvent* event) {
     if (!originalPeek)
         return -1;
     onEntry(target);
-    if (originalPending && originalConnectionNumber && runtime().wakeFd >= 0) {
+    if (originalPending && originalConnectionNumber && runtime().workersStarted.load(std::memory_order_acquire)) {
         while (originalPending(target) == 0)
             waitForEvent(target);
     }
@@ -906,7 +965,7 @@ LH_EXPORT int XMaskEvent(Display* target, long mask, XEvent* event) {
     if (!originalMask)
         return -1;
     onEntry(target);
-    if (originalCheckMask && originalConnectionNumber && runtime().wakeFd >= 0) {
+    if (originalCheckMask && originalConnectionNumber && runtime().workersStarted.load(std::memory_order_acquire)) {
         while (!nextMatching(target, [&] { return originalCheckMask(target, mask, event); }))
             waitForEvent(target);
         recordEvent(*event, true);
@@ -932,7 +991,7 @@ LH_EXPORT int XWindowEvent(Display* target, Window window, long mask, XEvent* ev
     if (!originalWindow)
         return -1;
     onEntry(target);
-    if (originalCheckWindow && originalConnectionNumber && runtime().wakeFd >= 0) {
+    if (originalCheckWindow && originalConnectionNumber && runtime().workersStarted.load(std::memory_order_acquire)) {
         while (!nextMatching(target, [&] { return originalCheckWindow(target, window, mask, event); }))
             waitForEvent(target);
         recordEvent(*event, true);
@@ -1036,7 +1095,7 @@ LH_EXPORT int XIfEvent(Display* target, XEvent* event, Bool (*predicate)(Display
     if (!originalIf)
         return -1;
     onEntry(target);
-    if (originalCheckIf && originalConnectionNumber && runtime().wakeFd >= 0) {
+    if (originalCheckIf && originalConnectionNumber && runtime().workersStarted.load(std::memory_order_acquire)) {
         while (!nextMatching(target, [&] { return originalCheckIf(target, event, predicate, arg); }))
             waitForEvent(target);
         recordEvent(*event, true);
@@ -1075,7 +1134,7 @@ LH_EXPORT int XPeekIfEvent(Display* target, XEvent* event, Bool (*predicate)(Dis
     if (!originalPeekIf)
         return -1;
     onEntry(target);
-    if (!predicate || !originalPending || !originalConnectionNumber || runtime().wakeFd < 0)
+    if (!predicate || !originalPending || !originalConnectionNumber || !runtime().workersStarted.load(std::memory_order_acquire))
         return originalPeekIf(target, event, predicate, arg);
     while (true) {
         if (originalPending(target) > 4096)
