@@ -127,7 +127,7 @@ namespace fcitx {
     }
 
     void LotusState::cancelPendingUinput() {
-        if (!g_isDeleting.load(std::memory_order_acquire)) {
+        if (!g_isDeleting.load(std::memory_order_acquire) && !appHookPending_) {
             return;
         }
         if (appHookPid_ > 0) {
@@ -142,6 +142,8 @@ namespace fcitx {
 
     void LotusState::discardForAppChange() {
         cancelPendingUinput();
+        ++replacementToken_;
+        appHookPending_ = false;
         g_isDeleting.store(false, std::memory_order_release);
         deferredCommitTimer_.reset();
         deferredCommitPending_ = false;
@@ -572,6 +574,7 @@ namespace fcitx {
         cancelSelectAbort();
         appHookPid_       = 0;
         appHookRequestId_ = 0;
+        appHookPending_   = false;
         appendCommit(pendingCommitString_);
         pendingCommitString_.clear();
         deferCommits_          = getFrontendName(&ic_) == "dbus";
@@ -600,6 +603,7 @@ namespace fcitx {
         expectedBackspaces_    = 0;
         currentBackspaceCount_ = 0;
         deletionInterruptedAt_ = 0;
+        appHookPending_        = false;
         if (!engine_.otherContextActive(&ic_))
             g_isDeleting.store(false, std::memory_order_release);
     }
@@ -609,6 +613,7 @@ namespace fcitx {
         cancelSelectAbort();
         appHookPid_       = 0;
         appHookRequestId_ = 0;
+        appHookPending_   = false;
         pendingCommitString_.clear();
         expectedBackspaces_    = 0;
         currentBackspaceCount_ = 0;
@@ -626,7 +631,7 @@ namespace fcitx {
     }
 
     void LotusState::finishScheduledReplacement(uint64_t token) {
-        if (token != replacementToken_ || !g_isDeleting.load(std::memory_order_acquire)) {
+        if (token != replacementToken_ || (!appHookPending_ && !g_isDeleting.load(std::memory_order_acquire))) {
             return;
         }
         finishReplacementNow();
@@ -686,6 +691,7 @@ namespace fcitx {
             appHookRequestId_ = 0;
         }
         ++replacementToken_;
+        appHookPending_ = false;
         // WA for libreoffice (issue #162)
         // force use deleteSurroundingText func
         if (isLibreoffice_) {
@@ -758,6 +764,7 @@ namespace fcitx {
             lastSelect_              = false;
             appHookPid_              = hookPid;
             appHookRequestId_        = requestId;
+            appHookPending_          = true;
             g_isDeleting.store(true, std::memory_order_release);
             replacementDeadlineMs_ = nowMs() + 5000;
             if (engine_.appHook().emit(
@@ -792,6 +799,7 @@ namespace fcitx {
                                 // No keys were applied: discard the AppHook burst state before
                                 // retrying the existing display-server backend selection.
                                 state->pendingCommitString_.clear();
+                                state->appHookPending_        = false;
                                 state->replacementDeadlineMs_ = 0;
                                 g_isDeleting.store(false, std::memory_order_release);
                                 state->performReplacement({.deletedPart = deletedText, .addedPart = addedText}, false);
@@ -803,6 +811,7 @@ namespace fcitx {
             LOTUS_DEBUG("apphook: queue rejected pid=" + std::to_string(hookPid) + ", using fallback");
             appHookPid_       = 0;
             appHookRequestId_ = 0;
+            appHookPending_   = false;
             g_isDeleting.store(false, std::memory_order_release);
             pendingCommitString_.clear();
             replacementDeadlineMs_ = 0;
@@ -1466,7 +1475,7 @@ namespace fcitx {
             return;
         }
         replacementDeadlineMs_ = 0;
-        if (!g_isDeleting.load(std::memory_order_acquire)) {
+        if (!g_isDeleting.load(std::memory_order_acquire) && !appHookPending_) {
             return;
         }
 
@@ -1676,7 +1685,7 @@ namespace fcitx {
         const auto& text        = surrounding.text();
         size_t      textLen     = utf8::length(text);
         g_realTextLen.store(textLen, std::memory_order_release);
-        if (g_isDeleting.load(std::memory_order_acquire)) {
+        if (g_isDeleting.load(std::memory_order_acquire) || appHookPending_) {
             return;
         }
         deliverPendingCommits();
@@ -1773,7 +1782,7 @@ namespace fcitx {
         cancelMouseClickWatchdog();
         deliverPendingCommits();
         LOTUS_DEBUG("Clear all buffers");
-        if (g_isDeleting.load(std::memory_order_acquire)) {
+        if (g_isDeleting.load(std::memory_order_acquire) || appHookPending_) {
             return;
         }
         resetMacroSkip();

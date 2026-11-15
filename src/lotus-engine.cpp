@@ -465,8 +465,11 @@ namespace fcitx {
         state->deletionInterruptedAt_ = 0;
 
         if (!resumeReplacement) {
-            state->cancelPendingUinput();
-            g_isDeleting.store(false, std::memory_order_release);
+            // A pending AppHook burst belongs to this context, not to the
+            // global uinput echo flag (which another context may have reset).
+            if (!state->appHookPending_)
+                state->cancelPendingUinput();
+            g_isDeleting.store(state->appHookPending_, std::memory_order_release);
         } else {
             state->cancelSelectAbort();
             state->rearmReplacementDeadline();
@@ -487,7 +490,7 @@ namespace fcitx {
             state->clearAllBuffers();
         }
         if (!resumeReplacement) {
-            g_isDeleting.store(false, std::memory_order_release);
+            g_isDeleting.store(state->appHookPending_, std::memory_order_release);
         }
         if (targetMode == LotusMode::Emoji) {
             state->updateEmojiPreedit();
@@ -784,7 +787,7 @@ namespace fcitx {
         auto*      state      = ic->propertyFor(&factory_);
         const bool uinputMode = isUinputMode(currentMode());
 
-        if (g_isDeleting.load(std::memory_order_acquire) && ((uinputMode && state->expectedBackspaces_ > 0) || state->appHookPid_ > 0)) {
+        if ((g_isDeleting.load(std::memory_order_acquire) || state->appHookPending_) && ((uinputMode && state->expectedBackspaces_ > 0) || state->appHookPid_ > 0)) {
             state->lastDeactivateTime_    = nowMs();
             state->deletionInterruptedAt_ = state->lastDeactivateTime_;
             if (state->realSelect_ && state->appHookPid_ == 0) {

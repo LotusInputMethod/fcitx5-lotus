@@ -146,6 +146,7 @@ namespace fcitx {
         InjectionBackend                      injectionBackend_      = InjectionBackend::None; ///< backend delivering the in-flight burst
         pid_t                                 appHookPid_            = 0;
         uint64_t                              appHookRequestId_      = 0;
+        bool                                  appHookPending_        = false; ///< Context-local AppHook replacement, including completion processing
         bool                                  lastSelect_            = false; ///< kind of the most recent burst, for replay
         std::u32string                        pendingCommitString_;
         std::u32string                        commitBatch_;                   ///< Text of the replacement batch, sent as one commitString
