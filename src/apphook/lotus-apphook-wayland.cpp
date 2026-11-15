@@ -641,8 +641,10 @@ namespace lotus::apphook {
             while (const KeyOperation* op = sequence.operation()) {
                 if (!sameFocus() || task->cancelled.load(std::memory_order_acquire))
                     break;
-                const uint32_t base     = keyboard->depressed.load(std::memory_order_acquire);
-                const uint32_t combined = base | modifierMask(*keyboard, op->modifiers);
+                const uint32_t base = keyboard->depressed.load(std::memory_order_acquire);
+                // Synthetic operations specify their complete modifier state.
+                // Preserving a physically held Shift turns Delete into Cut.
+                const uint32_t combined = modifierMask(*keyboard, op->modifiers);
                 if (combined != base)
                     emitModifiers(keyboard.get(), combined);
                 while (sequence.operation() == op && sameFocus() && (!task->cancelled.load(std::memory_order_acquire) || sequence.needsRelease())) {
