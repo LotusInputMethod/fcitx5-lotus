@@ -423,6 +423,18 @@ namespace lotus::apphook {
                 std::scoped_lock lock(focusMutex);
                 focusByDisplay[target].target = focused;
             }
+            // Keyboard subscriptions do not imply FocusChangeMask. A window
+            // can remain cached as focused after another application takes
+            // focus, without ever delivering FocusOut to this client.
+            Window serverFocus = None;
+            int    revert      = 0;
+            if (!originalGetFocus || !originalGetFocus(target, &serverFocus, &revert) || serverFocus != window) {
+                if (auto task = takeTask(HookBackend::X11, target, static_cast<uintptr_t>(window))) {
+                    std::scoped_lock lock(runtime().mutex);
+                    finishLocked(task, -ECANCELED);
+                }
+                return;
+            }
             {
                 std::scoped_lock lock(focusMutex);
                 focusByDisplay[target].sawKeyboard = true;

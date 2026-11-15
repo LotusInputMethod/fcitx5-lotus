@@ -88,8 +88,10 @@ namespace lotus::apphook {
             Dispatcher              dispatcher     = nullptr;
             std::atomic<bool>       focused{false};
             std::atomic<bool>       alive{true};
-            uint32_t                serial = 0;
-            uint32_t                time   = 0;
+            wl_surface*             focusedSurface = nullptr;
+            uintptr_t               focusToken     = 0;
+            uint32_t                serial         = 0;
+            uint32_t                time           = 0;
             std::atomic<uint32_t>   depressed{0};
             uint32_t                latched    = 0;
             uint32_t                locked     = 0;
@@ -107,13 +109,15 @@ namespace lotus::apphook {
             return state;
         }
 #define keyboards (keyboardsStorage())
-        std::recursive_mutex keyboardMutex;
-        std::mutex           waylandConnectionMutex;
-        void*                wayland = nullptr;
-        std::atomic<bool>    waylandCapable{false};
-        void*                xkb = nullptr;
-        std::mutex           xkbMutex;
-        std::once_flag       resolveOnce;
+        // A proxy survives surface changes; tokens bind tasks to one enter.
+        std::atomic<uintptr_t> nextFocusToken{0};
+        std::recursive_mutex   keyboardMutex;
+        std::mutex             waylandConnectionMutex;
+        void*                  wayland = nullptr;
+        std::atomic<bool>      waylandCapable{false};
+        void*                  xkb = nullptr;
+        std::mutex             xkbMutex;
+        std::once_flag         resolveOnce;
 
         int (*originalAddListener)(wl_proxy*, void (**)(void), void*)                                                    = nullptr;
         int (*originalAddDispatcher)(wl_proxy*, Dispatcher, const void*, void*)                                          = nullptr;
@@ -203,6 +207,8 @@ namespace lotus::apphook {
             return it == keyboards.end() ? nullptr : *it;
         }
 
+        void invalidateWaylandFocus(wl_display* display, uintptr_t token);
+
         // Keep callback data alive during reentrant wl_keyboard_release/destroy.
         void forgetProxy(wl_proxy* proxy) {
             bool changed   = false;
@@ -212,10 +218,13 @@ namespace lotus::apphook {
                 std::scoped_lock lock(keyboardMutex);
                 for (auto it = keyboards.begin(); it != keyboards.end();) {
                     if ((*it)->proxy == proxy) {
-                        (*it)->alive   = false;
-                        (*it)->focused = false;
-                        it             = keyboards.erase(it);
-                        changed        = true;
+                        invalidateWaylandFocus((*it)->display, (*it)->focusToken);
+                        (*it)->alive          = false;
+                        (*it)->focused        = false;
+                        (*it)->focusedSurface = nullptr;
+                        (*it)->focusToken     = 0;
+                        it                    = keyboards.erase(it);
+                        changed               = true;
                     } else {
                         ++it;
                     }
@@ -339,6 +348,24 @@ namespace lotus::apphook {
             }
         }
 
+        /** Cancel queued work from a surface that has lost keyboard focus. */
+        void invalidateWaylandFocus(wl_display* display, uintptr_t token) {
+            if (!display || !token)
+                return;
+            std::scoped_lock lock(runtime().mutex);
+            auto&            pending = runtime().pending;
+            for (auto it = pending.begin(); it != pending.end();) {
+                const auto& target = (*it)->target;
+                if (target.backend == HookBackend::Wayland && target.connection == display && target.focused == token) {
+                    (*it)->cancelled.store(true, std::memory_order_release);
+                    finishLocked(*it, -ECANCELED);
+                    it = pending.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
+
         /**
          * @brief Updates the tracked focus, serial, key time and modifiers.
          * @param keyboard Tracked keyboard state.
@@ -348,14 +375,25 @@ namespace lotus::apphook {
         void observe(Keyboard* keyboard, uint32_t opcode, const WlArgument* args) {
             std::scoped_lock lock(keyboardMutex);
             if (opcode == 1) {
+                invalidateWaylandFocus(keyboard->display, keyboard->focusToken);
                 // wl_keyboard focus is per seat, not per wl_display. An enter
                 // on another seat does not revoke this keyboard's focus.
-                keyboard->focused = true;
-                keyboard->serial  = args[0].u;
+                keyboard->focused        = true;
+                keyboard->focusedSurface = static_cast<wl_surface*>(args[1].o);
+                // An old request must not follow the same keyboard proxy into
+                // a newly entered surface, even if leave/enter were coalesced
+                // before the IPC task could be delivered.
+                keyboard->focusToken = nextFocusToken.fetch_add(1, std::memory_order_relaxed) + 1;
+                if (keyboard->focusToken == 0)
+                    keyboard->focusToken = nextFocusToken.fetch_add(1, std::memory_order_relaxed) + 1;
+                keyboard->serial = args[0].u;
                 if (keyboard->display)
                     runtime().waylandDisplay.store(keyboard->display, std::memory_order_release);
             } else if (opcode == 2) {
-                keyboard->focused = false;
+                invalidateWaylandFocus(keyboard->display, keyboard->focusToken);
+                keyboard->focused        = false;
+                keyboard->focusedSurface = nullptr;
+                keyboard->focusToken     = 0;
             } else if (opcode == 3) {
                 // A key is not an enter: do not invent focus before the
                 // actual wl_keyboard.enter has reached this listener.
@@ -581,41 +619,49 @@ namespace lotus::apphook {
          */
         void pump(wl_display* display, wl_event_queue* queue) {
             std::shared_ptr<Keyboard> keyboard;
+            uintptr_t                 focusToken = 0;
             {
                 std::scoped_lock lock(keyboardMutex);
                 Keyboard*        focused = focusedKeyboard(display);
-                if (focused && focused->alive && originalGetQueue && originalGetQueue(focused->proxy) == queue)
-                    keyboard = retainKeyboard(focused);
+                if (focused && focused->alive && focused->focusToken && focused->focusedSurface && originalGetQueue && originalGetQueue(focused->proxy) == queue) {
+                    keyboard   = retainKeyboard(focused);
+                    focusToken = focused->focusToken;
+                }
             }
             if (!keyboard)
                 return;
-            auto task = takeTask(HookBackend::Wayland, display, reinterpret_cast<uintptr_t>(keyboard->proxy));
+            auto task = takeTask(HookBackend::Wayland, display, focusToken);
             if (!task)
                 return;
+            auto sameFocus = [&] {
+                std::scoped_lock lock(keyboardMutex);
+                return keyboard->alive && keyboard->focused && keyboard->focusedSurface && keyboard->focusToken == focusToken;
+            };
             KeySequence sequence(task->ops);
             while (const KeyOperation* op = sequence.operation()) {
-                if (!keyboard->alive || !keyboard->focused || task->cancelled.load(std::memory_order_acquire))
+                if (!sameFocus() || task->cancelled.load(std::memory_order_acquire))
                     break;
                 const uint32_t base     = keyboard->depressed.load(std::memory_order_acquire);
                 const uint32_t combined = base | modifierMask(*keyboard, op->modifiers);
                 if (combined != base)
                     emitModifiers(keyboard.get(), combined);
-                while (sequence.operation() == op && keyboard->alive && ((keyboard->focused && !task->cancelled.load(std::memory_order_acquire)) || sequence.needsRelease())) {
+                while (sequence.operation() == op && sameFocus() && (!task->cancelled.load(std::memory_order_acquire) || sequence.needsRelease())) {
                     const auto edge = sequence.current();
                     if (edge->pressed)
                         task->applied.store(true, std::memory_order_release);
                     emitKey(keyboard.get(), edge->keycode, edge->pressed ? 1 : 0);
                     sequence.advance();
                 }
-                if (combined != base && keyboard->alive) {
+                if (combined != base && sameFocus()) {
                     // Reentrant dispatch may have delivered real modifiers while
                     // synthetic keys were being consumed. Restore the latest
                     // compositor state, not the stale pre-burst snapshot.
                     emitModifiers(keyboard.get(), keyboard->depressed.load(std::memory_order_acquire));
                 }
             }
+            const int        status = !keyboard->alive ? -ENOTCONN : (!sameFocus() || task->cancelled.load(std::memory_order_acquire)) ? -ECANCELED : 0;
             std::scoped_lock lock(runtime().mutex);
-            finishLocked(task, !keyboard->alive ? -ENOTCONN : (!keyboard->focused || task->cancelled.load(std::memory_order_acquire)) ? -ECANCELED : 0);
+            finishLocked(task, status);
         }
 
         /**
@@ -677,8 +723,10 @@ namespace lotus::apphook {
         for (const auto& keyboard : keyboards) {
             if (!keyboard->alive || !keyboard->focused || !keyboard->display)
                 continue;
+            if (!keyboard->focusToken || !keyboard->focusedSurface)
+                continue;
             ++candidates.count;
-            candidates.target = {HookBackend::Wayland, keyboard->display, reinterpret_cast<uintptr_t>(keyboard->proxy)};
+            candidates.target = {HookBackend::Wayland, keyboard->display, keyboard->focusToken};
         }
         return candidates;
     }
