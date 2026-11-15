@@ -1,7 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
  *
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
  */
 
