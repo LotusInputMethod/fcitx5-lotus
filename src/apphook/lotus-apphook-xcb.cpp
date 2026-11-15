@@ -404,19 +404,13 @@ namespace lotus::apphook {
                 return event;
             }
             if (queuedOnly) {
+                // xcb_poll_for_queued_event must not read from the connection.
+                // When socket data is waiting, it might contain an older native
+                // event; postpone the synthetic burst rather than violate the
+                // queued-only contract by calling xcb_poll_for_event.
                 pollfd fd{.fd = (originalGetFd ? originalGetFd(connection) : -1), .events = POLLIN, .revents = 0};
-                if (poll(&fd, 1, 0) > 0 && originalPoll) {
-                    // Read via libxcb to distinguish an actual native event from
-                    // an unread reply. Never let a native event be overtaken.
-                    if (auto* event = originalPoll(connection)) {
-                        if (isWakeEvent(connection, event)) {
-                            std::free(event);
-                        } else {
-                            observeNative(connection, event);
-                            return event;
-                        }
-                    }
-                }
+                if (fd.fd >= 0 && poll(&fd, 1, 0) != 0)
+                    return nullptr;
             }
             return trySynthetic(connection);
         }
