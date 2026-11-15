@@ -778,6 +778,9 @@ namespace fcitx {
                             }
                             state->appHookPid_       = 0;
                             state->appHookRequestId_ = 0;
+                            // Complete confirms the intercepted key edges were handed
+                            // to the frontend event API, not that its text widget has
+                            // finished dispatching/processing those events.
                             if (result == 0) {
                                 if (!icRef.get()->hasFocus())
                                     state->deferCompletedAppHookReplacement();
@@ -928,7 +931,6 @@ namespace fcitx {
                 return select ? wlr.emitSelect(static_cast<int>(count), "", false) : wlr.emit(static_cast<int>(count), "", false);
             }
             case InjectionBackend::X11Test: return LotusX11Keyboard::instance().emit(static_cast<int>(count), "", static_cast<int>(burstIntervalMs_), select);
-            case InjectionBackend::AppHook:
             case InjectionBackend::None: break;
         }
         return false;

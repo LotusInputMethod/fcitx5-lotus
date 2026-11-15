@@ -131,7 +131,6 @@ namespace fcitx {
             None,               ///< No injected burst; the uinput server drives it
             WlrVirtualKeyboard, ///< zwp_virtual_keyboard_v1 on a wlroots compositor
             X11Test,            ///< Xtest on an X11 session
-            AppHook,            ///< Event dispatch inside the focused application
         };
 
         LotusEngine&                          engine_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)

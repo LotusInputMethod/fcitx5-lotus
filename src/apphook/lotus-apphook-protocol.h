@@ -38,7 +38,12 @@ namespace lotus::apphook {
         Cancel = 2
     };
 
-    /** @brief Messages sent from an application hook to the Fcitx5 addon. */
+    /**
+     * @brief Responses from the application hook.
+     * Complete(0) means all synthetic key edges were handed to the intercepted
+     * frontend event API. It does not acknowledge toolkit dispatch or a text
+     * mutation. Errors with kCompleteMayHaveApplied indicate partial delivery.
+     */
     enum class ResponseKind : uint16_t {
         Ready    = 1,
         Complete = 2,
