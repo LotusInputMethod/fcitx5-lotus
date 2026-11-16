@@ -445,11 +445,66 @@ static int is_keyboard(struct wl_proxy* proxy) {
 }
 RELAY(int, wl_proxy_add_listener, (struct wl_proxy * p, void (**callbacks)(void), void* data), (p, callbacks, data), -1, is_keyboard(p))
 RELAY(int, wl_proxy_add_dispatcher, (struct wl_proxy * p, WlDispatcher disp, const void* impl, void* data), (p, disp, impl, data), -1, is_keyboard(p))
-RELAY(WlListener, wl_proxy_get_listener, (struct wl_proxy * p), (p), NULL, 0)
-RELAY(struct wl_proxy*, wl_proxy_marshal_array_flags, (struct wl_proxy * p, uint32_t op, const struct WlInterface* i, uint32_t version, uint32_t flags, union WlArgument* args),
-      (p, op, i, version, flags, args), NULL, 0)
-RELAY_VOID(wl_display_disconnect, (struct wl_display * d), (d), 0)
-RELAY_VOID(wl_proxy_destroy, (struct wl_proxy * p), (p), 0)
+extern WlListener       CORE(wl_proxy_get_listener)(struct wl_proxy*) __attribute__((visibility("hidden")));
+extern struct wl_proxy* CORE(wl_proxy_marshal_array_flags)(struct wl_proxy*, uint32_t, const struct WlInterface*, uint32_t, uint32_t, union WlArgument*)
+    __attribute__((visibility("hidden")));
+extern void                                       CORE(wl_proxy_destroy)(struct wl_proxy*) __attribute__((visibility("hidden")));
+extern void                                       CORE(wl_display_disconnect)(struct wl_display*) __attribute__((visibility("hidden")));
+extern int                                        lotus_apphook_inherited_wayland_listener(struct wl_proxy*, WlListener*) __attribute__((visibility("hidden")));
+extern void                                       lotus_apphook_retire_wayland_proxy(struct wl_proxy*) __attribute__((visibility("hidden")));
+extern void                                       lotus_apphook_retire_wayland_display(struct wl_display*) __attribute__((visibility("hidden")));
+
+__attribute__((visibility("default"))) WlListener wl_proxy_get_listener(struct wl_proxy* p) {
+    typedef WlListener (*Proc)(struct wl_proxy*);
+    static _Atomic(void*) native;
+    // In a forked child the native proxy still exposes the parent's wrapper.
+    if (inherited_runtime()) {
+        WlListener listener;
+        if (lotus_apphook_inherited_wayland_listener(p, &listener))
+            return listener;
+    }
+    if (runtime_enabled())
+        return CORE(wl_proxy_get_listener)(p);
+    Proc fn = (Proc)native_function("wl_proxy_get_listener", &native);
+    return fn ? fn(p) : NULL;
+}
+__attribute__((visibility("default"))) struct wl_proxy* wl_proxy_marshal_array_flags(struct wl_proxy* p, uint32_t op, const struct WlInterface* i, uint32_t version, uint32_t flags,
+                                                                                     union WlArgument* args) {
+    typedef struct wl_proxy* (*Proc)(struct wl_proxy*, uint32_t, const struct WlInterface*, uint32_t, uint32_t, union WlArgument*);
+    static _Atomic(void*) native;
+    struct wl_proxy*      result;
+    if (runtime_enabled())
+        return CORE(wl_proxy_marshal_array_flags)(p, op, i, version, flags, args);
+    Proc fn = (Proc)native_function("wl_proxy_marshal_array_flags", &native);
+    result  = fn ? fn(p, op, i, version, flags, args) : NULL;
+    if (fn && (flags & 1U))
+        lotus_apphook_retire_wayland_proxy(p);
+    return result;
+}
+__attribute__((visibility("default"))) void wl_proxy_destroy(struct wl_proxy* p) {
+    typedef void (*Proc)(struct wl_proxy*);
+    static _Atomic(void*) native;
+    if (runtime_enabled()) {
+        CORE(wl_proxy_destroy)(p);
+        return;
+    }
+    Proc fn = (Proc)native_function("wl_proxy_destroy", &native);
+    lotus_apphook_retire_wayland_proxy(p);
+    if (fn)
+        fn(p);
+}
+__attribute__((visibility("default"))) void wl_display_disconnect(struct wl_display* d) {
+    typedef void (*Proc)(struct wl_display*);
+    static _Atomic(void*) native;
+    if (runtime_enabled()) {
+        CORE(wl_display_disconnect)(d);
+        return;
+    }
+    Proc fn = (Proc)native_function("wl_display_disconnect", &native);
+    lotus_apphook_retire_wayland_display(d);
+    if (fn)
+        fn(d);
+}
 RELAY(int, wl_display_dispatch_queue_pending, (struct wl_display * d, struct wl_event_queue* q), (d, q), -1, 0)
 RELAY(int, wl_display_dispatch_pending, (struct wl_display * d), (d), -1, 0)
 RELAY(int, wl_display_dispatch, (struct wl_display * d), (d), -1, 0)
