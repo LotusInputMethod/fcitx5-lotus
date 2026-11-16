@@ -202,6 +202,12 @@ namespace fcitx {
         [[nodiscard]] bool x11Usable() const;
 
         /**
+         * @brief Whether the apphook can take the injected keys through hook.
+         * @return True on an application that have apphook loaded and usable.
+         */
+        [[nodiscard]] bool ahUsable() const;
+
+        /**
          * @brief Whether any backend other than the uinput server can deliver a replacement.
          * @return True when the option is enabled and the wlroots virtual keyboard or Xtest is usable.
          */

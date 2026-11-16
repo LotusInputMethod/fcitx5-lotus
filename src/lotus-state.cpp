@@ -105,8 +105,12 @@ namespace fcitx {
         return *engine_.config().preferVirtualKeyboard && getEnv("WAYLAND_DISPLAY").empty() && LotusX11Keyboard::instance().available();
     }
 
+    bool LotusState::ahUsable() const {
+        return *engine_.config().preferVirtualKeyboard && engine_.appHook().ready(engine_.appHookPid());
+    }
+
     bool LotusState::injectionUsable() const {
-        return vkUsable() || x11Usable() || (*engine_.config().preferVirtualKeyboard && engine_.appHook().ready(engine_.appHookPid()));
+        return vkUsable() || x11Usable() || ahUsable();
     }
 
     bool LotusState::setupUinput() {
