@@ -450,6 +450,19 @@ namespace fcitx {
         const LotusMode targetMode = getAppRule(appName);
         LOTUS_INFO("Target mode: " + LotusModeI18NAnnotation::toString(targetMode));
 
+        const pid_t hookPid = appHookPid();
+        std::string hookExe = "N/A";
+
+        if (hookPid > 0) {
+            std::error_code ec;
+            auto            path = std::filesystem::read_symlink("/proc/" + std::to_string(hookPid) + "/exe", ec);
+            if (!ec)
+                hookExe = path.string();
+        }
+
+        LOTUS_INFO("AppHook: pid=" + std::to_string(hookPid) + " exe=" + hookExe + " enabled=" + std::to_string(*config_.preferVirtualKeyboard) +
+                   " ready=" + std::to_string(appHook_.ready(hookPid)));
+
         updateCharsetAction(event.inputContext());
 
         state->isLibreoffice_ = (appName == "soffice");

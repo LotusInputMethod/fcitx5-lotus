@@ -742,6 +742,8 @@ namespace fcitx {
         const pid_t hookPid     = engine_.appHookPid();
         const bool  hookEnabled = *engine_.config().preferVirtualKeyboard;
         const bool  hookReady   = hookEnabled && engine_.appHook().ready(hookPid);
+        LOTUS_DEBUG("AppHook selection: allowed=" + std::to_string(allowAppHook) + " enabled=" + std::to_string(hookEnabled) + " pid=" + std::to_string(hookPid) +
+                    " ready=" + std::to_string(hookReady) + " selected=" + std::to_string(allowAppHook && hookReady));
         if (allowAppHook && hookReady) {
             using lotus::apphook::KeyOperation;
             std::vector<KeyOperation> keys;
