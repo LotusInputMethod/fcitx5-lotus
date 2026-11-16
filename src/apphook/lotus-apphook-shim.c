@@ -553,6 +553,22 @@ RELAY(int, wl_display_dispatch_queue, (struct wl_display * d, struct wl_event_qu
 RELAY(struct wl_display*, wl_display_connect, (const char* name), (name), NULL, 0)
 RELAY(struct wl_display*, wl_display_connect_to_fd, (int fd), (fd), NULL, 0)
 
+/* Optional ELF relocations: no backend activation, no native code modification. */
+extern int lotus_apphook_patch_wayland_imports(void) __attribute__((visibility("hidden")));
+/* Ownership by PID allows child generations to discard inherited scan locks
+ * while concurrent threads of one process still serialize the operation. */
+static _Atomic(int) scan_busy_pid;
+static void         lotus_apphook_try_patch_wayland_imports(void) {
+    const int pid      = (int)getpid();
+    int       expected = 0;
+    if (!atomic_compare_exchange_strong_explicit(&scan_busy_pid, &expected, pid, memory_order_acq_rel, memory_order_acquire)) {
+        if (expected == pid || !atomic_compare_exchange_strong_explicit(&scan_busy_pid, &expected, pid, memory_order_acq_rel, memory_order_acquire))
+            return;
+    }
+    (void)lotus_apphook_patch_wayland_imports();
+    atomic_store_explicit(&scan_busy_pid, 0, memory_order_release);
+}
+
 /* Dynamic Wayland function tables (Chromium/Electron) may resolve entrypoints
  * from a RTLD_LOCAL libwayland-client handle, bypassing ELF interposition.
  * Return the existing preload wrappers only for symbols that actually resolve
@@ -616,5 +632,32 @@ __attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlsym(void* h
     if (!hook)
         XERN_MUSTTAIL return native(handle, symbol);
     void* resolved = native(handle, symbol);
-    return resolved && is_native_wayland_symbol(resolved) ? hook : resolved;
+    if (resolved && is_native_wayland_symbol(resolved)) {
+        lotus_apphook_try_patch_wayland_imports();
+        return hook;
+    }
+    return resolved;
+}
+
+/* A Wayland library may be loaded after process startup. Refresh the already
+ * loaded module's imported slots only after its successful load. */
+typedef void* (*DlopenFunction)(const char*, int);
+static _Atomic(DlopenFunction) next_dlopen;
+/* Unrelated dlopen calls preserve their original caller for $ORIGIN. */
+__attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlopen(const char* filename, int flags) {
+    DlopenFunction native = atomic_load_explicit(&next_dlopen, memory_order_acquire);
+    if (!native) {
+        native = (DlopenFunction)lotus_apphook_native_dlsym(RTLD_NEXT, "dlopen");
+        if (!native)
+            return NULL;
+        atomic_store_explicit(&next_dlopen, native, memory_order_release);
+    }
+    /* Only plain SONAMEs are intercepted. Paths can depend on the
+     * dlopen caller's $ORIGIN and must be forwarded without a new frame. */
+    if (!filename || strchr(filename, '/') || strncmp(filename, "libwayland-client.so", sizeof("libwayland-client.so") - 1))
+        XERN_MUSTTAIL return native(filename, flags);
+    void* handle = native(filename, flags);
+    if (handle)
+        lotus_apphook_try_patch_wayland_imports();
+    return handle;
 }

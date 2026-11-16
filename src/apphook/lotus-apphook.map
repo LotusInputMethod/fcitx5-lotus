@@ -2,6 +2,7 @@
 {
     global:
         dlsym;
+        dlopen;
         XChangeWindowAttributes;
         XCheckIfEvent;
         XCheckMaskEvent;

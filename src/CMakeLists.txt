@@ -3,6 +3,7 @@
 # The preloaded application hook is a separate library; the Fcitx addon owns its IPC server.
 add_library(lotus-apphook SHARED
     apphook/lotus-apphook-shim.c
+    apphook/lotus-apphook-elf-reloc.c
     apphook/lotus-apphook-target.cpp
     apphook/lotus-apphook-protocol.cpp
     apphook/lotus-apphook-x11.cpp
