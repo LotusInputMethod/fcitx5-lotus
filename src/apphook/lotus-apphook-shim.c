@@ -39,6 +39,7 @@ static _Atomic(int) recovering_child_pid;
 
 extern int          lotus_apphook_resume_child_runtime(void) __attribute__((visibility("hidden")));
 static void         adopt_metadata(void);
+static void         activate(void);
 
 static int          inherited_runtime(void) {
     const int owner = atomic_load_explicit(&runtime_owner_pid, memory_order_acquire);
@@ -69,6 +70,14 @@ static void resume_fork_child(void) {
 
 static int runtime_enabled(void) {
     return !inherited_runtime() && atomic_load_explicit(&runtime_active, memory_order_acquire);
+}
+
+/* Called only from an inherited wl_keyboard callback, not from every dispatch.
+ * Reactivate the child on its existing keyboard proxy without re-registering
+ * libwayland callbacks or touching parent-owned mutexes. */
+__attribute__((visibility("hidden"))) int lotus_apphook_activate_inherited_keyboard(void) {
+    activate();
+    return runtime_enabled();
 }
 
 /* Keep only connection metadata needed when the runtime is first activated. */

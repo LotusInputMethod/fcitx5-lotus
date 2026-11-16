@@ -78,9 +78,12 @@ struct KeyboardListener {
 
 using Dispatcher = int (*)(const void*, void*, uint32_t, const WlMessage*, WlArgument*);
 
+extern "C" int lotus_apphook_activate_inherited_keyboard() __attribute__((visibility("hidden")));
 namespace lotus::apphook {
+    void loadWayland();
     namespace {
 
+        struct NativeForward;
         struct Keyboard {
             wl_proxy*               proxy          = nullptr;
             wl_display*             display        = nullptr;
@@ -89,6 +92,7 @@ namespace lotus::apphook {
             Dispatcher              dispatcher     = nullptr;
             std::atomic<bool>       focused{false};
             std::atomic<bool>       alive{true};
+            NativeForward*          forward        = nullptr;
             wl_surface*             focusedSurface = nullptr;
             uintptr_t               focusToken     = 0;
             uint32_t                serial         = 0;
@@ -115,7 +119,17 @@ namespace lotus::apphook {
             Keyboard*               tracked        = nullptr;
             pid_t                   ownerPid       = 0;
             std::atomic<bool>       alive{true};
-            NativeForward*          next = nullptr;
+            // Atomic snapshots let a child adopt callbacks without reading a
+            // parent Keyboard that may have been mid-update at fork time.
+            std::atomic<wl_surface*> surface{nullptr};
+            std::atomic<uint32_t>    serial{0};
+            std::atomic<uint32_t>    time{0};
+            std::atomic<uint32_t>    depressed{0};
+            std::atomic<uint32_t>    latched{0};
+            std::atomic<uint32_t>    locked{0};
+            std::atomic<uint32_t>    group{0};
+            std::atomic<uint32_t>    modifierIndices{0x06030200U};
+            NativeForward*           next = nullptr;
         };
         std::atomic<NativeForward*> forwardHead{nullptr};
 
@@ -346,6 +360,12 @@ namespace lotus::apphook {
                 keyboard->ctrlIndex  = lookupXkbModifier(map, "Control");
                 keyboard->altIndex   = lookupXkbModifier(map, "Mod1");
                 keyboard->superIndex = lookupXkbModifier(map, "Mod4");
+                if (keyboard->forward) {
+                    const auto     index = [](uint32_t value) { return std::min(value, 255U); };
+                    const uint32_t indices =
+                        index(keyboard->shiftIndex) | (index(keyboard->ctrlIndex) << 8) | (index(keyboard->altIndex) << 16) | (index(keyboard->superIndex) << 24);
+                    keyboard->forward->modifierIndices.store(indices, std::memory_order_release);
+                }
                 if (releaseXkbKeymap)
                     releaseXkbKeymap(map);
             }
@@ -405,11 +425,70 @@ namespace lotus::apphook {
             }
         }
 
-        // Native callbacks in the forked child must bypass inherited hook
-        // state. The wrapper is still installed on the inherited wl_keyboard.
+        // The proxy still owns our wrapper after fork. Adopt its immutable
+        // forwarding descriptor into a fresh generation (never the old mutex or
+        // Keyboard object). The first callback is sufficient to reactivate IPC.
+        std::shared_ptr<Keyboard> adoptInheritedKeyboard(NativeForward* record, uint32_t opcode) {
+            if (!record || !record->alive.load(std::memory_order_acquire) || !lotus_apphook_activate_inherited_keyboard())
+                return {};
+            loadWayland();
+            if (!waylandCapable.load(std::memory_order_acquire))
+                return {};
+            std::shared_ptr<Keyboard> adopted;
+            bool                      focused = false;
+            {
+                std::scoped_lock lock(keyboardMutex);
+                for (const auto& keyboard : keyboards) {
+                    if (keyboard->proxy == record->proxy && keyboard->alive)
+                        return keyboard;
+                }
+                if (!record->alive.load(std::memory_order_acquire))
+                    return {};
+                adopted                 = std::make_shared<Keyboard>();
+                adopted->proxy          = record->proxy;
+                adopted->display        = record->display;
+                adopted->listener       = record->listener;
+                adopted->dispatcher     = record->dispatcher;
+                adopted->implementation = record->implementation;
+                adopted->forward        = record;
+                // A leave/enter event will update focus itself. For all other
+                // events restore only the last *committed* compositor focus.
+                wl_surface* surface = opcode == 1 || opcode == 2 ? nullptr : record->surface.load(std::memory_order_acquire);
+                if (surface) {
+                    adopted->focused        = true;
+                    adopted->focusedSurface = surface;
+                    adopted->focusToken     = nextFocusToken.fetch_add(1, std::memory_order_relaxed) + 1;
+                    if (!adopted->focusToken)
+                        adopted->focusToken = nextFocusToken.fetch_add(1, std::memory_order_relaxed) + 1;
+                    focused = true;
+                }
+                adopted->serial = record->serial.load(std::memory_order_acquire);
+                adopted->time   = record->time.load(std::memory_order_acquire);
+                adopted->depressed.store(record->depressed.load(std::memory_order_acquire), std::memory_order_release);
+                adopted->latched       = record->latched.load(std::memory_order_acquire);
+                adopted->locked        = record->locked.load(std::memory_order_acquire);
+                adopted->group         = record->group.load(std::memory_order_acquire);
+                const uint32_t indices = record->modifierIndices.load(std::memory_order_acquire);
+                adopted->shiftIndex    = indices & 0xffU;
+                adopted->ctrlIndex     = (indices >> 8) & 0xffU;
+                adopted->altIndex      = (indices >> 16) & 0xffU;
+                adopted->superIndex    = (indices >> 24) & 0xffU;
+                keyboards.push_back(adopted);
+            }
+            noteWaylandKeyboardAvailable(true);
+            if (focused) {
+                runtime().waylandDisplay.store(adopted->display, std::memory_order_release);
+                noteWaylandFocus(true);
+            }
+            return adopted;
+        }
+
+        // Keep the exact original callback path if recovery is unavailable.
         bool forwardInherited(wl_proxy* proxy, void* data, uint32_t opcode, WlArgument* args) {
             auto* record = inheritedForward(proxy);
             if (!record)
+                return false;
+            if (adoptInheritedKeyboard(record, opcode))
                 return false;
             deliverOriginal(record->listener, record->dispatcher, record->implementation, proxy, data, opcode, args);
             return true;
@@ -449,6 +528,10 @@ namespace lotus::apphook {
          */
         void observe(Keyboard* keyboard, uint32_t opcode, const WlArgument* args) {
             std::scoped_lock lock(keyboardMutex);
+            NativeForward*   forward = keyboard->forward;
+            // Hide in-progress transitions from a child forked mid-callback.
+            if (forward && (opcode == 1 || opcode == 2))
+                forward->surface.store(nullptr, std::memory_order_release);
             if (opcode == 1) {
                 invalidateWaylandFocus(keyboard->display, keyboard->focusToken);
                 // wl_keyboard focus is per seat, not per wl_display. An enter
@@ -480,6 +563,20 @@ namespace lotus::apphook {
                 keyboard->latched   = args[2].u;
                 keyboard->locked    = args[3].u;
                 keyboard->group     = args[4].u;
+            }
+            if (forward) {
+                if (opcode == 3 || opcode == 4 || opcode == 1)
+                    forward->serial.store(keyboard->serial, std::memory_order_release);
+                if (opcode == 3)
+                    forward->time.store(keyboard->time, std::memory_order_release);
+                if (opcode == 4) {
+                    forward->depressed.store(keyboard->depressed.load(std::memory_order_acquire), std::memory_order_release);
+                    forward->latched.store(keyboard->latched, std::memory_order_release);
+                    forward->locked.store(keyboard->locked, std::memory_order_release);
+                    forward->group.store(keyboard->group, std::memory_order_release);
+                }
+                if (opcode == 1)
+                    forward->surface.store(keyboard->focusedSurface, std::memory_order_release);
             }
             if (opcode >= 1 && opcode <= 3) {
                 noteWaylandFocus(focusedKeyboard() != nullptr);
@@ -641,9 +738,9 @@ namespace lotus::apphook {
             auto* record = static_cast<const NativeForward*>(implementation);
             if (!record || !record->alive.load(std::memory_order_acquire))
                 return 0;
-            if (record->ownerPid != getpid())
+            if (record->ownerPid != getpid() && !adoptInheritedKeyboard(const_cast<NativeForward*>(record), opcode))
                 return record->dispatcher ? record->dispatcher(record->implementation, data, opcode, message, args) : 0;
-            auto retained = retainKeyboard(record->tracked);
+            auto retained = record->ownerPid == getpid() ? retainKeyboard(record->tracked) : retainKeyboardByProxy(record->proxy);
             if (!retained || !retained->alive)
                 return 0;
             auto* keyboard = retained.get();
@@ -953,11 +1050,12 @@ LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(void), v
     auto* record              = new (std::nothrow) NativeForward;
     if (!record)
         return originalAddListener(proxy, callbacks, data);
-    record->proxy    = proxy;
-    record->display  = keyboard->display;
-    record->listener = keyboard->listener;
-    record->tracked  = keyboard.get();
-    record->ownerPid = getpid();
+    record->proxy     = proxy;
+    record->display   = keyboard->display;
+    record->listener  = keyboard->listener;
+    record->tracked   = keyboard.get();
+    record->ownerPid  = getpid();
+    keyboard->forward = record;
     keyboards.push_back(std::move(keyboard));
     publishForward(record);
     const int result = originalAddListener(proxy, reinterpret_cast<void (**)(void)>(const_cast<KeyboardListener*>(&wrapper)), data);
@@ -1002,6 +1100,7 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
     record->implementation = implementation;
     record->tracked        = keyboard.get();
     record->ownerPid       = getpid();
+    keyboard->forward      = record;
     keyboards.push_back(std::move(keyboard));
     publishForward(record);
     const int result = originalAddDispatcher(proxy, &dispatchWrapper, record, data);
