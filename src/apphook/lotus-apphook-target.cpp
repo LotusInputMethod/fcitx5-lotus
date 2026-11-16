@@ -220,14 +220,32 @@ namespace lotus::apphook {
     std::shared_ptr<Task> takeTask(HookBackend backend, const void* connection, uintptr_t focused) {
         Runtime&         state = runtime();
         std::scoped_lock lock(state.mutex);
-        if (state.pending.empty())
+        const auto       it = std::find_if(state.pending.begin(), state.pending.end(), [=](const auto& task) {
+            const auto& target = task->target;
+            return target.backend == backend && target.connection == connection && target.focused == focused;
+        });
+        if (it == state.pending.end())
             return {};
-        const auto& selected = state.pending.front()->target;
-        if (selected.backend != backend || selected.connection != connection || selected.focused != focused)
-            return {};
-        auto task = std::move(state.pending.front());
-        state.pending.pop_front();
+        auto task = std::move(*it);
+        state.pending.erase(it);
         return task;
+    }
+
+    void cancelPendingTasks(HookBackend backend, const void* connection) {
+        if (!connection)
+            return;
+        Runtime&         state = runtime();
+        std::scoped_lock lock(state.mutex);
+        for (auto it = state.pending.begin(); it != state.pending.end();) {
+            const auto& target = (*it)->target;
+            if (target.backend == backend && target.connection == connection) {
+                (*it)->cancelled.store(true, std::memory_order_release);
+                finishLocked(*it, -EINPROGRESS);
+                it = state.pending.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
 
     void finishLocked(const std::shared_ptr<Task>& task, int status) {
@@ -448,8 +466,8 @@ namespace lotus::apphook {
                 }
                 std::unordered_map<uint64_t, std::shared_ptr<Task>> tasks;
                 while (!state.shuttingDown.load()) {
-                    pollfd    fds[2] = {{connection.get(), POLLIN, 0}, {state.completionFd.load(), POLLIN, 0}};
-                    const int result = poll(fds, 2, -1);
+                    pollfd    fds[3] = {{connection.get(), POLLIN, 0}, {state.completionFd.load(), POLLIN, 0}, {waylandWakeFlushFd(), POLLOUT, 0}};
+                    const int result = poll(fds, 3, -1);
                     if (state.shuttingDown.load(std::memory_order_acquire))
                         break;
                     if (result < 0 && errno == EINTR) {
@@ -458,6 +476,8 @@ namespace lotus::apphook {
                     if (result < 0 || (fds[0].revents & (POLLERR | POLLHUP | POLLNVAL))) {
                         break;
                     }
+                    if (fds[2].revents & (POLLOUT | POLLERR | POLLHUP | POLLNVAL))
+                        retryWaylandWakeFlush();
                     if (fds[0].revents & POLLIN) {
                         Request       request{};
                         const ssize_t received = recv(connection.get(), &request, sizeof(request), MSG_TRUNC);

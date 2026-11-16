@@ -32,6 +32,8 @@ namespace lotus::apphook {
             return fd_;
         }
         void reset(int fd = -1) {
+            if (fd == fd_)
+                return;
             if (fd_ >= 0)
                 close(fd_);
             fd_ = fd;

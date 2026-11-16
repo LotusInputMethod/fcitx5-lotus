@@ -626,7 +626,25 @@ __attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlsym(void* h
     DlsymFunction native = native_dlsym_function();
     if (!native)
         return NULL;
-    if (handle == RTLD_DEFAULT || handle == RTLD_NEXT || strncmp(symbol, "wl_", 3) != 0)
+    if (handle == RTLD_NEXT || strncmp(symbol, "wl_", 3) != 0)
+        XERN_MUSTTAIL return native(handle, symbol);
+    // This API is optional across supported libwayland versions. Its preload
+    // wrapper must not make a default-namespace dlsym probe succeed when the
+    // native implementation is absent.
+    if (handle == RTLD_DEFAULT && !strcmp(symbol, "wl_proxy_marshal_array_flags")) {
+        // Do not resolve with RTLD_NEXT here: the preloaded wrapper itself can
+        // be returned and would make an absent optional API look present.
+        void* library = dlopen("libwayland-client.so.0", RTLD_LAZY | RTLD_NOLOAD | RTLD_LOCAL);
+        if (!library)
+            return NULL;
+        void* resolved = native(library, symbol);
+        dlclose(library);
+        if (!resolved || !is_native_wayland_symbol(resolved))
+            return NULL;
+        lotus_apphook_try_patch_wayland_imports();
+        return wayland_wrapper(symbol);
+    }
+    if (handle == RTLD_DEFAULT)
         XERN_MUSTTAIL return native(handle, symbol);
     void* hook = wayland_wrapper(symbol);
     if (!hook)

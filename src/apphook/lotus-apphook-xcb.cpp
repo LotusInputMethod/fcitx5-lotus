@@ -168,7 +168,7 @@ namespace lotus::apphook {
             if (state.active && state.activeTarget == window) {
                 state.active->cancelled.store(true, std::memory_order_release);
                 if (!state.sequence.needsRelease())
-                    finishXcb(state, -ECANCELED);
+                    finishXcb(state, -EINPROGRESS);
             }
             state.keyboardAvailable = state.nativeKeyboard || !state.keyboardMasks.empty();
             updateFocusState();
@@ -189,14 +189,16 @@ namespace lotus::apphook {
                 if (type == XCB_FOCUS_IN)
                     state.enter(focus->event);
                 else
-                    state.leave(focus->event);
+                    state.leave(focus->event, true);
                 const bool lostFocus    = wasFocused && !state.focused;
                 const bool changedOwner = type == XCB_FOCUS_IN && wasFocused && previousOwner != focus->event;
                 if (state.active && (lostFocus || changedOwner)) {
                     state.active->cancelled.store(true, std::memory_order_release);
                     if (!state.sequence.needsRelease())
-                        finishXcb(state, -ECANCELED);
+                        finishXcb(state, -EINPROGRESS);
                 }
+                if (lostFocus || changedOwner)
+                    cancelPendingTasks(HookBackend::Xcb, connection);
                 updateFocusState();
             } else if (type == XCB_KEY_PRESS || type == XCB_KEY_RELEASE) {
                 const auto* key = reinterpret_cast<const xcb_key_press_event_t*>(event);
@@ -273,7 +275,7 @@ namespace lotus::apphook {
                 return nullptr;
             auto& task = state.active;
             if (task->cancelled.load(std::memory_order_acquire) && !state.sequence.needsRelease()) {
-                finishXcb(state, -ECANCELED);
+                finishXcb(state, -EINPROGRESS);
                 return nullptr;
             }
             const auto edge = state.sequence.current();
@@ -303,7 +305,7 @@ namespace lotus::apphook {
             state.sequence.advance();
             if (!edge->pressed) {
                 if (task->cancelled.load(std::memory_order_acquire))
-                    finishXcb(state, -ECANCELED);
+                    finishXcb(state, -EINPROGRESS);
                 else if (state.sequence.completed())
                     finishXcb(state, 0);
             }
@@ -547,7 +549,7 @@ namespace lotus::apphook {
             xcbEventOwners.erase(connection);
             auto it = connections.find(connection);
             if (it != connections.end())
-                finishXcb(it->second, -ECANCELED);
+                finishXcb(it->second, -EINPROGRESS);
         }
         updateFocusState();
     }
@@ -646,6 +648,7 @@ LH_EXPORT void xcb_disconnect(xcb_connection_t* connection) {
         xcbEventOwners.erase(connection);
         updateFocusState();
     }
+    cancelPendingTasks(HookBackend::Xcb, connection);
     if (originalDisconnect)
         originalDisconnect(connection);
 }

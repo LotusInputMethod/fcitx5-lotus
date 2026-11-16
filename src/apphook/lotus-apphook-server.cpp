@@ -54,30 +54,39 @@ namespace fcitx {
     }
 
     void LotusAppHook::shutdown() {
-        if (stopping_.exchange(true)) {
-            return;
+        std::deque<Work> abandoned;
+        {
+            std::scoped_lock lock(mutex_);
+            if (stopping_.exchange(true)) {
+                return;
+            }
+            abandoned.swap(queue_);
+            for (auto& [pid, session] : sessions_)
+                disconnect(session);
+            for (const auto& request : activeRequests_)
+                cancelled_.insert(request);
         }
         condition_.notify_all();
         if (stopFd_.isValid()) {
-            const uint64_t one     = 1;
-            const ssize_t  written = write(stopFd_.get(), &one, sizeof(one));
-            (void)written; // EAGAIN means the eventfd is already signalled.
+            const uint64_t one = 1;
+            ssize_t        written;
+            do {
+                written = write(stopFd_.get(), &one, sizeof(one));
+            } while (written < 0 && errno == EINTR);
+            // EAGAIN means the eventfd is already signalled.
         }
-        if (server_.joinable()) {
+        for (auto& work : abandoned)
+            if (work.completion)
+                work.completion(-ECANCELED);
+        if (server_.joinable())
             server_.join();
-        }
-        {
-            std::scoped_lock lock(mutex_);
-            for (auto& [pid, session] : sessions_) {
-                disconnect(session);
-            }
-            sessions_.clear();
-            focusedPid_ = 0;
-            queue_.clear();
-        }
-        for (auto& worker : workers_) {
+        for (auto& worker : workers_)
             if (worker.joinable())
                 worker.join();
+        {
+            std::scoped_lock lock(mutex_);
+            sessions_.clear();
+            focusedPid_ = 0;
         }
     }
 
@@ -137,20 +146,21 @@ namespace fcitx {
         bool                     active  = false;
         {
             std::scoped_lock lock(mutex_);
-            const auto       it = std::find_if(queue_.begin(), queue_.end(), [pid, requestId](const Work& item) { return item.pid == pid && item.requestId == requestId; });
+            const RequestKey key{pid, requestId};
+            const auto       it = std::find_if(queue_.begin(), queue_.end(), [&key](const Work& item) { return item.pid == key.pid && item.requestId == key.requestId; });
             if (it != queue_.end()) {
                 completion = std::move(it->completion);
                 queue_.erase(it);
                 removed = true;
-            } else if (const auto it = activeRequests_.find(requestId); it != activeRequests_.end() && it->second == pid) {
-                cancelled_.insert(requestId);
+            } else if (activeRequests_.contains(key)) {
+                cancelled_.insert(key);
                 active           = true;
                 const auto found = sessions_.find(pid);
-                if (found != sessions_.end()) {
+                if (found != sessions_.end())
                     session = found->second;
-                }
             }
         }
+        condition_.notify_all();
         if (removed) {
             if (completion) {
                 completion(-ECANCELED);
@@ -212,7 +222,7 @@ namespace fcitx {
         bool cancelled;
         {
             std::scoped_lock lock(mutex_);
-            cancelled = cancelled_.contains(work.requestId);
+            cancelled = cancelled_.contains({work.pid, work.requestId});
         }
         if (cancelled) {
             Request cancel{};
@@ -238,6 +248,12 @@ namespace fcitx {
     }
 
     void LotusAppHook::run() {
+        const auto waitForDelay = [this](const Work& work, uint32_t delayMs) {
+            std::unique_lock lock(mutex_);
+            const RequestKey key{work.pid, work.requestId};
+            return !condition_.wait_for(lock, std::chrono::milliseconds(delayMs), [&] { return stopping_ || cancelled_.contains(key); });
+        };
+
         while (true) {
             Work work{};
             {
@@ -252,26 +268,28 @@ namespace fcitx {
                 work    = std::move(*it);
                 queue_.erase(it);
                 activePids_.insert(work.pid);
-                activeRequests_.emplace(work.requestId, work.pid);
+                activeRequests_.insert({work.pid, work.requestId});
             }
-            if (work.preDelayMs) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(work.preDelayMs));
+
+            int        result         = -ECANCELED;
+            const bool delayCompleted = work.preDelayMs == 0 || waitForDelay(work, work.preDelayMs);
+            if (delayCompleted) {
+                bool cancelled;
+                {
+                    std::scoped_lock lock(mutex_);
+                    cancelled = cancelled_.contains({work.pid, work.requestId}) || stopping_.load();
+                }
+                if (!cancelled)
+                    result = sendKeys(work);
             }
-            bool cancelled;
-            {
-                std::scoped_lock lock(mutex_);
-                cancelled = cancelled_.contains(work.requestId);
-            }
-            const int result = cancelled ? -ECANCELED : sendKeys(work);
-            if (result == 0 && work.postDelayMs) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(work.postDelayMs));
-            }
+            if (result == 0 && work.postDelayMs)
+                (void)waitForDelay(work, work.postDelayMs);
             if (work.completion)
                 work.completion(result);
             {
                 std::scoped_lock lock(mutex_);
-                cancelled_.erase(work.requestId);
-                activeRequests_.erase(work.requestId);
+                cancelled_.erase({work.pid, work.requestId});
+                activeRequests_.erase({work.pid, work.requestId});
                 activePids_.erase(work.pid);
             }
             condition_.notify_all();

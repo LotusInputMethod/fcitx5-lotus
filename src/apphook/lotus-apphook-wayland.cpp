@@ -174,6 +174,7 @@ namespace lotus::apphook {
             std::recursive_mutex keyboardMutex;
             std::mutex           waylandConnectionMutex;
             std::mutex           xkbMutex;
+            wl_display*          pendingFlushDisplay = nullptr; // guarded by waylandConnectionMutex
         };
         std::atomic<WaylandGeneration*> currentWayland{nullptr};
         WaylandGeneration&              waylandGeneration() {
@@ -212,6 +213,7 @@ namespace lotus::apphook {
         int (*originalPrepareReadQueue)(wl_display*, wl_event_queue*)                                                    = nullptr;
         void (*originalCancelRead)(wl_display*)                                                                          = nullptr;
         wl_display* (*originalConnect)(const char*)                                                                      = nullptr;
+        int (*originalGetFd)(wl_display*)                                                                                = nullptr;
         wl_display* (*originalConnectFd)(int)                                                                            = nullptr;
         void (*originalDestroy)(wl_proxy*)                                                                               = nullptr;
         void (*originalDisconnect)(wl_display*)                                                                          = nullptr;
@@ -530,7 +532,7 @@ namespace lotus::apphook {
                 const auto& target = (*it)->target;
                 if (target.backend == HookBackend::Wayland && target.connection == display && target.focused == token) {
                     (*it)->cancelled.store(true, std::memory_order_release);
-                    finishLocked(*it, -ECANCELED);
+                    finishLocked(*it, -EINPROGRESS);
                     it = pending.erase(it);
                 } else {
                     ++it;
@@ -875,7 +877,7 @@ namespace lotus::apphook {
                     emitModifiers(keyboard.get(), keyboard->depressed.load(std::memory_order_acquire));
                 }
             }
-            const int        status = !keyboard->alive ? -ENOTCONN : (!sameFocus() || task->cancelled.load(std::memory_order_acquire)) ? -ECANCELED : 0;
+            const int        status = !keyboard->alive ? -ENOTCONN : !sameFocus() ? -EINPROGRESS : task->cancelled.load(std::memory_order_acquire) ? -ECANCELED : 0;
             std::scoped_lock lock(runtime().mutex);
             finishLocked(task, status);
         }
@@ -886,12 +888,12 @@ namespace lotus::apphook {
          * @param completed Whether the original dispatch has returned successfully.
          */
         void onDispatch(wl_display* display, wl_event_queue* queue, bool completed) {
+            (void)queue;
+            (void)completed;
             if (display) {
                 wl_display* expected = nullptr;
                 (void)runtime().waylandDisplay.compare_exchange_strong(expected, display, std::memory_order_acq_rel);
             }
-            if (completed && runtime().workersStarted.load(std::memory_order_acquire))
-                pump(display, queue);
         }
 
         /** @brief Checks for queued native events without dispatching an extra event. */
@@ -917,7 +919,8 @@ namespace lotus::apphook {
                 originalDestroy(callback);
             if (queueDrained(display, queue)) {
                 onDispatch(display, queue, true);
-            } else {
+                if (runtime().workersStarted.load(std::memory_order_acquire))
+                    pump(display, queue);
                 // A native focus change may be queued after this callback. Place
                 // another wake behind it instead of injecting into stale focus.
                 bool pending;
@@ -974,6 +977,7 @@ namespace lotus::apphook {
             originalCancelRead                 = resolve<decltype(originalCancelRead)>(wayland, "wl_display_cancel_read");
             originalConnect                    = resolve<decltype(originalConnect)>(wayland, "wl_display_connect");
             originalConnectFd                  = resolve<decltype(originalConnectFd)>(wayland, "wl_display_connect_to_fd");
+            originalGetFd                      = resolve<decltype(originalGetFd)>(wayland, "wl_display_get_fd");
             originalDestroy                    = resolve<decltype(originalDestroy)>(wayland, "wl_proxy_destroy");
             originalDisconnect                 = resolve<decltype(originalDisconnect)>(wayland, "wl_display_disconnect");
             originalGetQueue                   = resolve<decltype(originalGetQueue)>(wayland, "wl_proxy_get_queue");
@@ -990,7 +994,7 @@ namespace lotus::apphook {
             // The timeout dispatch APIs (Wayland 1.24+) are optional.
             const bool capable = originalAddListener && originalAddDispatcher && originalDispatchQueuePending && originalDispatchPending && originalDispatch &&
                 originalDispatchQueue && originalDestroy && originalDisconnect && originalGetQueue && originalSetQueue && originalMarshalArrayFlags && originalGetProxyDisplay &&
-                originalGetUserData && originalGetListener && originalClass && originalFlush && originalMarshalConstructor && callbackInterface;
+                originalGetUserData && originalGetListener && originalClass && originalFlush && originalGetFd && originalMarshalConstructor && callbackInterface;
             waylandCapable.store(capable, std::memory_order_release);
         });
     }
@@ -1007,10 +1011,20 @@ namespace lotus::apphook {
         if (!currentWayland.load(std::memory_order_acquire))
             return;
         std::scoped_lock connectionLock(waylandConnectionMutex);
-        wl_display*      display = nullptr;
+        auto&            generation = waylandGeneration();
         if (!waylandCapable.load(std::memory_order_acquire))
             return;
-        wl_event_queue* queue = nullptr;
+        // A previous wake may already be queued but not yet written because
+        // the socket was full. Retry it instead of adding duplicate callbacks.
+        if (generation.pendingFlushDisplay) {
+            const int flushed = originalFlush(generation.pendingFlushDisplay);
+            if (flushed < 0 && errno == EAGAIN)
+                return;
+            generation.pendingFlushDisplay = nullptr;
+            return;
+        }
+        wl_display*     display = nullptr;
+        wl_event_queue* queue   = nullptr;
         {
             std::scoped_lock lock(keyboardMutex);
             Keyboard*        keyboard = focusedKeyboard();
@@ -1031,7 +1045,38 @@ namespace lotus::apphook {
                 originalDestroy(callback);
             return;
         }
-        originalFlush(display);
+        const int flushed = originalFlush(display);
+        if (flushed < 0 && errno == EAGAIN) {
+            generation.pendingFlushDisplay = display;
+            const int notify               = runtime().completionFd.load(std::memory_order_acquire);
+            if (notify >= 0) {
+                const uint64_t one = 1;
+                ssize_t        written;
+                do {
+                    written = write(notify, &one, sizeof(one));
+                } while (written < 0 && errno == EINTR);
+            }
+        }
+    }
+
+    int waylandWakeFlushFd() {
+        if (!currentWayland.load(std::memory_order_acquire))
+            return -1;
+        std::scoped_lock connectionLock(waylandConnectionMutex);
+        auto&            generation = waylandGeneration();
+        return generation.pendingFlushDisplay && originalGetFd ? originalGetFd(generation.pendingFlushDisplay) : -1;
+    }
+
+    void retryWaylandWakeFlush() {
+        if (!currentWayland.load(std::memory_order_acquire))
+            return;
+        std::scoped_lock connectionLock(waylandConnectionMutex);
+        auto&            generation = waylandGeneration();
+        if (!generation.pendingFlushDisplay || !originalFlush)
+            return;
+        const int flushed = originalFlush(generation.pendingFlushDisplay);
+        if (flushed >= 0 || errno != EAGAIN)
+            generation.pendingFlushDisplay = nullptr;
     }
 
 } // namespace lotus::apphook
@@ -1177,7 +1222,10 @@ LH_EXPORT void wl_display_disconnect(wl_display* display) {
     using namespace lotus::apphook;
     loadWayland();
     retireDisplay(display);
-    std::scoped_lock       connectionLock(waylandConnectionMutex);
+    std::scoped_lock connectionLock(waylandConnectionMutex);
+    auto&            generation = waylandGeneration();
+    if (generation.pendingFlushDisplay == display)
+        generation.pendingFlushDisplay = nullptr;
     std::vector<wl_proxy*> removed;
     {
         std::scoped_lock lock(keyboardMutex);

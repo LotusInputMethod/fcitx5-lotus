@@ -230,7 +230,7 @@ namespace lotus::apphook {
                             task->x11Remaining = 1;
                         }
                     } else {
-                        finishLocked(task, -ECANCELED);
+                        finishLocked(task, -EINPROGRESS);
                         state.activeX11.reset();
                         state.activeX11Display = nullptr;
                     }
@@ -250,7 +250,7 @@ namespace lotus::apphook {
             }
             originalLockDisplay(target);
             const int count = originalPending(target);
-            if (count > 0 && count <= 4096) {
+            if (count > 0) {
                 std::vector<XEvent> queued;
                 try {
                     queued.reserve(static_cast<size_t>(count));
@@ -300,15 +300,18 @@ namespace lotus::apphook {
                     if (event.type == FocusIn)
                         tracked.enter(event.xfocus.window);
                     else
-                        tracked.leave(event.xfocus.window);
+                        tracked.leave(event.xfocus.window, true);
                     cancel = (wasFocused && !tracked.focused) || (event.type == FocusIn && wasFocused && previousOwner != event.xfocus.window);
                     for (const auto& [ignored, state] : focusByDisplay)
                         focused |= state.focused;
                 }
                 if (cancel) {
-                    std::scoped_lock lock(runtime().mutex);
-                    if (runtime().activeX11 && runtime().activeX11Display == event.xfocus.display)
-                        runtime().activeX11->cancelled.store(true, std::memory_order_release);
+                    {
+                        std::scoped_lock lock(runtime().mutex);
+                        if (runtime().activeX11 && runtime().activeX11Display == event.xfocus.display)
+                            runtime().activeX11->cancelled.store(true, std::memory_order_release);
+                    }
+                    cancelPendingTasks(HookBackend::X11, event.xfocus.display);
                 }
                 runtime().observedX11Focus.store(true, std::memory_order_release);
                 noteX11Focus(focused);
@@ -326,7 +329,7 @@ namespace lotus::apphook {
                     else
                         pressedEvents.erase(event.xkey.display);
                     if (--task->x11Remaining == 0) {
-                        finishLocked(task, task->cancelled.load(std::memory_order_acquire) ? -ECANCELED : 0);
+                        finishLocked(task, task->cancelled.load(std::memory_order_acquire) ? -EINPROGRESS : 0);
                         state.activeX11.reset();
                         state.activeX11Display = nullptr;
                         pressedEvents.erase(event.xkey.display);
@@ -426,7 +429,7 @@ namespace lotus::apphook {
             if (!originalGetFocus || !originalGetFocus(target, &serverFocus, &revert) || serverFocus != window) {
                 if (auto task = takeTask(HookBackend::X11, target, static_cast<uintptr_t>(window))) {
                     std::scoped_lock lock(runtime().mutex);
-                    finishLocked(task, -ECANCELED);
+                    finishLocked(task, -EINPROGRESS);
                 }
                 return;
             }
@@ -441,16 +444,7 @@ namespace lotus::apphook {
             // other application threads cannot observe the temporary drain.
             originalLockDisplay(target);
             const int queued = originalPending(target);
-            if (queued < 0 || queued > 4096) {
-                // A filtered blocking Xlib loop cannot consume unrelated
-                // native events to make room. Reject the work instead of
-                // repeatedly waking on an unchanged oversized queue.
-                if (queued > 4096) {
-                    if (auto task = takeTask(HookBackend::X11, target, static_cast<uintptr_t>(window))) {
-                        std::scoped_lock lock(runtime().mutex);
-                        finishLocked(task, -EAGAIN);
-                    }
-                }
+            if (queued < 0) {
                 originalUnlockDisplay(target);
                 return;
             }
@@ -509,7 +503,7 @@ namespace lotus::apphook {
                         }
                         if (invalidKey || task->cancelled.load(std::memory_order_acquire)) {
                             std::scoped_lock lock(runtime().mutex);
-                            finishLocked(task, invalidKey ? -EINVAL : -ECANCELED);
+                            finishLocked(task, invalidKey ? -EINVAL : -EINPROGRESS);
                             runtime().activeX11.reset();
                             runtime().activeX11Display = nullptr;
                             injected.clear();
@@ -567,7 +561,7 @@ namespace lotus::apphook {
                 return false;
             originalLockDisplay(display);
             const int count = originalPending(display);
-            if (count < 0 || count > 4096) {
+            if (count < 0) {
                 originalUnlockDisplay(display);
                 return false;
             }
@@ -917,6 +911,7 @@ LH_EXPORT int XCloseDisplay(Display* target) {
     }
     noteX11Focus(focused);
     noteX11KeyboardAvailable(ready);
+    cancelPendingTasks(HookBackend::X11, target);
     {
         std::scoped_lock lock(runtime().mutex);
         if (runtime().activeX11 && runtime().activeX11Display == target) {
@@ -1168,7 +1163,7 @@ LH_EXPORT int XPeekIfEvent(Display* target, XEvent* event, Bool (*predicate)(Dis
     if (!predicate || !originalPending || !originalConnectionNumber || !runtime().workersStarted.load(std::memory_order_acquire))
         return originalPeekIf(target, event, predicate, arg);
     while (true) {
-        if (originalPending(target) > 4096)
+        if (originalPending(target) < 0)
             return originalPeekIf(target, event, predicate, arg);
         if (peekMatching(target, event, predicate, arg))
             return 0;

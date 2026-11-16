@@ -81,6 +81,20 @@ namespace fcitx {
         void shutdown();
 
       private:
+        struct RequestKey {
+            pid_t    pid;
+            uint64_t requestId;
+            bool     operator==(const RequestKey&) const = default;
+        };
+
+        struct RequestKeyHash {
+            size_t operator()(const RequestKey& key) const noexcept {
+                const size_t pidHash = std::hash<pid_t>{}(key.pid);
+                const size_t idHash  = std::hash<uint64_t>{}(key.requestId);
+                return pidHash ^ (idHash + 0x9e3779b9U + (pidHash << 6) + (pidHash >> 2));
+            }
+        };
+
         struct Session {
             explicit Session(int peerFd, pid_t peerPid) : fd(peerFd), pid(peerPid) {}
 
@@ -135,8 +149,8 @@ namespace fcitx {
         std::deque<Work>                                    queue_;
         std::unordered_map<pid_t, std::shared_ptr<Session>> sessions_;
         pid_t                                               focusedPid_ = 0;
-        std::unordered_set<uint64_t>                        cancelled_;
-        std::unordered_map<uint64_t, pid_t>                 activeRequests_;
+        std::unordered_set<RequestKey, RequestKeyHash>      cancelled_;
+        std::unordered_set<RequestKey, RequestKeyHash>      activeRequests_;
         std::unordered_set<pid_t>                           activePids_;
         std::atomic<uint64_t>                               nextRequest_{1};
         std::atomic<bool>                                   stopping_{false};

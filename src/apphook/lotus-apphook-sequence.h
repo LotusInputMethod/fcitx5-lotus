@@ -27,13 +27,16 @@ namespace lotus::apphook {
     class KeySequence {
       public:
         KeySequence() = default;
-        explicit KeySequence(std::span<const KeyOperation> operations) : operations_(operations) {}
+        explicit KeySequence(std::span<const KeyOperation> operations) {
+            reset(operations);
+        }
 
         void reset(std::span<const KeyOperation> operations = {}) {
             operations_  = operations;
             operation_   = 0;
             tap_         = 0;
             releaseNext_ = false;
+            skipEmptyOperations();
         }
 
         [[nodiscard]] const KeyOperation* operation() const {
@@ -65,11 +68,17 @@ namespace lotus::apphook {
                 if (++tap_ == op->count) {
                     tap_ = 0;
                     ++operation_;
+                    skipEmptyOperations();
                 }
             }
         }
 
       private:
+        void skipEmptyOperations() {
+            while (operation_ < operations_.size() && operations_[operation_].count == 0)
+                ++operation_;
+        }
+
         std::span<const KeyOperation> operations_{};
         size_t                        operation_   = 0;
         uint32_t                      tap_         = 0;

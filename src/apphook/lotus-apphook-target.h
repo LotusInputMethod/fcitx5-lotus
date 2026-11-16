@@ -138,6 +138,8 @@ namespace lotus::apphook {
      * @return Pending request or an empty pointer.
      */
     std::shared_ptr<Task> takeTask(HookBackend backend, const void* connection, uintptr_t focused);
+    /** @brief Cancels queued requests for a frontend connection after focus changes. */
+    void cancelPendingTasks(HookBackend backend, const void* connection);
     /**
      * @brief Marks a task completed while the runtime mutex is held.
      * @param task Request to complete.
@@ -152,6 +154,10 @@ namespace lotus::apphook {
      * @brief Schedules a Wayland callback to wake the event dispatcher.
      */
     void wakeWayland();
+    /** @brief Exposes deferred Wayland wake flushes to the IPC worker poll loop. */
+    int waylandWakeFlushFd();
+    /** @brief Retries a sync callback when its Wayland socket becomes writable. */
+    void retryWaylandWakeFlush();
     /**
      * @brief Resolves original Xlib symbols from an existing X11 library.
      */
