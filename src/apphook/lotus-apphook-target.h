@@ -96,14 +96,8 @@ namespace lotus::apphook {
     /** Stop the IPC worker before any backend registry begins destruction. */
     void stopRuntimeWorker();
 
-    // Backend registries are constructed after Runtime. Their destructors
-    // must join the worker before destroying state it could still access.
-    template <typename Container>
-    struct BackendRegistry : Container {
-        ~BackendRegistry() {
-            stopRuntimeWorker();
-        }
-    };
+    // Backend generations are process-local. Inherited generations are left
+    // untouched after fork and reclaimed by the OS when the process exits.
 
     /**
      * @brief Returns the target-process runtime that remains resident after loading.
@@ -112,15 +106,9 @@ namespace lotus::apphook {
     Runtime& runtime();
     /** @brief Enables the IPC runtime on first real keyboard frontend activation. */
     void ensureRuntimeInitialized();
-    // Fork prepare only probes locks; it must never block process creation.
-    bool prepareX11Fork();
-    void finishX11Fork();
+    /** Discard inherited backend generations without touching their locks. */
     void resetX11AfterFork();
-    bool prepareXcbFork();
-    void finishXcbFork();
     void resetXcbAfterFork();
-    bool prepareWaylandFork();
-    void finishWaylandFork(bool child = false);
     void resetWaylandAfterFork();
     /** @brief Starts the IPC worker after keyboard focus or the first delivered key. */
     void noteKeyboardActivity(bool wayland);

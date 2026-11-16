@@ -53,10 +53,8 @@ namespace lotus::apphook {
                 return false;
             }
         };
-        std::mutex focusMutex;
         // Every blocking Xlib waiter owns its own notification descriptor.
-        // Broadcasting is safe even across Displays: unrelated waiters cannot
-        // consume the focused waiter's eventfd counter.
+        // Broadcasting is safe even across Displays.
         struct X11Waiter {
             int fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
             ~X11Waiter() {
@@ -64,40 +62,39 @@ namespace lotus::apphook {
                     close(fd);
             }
         };
-        std::mutex wakeWaitersMutex;
-        using WaiterList = std::vector<std::weak_ptr<X11Waiter>>;
-        std::atomic<WaiterList*> initializedWakeWaiters{nullptr};
-        WaiterList&              wakeWaitersStorage() {
-            static BackendRegistry<WaiterList> waiters;
-            initializedWakeWaiters.store(&waiters, std::memory_order_release);
-            return waiters;
-        }
-
+        using WaiterList      = std::vector<std::weak_ptr<X11Waiter>>;
         using DisplayFocusMap = std::unordered_map<Display*, DisplayFocus>;
         using DisplaySet      = std::unordered_set<Display*>;
         using PressedEventMap = std::unordered_map<Display*, XEvent>;
-        std::atomic<DisplayFocusMap*> initialized_focusByDisplay{nullptr};
-        DisplayFocusMap&              focusByDisplayStorage() {
-            static BackendRegistry<DisplayFocusMap> state;
-            initialized_focusByDisplay.store(&state, std::memory_order_release);
-            return state;
+        struct X11Generation {
+            std::mutex      focusMutex;
+            std::mutex      wakeWaitersMutex;
+            WaiterList      wakeWaiters;
+            DisplayFocusMap focusByDisplay;
+            DisplaySet      xcbOwnerDisplays;
+            PressedEventMap pressedEvents;
+        };
+        std::atomic<X11Generation*> currentX11{nullptr};
+        X11Generation&              x11Generation() {
+            auto* current = currentX11.load(std::memory_order_acquire);
+            if (current)
+                return *current;
+            auto*          fresh    = new X11Generation;
+            X11Generation* expected = nullptr;
+            if (!currentX11.compare_exchange_strong(expected, fresh, std::memory_order_acq_rel)) {
+                delete fresh;
+                return *expected;
+            }
+            return *fresh;
         }
-#define focusByDisplay (focusByDisplayStorage())
-        std::atomic<DisplaySet*> initialized_xcbOwnerDisplays{nullptr};
-        DisplaySet&              xcbOwnerDisplaysStorage() {
-            static BackendRegistry<DisplaySet> state;
-            initialized_xcbOwnerDisplays.store(&state, std::memory_order_release);
-            return state;
+#define focusMutex       (x11Generation().focusMutex)
+#define wakeWaitersMutex (x11Generation().wakeWaitersMutex)
+#define focusByDisplay   (x11Generation().focusByDisplay)
+#define xcbOwnerDisplays (x11Generation().xcbOwnerDisplays)
+#define pressedEvents    (x11Generation().pressedEvents)
+        WaiterList& wakeWaitersStorage() {
+            return x11Generation().wakeWaiters;
         }
-#define xcbOwnerDisplays (xcbOwnerDisplaysStorage())
-        // The last press already returned to the consumer, keyed by Display.
-        std::atomic<PressedEventMap*> initialized_pressedEvents{nullptr};
-        PressedEventMap&              pressedEventsStorage() {
-            static BackendRegistry<PressedEventMap> state;
-            initialized_pressedEvents.store(&state, std::memory_order_release);
-            return state;
-        }
-#define pressedEvents (pressedEventsStorage())
         void* xlib                                        = nullptr;
         void* xlibXcb                                     = nullptr;
         void* (*getXcbConnection)(Display*)               = nullptr;
@@ -668,37 +665,22 @@ namespace lotus::apphook {
 
     } // namespace
 
-    bool prepareX11Fork() {
-        if (!focusMutex.try_lock())
-            return false;
-        if (!wakeWaitersMutex.try_lock()) {
-            focusMutex.unlock();
-            return false;
-        }
-        return true;
-    }
-
-    void finishX11Fork() {
-        wakeWaitersMutex.unlock();
-        focusMutex.unlock();
-    }
-
     void resetX11AfterFork() {
-        std::scoped_lock lock(focusMutex, wakeWaitersMutex);
-        if (auto* waiters = initializedWakeWaiters.load(std::memory_order_acquire))
-            waiters->clear();
-        if (auto* state = initialized_focusByDisplay.load(std::memory_order_acquire))
-            state->clear();
-        if (auto* state = initialized_xcbOwnerDisplays.load(std::memory_order_acquire))
-            state->clear();
-        if (auto* state = initialized_pressedEvents.load(std::memory_order_acquire))
-            state->clear();
+        // The old generation can contain live locks and partially updated maps.
+        currentX11.store(nullptr, std::memory_order_release);
+        new (&resolveOnce) std::once_flag;
     }
 
     void wakeX11() {
+        // Do not activate an unused backend merely because another backend
+        // asked the worker to broadcast a completion wakeup.
+        auto* generation = currentX11.load(std::memory_order_acquire);
+        if (!generation)
+            return;
         std::scoped_lock lock(wakeWaitersMutex);
-        if (auto* waiters = initializedWakeWaiters.load(std::memory_order_acquire)) {
-            for (const auto& entry : *waiters) {
+        {
+            const auto& waiters = generation->wakeWaiters;
+            for (const auto& entry : waiters) {
                 if (auto waiter = entry.lock()) {
                     if (waiter->fd >= 0) {
                         const uint64_t one     = 1;
@@ -711,6 +693,8 @@ namespace lotus::apphook {
     }
 
     FocusCandidates focusedX11Candidates() {
+        if (!currentX11.load(std::memory_order_acquire))
+            return {};
         std::scoped_lock lock(focusMutex);
         FocusCandidates  candidates;
         for (const auto& [display, state] : focusByDisplay) {

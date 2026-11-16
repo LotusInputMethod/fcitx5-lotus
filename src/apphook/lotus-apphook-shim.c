@@ -32,35 +32,39 @@ typedef void (**WlListener)(void);
 static _Atomic(int) runtime_active;
 static _Atomic(int) loading_pid;
 static _Atomic(int) loading_tid;
-/* A forked child never reuses the parent's C++ hook runtime or its mutexes.
- * exec() loads a fresh copy and can activate normally. */
+/* A forked child starts with native forwarding, then builds independent
+ * process-local runtime/backend generations on keyboard activation. */
 static _Atomic(int) runtime_owner_pid;
-static _Atomic(int) recoverable_child_pid;
+static _Atomic(int) recovering_child_pid;
 
-/* Called by the child atfork handler: atomic-only, no runtime teardown. */
-__attribute__((visibility("hidden"))) void lotus_apphook_fork_child_ready(int safe) {
-    atomic_store_explicit(&recoverable_child_pid, safe ? (int)getpid() : 0, memory_order_release);
-}
+extern int          lotus_apphook_resume_child_runtime(void) __attribute__((visibility("hidden")));
+static void         adopt_metadata(void);
 
-extern int lotus_apphook_resume_child_runtime(void) __attribute__((visibility("hidden")));
-
-static int inherited_runtime(void) {
+static int          inherited_runtime(void) {
     const int owner = atomic_load_explicit(&runtime_owner_pid, memory_order_acquire);
     return owner && owner != (int)getpid();
 }
 
-/* An inherited runtime can be rebuilt only after all of its locks were
- * acquired without waiting before fork. Otherwise native forwarding stays
- * active in the child. Recovery happens only on keyboard activation. */
+/* Only the child which won the recovery CAS creates new generations.
+ * Reentrant callers continue native forwarding until the switch completes. */
 static void resume_fork_child(void) {
-    const int pid   = (int)getpid();
-    int       ready = pid;
-    if (!inherited_runtime() || !atomic_compare_exchange_strong_explicit(&recoverable_child_pid, &ready, 0, memory_order_acq_rel, memory_order_acquire))
+    const int pid = (int)getpid();
+    if (!inherited_runtime())
+        return;
+    int previous = atomic_load_explicit(&recovering_child_pid, memory_order_acquire);
+    if (previous && previous != pid)
+        atomic_compare_exchange_strong_explicit(&recovering_child_pid, &previous, 0, memory_order_acq_rel, memory_order_acquire);
+    int expected = 0;
+    if (!atomic_compare_exchange_strong_explicit(&recovering_child_pid, &expected, pid, memory_order_acq_rel, memory_order_acquire))
         return;
     if (lotus_apphook_resume_child_runtime()) {
+        // Replay only child-created connection metadata. Native forwarding
+        // remains in effect until the new generation has adopted it.
+        adopt_metadata();
         atomic_store_explicit(&runtime_owner_pid, pid, memory_order_release);
         atomic_store_explicit(&runtime_active, 1, memory_order_release);
     }
+    atomic_store_explicit(&recovering_child_pid, 0, memory_order_release);
 }
 
 static int runtime_enabled(void) {
@@ -112,9 +116,10 @@ static void lock_metadata(void) {
         if (atomic_compare_exchange_weak_explicit(&metadata_lock_pid, &zero, pid, memory_order_acq_rel, memory_order_acquire))
             break;
     }
-    // After fork, inherited X connections cannot be reused as active targets.
+    // Never traverse a potentially mid-update inherited list after fork.
     if (metadata_epoch_pid != pid) {
-        free_records();
+        xcb_records        = NULL;
+        owner_records      = NULL;
         metadata_epoch_pid = pid;
     }
 }
@@ -123,7 +128,7 @@ static void unlock_metadata(void) {
 }
 
 static void record_xcb(xcb_connection_t* c, int screen) {
-    if (!c || (inherited_runtime() && atomic_load_explicit(&recoverable_child_pid, memory_order_acquire) != (int)getpid()))
+    if (!c)
         return;
     lock_metadata();
     if (!runtime_enabled()) {
@@ -143,8 +148,6 @@ static void record_xcb(xcb_connection_t* c, int screen) {
     unlock_metadata();
 }
 static void forget_xcb(xcb_connection_t* c) {
-    if (inherited_runtime() && atomic_load_explicit(&recoverable_child_pid, memory_order_acquire) != (int)getpid())
-        return;
     lock_metadata();
     struct xcb_connection_record** cursor = &xcb_records;
     while (*cursor) {
@@ -159,7 +162,7 @@ static void forget_xcb(xcb_connection_t* c) {
     unlock_metadata();
 }
 static void record_owner(Display* d, int owner) {
-    if (!d || (inherited_runtime() && atomic_load_explicit(&recoverable_child_pid, memory_order_acquire) != (int)getpid()))
+    if (!d)
         return;
     lock_metadata();
     if (!runtime_enabled()) {
@@ -179,8 +182,6 @@ static void record_owner(Display* d, int owner) {
     unlock_metadata();
 }
 static void forget_owner(Display* d) {
-    if (inherited_runtime() && atomic_load_explicit(&recoverable_child_pid, memory_order_acquire) != (int)getpid())
-        return;
     lock_metadata();
     struct xlib_owner_record** cursor = &owner_records;
     while (*cursor) {
@@ -199,6 +200,16 @@ static void forget_owner(Display* d) {
 extern void lotus_apphook_initialize_runtime(void) __attribute__((visibility("hidden")));
 extern void lotus_apphook_adopt_xcb_connection(xcb_connection_t*, int) __attribute__((visibility("hidden")));
 extern void lotus_apphook_adopt_xlib_owner(Display*, int) __attribute__((visibility("hidden")));
+
+static void adopt_metadata(void) {
+    lock_metadata();
+    for (struct xcb_connection_record* it = xcb_records; it; it = it->next)
+        lotus_apphook_adopt_xcb_connection(it->connection, it->screen);
+    for (struct xlib_owner_record* it = owner_records; it; it = it->next)
+        lotus_apphook_adopt_xlib_owner(it->display, it->owner);
+    free_records();
+    unlock_metadata();
+}
 
 static void activate(void) {
     if (inherited_runtime())
@@ -231,14 +242,8 @@ static void activate(void) {
     }
     atomic_store_explicit(&loading_tid, tid, memory_order_release);
     lotus_apphook_initialize_runtime();
-    lock_metadata();
-    for (struct xcb_connection_record* it = xcb_records; it; it = it->next)
-        lotus_apphook_adopt_xcb_connection(it->connection, it->screen);
-    for (struct xlib_owner_record* it = owner_records; it; it = it->next)
-        lotus_apphook_adopt_xlib_owner(it->display, it->owner);
-    free_records();
+    adopt_metadata();
     atomic_store_explicit(&runtime_active, 1, memory_order_release);
-    unlock_metadata();
     atomic_store_explicit(&loading_tid, 0, memory_order_release);
     atomic_store_explicit(&loading_pid, 0, memory_order_release);
 }

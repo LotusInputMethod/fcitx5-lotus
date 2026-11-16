@@ -26,6 +26,7 @@
 #include <dlfcn.h>
 #include <linux/input-event-codes.h>
 #include <mutex>
+#include <new>
 #include <time.h>
 #include <poll.h>
 #include <unordered_map>
@@ -50,30 +51,31 @@ namespace lotus::apphook {
             unsigned                                   blockingWaiters = 0;
         };
 
-        std::mutex xcbMutex;
         using ConnectionMap = std::unordered_map<xcb_connection_t*, XcbFocus>;
         using ConnectionSet = std::unordered_set<xcb_connection_t*>;
-        std::atomic<ConnectionMap*> initialized_connections{nullptr};
-        ConnectionMap&              connectionsStorage() {
-            static BackendRegistry<ConnectionMap> state;
-            initialized_connections.store(&state, std::memory_order_release);
-            return state;
+        struct XcbGeneration {
+            std::mutex    mutex;
+            ConnectionMap connections;
+            ConnectionSet xlibOwned;
+            ConnectionSet xcbEventOwners;
+        };
+        std::atomic<XcbGeneration*> currentXcb{nullptr};
+        XcbGeneration&              xcbGeneration() {
+            auto* current = currentXcb.load(std::memory_order_acquire);
+            if (current)
+                return *current;
+            auto*          fresh    = new XcbGeneration;
+            XcbGeneration* expected = nullptr;
+            if (!currentXcb.compare_exchange_strong(expected, fresh, std::memory_order_acq_rel)) {
+                delete fresh;
+                return *expected;
+            }
+            return *fresh;
         }
-#define connections (connectionsStorage())
-        std::atomic<ConnectionSet*> initialized_xlibOwned{nullptr};
-        ConnectionSet&              xlibOwnedStorage() {
-            static BackendRegistry<ConnectionSet> state;
-            initialized_xlibOwned.store(&state, std::memory_order_release);
-            return state;
-        }
-#define xlibOwned (xlibOwnedStorage())
-        std::atomic<ConnectionSet*> initialized_xcbEventOwners{nullptr};
-        ConnectionSet&              xcbEventOwnersStorage() {
-            static BackendRegistry<ConnectionSet> state;
-            initialized_xcbEventOwners.store(&state, std::memory_order_release);
-            return state;
-        }
-#define xcbEventOwners (xcbEventOwnersStorage())
+#define xcbMutex       (xcbGeneration().mutex)
+#define connections    (xcbGeneration().connections)
+#define xlibOwned      (xcbGeneration().xlibOwned)
+#define xcbEventOwners (xcbGeneration().xcbEventOwners)
         // A self-directed ClientMessage wakes libxcb's native event waiters.
         // Never bypass libxcb's internal event queue synchronization with poll().
         constexpr char kWakePayload[] = "lotus-apphook-wakeup";
@@ -417,6 +419,8 @@ namespace lotus::apphook {
     } // namespace
 
     FocusCandidates focusedXcbCandidates() {
+        if (!currentXcb.load(std::memory_order_acquire))
+            return {};
         std::scoped_lock lock(xcbMutex);
         FocusCandidates  candidates;
         for (const auto& [connection, state] : connections) {
@@ -476,6 +480,8 @@ namespace lotus::apphook {
     }
 
     void wakeXcb() {
+        if (!currentXcb.load(std::memory_order_acquire))
+            return;
         std::scoped_lock lock(xcbMutex);
         if (!originalSendEvent || !originalFlush)
             return;
@@ -546,20 +552,11 @@ namespace lotus::apphook {
         updateFocusState();
     }
 
-    bool prepareXcbFork() {
-        return xcbMutex.try_lock();
-    }
-    void finishXcbFork() {
-        xcbMutex.unlock();
-    }
     void resetXcbAfterFork() {
-        std::scoped_lock lock(xcbMutex);
-        if (auto* state = initialized_connections.load(std::memory_order_acquire))
-            state->clear();
-        if (auto* state = initialized_xlibOwned.load(std::memory_order_acquire))
-            state->clear();
-        if (auto* state = initialized_xcbEventOwners.load(std::memory_order_acquire))
-            state->clear();
+        // Inherited locks/maps belong to the parent generation. Never inspect or
+        // destroy them in a forked child, even if another thread held a lock.
+        currentXcb.store(nullptr, std::memory_order_release);
+        new (&resolveOnce) std::once_flag;
     }
 
     bool xcbOwnsXlibConnection(void* ptr) {

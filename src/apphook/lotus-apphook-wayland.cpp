@@ -103,22 +103,35 @@ namespace lotus::apphook {
             uint32_t                superIndex = 6;
         };
         using KeyboardList = std::list<std::shared_ptr<Keyboard>>;
-        std::atomic<KeyboardList*> initializedKeyboards{nullptr};
-        KeyboardList&              keyboardsStorage() {
-            static BackendRegistry<KeyboardList> state;
-            initializedKeyboards.store(&state, std::memory_order_release);
-            return state;
+        struct WaylandGeneration {
+            KeyboardList           keyboards;
+            std::atomic<uintptr_t> nextFocusToken{0};
+            std::recursive_mutex   keyboardMutex;
+            std::mutex             waylandConnectionMutex;
+            std::mutex             xkbMutex;
+        };
+        std::atomic<WaylandGeneration*> currentWayland{nullptr};
+        WaylandGeneration&              waylandGeneration() {
+            auto* current = currentWayland.load(std::memory_order_acquire);
+            if (current)
+                return *current;
+            auto*              fresh    = new WaylandGeneration;
+            WaylandGeneration* expected = nullptr;
+            if (!currentWayland.compare_exchange_strong(expected, fresh, std::memory_order_acq_rel)) {
+                delete fresh;
+                return *expected;
+            }
+            return *fresh;
         }
-#define keyboards (keyboardsStorage())
-        // A proxy survives surface changes; tokens bind tasks to one enter.
-        std::atomic<uintptr_t> nextFocusToken{0};
-        std::recursive_mutex   keyboardMutex;
-        std::mutex             waylandConnectionMutex;
-        void*                  wayland = nullptr;
-        std::atomic<bool>      waylandCapable{false};
-        void*                  xkb = nullptr;
-        std::mutex             xkbMutex;
-        std::once_flag         resolveOnce;
+#define keyboards              (waylandGeneration().keyboards)
+#define nextFocusToken         (waylandGeneration().nextFocusToken)
+#define keyboardMutex          (waylandGeneration().keyboardMutex)
+#define waylandConnectionMutex (waylandGeneration().waylandConnectionMutex)
+#define xkbMutex               (waylandGeneration().xkbMutex)
+        void*             wayland = nullptr;
+        std::atomic<bool> waylandCapable{false};
+        void*             xkb = nullptr;
+        std::once_flag    resolveOnce;
 
         int (*originalAddListener)(wl_proxy*, void (**)(void), void*)                                                    = nullptr;
         int (*originalAddDispatcher)(wl_proxy*, Dispatcher, const void*, void*)                                          = nullptr;
@@ -721,6 +734,8 @@ namespace lotus::apphook {
     } // namespace
 
     FocusCandidates focusedWaylandCandidates() {
+        if (!currentWayland.load(std::memory_order_acquire))
+            return {};
         std::scoped_lock lock(keyboardMutex);
         FocusCandidates  candidates;
         for (const auto& keyboard : keyboards) {
@@ -775,42 +790,17 @@ namespace lotus::apphook {
         });
     }
 
-    bool prepareWaylandFork() {
-        if (!waylandConnectionMutex.try_lock())
-            return false;
-        if (!keyboardMutex.try_lock()) {
-            waylandConnectionMutex.unlock();
-            return false;
-        }
-        if (!xkbMutex.try_lock()) {
-            keyboardMutex.unlock();
-            waylandConnectionMutex.unlock();
-            return false;
-        }
-        return true;
-    }
-
-    void finishWaylandFork(bool child) {
-        xkbMutex.unlock();
-        // A recursive pthread mutex remembers its owner's TID. After fork the
-        // child has a different TID, so unlocking this inherited mutex fails
-        // with EPERM. Replace it before child-side backend recovery instead.
-        if (!child)
-            keyboardMutex.unlock();
-        waylandConnectionMutex.unlock();
-    }
-
     void resetWaylandAfterFork() {
-        // Only the fork caller survives. Rebase the inherited recursive mutex
-        // instead of trying to unlock a mutex owned by the parent's TID.
-        new (&keyboardMutex) std::recursive_mutex;
-        std::scoped_lock lock(waylandConnectionMutex, keyboardMutex, xkbMutex);
-        if (auto* state = initializedKeyboards.load(std::memory_order_acquire))
-            state->clear();
-        nextFocusToken.store(0, std::memory_order_release);
+        // Preserve the parent's recursive mutex and listener state untouched.
+        // The child builds a fresh state if a keyboard frontend is activated.
+        currentWayland.store(nullptr, std::memory_order_release);
+        new (&resolveOnce) std::once_flag;
+        waylandCapable.store(false, std::memory_order_release);
     }
 
     void wakeWayland() {
+        if (!currentWayland.load(std::memory_order_acquire))
+            return;
         std::scoped_lock connectionLock(waylandConnectionMutex);
         wl_display*      display = nullptr;
         if (!waylandCapable.load(std::memory_order_acquire))
