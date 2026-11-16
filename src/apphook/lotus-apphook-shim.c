@@ -257,9 +257,38 @@ static void activate(void) {
     atomic_store_explicit(&loading_pid, 0, memory_order_release);
 }
 
+/* Resolve native dlsym without reentering this interposer, then preserve
+ * the next resolver in the preload chain. */
+typedef void* (*DlsymFunction)(void*, const char*);
+static _Atomic(DlsymFunction) next_dlsym;
+
+static DlsymFunction          native_dlsym_function(void) {
+    DlsymFunction next = atomic_load_explicit(&next_dlsym, memory_order_acquire);
+    if (next)
+        return next;
+    DlsymFunction bootstrap = (DlsymFunction)dlvsym(RTLD_NEXT, "dlsym", "GLIBC_2.34");
+    if (!bootstrap)
+        bootstrap = (DlsymFunction)dlvsym(RTLD_NEXT, "dlsym", "GLIBC_2.2.5");
+    if (!bootstrap)
+        return NULL;
+    next = (DlsymFunction)bootstrap(RTLD_NEXT, "dlsym");
+    if (!next)
+        next = bootstrap;
+    DlsymFunction expected = NULL;
+    if (!atomic_compare_exchange_strong_explicit(&next_dlsym, &expected, next, memory_order_acq_rel, memory_order_acquire))
+        next = expected;
+    return next;
+}
+
+/* Internal resolvers must never receive interposed Wayland entrypoints. */
+__attribute__((visibility("hidden"))) void* lotus_apphook_native_dlsym(void* handle, const char* symbol) {
+    DlsymFunction native = native_dlsym_function();
+    return native ? native(handle, symbol) : NULL;
+}
+
 /* RTLD_NEXT cannot resolve symbols from RTLD_LOCAL frontend libraries. */
 static void* resolve_native(const char* symbol) {
-    void* fn = dlsym(RTLD_NEXT, symbol);
+    void* fn = lotus_apphook_native_dlsym(RTLD_NEXT, symbol);
     if (fn)
         return fn;
 
@@ -279,7 +308,7 @@ static void* resolve_native(const char* symbol) {
     void* handle = dlopen(soname, RTLD_LAZY | RTLD_NOLOAD | RTLD_LOCAL);
     if (!handle)
         return NULL;
-    fn = dlsym(handle, symbol);
+    fn = lotus_apphook_native_dlsym(handle, symbol);
     dlclose(handle);
     return fn;
 }
@@ -523,3 +552,69 @@ RELAY(int, wl_display_dispatch_queue, (struct wl_display * d, struct wl_event_qu
  * handles these calls directly when it supports them. */
 RELAY(struct wl_display*, wl_display_connect, (const char* name), (name), NULL, 0)
 RELAY(struct wl_display*, wl_display_connect_to_fd, (int fd), (fd), NULL, 0)
+
+/* Dynamic Wayland function tables (Chromium/Electron) may resolve entrypoints
+ * from a RTLD_LOCAL libwayland-client handle, bypassing ELF interposition.
+ * Return the existing preload wrappers only for symbols that actually resolve
+ * to libwayland-client; all other lookups retain native behavior. */
+static void* wayland_wrapper(const char* symbol) {
+    static const struct {
+        const char* name;
+        void*       wrapper;
+    } functions[] = {
+        {"wl_proxy_add_listener", (void*)wl_proxy_add_listener},
+        {"wl_proxy_add_dispatcher", (void*)wl_proxy_add_dispatcher},
+        {"wl_proxy_get_listener", (void*)wl_proxy_get_listener},
+        {"wl_proxy_marshal_array_flags", (void*)wl_proxy_marshal_array_flags},
+        {"wl_proxy_destroy", (void*)wl_proxy_destroy},
+        {"wl_display_connect", (void*)wl_display_connect},
+        {"wl_display_connect_to_fd", (void*)wl_display_connect_to_fd},
+        {"wl_display_disconnect", (void*)wl_display_disconnect},
+        {"wl_display_dispatch", (void*)wl_display_dispatch},
+        {"wl_display_dispatch_pending", (void*)wl_display_dispatch_pending},
+        {"wl_display_dispatch_queue", (void*)wl_display_dispatch_queue},
+        {"wl_display_dispatch_queue_pending", (void*)wl_display_dispatch_queue_pending},
+    };
+    for (size_t i = 0; i < sizeof(functions) / sizeof(functions[0]); ++i)
+        if (!strcmp(symbol, functions[i].name))
+            return functions[i].wrapper;
+    return NULL;
+}
+
+static int is_native_wayland_symbol(void* fn) {
+    Dl_info info;
+    if (!dladdr(fn, &info) || !info.dli_fname)
+        return 0;
+    const char* filename  = strrchr(info.dli_fname, '/');
+    filename              = filename ? filename + 1 : info.dli_fname;
+    const char   prefix[] = "libwayland-client.so";
+    const size_t n        = sizeof(prefix) - 1;
+    return strncmp(filename, prefix, n) == 0 && (filename[n] == '.' || filename[n] == '\0');
+}
+
+#if defined(__has_attribute)
+#if __has_attribute(musttail)
+#define XERN_MUSTTAIL __attribute__((musttail))
+#endif
+#endif
+#ifndef XERN_MUSTTAIL
+#define XERN_MUSTTAIL
+#define XERN_DLSYM_ATTRIBUTES __attribute__((optimize("O2", "optimize-sibling-calls")))
+#else
+#define XERN_DLSYM_ATTRIBUTES
+#endif
+
+/* Forward untouched dlsym calls as a tail call: RTLD_NEXT inspects the
+ * original caller address, not the location of this interposer. */
+__attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlsym(void* handle, const char* symbol) {
+    DlsymFunction native = native_dlsym_function();
+    if (!native)
+        return NULL;
+    if (handle == RTLD_DEFAULT || handle == RTLD_NEXT || strncmp(symbol, "wl_", 3) != 0)
+        XERN_MUSTTAIL return native(handle, symbol);
+    void* hook = wayland_wrapper(symbol);
+    if (!hook)
+        XERN_MUSTTAIL return native(handle, symbol);
+    void* resolved = native(handle, symbol);
+    return resolved && is_native_wayland_symbol(resolved) ? hook : resolved;
+}

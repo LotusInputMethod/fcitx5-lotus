@@ -1,6 +1,7 @@
 /* The C preload shim is the only exported hook surface. */
 {
     global:
+        dlsym;
         XChangeWindowAttributes;
         XCheckIfEvent;
         XCheckMaskEvent;

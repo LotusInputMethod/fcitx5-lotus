@@ -78,7 +78,8 @@ struct KeyboardListener {
 
 using Dispatcher = int (*)(const void*, void*, uint32_t, const WlMessage*, WlArgument*);
 
-extern "C" int lotus_apphook_activate_inherited_keyboard() __attribute__((visibility("hidden")));
+extern "C" int   lotus_apphook_activate_inherited_keyboard() __attribute__((visibility("hidden")));
+extern "C" void* lotus_apphook_native_dlsym(void*, const char*) __attribute__((visibility("hidden")));
 namespace lotus::apphook {
     void loadWayland();
     namespace {
@@ -240,7 +241,7 @@ namespace lotus::apphook {
          */
         template <typename Type>
         Type resolve(void* handle, const char* name) {
-            return reinterpret_cast<Type>(dlsym(handle, name));
+            return reinterpret_cast<Type>(lotus_apphook_native_dlsym(handle, name));
         }
 
         /**
