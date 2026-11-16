@@ -3,6 +3,7 @@
 // A focus bounce in the middle of a replacement loses the backspace echo for the injected keys: the
 // input context is unfocused, so fcitx never delivers those key events back to the addon. The state
 // must not stay in the deleting state forever - every further key would be queued and dropped.
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
@@ -12,35 +13,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-
-namespace {
-
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()),
-                          "the mid-replacement focus-out test saw an unexpected key outcome");
-            return false;
-        }
-        return true;
-    }
-
-    void loseFocus(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context) {
-        fcitx::InputContextEvent out(&context, fcitx::EventType::InputContextFocusOut);
-        engine.deactivate(entry, out);
-        engine.reset(entry, out);
-        context.focusOut();
-    }
-
-    void gainFocus(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context) {
-        context.focusIn();
-        fcitx::InputContextEvent in(&context, fcitx::EventType::InputContextFocusIn);
-        engine.activate(entry, in);
-    }
-
-} // namespace
 
 int main() {
     configureTestPaths("fcitx5-lotus-focus-out-mid-replacement");
@@ -61,8 +33,10 @@ int main() {
     gainFocus(engine, entry, *context);
 
     // a, n, g then f: Telex adds the huyền tone, so the engine replaces "ng" of "ang" with "àng".
-    if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_n, false) || !send(engine, entry, *context, FcitxKey_g, false) ||
-        !send(engine, entry, *context, FcitxKey_f, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_a, false, "plain letters before the trigger must echo to the app") ||
+        !sendKey(engine, entry, *context, FcitxKey_n, false, "plain letters before the trigger must echo to the app") ||
+        !sendKey(engine, entry, *context, FcitxKey_g, false, "plain letters before the trigger must echo to the app") ||
+        !sendKey(engine, entry, *context, FcitxKey_f, true, "the tone trigger must be swallowed to start the replacement"))
         return 1;
     KbMsg msg{};
     if (!listener.receive(msg, "the Telex replacement request did not arrive"))
@@ -74,7 +48,7 @@ int main() {
     }
 
     // Only the first echo of the three arrives; the rest are lost while the context is unfocused.
-    if (!send(engine, entry, *context, FcitxKey_BackSpace, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_BackSpace, false, "the first burst backspace must echo to the app before the focus bounces"))
         return 1;
 
     // Focus bounce in the middle of the deleting state.
@@ -82,7 +56,7 @@ int main() {
     gainFocus(engine, entry, *context);
 
     // Keys typed while the ack never completes must be queued, not committed.
-    if (!send(engine, entry, *context, FcitxKey_q, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_q, true, "a key typed while the echo is lost must be swallowed and queued"))
         return 1;
     if (!context->commits().empty()) {
         reportFailure("type while the replacement is pending", "no commits yet", "commits=" + std::to_string(context->commits().size()),
@@ -105,7 +79,7 @@ int main() {
     }
 
     // After the recovery the queued key is gone from the queue: a plain letter is forwarded again.
-    if (!send(engine, entry, *context, FcitxKey_q, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_q, false, "after recovery a plain letter must echo to the app again"))
         return 1;
 
     std::printf("lotus focus-out mid replacement: all checks passed\n");

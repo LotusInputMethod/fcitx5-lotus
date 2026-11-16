@@ -7,6 +7,7 @@
  *        replacement that follows a recent commit.
  */
 
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
@@ -23,18 +24,6 @@ namespace {
         if (msg.op != KbOp::Backspace || msg.count <= 0) {
             reportFailure("receive replacement request", "op=backspace, count > 0", "op=" + std::to_string(static_cast<int>(msg.op)) + ", count=" + std::to_string(msg.count),
                           meaning);
-            return false;
-        }
-        return true;
-    }
-
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()),
-                          "Smooth replacement handling accepted or rejected the key unexpectedly");
             return false;
         }
         return true;
@@ -72,7 +61,8 @@ int main() {
 
     // Telex a, s changes the real Bamboo preedit a -> á; Smooth mode replaces
     // the old character through the kbSocket transport.
-    if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_s, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_a, false, "plain letters before the trigger must echo to the app") ||
+        !sendKey(engine, entry, *context, FcitxKey_s, true, "the trigger key must be swallowed to start the replacement"))
         return 1;
 
     KbMsg first{};
@@ -85,16 +75,16 @@ int main() {
         return 1;
     }
 
-    if (!send(engine, entry, *context, FcitxKey_x, true) || !context->commits().empty()) {
+    if (!sendKey(engine, entry, *context, FcitxKey_x, true, "the buffered key must be swallowed while the replacement runs") || !context->commits().empty()) {
         reportFailure("buffer key x before deletion completes", "no immediate commits", "commits=" + std::to_string(context->commits().size()),
                       "buffered key x was emitted before the first replacement completed");
         return 1;
     }
     for (size_t i = 0; i < first.count; ++i) {
-        if (!send(engine, entry, *context, FcitxKey_BackSpace, false))
+        if (!sendKey(engine, entry, *context, FcitxKey_BackSpace, false, "the burst backspace must echo to the app so it deletes the old word"))
             return 1;
     }
-    if (!send(engine, entry, *context, FcitxKey_Pause, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement"))
         return 1;
 
     KbMsg second{};
@@ -106,10 +96,10 @@ int main() {
         return 1;
     }
     for (size_t i = 0; i < second.count; ++i) {
-        if (!send(engine, entry, *context, FcitxKey_BackSpace, false))
+        if (!sendKey(engine, entry, *context, FcitxKey_BackSpace, false, "the replayed replacement's backspaces must echo to the app"))
             return 1;
     }
-    if (!send(engine, entry, *context, FcitxKey_Pause, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor of the replayed replacement must be swallowed"))
         return 1;
     return 0;
 }

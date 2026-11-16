@@ -3,6 +3,7 @@
 // Uinput modes must keep the composed word across a focus bounce: Brave's ibus input context on
 // Wayland (iCloud Notes) reports focus-out/focus-in on every key, and the focus-out reset used to
 // destroy the word before activate() could recognise the bounce.
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
@@ -15,32 +16,6 @@
 #include <vector>
 
 namespace {
-
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()),
-                          "uinput focus-bounce handling accepted or rejected the key unexpectedly");
-            return false;
-        }
-        return true;
-    }
-
-    // The order a frontend reports a focus loss: deactivate(), then reset(FocusOut).
-    void loseFocus(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context) {
-        fcitx::InputContextEvent out(&context, fcitx::EventType::InputContextFocusOut);
-        engine.deactivate(entry, out);
-        engine.reset(entry, out);
-        context.focusOut();
-    }
-
-    void gainFocus(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context) {
-        context.focusIn();
-        fcitx::InputContextEvent in(&context, fcitx::EventType::InputContextFocusIn);
-        engine.activate(entry, in);
-    }
 
     // Back-to-back focus bounces with no sleep: Brave's ibus IC re-reports focus-out/focus-in
     // on (nearly) every key, sometimes several times per key.
@@ -62,10 +37,10 @@ namespace {
             return false;
         }
         for (std::size_t i = 0; i < msg.count; ++i) {
-            if (!send(engine, entry, context, FcitxKey_BackSpace, false))
+            if (!sendKey(engine, entry, context, FcitxKey_BackSpace, false, "the burst backspace must echo to the app so it deletes the old word"))
                 return false;
         }
-        return send(engine, entry, context, FcitxKey_Pause, true);
+        return sendKey(engine, entry, context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement");
     }
 
 } // namespace
@@ -99,24 +74,21 @@ int main() {
 
     // Per-key bounce: Brave's ibus IC reports focus-out/focus-in on nearly every key, so bounce
     // after EACH of 't' and 'u' (multiple back-to-back rounds, no sleep) before typing 'w'.
-    if (!send(engine, entry, *context, FcitxKey_t, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_t, false, "plain letters must echo to the app across focus bounces"))
         return 1;
     bounceFocus(engine, entry, *context, 2);
-    if (!send(engine, entry, *context, FcitxKey_u, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_u, false, "plain letters must echo to the app across focus bounces"))
         return 1;
     bounceFocus(engine, entry, *context, 3);
 
-    if (!send(engine, entry, *context, FcitxKey_w, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_w, true, "the trigger key must be swallowed to start the replacement"))
         return 1;
     if (!completeReplacement(engine, entry, *context, listener, "a focus bounce must not drop the composed word: typing after it still needs the replacement request"))
         return 1;
 
     const std::vector<std::string> expected{"ư"};
     if (context->commits() != expected) {
-        std::string actual = "commits=";
-        for (const auto& commit : context->commits())
-            actual += "['" + commit + "']";
-        reportFailure("verify commit after a bounce", "commits=['ư']", actual, "the bounced word was replaced from scratch instead of keeping 'tu'");
+        reportFailure("verify commit after a bounce", "commits=['ư']", commitList(*context), "the bounced word was replaced from scratch instead of keeping 'tu'");
         return 1;
     }
 
@@ -131,24 +103,19 @@ int main() {
     contextB->setFrontendName("ibus");
     gainFocus(engine, entry, *contextB);
 
-    if (!send(engine, entry, *contextB, FcitxKey_a, false) || !send(engine, entry, *contextB, FcitxKey_s, true))
+    if (!sendKey(engine, entry, *contextB, FcitxKey_a, false, "plain letters on the second context must echo to the app") ||
+        !sendKey(engine, entry, *contextB, FcitxKey_s, true, "the trigger key must be swallowed to start the replacement"))
         return 1;
     if (!completeReplacement(engine, entry, *contextB, listener, "a second context must replace its own word independently"))
         return 1;
 
     if (context->commits() != expected) {
-        std::string actual = "commits=";
-        for (const auto& commit : context->commits())
-            actual += "['" + commit + "']";
-        reportFailure("cross-context isolation", "contextA commits=['ư']", actual, "typing on contextB leaked into contextA");
+        reportFailure("cross-context isolation", "contextA commits=['ư']", commitList(*context), "typing on contextB leaked into contextA");
         return 1;
     }
     const std::vector<std::string> expectedB{"á"};
     if (contextB->commits() != expectedB) {
-        std::string actual = "commits=";
-        for (const auto& commit : contextB->commits())
-            actual += "['" + commit + "']";
-        reportFailure("independent word on contextB", "contextB commits=['á']", actual, "contextB must compose its own word without contextA state");
+        reportFailure("independent word on contextB", "contextB commits=['á']", commitList(*contextB), "contextB must compose its own word without contextA state");
         return 1;
     }
     // Return B -> A: A's deferred reset flushes on re-entry (elapsed >100ms), so the next
@@ -156,17 +123,15 @@ int main() {
     loseFocus(engine, entry, *contextB);
     gainFocus(engine, entry, *context);
     // Same-context fresh word after the real move: 'a' + 's' must replace only that fresh word.
-    if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_s, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_a, false, "plain letters after a real focus move must echo to the app") ||
+        !sendKey(engine, entry, *context, FcitxKey_s, true, "the trigger key must be swallowed to start the replacement"))
         return 1;
     if (!completeReplacement(engine, entry, *context, listener, "the word after a real focus move must be replaced from scratch"))
         return 1;
 
     const std::vector<std::string> expectedAfterMove{"ư", "á"};
     if (context->commits() != expectedAfterMove) {
-        std::string actual = "commits=";
-        for (const auto& commit : context->commits())
-            actual += "['" + commit + "']";
-        reportFailure("next word after a real focus move", "commits=['ư']['á']", actual, "a real focus move must still drop the word buffer");
+        reportFailure("next word after a real focus move", "commits=['ư']['á']", commitList(*context), "a real focus move must still drop the word buffer");
         return 1;
     }
 

@@ -5,8 +5,8 @@
 // becomes its own code point, so a word can hold more code points than the characters a client
 // deletes. No input context, no socket, no injected key.
 #include "lotus-utils.h"
+#include "test-utils.h"
 
-#include <array>
 #include <cstdio>
 #include <string>
 
@@ -20,21 +20,11 @@ namespace {
 
     int                           failures = 0;
 
-    std::string                   codePoints(std::u32string_view text) {
-        std::string          out;
-        std::array<char, 16> buffer = {};
-        for (const char32_t codePoint : text) {
-            std::snprintf(buffer.data(), buffer.size(), "U+%04X ", static_cast<unsigned int>(codePoint));
-            out += buffer.data();
-        }
-        return out.empty() ? "<empty>" : out;
-    }
-
-    void checkText(const char* name, std::u32string_view actual, std::u32string_view expected) {
+    void                          checkText(const char* name, std::u32string_view actual, std::u32string_view expected) {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got [%s] expected [%s]\n", name, codePoints(actual).c_str(), codePoints(expected).c_str());
+        std::printf("FAIL %s: got [%s] expected [%s]\n", name, hexOf(actual, "<empty>").c_str(), hexOf(expected, "<empty>").c_str());
         ++failures;
     }
 
@@ -59,7 +49,7 @@ namespace {
     // attaches to, so the deleted part must never start with one.
     void checkStartsAtClusterBoundary(const char* name, const DiffPart& diff) {
         if (!diff.deletedPart.empty() && isCombiningMark(diff.deletedPart.front())) {
-            std::printf("FAIL %s: deleted part starts with a combining mark [%s]\n", name, codePoints(diff.deletedPart).c_str());
+            std::printf("FAIL %s: deleted part starts with a combining mark [%s]\n", name, hexOf(diff.deletedPart, "<empty>").c_str());
             ++failures;
         }
     }

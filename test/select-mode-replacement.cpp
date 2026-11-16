@@ -5,6 +5,7 @@
 // replacement once all echoed left arrows have arrived, the intermediate arrows
 // pass through so the app can extend the selection, and no arrow is replayed
 // afterwards.
+#include "engine-fixture.h"
 #include "fcitx-utils/keysym.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
@@ -28,25 +29,6 @@ namespace {
         }
         count = msg.count;
         return true;
-    }
-
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()),
-                          "Select echo handling accepted or rejected the key unexpectedly");
-            return false;
-        }
-        return true;
-    }
-
-    std::string commitList(const TestInputContext& context) {
-        std::string actual = "commits=";
-        for (const auto& commit : context.commits())
-            actual += "['" + commit + "']";
-        return actual;
     }
 
 } // namespace
@@ -77,14 +59,15 @@ int main() {
 
     // Telex a, s changes the Bamboo preedit a -> á. Select mode must ask the
     // uinput server to select the old character(s) instead of sending backspaces.
-    if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_s, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_a, false, "plain letters before the trigger must echo to the app") ||
+        !sendKey(engine, entry, *context, FcitxKey_s, true, "the trigger key must be swallowed to start the replacement"))
         return 1;
     size_t selects = 0;
     if (!receiveSelectRequest(listener, selects, "the initial Telex replacement did not request a selection"))
         return 1;
 
     // A key typed while the selection is in flight must not commit immediately.
-    if (!send(engine, entry, *context, FcitxKey_x, true) || !context->commits().empty()) {
+    if (!sendKey(engine, entry, *context, FcitxKey_x, true, "the buffered key must be swallowed while the replacement runs") || !context->commits().empty()) {
         reportFailure("buffer key x before the selection completes", "no immediate commits", commitList(*context), "buffered key x was emitted before the selection completed");
         return 1;
     }
@@ -92,12 +75,12 @@ int main() {
     // Echoed left arrows: every press but the last passes through so the app can
     // extend the selection; the last one is swallowed and commits the replacement.
     for (size_t i = 0; i < selects; ++i) {
-        if (!send(engine, entry, *context, FcitxKey_Left, false))
+        if (!sendKey(engine, entry, *context, FcitxKey_Left, false, "the selection arrows must echo to the app so the app can extend the selection"))
             return 1;
     }
-    if (!send(engine, entry, *context, FcitxKey_Delete, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_Delete, false, "the Delete echo must reach the application"))
         return 1;
-    if (!send(engine, entry, *context, FcitxKey_Pause, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement"))
         return 1;
     const std::vector<std::string> afterFirst{"á"};
     if (context->commits() != afterFirst) {
@@ -114,12 +97,12 @@ int main() {
                               "buffered x replay starts another selection request within 5000 ms"))
         return 1;
     for (size_t i = 0; i < replaySelects; ++i) {
-        if (!send(engine, entry, *context, FcitxKey_Left, false))
+        if (!sendKey(engine, entry, *context, FcitxKey_Left, false, "the selection arrows must echo to the app so the app can extend the selection"))
             return 1;
     }
-    if (!send(engine, entry, *context, FcitxKey_Delete, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_Delete, false, "the Delete echo must reach the application"))
         return 1;
-    if (!send(engine, entry, *context, FcitxKey_Pause, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement"))
         return 1;
 
     const std::vector<std::string> expected{"á", "ã"};

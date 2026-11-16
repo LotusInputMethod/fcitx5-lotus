@@ -4,6 +4,7 @@
 // returns: the uinput server finishes the selection on Cancel, so the old text
 // is always fully removed and the stashed replacement text belongs at the
 // cursor. Escape triggers the commit without feeding the word engine.
+#include "engine-fixture.h"
 #include "fcitx-utils/keysym.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
@@ -17,39 +18,9 @@
 
 namespace {
 
-    bool press(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() == requireAccepted)
-            return true;
-        reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                      "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()), "unexpected key outcome");
-        return false;
-    }
-
-    void loseFocus(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context) {
-        fcitx::InputContextEvent out(&context, fcitx::EventType::InputContextFocusOut);
-        engine.deactivate(entry, out);
-        engine.reset(entry, out);
-        context.focusOut();
-    }
-
-    void gainFocus(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context) {
-        context.focusIn();
-        fcitx::InputContextEvent in(&context, fcitx::EventType::InputContextFocusIn);
-        engine.activate(entry, in);
-    }
-
-    std::string commitList(const TestInputContext& context) {
-        std::string actual = "commits=";
-        for (const auto& commit : context.commits())
-            actual += "['" + commit + "']";
-        return actual;
-    }
-
     // Types "at" + the sac mark key, waits for the Select request of 2 characters.
     bool startAtSacReplacement(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, KbSocketListener& listener, const char* meaning) {
-        if (!press(engine, entry, context, FcitxKey_a, false) || !press(engine, entry, context, FcitxKey_t, false) || !press(engine, entry, context, FcitxKey_s, true))
+        if (!sendKey(engine, entry, context, FcitxKey_a, false) || !sendKey(engine, entry, context, FcitxKey_t, false) || !sendKey(engine, entry, context, FcitxKey_s, true))
             return false;
         KbMsg msg{};
         if (!listener.receive(msg, meaning))
@@ -105,7 +76,7 @@ int main() {
             return 1;
         }
         gainFocus(engine, entry, *context);
-        if (!press(engine, entry, *context, FcitxKey_Escape, false))
+        if (!sendKey(engine, entry, *context, FcitxKey_Escape, false))
             return 1;
         const std::vector<std::string> stashed{"át"};
         if (context->commits() != stashed) {
@@ -134,7 +105,7 @@ int main() {
             return 1;
         std::this_thread::sleep_for(std::chrono::milliseconds(2100));
         gainFocus(engine, entry, *context);
-        if (!press(engine, entry, *context, FcitxKey_Escape, false))
+        if (!sendKey(engine, entry, *context, FcitxKey_Escape, false))
             return 1;
         if (!context->commits().empty()) {
             reportFailure("verify no commit for the stale stash", "no commits", commitList(*context), "scenario 2: the stale stash must not commit");
@@ -166,7 +137,7 @@ int main() {
         if (!listener.receive(msg, "scenario 3: the cancel request did not arrive"))
             return 1;
         gainFocus(engine, entry, *context);
-        if (!press(engine, entry, *context, FcitxKey_Escape, false))
+        if (!sendKey(engine, entry, *context, FcitxKey_Escape, false))
             return 1;
         const std::vector<std::string> stashed{"át"};
         if (context->commits() != stashed) {
@@ -175,7 +146,8 @@ int main() {
         }
         if (!startAtSacReplacement(engine, entry, *context, listener, "scenario 3: the fresh select request did not arrive"))
             return 1;
-        if (!press(engine, entry, *context, FcitxKey_Left, false) || !press(engine, entry, *context, FcitxKey_Left, false) || !press(engine, entry, *context, FcitxKey_Pause, true))
+        if (!sendKey(engine, entry, *context, FcitxKey_Left, false) || !sendKey(engine, entry, *context, FcitxKey_Left, false) ||
+            !sendKey(engine, entry, *context, FcitxKey_Pause, true))
             return 1;
         const std::vector<std::string> fresh{"át", "át"};
         if (context->commits() != fresh) {

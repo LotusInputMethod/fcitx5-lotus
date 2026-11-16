@@ -3,6 +3,7 @@
 // A replacement dropped by the engine must tell the uinput server to stop pacing
 // its burst, and keys typed while the burst tail still holds Shift must replay
 // without the phantom Shift.
+#include "engine-fixture.h"
 #include "fcitx-utils/keysym.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
@@ -15,46 +16,6 @@
 #include <vector>
 
 namespace {
-
-    bool press(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() == requireAccepted)
-            return true;
-        reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                      "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()), "unexpected key outcome");
-        return false;
-    }
-
-    bool pressKey(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::Key key, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, key, false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() == requireAccepted)
-            return true;
-        reportFailure("process key " + std::to_string(key.sym()), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                      "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()), "unexpected key outcome");
-        return false;
-    }
-
-    void loseFocus(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context) {
-        fcitx::InputContextEvent out(&context, fcitx::EventType::InputContextFocusOut);
-        engine.deactivate(entry, out);
-        engine.reset(entry, out);
-        context.focusOut();
-    }
-
-    void gainFocus(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context) {
-        context.focusIn();
-        fcitx::InputContextEvent in(&context, fcitx::EventType::InputContextFocusIn);
-        engine.activate(entry, in);
-    }
-
-    std::string commitList(const TestInputContext& context) {
-        std::string actual = "commits=";
-        for (const auto& commit : context.commits())
-            actual += "['" + commit + "']";
-        return actual;
-    }
 
     bool expectMsg(const KbMsg& msg, KbOp op, size_t count, const char* step, const char* meaning) {
         if (msg.op == op && msg.count == count)
@@ -87,7 +48,7 @@ int main() {
     auto otherContext = std::make_unique<TestInputContext>(&testInstance.instance);
 
     // A burst abandoned at focus-out is cancelled once the focus lands somewhere else.
-    if (!press(engine, entry, *context, FcitxKey_a, false) || !press(engine, entry, *context, FcitxKey_t, false) || !press(engine, entry, *context, FcitxKey_s, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_a, false) || !sendKey(engine, entry, *context, FcitxKey_t, false) || !sendKey(engine, entry, *context, FcitxKey_s, true))
         return 1;
     KbMsg msg{};
     if (!listener.receive(msg, "the replacement request did not arrive"))
@@ -113,7 +74,7 @@ int main() {
 
     // Typing resumes right after the abandoned burst: the first key commits the stashed replacement.
     gainFocus(engine, entry, *context);
-    if (!press(engine, entry, *context, FcitxKey_Escape, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_Escape, false))
         return 1;
     const std::vector<std::string> afterAbandoned{"át"};
     if (context->commits() != afterAbandoned) {
@@ -123,7 +84,7 @@ int main() {
 
     // A focus bounce keeps the Select burst alive: no Cancel is sent, the remaining Left echoes finish the
     // selection and the replacement commits exactly once.
-    if (!press(engine, entry, *context, FcitxKey_a, false) || !press(engine, entry, *context, FcitxKey_t, false) || !press(engine, entry, *context, FcitxKey_s, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_a, false) || !sendKey(engine, entry, *context, FcitxKey_t, false) || !sendKey(engine, entry, *context, FcitxKey_s, true))
         return 1;
     if (!listener.receive(msg, "the replacement request before the bounce did not arrive"))
         return 1;
@@ -141,7 +102,8 @@ int main() {
                       "the resumed burst must complete through its own echoes");
         return 1;
     }
-    if (!press(engine, entry, *context, FcitxKey_Left, false) || !press(engine, entry, *context, FcitxKey_Left, false) || !press(engine, entry, *context, FcitxKey_Pause, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_Left, false) || !sendKey(engine, entry, *context, FcitxKey_Left, false) ||
+        !sendKey(engine, entry, *context, FcitxKey_Pause, true))
         return 1;
     const std::vector<std::string> afterBounce{"át", "át"};
     if (context->commits() != afterBounce) {
@@ -155,7 +117,7 @@ int main() {
     // aa -> â rule) and triggers a fresh replacement; Escape both triggers the
     // overdue check and cleans the word state.
     const size_t commitsBeforeTimeout = context->commits().size();
-    if (!press(engine, entry, *context, FcitxKey_a, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_a, true))
         return 1;
     if (!listener.receive(msg, "the second replacement request did not arrive"))
         return 1;
@@ -163,7 +125,7 @@ int main() {
         return 1;
 
     std::this_thread::sleep_for(std::chrono::milliseconds(400));
-    if (!press(engine, entry, *context, FcitxKey_Escape, false))
+    if (!sendKey(engine, entry, *context, FcitxKey_Escape, false))
         return 1;
     if (!listener.receive(msg, "the cancel request after the ack timeout did not arrive"))
         return 1;
@@ -178,15 +140,15 @@ int main() {
     // buffer. While a Select burst is in flight the server holds LEFTSHIFT until
     // the burst tail, so keys typed near the tail carry a phantom Shift state
     // that must replay unshifted.
-    if (!press(engine, entry, *context, FcitxKey_e, false) || !press(engine, entry, *context, FcitxKey_s, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_e, false) || !sendKey(engine, entry, *context, FcitxKey_s, true))
         return 1;
     if (!listener.receive(msg, "the third replacement request did not arrive"))
         return 1;
     if (!expectMsg(msg, KbOp::Select, 1, "receive replacement request", "the third replacement never started"))
         return 1;
 
-    if (!press(engine, entry, *context, FcitxKey_Left, false) || !pressKey(engine, entry, *context, fcitx::Key(FcitxKey_N, fcitx::KeyState::Shift), true) ||
-        !press(engine, entry, *context, FcitxKey_Pause, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_Left, false) || !sendKey(engine, entry, *context, fcitx::Key(FcitxKey_N, fcitx::KeyState::Shift), true) ||
+        !sendKey(engine, entry, *context, FcitxKey_Pause, true))
         return 1;
     if (context->commits().empty() || context->commits().back() != "én") {
         reportFailure("verify commit after the phantom Shift", "commits ending with ['én']", commitList(*context), "the phantom Shift was not stripped from the buffered key");

@@ -3,6 +3,7 @@
 // An invalid continuation typed after a committed replacement must not rewrite
 // the committed word with the raw key strokes: the committed word stays and the
 // key starts a new word.
+#include "engine-fixture.h"
 #include "fcitx-utils/keysym.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
@@ -15,26 +16,9 @@
 
 namespace {
 
-    bool press(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() == requireAccepted)
-            return true;
-        reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                      "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()), "unexpected key outcome");
-        return false;
-    }
-
-    std::string commitList(const TestInputContext& context) {
-        std::string actual = "commits=";
-        for (const auto& commit : context.commits())
-            actual += "['" + commit + "']";
-        return actual;
-    }
-
     // Types "at" + the sac mark key, waits for the Select request of 2 characters.
     bool startAtSacReplacement(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, KbSocketListener& listener, const char* meaning) {
-        if (!press(engine, entry, context, FcitxKey_a, false) || !press(engine, entry, context, FcitxKey_t, false) || !press(engine, entry, context, FcitxKey_s, true))
+        if (!sendKey(engine, entry, context, FcitxKey_a, false) || !sendKey(engine, entry, context, FcitxKey_t, false) || !sendKey(engine, entry, context, FcitxKey_s, true))
             return false;
         KbMsg msg{};
         if (!listener.receive(msg, meaning))
@@ -48,9 +32,9 @@ namespace {
     // Plays back the echoed Shift+Left presses, the Delete and the anchor key.
     bool completeBurst(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, size_t selects) {
         for (size_t i = 0; i < selects; ++i)
-            if (!press(engine, entry, context, FcitxKey_Left, false))
+            if (!sendKey(engine, entry, context, FcitxKey_Left, false))
                 return false;
-        return press(engine, entry, context, FcitxKey_Delete, false) && press(engine, entry, context, FcitxKey_Pause, true);
+        return sendKey(engine, entry, context, FcitxKey_Delete, false) && sendKey(engine, entry, context, FcitxKey_Pause, true);
     }
 
 } // namespace
@@ -85,7 +69,7 @@ int main() {
         reportFailure("verify commit of the replacement", "commits=['át']", commitList(*context), "scenario 1: the replacement did not commit once");
         return 1;
     }
-    if (!press(engine, entry, *context, FcitxKey_t, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_t, true))
         return 1;
     KbMsg restoreMsg{};
     if (!listener.receive(restoreMsg, "scenario 1: the invalid continuation must request the restore rewrite"))
@@ -112,7 +96,7 @@ int main() {
     engine.activate(entry, refocus);
     if (!startAtSacReplacement(engine, entry, *context, listener, "scenario 2: the select request did not arrive"))
         return 1;
-    if (!press(engine, entry, *context, FcitxKey_t, true))
+    if (!sendKey(engine, entry, *context, FcitxKey_t, true))
         return 1;
     if (!completeBurst(engine, entry, *context, 2))
         return 1;

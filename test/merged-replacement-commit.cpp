@@ -5,6 +5,7 @@
 // gnome-shell's ibus frontend (Chromium/Brave native Wayland) is double buffered, so a second
 // commit_string before the next done event replaces the first one and the replaced word is lost
 // (#594). The dbus frontend keeps deferring the batch out of the key event (#441, #286).
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
@@ -32,18 +33,6 @@ namespace {
         return true;
     }
 
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()),
-                          "the replacement handling accepted or rejected the key unexpectedly");
-            return false;
-        }
-        return true;
-    }
-
     // Runs the fcitx event loop long enough for the 0 ms deferred-commit timer to fire.
     void pumpEventLoop(TestInstance& testInstance) {
         auto&      loop      = testInstance.instance.eventLoop();
@@ -65,21 +54,22 @@ namespace {
         engine.activate(entry, focus);
         context->resetPreeditUpdateCount();
 
-        if (!send(engine, entry, *context, FcitxKey_o, false) || !send(engine, entry, *context, FcitxKey_o, true))
+        if (!sendKey(engine, entry, *context, FcitxKey_o, false, "plain letters before the trigger must echo to the app") ||
+            !sendKey(engine, entry, *context, FcitxKey_o, true, "the trigger key must be swallowed to start the replacement"))
             return nullptr;
         size_t backspaces = 0;
         if (!receiveBackspaceRequest(listener, backspaces, "the Telex replacement request did not arrive"))
             return nullptr;
-        if (!send(engine, entry, *context, FcitxKey_i, true) || !context->commits().empty()) {
+        if (!sendKey(engine, entry, *context, FcitxKey_i, true, "the buffered key must be swallowed while the replacement runs") || !context->commits().empty()) {
             reportFailure("buffer key i before the deletion completes", "no commit during the deletion", "commits=" + std::to_string(context->commits().size()),
                           "the buffered key was committed before the replacement finished");
             return nullptr;
         }
         for (size_t i = 0; i < backspaces; ++i) {
-            if (!send(engine, entry, *context, FcitxKey_BackSpace, false))
+            if (!sendKey(engine, entry, *context, FcitxKey_BackSpace, false, "the burst backspace must echo to the app so it deletes the old word"))
                 return nullptr;
         }
-        if (!send(engine, entry, *context, FcitxKey_Pause, true))
+        if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement"))
             return nullptr;
         return context;
     }

@@ -8,9 +8,10 @@
 #include "lotus-engine.h"
 #include "test-input-context.h"
 #include "utf8.h"
+#include "engine-fixture.h"
+#include "test-utils.h"
 
 #include <algorithm>
-#include <array>
 #include <cstdio>
 #include <string>
 #include <string_view>
@@ -20,16 +21,6 @@
 
 namespace {
 
-    std::string codePoints(std::u32string_view text) {
-        std::string          out;
-        std::array<char, 16> buffer = {};
-        for (const char32_t codePoint : text) {
-            std::snprintf(buffer.data(), buffer.size(), "U+%04X ", static_cast<unsigned int>(codePoint));
-            out += buffer.data();
-        }
-        return out.empty() ? "<empty>" : out;
-    }
-
     // Runs the fcitx event loop long enough for the post-delay replacement timers to fire.
     void pumpEventLoop(TestInstance& testInstance) {
         auto&      loop      = testInstance.instance.eventLoop();
@@ -38,17 +29,6 @@ namespace {
             return false;
         });
         loop.exec();
-    }
-
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())), "the engine accepted or forwarded a key unexpectedly");
-            return false;
-        }
-        return true;
     }
 
     // Appends what a client would show for a forwarded key.
@@ -119,7 +99,7 @@ int main() {
 
     const auto typeKey = [&](fcitx::KeySym symbol, bool requireAccepted) {
         const size_t forwardedBefore = context->forwarded().size();
-        if (!send(engine, entry, *context, symbol, requireAccepted)) {
+        if (!sendKey(engine, entry, *context, symbol, requireAccepted, "the engine accepted or forwarded a key unexpectedly")) {
             return false;
         }
         const bool forwardedNow = context->forwarded().size() != forwardedBefore;
@@ -143,11 +123,11 @@ int main() {
             }
             backspaceCounts.push_back(msg.count);
             for (size_t i = 0; i < msg.count; ++i) {
-                if (!send(engine, entry, *context, FcitxKey_BackSpace, false)) {
+                if (!sendKey(engine, entry, *context, FcitxKey_BackSpace, false, "the engine accepted or forwarded a key unexpectedly")) {
                     return false;
                 }
             }
-            if (!send(engine, entry, *context, FcitxKey_Pause, true)) {
+            if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the engine accepted or forwarded a key unexpectedly")) {
                 return false;
             }
             pumpEventLoop(testInstance);
@@ -170,27 +150,27 @@ int main() {
 
     std::string commitHex;
     for (const auto& commit : context->commits()) {
-        commitHex += "[" + codePoints(lotus::utf8::decode(commit)) + "]";
+        commitHex += "[" + hexOf(lotus::utf8::decode(commit), "<empty>") + "]";
     }
     std::printf("trace: commits=%s forwarded=%zu backspaces=", commitHex.c_str(), context->forwarded().size());
     for (const size_t count : backspaceCounts) {
         std::printf("%zu ", count);
     }
-    std::printf("client=[%s]\n", codePoints(clientText).c_str());
+    std::printf("client=[%s]\n", hexOf(clientText, "<empty>").c_str());
 
     int failures = 0;
     for (const auto& commit : context->commits()) {
         const std::u32string text = lotus::utf8::decode(commit);
         const bool           bare = !text.empty() && std::ranges::all_of(text, [](char32_t codePoint) { return isCombiningMark(codePoint); });
         if (bare) {
-            reportFailure("commit carries a bare combining mark", "every commit contains its base character", codePoints(text),
+            reportFailure("commit carries a bare combining mark", "every commit contains its base character", hexOf(text, "<empty>"),
                           "a terminal cannot compose a mark that arrives on its own");
             ++failures;
         }
     }
     const std::u32string expected = U"co\u0301";
     if (clientText != expected) {
-        reportFailure("client text after [co1]", codePoints(expected), codePoints(clientText), "the terminal must show the composed word, not the raw keys");
+        reportFailure("client text after [co1]", hexOf(expected, "<empty>"), hexOf(clientText, "<empty>"), "the terminal must show the composed word, not the raw keys");
         ++failures;
     }
     for (const auto& forwarded : context->forwarded()) {
