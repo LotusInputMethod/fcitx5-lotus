@@ -168,9 +168,11 @@ namespace lotus::apphook {
         struct WaylandGeneration {
             KeyboardList           keyboards;
             std::atomic<uintptr_t> nextFocusToken{0};
-            std::recursive_mutex   keyboardMutex;
-            std::mutex             waylandConnectionMutex;
-            std::mutex             xkbMutex;
+            // An actual key event disambiguates simultaneously focused seats.
+            Keyboard*            lastInputKeyboard = nullptr;
+            std::recursive_mutex keyboardMutex;
+            std::mutex           waylandConnectionMutex;
+            std::mutex           xkbMutex;
         };
         std::atomic<WaylandGeneration*> currentWayland{nullptr};
         WaylandGeneration&              waylandGeneration() {
@@ -187,6 +189,7 @@ namespace lotus::apphook {
         }
 #define keyboards              (waylandGeneration().keyboards)
 #define nextFocusToken         (waylandGeneration().nextFocusToken)
+#define lastInputKeyboard      (waylandGeneration().lastInputKeyboard)
 #define keyboardMutex          (waylandGeneration().keyboardMutex)
 #define waylandConnectionMutex (waylandGeneration().waylandConnectionMutex)
 #define xkbMutex               (waylandGeneration().xkbMutex)
@@ -257,18 +260,30 @@ namespace lotus::apphook {
          */
         Keyboard* focusedKeyboard(wl_display* display = nullptr) {
             std::scoped_lock lock(keyboardMutex);
-            Keyboard*        unique = nullptr;
+            Keyboard*        first  = nullptr;
+            Keyboard*        active = nullptr;
+            unsigned         count  = 0;
             for (const auto& keyboard : keyboards) {
                 if (!keyboard->alive || !keyboard->focused || (display && keyboard->display && keyboard->display != display))
                     continue;
-                // Distinct wl_seats can be focused simultaneously on one display.
-                // Without a seat identifier from Fcitx, ambiguous routing must
-                // fail closed rather than silently inject into the first seat.
-                if (unique)
-                    return nullptr;
-                unique = keyboard.get();
+                if (!first)
+                    first = keyboard.get();
+                if (keyboard.get() == lastInputKeyboard)
+                    active = keyboard.get();
+                ++count;
             }
-            return unique;
+            // Multiple seats may own focus at once. Route to the keyboard that
+            // actually received the last physical key, or fail closed if none
+            // has been observed since the most recent enter.
+            return count == 1 ? first : active;
+        }
+
+        // IPC focus indicates whether any keyboard has a live focused surface.
+        // Selecting a unique injection target is a separate, stricter check:
+        // multiple seats can legitimately be focused within one process.
+        bool hasFocusedKeyboard() {
+            return std::any_of(keyboards.begin(), keyboards.end(),
+                               [](const auto& keyboard) { return keyboard->alive && keyboard->focused && keyboard->focusedSurface && keyboard->focusToken; });
         }
 
         std::shared_ptr<Keyboard> retainKeyboard(Keyboard* keyboard) {
@@ -296,8 +311,10 @@ namespace lotus::apphook {
                 for (auto it = keyboards.begin(); it != keyboards.end();) {
                     if ((*it)->proxy == proxy) {
                         invalidateWaylandFocus((*it)->display, (*it)->focusToken);
-                        (*it)->alive          = false;
-                        (*it)->focused        = false;
+                        (*it)->alive   = false;
+                        (*it)->focused = false;
+                        if (lastInputKeyboard == it->get())
+                            lastInputKeyboard = nullptr;
                         (*it)->focusedSurface = nullptr;
                         (*it)->focusToken     = 0;
                         it                    = keyboards.erase(it);
@@ -307,7 +324,7 @@ namespace lotus::apphook {
                     }
                 }
                 available = !keyboards.empty();
-                focused   = focusedKeyboard() != nullptr;
+                focused   = hasFocusedKeyboard();
             }
             if (changed) {
                 noteWaylandKeyboardAvailable(available);
@@ -533,6 +550,9 @@ namespace lotus::apphook {
             if (forward && (opcode == 1 || opcode == 2))
                 forward->surface.store(nullptr, std::memory_order_release);
             if (opcode == 1) {
+                // A new focus could belong to another seat. Do not reuse the
+                // previous key's destination until the next physical press.
+                lastInputKeyboard = nullptr;
                 invalidateWaylandFocus(keyboard->display, keyboard->focusToken);
                 // wl_keyboard focus is per seat, not per wl_display. An enter
                 // on another seat does not revoke this keyboard's focus.
@@ -549,12 +569,16 @@ namespace lotus::apphook {
                     runtime().waylandDisplay.store(keyboard->display, std::memory_order_release);
             } else if (opcode == 2) {
                 invalidateWaylandFocus(keyboard->display, keyboard->focusToken);
+                if (lastInputKeyboard == keyboard)
+                    lastInputKeyboard = nullptr;
                 keyboard->focused        = false;
                 keyboard->focusedSurface = nullptr;
                 keyboard->focusToken     = 0;
             } else if (opcode == 3) {
                 // A key is not an enter: do not invent focus before the
                 // actual wl_keyboard.enter has reached this listener.
+                if (keyboard->focused && args[3].u == 1)
+                    lastInputKeyboard = keyboard;
                 keyboard->serial = args[0].u;
                 keyboard->time   = args[1].u;
             } else if (opcode == 4) {
@@ -579,7 +603,7 @@ namespace lotus::apphook {
                     forward->surface.store(keyboard->focusedSurface, std::memory_order_release);
             }
             if (opcode >= 1 && opcode <= 3) {
-                noteWaylandFocus(focusedKeyboard() != nullptr);
+                noteWaylandFocus(hasFocusedKeyboard());
             }
         }
 
@@ -920,6 +944,11 @@ namespace lotus::apphook {
                 continue;
             ++candidates.count;
             candidates.target = {HookBackend::Wayland, keyboard->display, keyboard->focusToken};
+        }
+        if (candidates.count > 1 && lastInputKeyboard && lastInputKeyboard->alive && lastInputKeyboard->focused && lastInputKeyboard->display &&
+            lastInputKeyboard->focusedSurface && lastInputKeyboard->focusToken) {
+            candidates.count  = 1;
+            candidates.target = {HookBackend::Wayland, lastInputKeyboard->display, lastInputKeyboard->focusToken};
         }
         return candidates;
     }
