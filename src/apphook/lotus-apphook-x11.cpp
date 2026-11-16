@@ -76,27 +76,25 @@ namespace lotus::apphook {
         using DisplayFocusMap = std::unordered_map<Display*, DisplayFocus>;
         using DisplaySet      = std::unordered_set<Display*>;
         using PressedEventMap = std::unordered_map<Display*, XEvent>;
-        // These pointers are published only after construction. Fork cleanup must
-        // not initialize an unused backend's function-local statics in the child.
-        std::atomic<DisplayFocusMap*> initializedFocusByDisplay{nullptr};
-        std::atomic<DisplaySet*>      initializedXcbOwnerDisplays{nullptr};
-        std::atomic<PressedEventMap*> initializedPressedEvents{nullptr};
+        std::atomic<DisplayFocusMap*> initialized_focusByDisplay{nullptr};
         DisplayFocusMap&              focusByDisplayStorage() {
             static BackendRegistry<DisplayFocusMap> state;
-            initializedFocusByDisplay.store(&state, std::memory_order_release);
+            initialized_focusByDisplay.store(&state, std::memory_order_release);
             return state;
         }
 #define focusByDisplay (focusByDisplayStorage())
-        DisplaySet& xcbOwnerDisplaysStorage() {
+        std::atomic<DisplaySet*> initialized_xcbOwnerDisplays{nullptr};
+        DisplaySet&              xcbOwnerDisplaysStorage() {
             static BackendRegistry<DisplaySet> state;
-            initializedXcbOwnerDisplays.store(&state, std::memory_order_release);
+            initialized_xcbOwnerDisplays.store(&state, std::memory_order_release);
             return state;
         }
 #define xcbOwnerDisplays (xcbOwnerDisplaysStorage())
         // The last press already returned to the consumer, keyed by Display.
-        PressedEventMap& pressedEventsStorage() {
+        std::atomic<PressedEventMap*> initialized_pressedEvents{nullptr};
+        PressedEventMap&              pressedEventsStorage() {
             static BackendRegistry<PressedEventMap> state;
-            initializedPressedEvents.store(&state, std::memory_order_release);
+            initialized_pressedEvents.store(&state, std::memory_order_release);
             return state;
         }
 #define pressedEvents (pressedEventsStorage())
@@ -670,6 +668,33 @@ namespace lotus::apphook {
 
     } // namespace
 
+    bool prepareX11Fork() {
+        if (!focusMutex.try_lock())
+            return false;
+        if (!wakeWaitersMutex.try_lock()) {
+            focusMutex.unlock();
+            return false;
+        }
+        return true;
+    }
+
+    void finishX11Fork() {
+        wakeWaitersMutex.unlock();
+        focusMutex.unlock();
+    }
+
+    void resetX11AfterFork() {
+        std::scoped_lock lock(focusMutex, wakeWaitersMutex);
+        if (auto* waiters = initializedWakeWaiters.load(std::memory_order_acquire))
+            waiters->clear();
+        if (auto* state = initialized_focusByDisplay.load(std::memory_order_acquire))
+            state->clear();
+        if (auto* state = initialized_xcbOwnerDisplays.load(std::memory_order_acquire))
+            state->clear();
+        if (auto* state = initialized_pressedEvents.load(std::memory_order_acquire))
+            state->clear();
+    }
+
     void wakeX11() {
         std::scoped_lock lock(wakeWaitersMutex);
         if (auto* waiters = initializedWakeWaiters.load(std::memory_order_acquire)) {
@@ -736,27 +761,6 @@ namespace lotus::apphook {
     }
 
 } // namespace lotus::apphook
-
-namespace lotus::apphook {
-    void prepareX11Fork() {
-        focusMutex.lock();
-        wakeWaitersMutex.lock();
-    }
-    void finishX11Fork(bool child) {
-        if (child) {
-            if (auto* waiters = initializedWakeWaiters.load(std::memory_order_acquire))
-                waiters->clear();
-            if (auto* state = initializedFocusByDisplay.load(std::memory_order_acquire))
-                state->clear();
-            if (auto* state = initializedXcbOwnerDisplays.load(std::memory_order_acquire))
-                state->clear();
-            if (auto* state = initializedPressedEvents.load(std::memory_order_acquire))
-                state->clear();
-        }
-        wakeWaitersMutex.unlock();
-        focusMutex.unlock();
-    }
-}
 
 // The preloaded C shim is the only externally visible interposer.
 #define XSelectInput            lotus_apphook_impl_XSelectInput

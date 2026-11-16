@@ -32,6 +32,40 @@ typedef void (**WlListener)(void);
 static _Atomic(int) runtime_active;
 static _Atomic(int) loading_pid;
 static _Atomic(int) loading_tid;
+/* A forked child never reuses the parent's C++ hook runtime or its mutexes.
+ * exec() loads a fresh copy and can activate normally. */
+static _Atomic(int) runtime_owner_pid;
+static _Atomic(int) recoverable_child_pid;
+
+/* Called by the child atfork handler: atomic-only, no runtime teardown. */
+__attribute__((visibility("hidden"))) void lotus_apphook_fork_child_ready(int safe) {
+    atomic_store_explicit(&recoverable_child_pid, safe ? (int)getpid() : 0, memory_order_release);
+}
+
+extern int lotus_apphook_resume_child_runtime(void) __attribute__((visibility("hidden")));
+
+static int inherited_runtime(void) {
+    const int owner = atomic_load_explicit(&runtime_owner_pid, memory_order_acquire);
+    return owner && owner != (int)getpid();
+}
+
+/* An inherited runtime can be rebuilt only after all of its locks were
+ * acquired without waiting before fork. Otherwise native forwarding stays
+ * active in the child. Recovery happens only on keyboard activation. */
+static void resume_fork_child(void) {
+    const int pid   = (int)getpid();
+    int       ready = pid;
+    if (!inherited_runtime() || !atomic_compare_exchange_strong_explicit(&recoverable_child_pid, &ready, 0, memory_order_acq_rel, memory_order_acquire))
+        return;
+    if (lotus_apphook_resume_child_runtime()) {
+        atomic_store_explicit(&runtime_owner_pid, pid, memory_order_release);
+        atomic_store_explicit(&runtime_active, 1, memory_order_release);
+    }
+}
+
+static int runtime_enabled(void) {
+    return !inherited_runtime() && atomic_load_explicit(&runtime_active, memory_order_acquire);
+}
 
 /* Keep only connection metadata needed when the runtime is first activated. */
 struct xcb_connection_record {
@@ -89,10 +123,10 @@ static void unlock_metadata(void) {
 }
 
 static void record_xcb(xcb_connection_t* c, int screen) {
-    if (!c)
+    if (!c || (inherited_runtime() && atomic_load_explicit(&recoverable_child_pid, memory_order_acquire) != (int)getpid()))
         return;
     lock_metadata();
-    if (!atomic_load_explicit(&runtime_active, memory_order_acquire)) {
+    if (!runtime_enabled()) {
         for (struct xcb_connection_record* it = xcb_records; it; it = it->next) {
             if (it->connection == c) {
                 it->screen = screen;
@@ -109,6 +143,8 @@ static void record_xcb(xcb_connection_t* c, int screen) {
     unlock_metadata();
 }
 static void forget_xcb(xcb_connection_t* c) {
+    if (inherited_runtime() && atomic_load_explicit(&recoverable_child_pid, memory_order_acquire) != (int)getpid())
+        return;
     lock_metadata();
     struct xcb_connection_record** cursor = &xcb_records;
     while (*cursor) {
@@ -123,10 +159,10 @@ static void forget_xcb(xcb_connection_t* c) {
     unlock_metadata();
 }
 static void record_owner(Display* d, int owner) {
-    if (!d)
+    if (!d || (inherited_runtime() && atomic_load_explicit(&recoverable_child_pid, memory_order_acquire) != (int)getpid()))
         return;
     lock_metadata();
-    if (!atomic_load_explicit(&runtime_active, memory_order_acquire)) {
+    if (!runtime_enabled()) {
         for (struct xlib_owner_record* it = owner_records; it; it = it->next) {
             if (it->display == d) {
                 it->owner = owner;
@@ -143,6 +179,8 @@ static void record_owner(Display* d, int owner) {
     unlock_metadata();
 }
 static void forget_owner(Display* d) {
+    if (inherited_runtime() && atomic_load_explicit(&recoverable_child_pid, memory_order_acquire) != (int)getpid())
+        return;
     lock_metadata();
     struct xlib_owner_record** cursor = &owner_records;
     while (*cursor) {
@@ -163,9 +201,14 @@ extern void lotus_apphook_adopt_xcb_connection(xcb_connection_t*, int) __attribu
 extern void lotus_apphook_adopt_xlib_owner(Display*, int) __attribute__((visibility("hidden")));
 
 static void activate(void) {
-    if (atomic_load_explicit(&runtime_active, memory_order_acquire))
+    if (inherited_runtime())
+        resume_fork_child();
+    if (inherited_runtime() || atomic_load_explicit(&runtime_active, memory_order_acquire))
         return;
-    const int pid = (int)getpid();
+    const int pid     = (int)getpid();
+    int       unowned = 0;
+    if (!atomic_compare_exchange_strong_explicit(&runtime_owner_pid, &unowned, pid, memory_order_acq_rel, memory_order_acquire) && unowned != pid)
+        return;
     const int tid = (int)syscall(SYS_gettid);
     for (;;) {
         int owner = atomic_load_explicit(&loading_pid, memory_order_acquire);
@@ -244,9 +287,9 @@ static void* native_function(const char* symbol, _Atomic(void*)* native) {
     __attribute__((visibility("default"))) ret symbol params {                                                                                                                     \
         typedef ret(*Proc) params;                                                                                                                                                 \
         static _Atomic(void*) native;                                                                                                                                              \
-        if (trigger)                                                                                                                                                               \
+        if ((trigger))                                                                                                                                                             \
             activate();                                                                                                                                                            \
-        if (atomic_load_explicit(&runtime_active, memory_order_acquire))                                                                                                           \
+        if (runtime_enabled())                                                                                                                                                     \
             return CORE(symbol) call;                                                                                                                                              \
         Proc fn = (Proc)native_function(#symbol, &native);                                                                                                                         \
         return fn ? fn call : (fallback);                                                                                                                                          \
@@ -257,9 +300,9 @@ static void* native_function(const char* symbol, _Atomic(void*)* native) {
     __attribute__((visibility("default"))) void symbol params {                                                                                                                    \
         typedef void(*Proc) params;                                                                                                                                                \
         static _Atomic(void*) native;                                                                                                                                              \
-        if (trigger)                                                                                                                                                               \
+        if ((trigger))                                                                                                                                                             \
             activate();                                                                                                                                                            \
-        if (atomic_load_explicit(&runtime_active, memory_order_acquire)) {                                                                                                         \
+        if (runtime_enabled()) {                                                                                                                                                   \
             CORE(symbol) call;                                                                                                                                                     \
             return;                                                                                                                                                                \
         }                                                                                                                                                                          \
@@ -281,7 +324,7 @@ __attribute__((visibility("default"))) void XSetEventQueueOwner(Display* d, int 
     static _Atomic(void*) native;
     extern void           CORE(XSetEventQueueOwner)(Display*, int) __attribute__((visibility("hidden")));
     record_owner(d, owner);
-    if (atomic_load_explicit(&runtime_active, memory_order_acquire)) {
+    if (runtime_enabled()) {
         CORE(XSetEventQueueOwner)(d, owner);
         return;
     }
@@ -294,7 +337,7 @@ __attribute__((visibility("default"))) int XCloseDisplay(Display* d) {
     static _Atomic(void*) native;
     extern int            CORE(XCloseDisplay)(Display*) __attribute__((visibility("hidden")));
     forget_owner(d);
-    if (atomic_load_explicit(&runtime_active, memory_order_acquire))
+    if (runtime_enabled())
         return CORE(XCloseDisplay)(d);
     Proc fn = (Proc)native_function("XCloseDisplay", &native);
     return fn ? fn(d) : -1;
@@ -332,7 +375,7 @@ __attribute__((visibility("default"))) xcb_connection_t* xcb_connect(const char*
     if (c) {
         record_xcb(c, *screen_out);
         // Connection may have opened while another thread activated runtime.
-        if (atomic_load_explicit(&runtime_active, memory_order_acquire))
+        if (runtime_enabled())
             lotus_apphook_adopt_xcb_connection(c, *screen_out);
     }
     return c;
@@ -344,7 +387,7 @@ __attribute__((visibility("default"))) xcb_connection_t* xcb_connect_to_fd(int f
     xcb_connection_t*     connection = fn ? fn(fd, auth) : NULL;
     if (connection) {
         record_xcb(connection, -1);
-        if (atomic_load_explicit(&runtime_active, memory_order_acquire))
+        if (runtime_enabled())
             lotus_apphook_adopt_xcb_connection(connection, -1);
     }
     return connection;
@@ -356,7 +399,7 @@ __attribute__((visibility("default"))) void xcb_disconnect(xcb_connection_t* c) 
     static _Atomic(void*) native;
     extern void           CORE(xcb_disconnect)(xcb_connection_t*) __attribute__((visibility("hidden")));
     forget_xcb(c);
-    if (atomic_load_explicit(&runtime_active, memory_order_acquire)) {
+    if (runtime_enabled()) {
         CORE(xcb_disconnect)(c);
         return;
     }

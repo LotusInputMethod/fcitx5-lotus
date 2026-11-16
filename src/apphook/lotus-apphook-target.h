@@ -67,7 +67,9 @@ namespace lotus::apphook {
      * @brief Shared request queue and input backend state in the target process.
      */
     struct Runtime {
+        Runtime();
         ~Runtime();
+        std::atomic<int>                  ownerPid;
         std::mutex                        mutex;
         std::mutex                        workerMutex;
         pthread_t                         worker{};
@@ -108,16 +110,18 @@ namespace lotus::apphook {
      * @return Shared runtime instance.
      */
     Runtime& runtime();
-    /** @brief Installs fork handlers on the first real keyboard frontend activation. */
+    /** @brief Enables the IPC runtime on first real keyboard frontend activation. */
     void ensureRuntimeInitialized();
-    // Per-backend fork guards protect their registries while the child resets
-    // inherited connections; called by the central pthread_atfork handlers.
-    void prepareX11Fork();
-    void finishX11Fork(bool child);
-    void prepareXcbFork();
-    void finishXcbFork(bool child);
-    void prepareWaylandFork();
-    void finishWaylandFork(bool child);
+    // Fork prepare only probes locks; it must never block process creation.
+    bool prepareX11Fork();
+    void finishX11Fork();
+    void resetX11AfterFork();
+    bool prepareXcbFork();
+    void finishXcbFork();
+    void resetXcbAfterFork();
+    bool prepareWaylandFork();
+    void finishWaylandFork(bool child = false);
+    void resetWaylandAfterFork();
     /** @brief Starts the IPC worker after keyboard focus or the first delivered key. */
     void noteKeyboardActivity(bool wayland);
     /** @brief Updates Xlib keyboard focus and starts lazy IPC on focus-in. */

@@ -53,25 +53,24 @@ namespace lotus::apphook {
         std::mutex xcbMutex;
         using ConnectionMap = std::unordered_map<xcb_connection_t*, XcbFocus>;
         using ConnectionSet = std::unordered_set<xcb_connection_t*>;
-        // Fork cleanup reads these without invoking any lazy storage accessor.
-        std::atomic<ConnectionMap*> initializedConnections{nullptr};
-        std::atomic<ConnectionSet*> initializedXlibOwned{nullptr};
-        std::atomic<ConnectionSet*> initializedXcbEventOwners{nullptr};
+        std::atomic<ConnectionMap*> initialized_connections{nullptr};
         ConnectionMap&              connectionsStorage() {
             static BackendRegistry<ConnectionMap> state;
-            initializedConnections.store(&state, std::memory_order_release);
+            initialized_connections.store(&state, std::memory_order_release);
             return state;
         }
 #define connections (connectionsStorage())
-        ConnectionSet& xlibOwnedStorage() {
+        std::atomic<ConnectionSet*> initialized_xlibOwned{nullptr};
+        ConnectionSet&              xlibOwnedStorage() {
             static BackendRegistry<ConnectionSet> state;
-            initializedXlibOwned.store(&state, std::memory_order_release);
+            initialized_xlibOwned.store(&state, std::memory_order_release);
             return state;
         }
 #define xlibOwned (xlibOwnedStorage())
-        ConnectionSet& xcbEventOwnersStorage() {
+        std::atomic<ConnectionSet*> initialized_xcbEventOwners{nullptr};
+        ConnectionSet&              xcbEventOwnersStorage() {
             static BackendRegistry<ConnectionSet> state;
-            initializedXcbEventOwners.store(&state, std::memory_order_release);
+            initialized_xcbEventOwners.store(&state, std::memory_order_release);
             return state;
         }
 #define xcbEventOwners (xcbEventOwnersStorage())
@@ -547,29 +546,28 @@ namespace lotus::apphook {
         updateFocusState();
     }
 
+    bool prepareXcbFork() {
+        return xcbMutex.try_lock();
+    }
+    void finishXcbFork() {
+        xcbMutex.unlock();
+    }
+    void resetXcbAfterFork() {
+        std::scoped_lock lock(xcbMutex);
+        if (auto* state = initialized_connections.load(std::memory_order_acquire))
+            state->clear();
+        if (auto* state = initialized_xlibOwned.load(std::memory_order_acquire))
+            state->clear();
+        if (auto* state = initialized_xcbEventOwners.load(std::memory_order_acquire))
+            state->clear();
+    }
+
     bool xcbOwnsXlibConnection(void* ptr) {
         std::scoped_lock lock(xcbMutex);
         return xcbEventOwners.contains(static_cast<xcb_connection_t*>(ptr));
     }
 
 } // namespace lotus::apphook
-
-namespace lotus::apphook {
-    void prepareXcbFork() {
-        xcbMutex.lock();
-    }
-    void finishXcbFork(bool child) {
-        if (child) {
-            if (auto* state = initializedConnections.load(std::memory_order_acquire))
-                state->clear(); // closes inherited per-connection eventfds
-            if (auto* state = initializedXlibOwned.load(std::memory_order_acquire))
-                state->clear();
-            if (auto* state = initializedXcbEventOwners.load(std::memory_order_acquire))
-                state->clear();
-        }
-        xcbMutex.unlock();
-    }
-}
 
 // The preloaded C shim is the only externally visible interposer.
 #define xcb_connect                          lotus_apphook_impl_xcb_connect

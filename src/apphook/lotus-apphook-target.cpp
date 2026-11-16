@@ -46,7 +46,11 @@ namespace lotus::apphook {
     } // namespace
 
     void stopRuntimeWorker() {
-        Runtime&         state = runtime();
+        Runtime& state = runtime();
+        // The child may inherit locked mutexes and a thread that no longer exists.
+        // It must not join or tear down the parent's worker.
+        if (state.ownerPid.load(std::memory_order_acquire) != static_cast<int>(getpid()))
+            return;
         std::scoped_lock lock(state.workerMutex);
         state.initialized.store(false, std::memory_order_release);
         state.shuttingDown.store(true, std::memory_order_release);
@@ -60,6 +64,8 @@ namespace lotus::apphook {
         if (done >= 0)
             close(done);
     }
+
+    Runtime::Runtime() : ownerPid(static_cast<int>(getpid())) {}
 
     Runtime::~Runtime() {
         stopRuntimeWorker();
@@ -78,55 +84,65 @@ namespace lotus::apphook {
             return nullptr;
         }
 
-        void prepareFork() {
-            // Match backend -> worker -> request locking order used by hooks.
-            prepareXcbFork();
-            prepareWaylandFork();
-            prepareX11Fork();
-            Runtime& state = runtime();
-            state.workerMutex.lock();
-            state.mutex.lock();
-        }
+        // pthread_atfork handlers only acquire locks non-blockingly. If any
+        // lock is contended, the child is kept on the native-forwarding path.
+        thread_local bool forkSnapshotReady = false;
 
-        void parentFork() {
+        void              releaseForkSnapshot(bool child = false) {
             Runtime& state = runtime();
             state.mutex.unlock();
             state.workerMutex.unlock();
-            finishX11Fork(false);
-            finishWaylandFork(false);
-            finishXcbFork(false);
+            finishX11Fork();
+            finishWaylandFork(child);
+            finishXcbFork();
+        }
+
+        void prepareFork() {
+            forkSnapshotReady = false;
+            if (!prepareXcbFork())
+                return;
+            if (!prepareWaylandFork()) {
+                finishXcbFork();
+                return;
+            }
+            if (!prepareX11Fork()) {
+                finishWaylandFork();
+                finishXcbFork();
+                return;
+            }
+            Runtime& state = runtime();
+            if (!state.workerMutex.try_lock()) {
+                finishX11Fork();
+                finishWaylandFork();
+                finishXcbFork();
+                return;
+            }
+            if (!state.mutex.try_lock()) {
+                state.workerMutex.unlock();
+                finishX11Fork();
+                finishWaylandFork();
+                finishXcbFork();
+                return;
+            }
+            forkSnapshotReady = true;
+        }
+
+        extern "C" void lotus_apphook_fork_child_ready(int) __attribute__((visibility("hidden")));
+
+        void            parentFork() {
+            if (forkSnapshotReady)
+                releaseForkSnapshot();
+            forkSnapshotReady = false;
         }
 
         void childFork() {
-            Runtime& state = runtime();
-            // Only the calling thread survives fork(). The parent's pthread
-            // cannot be joined in the child.
-            state.worker         = pthread_t{};
-            state.workerJoinable = false;
-            for (auto* fd : {&state.completionFd, &state.connectionFd}) {
-                const int inherited = fd->exchange(-1, std::memory_order_acq_rel);
-                if (inherited >= 0)
-                    close(inherited);
-            }
-            state.pending.clear();
-            state.activeX11.reset();
-            state.activeX11Display = nullptr;
-            state.inFlight         = 0;
-            state.workersStarted.store(false, std::memory_order_release);
-            state.shuttingDown.store(false, std::memory_order_release);
-            state.focusedX11.store(false, std::memory_order_release);
-            state.focusedWayland.store(false, std::memory_order_release);
-            state.focusedXcb.store(false, std::memory_order_release);
-            state.observedX11Focus.store(false, std::memory_order_release);
-            state.readyX11.store(false, std::memory_order_release);
-            state.readyWayland.store(false, std::memory_order_release);
-            state.readyXcb.store(false, std::memory_order_release);
-            state.waylandDisplay.store(nullptr, std::memory_order_release);
-            state.mutex.unlock();
-            state.workerMutex.unlock();
-            finishX11Fork(true);
-            finishWaylandFork(true);
-            finishXcbFork(true);
+            // No heap operations, registry destruction, IPC, or worker joins
+            // in the child handler. All recovery work is deferred to the
+            // next actual keyboard frontend activation.
+            if (forkSnapshotReady)
+                releaseForkSnapshot(true);
+            lotus_apphook_fork_child_ready(forkSnapshotReady ? 1 : 0);
+            forkSnapshotReady = false;
         }
 
         /** @brief Starts the workers on first focus or keyboard activity, outside library initialization. */
@@ -168,10 +184,50 @@ namespace lotus::apphook {
     void ensureRuntimeInitialized() {
         static std::once_flag once;
         std::call_once(once, [] {
-            const int result = pthread_atfork(&prepareFork, &parentFork, &childFork);
-            if (result == 0)
+            (void)runtime();
+            if (pthread_atfork(&prepareFork, &parentFork, &childFork) == 0)
                 runtime().initialized.store(true, std::memory_order_release);
         });
+    }
+
+    extern "C" __attribute__((visibility("hidden"))) int lotus_apphook_resume_child_runtime() {
+        Runtime&  state = runtime();
+        const int pid   = static_cast<int>(getpid());
+        if (state.ownerPid.load(std::memory_order_acquire) == pid)
+            return 1;
+        // The fork snapshot guaranteed these backend mutexes were quiescent.
+        // Do not touch inherited frontend connections or workers; the child
+        // will register its own keyboard on the next frontend activation.
+        resetXcbAfterFork();
+        resetWaylandAfterFork();
+        resetX11AfterFork();
+        {
+            std::scoped_lock lock(state.workerMutex, state.mutex);
+            state.worker         = pthread_t{};
+            state.workerJoinable = false;
+            for (auto* fd : {&state.completionFd, &state.connectionFd}) {
+                const int inherited = fd->exchange(-1, std::memory_order_acq_rel);
+                if (inherited >= 0)
+                    close(inherited);
+            }
+            state.pending.clear();
+            state.activeX11.reset();
+            state.activeX11Display = nullptr;
+            state.inFlight         = 0;
+            state.workersStarted.store(false, std::memory_order_release);
+            state.shuttingDown.store(false, std::memory_order_release);
+            state.focusedX11.store(false, std::memory_order_release);
+            state.focusedWayland.store(false, std::memory_order_release);
+            state.focusedXcb.store(false, std::memory_order_release);
+            state.observedX11Focus.store(false, std::memory_order_release);
+            state.readyX11.store(false, std::memory_order_release);
+            state.readyWayland.store(false, std::memory_order_release);
+            state.readyXcb.store(false, std::memory_order_release);
+            state.waylandDisplay.store(nullptr, std::memory_order_release);
+            state.ownerPid.store(pid, std::memory_order_release);
+            state.initialized.store(true, std::memory_order_release);
+        }
+        return 1;
     }
 
     void noteX11Focus(bool focused) {

@@ -27,6 +27,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <new>
 #include <string>
 #include <sys/mman.h>
 #include <time.h>
@@ -774,6 +775,41 @@ namespace lotus::apphook {
         });
     }
 
+    bool prepareWaylandFork() {
+        if (!waylandConnectionMutex.try_lock())
+            return false;
+        if (!keyboardMutex.try_lock()) {
+            waylandConnectionMutex.unlock();
+            return false;
+        }
+        if (!xkbMutex.try_lock()) {
+            keyboardMutex.unlock();
+            waylandConnectionMutex.unlock();
+            return false;
+        }
+        return true;
+    }
+
+    void finishWaylandFork(bool child) {
+        xkbMutex.unlock();
+        // A recursive pthread mutex remembers its owner's TID. After fork the
+        // child has a different TID, so unlocking this inherited mutex fails
+        // with EPERM. Replace it before child-side backend recovery instead.
+        if (!child)
+            keyboardMutex.unlock();
+        waylandConnectionMutex.unlock();
+    }
+
+    void resetWaylandAfterFork() {
+        // Only the fork caller survives. Rebase the inherited recursive mutex
+        // instead of trying to unlock a mutex owned by the parent's TID.
+        new (&keyboardMutex) std::recursive_mutex;
+        std::scoped_lock lock(waylandConnectionMutex, keyboardMutex, xkbMutex);
+        if (auto* state = initializedKeyboards.load(std::memory_order_acquire))
+            state->clear();
+        nextFocusToken.store(0, std::memory_order_release);
+    }
+
     void wakeWayland() {
         std::scoped_lock connectionLock(waylandConnectionMutex);
         wl_display*      display = nullptr;
@@ -804,23 +840,6 @@ namespace lotus::apphook {
     }
 
 } // namespace lotus::apphook
-
-namespace lotus::apphook {
-    void prepareWaylandFork() {
-        waylandConnectionMutex.lock();
-        keyboardMutex.lock();
-        xkbMutex.lock();
-    }
-    void finishWaylandFork(bool child) {
-        if (child) {
-            if (auto* state = initializedKeyboards.load(std::memory_order_acquire))
-                state->clear();
-        }
-        xkbMutex.unlock();
-        keyboardMutex.unlock();
-        waylandConnectionMutex.unlock();
-    }
-}
 
 // The preloaded C shim is the only externally visible interposer.
 #define wl_proxy_add_listener                    lotus_apphook_impl_wl_proxy_add_listener
