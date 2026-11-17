@@ -91,7 +91,7 @@ namespace fcitx {
             size_t operator()(const RequestKey& key) const noexcept {
                 const size_t pidHash = std::hash<pid_t>{}(key.pid);
                 const size_t idHash  = std::hash<uint64_t>{}(key.requestId);
-                return pidHash ^ (idHash + 0x9e3779b9U + (pidHash << 6) + (pidHash >> 2));
+                return pidHash ^ (idHash + 0x9e3779b9U + (pidHash << 6U) + (pidHash >> 2U));
             }
         };
 

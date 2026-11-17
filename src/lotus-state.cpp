@@ -757,9 +757,11 @@ namespace fcitx {
             using lotus::apphook::KeyOperation;
             std::vector<KeyOperation> keys;
             if (burstCount > 0) {
-                keys.push_back({.keycode   = static_cast<uint32_t>(selectMode ? KEY_LEFT : KEY_BACKSPACE),
-                                .modifiers = selectMode ? lotus::apphook::kModifierShift : 0U,
-                                .count     = static_cast<uint32_t>(burstCount)});
+                keys.push_back({
+                    .keycode   = static_cast<uint32_t>(selectMode ? KEY_LEFT : KEY_BACKSPACE),
+                    .modifiers = selectMode ? lotus::apphook::kModifierShift : 0U,
+                    .count     = static_cast<uint32_t>(burstCount),
+                });
             }
             if (selectMode && burstCount > 0) {
                 keys.push_back({.keycode = KEY_DELETE, .modifiers = 0, .count = 1});

@@ -12,7 +12,8 @@
 
 #include "lotus-apphook-protocol.h"
 
-#include <cstring>
+#include <algorithm>
+#include <span>
 #include <string>
 #include <unistd.h>
 
@@ -23,10 +24,12 @@ namespace lotus::apphook {
         if (name.size() + 1 > sizeof(address.sun_path)) {
             return false;
         }
-        address             = {};
-        address.sun_family  = AF_UNIX;
-        address.sun_path[0] = '\0';
-        std::memcpy(address.sun_path + 1, name.data(), name.size());
+        address            = {};
+        address.sun_family = AF_UNIX;
+        // Abstract namespace: a leading NUL followed by the unterminated name.
+        const std::span path(address.sun_path);
+        path[0] = '\0';
+        std::ranges::copy(name, path.subspan(1).begin());
         size = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + 1 + name.size());
         return true;
     }

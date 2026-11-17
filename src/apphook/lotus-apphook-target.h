@@ -33,7 +33,7 @@ namespace lotus::apphook {
         None,
         X11,
         Xcb,
-        Wayland
+        Wayland,
     };
 
     /** A focused frontend and its input target, captured when Emit arrives. */
@@ -69,6 +69,10 @@ namespace lotus::apphook {
     struct Runtime {
         Runtime();
         ~Runtime();
+        Runtime(const Runtime&)                                = delete;
+        Runtime& operator=(const Runtime&)                     = delete;
+        Runtime(Runtime&&)                                     = delete;
+        Runtime&                          operator=(Runtime&&) = delete;
         std::atomic<int>                  ownerPid;
         std::mutex                        mutex;
         std::mutex                        workerMutex;
@@ -122,11 +126,11 @@ namespace lotus::apphook {
     void            noteWaylandKeyboardAvailable(bool available);
     void            noteXcbFocus(bool focused);
     void            noteXcbKeyboardAvailable(bool available);
-    void            markXlibOwnedXcbConnection(void* connection);
-    void            markXcbKeyboardSubscribed(void* connection);
-    void            forgetXlibXcbConnection(void* connection);
-    void            setXcbEventQueueOwner(void* connection, bool xcbOwns, uint32_t root = 0);
-    bool            xcbOwnsXlibConnection(void* connection);
+    void            markXlibOwnedXcbConnection(void* ptr);
+    void            markXcbKeyboardSubscribed(void* ptr);
+    void            forgetXlibXcbConnection(void* ptr);
+    void            setXcbEventQueueOwner(void* ptr, bool xcbOwns, uint32_t root = 0);
+    bool            xcbOwnsXlibConnection(void* ptr);
     void            wakeX11();
     void            wakeXcb();
     void            loadXcb();

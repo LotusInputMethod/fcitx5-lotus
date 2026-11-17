@@ -15,9 +15,13 @@
 #endif
 
 #include "lotus-apphook-target.h"
+#include "lotus-apphook-fd.h"
 #include "common-fd-guard.h"
 
 #include <algorithm>
+#include <array>
+#include <memory>
+#include <span>
 #include <cstdlib>
 #include <new>
 #include <cerrno>
@@ -29,6 +33,7 @@
 #include <sys/socket.h>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 #include <unistd.h>
 
 namespace lotus::apphook {
@@ -39,11 +44,8 @@ namespace lotus::apphook {
             if (fd < 0)
                 return;
             const uint64_t one = 1;
-            ssize_t        result;
-            do {
-                result = write(fd, &one, sizeof(one));
-            } while (result < 0 && errno == EINTR);
             // Runtime shutdown/connection teardown handles permanent fd errors.
+            (void)retryOnEintr([&] { return write(fd, &one, sizeof(one)); });
         }
     } // namespace
 
@@ -77,20 +79,19 @@ namespace lotus::apphook {
 
     Runtime& runtime() {
         auto* current = currentRuntime.load(std::memory_order_acquire);
-        if (current)
+        if (current != nullptr)
             return *current;
-        auto*    fresh    = new Runtime;
+        auto     fresh    = std::make_unique<Runtime>();
         Runtime* expected = nullptr;
-        if (!currentRuntime.compare_exchange_strong(expected, fresh, std::memory_order_acq_rel)) {
-            delete fresh;
+        if (!currentRuntime.compare_exchange_strong(expected, fresh.get(), std::memory_order_acq_rel))
             return *expected;
-        }
-        return *fresh;
+        // The runtime stays alive for the rest of the process.
+        return *fresh.release();
     }
 
     namespace {
         void  connectLoop();
-        void* runWorker(void*) {
+        void* runWorker(void* /*unused*/) {
             connectLoop();
             return nullptr;
         }
@@ -140,11 +141,13 @@ namespace lotus::apphook {
     }
 
     extern "C" __attribute__((visibility("hidden"))) int lotus_apphook_resume_child_runtime() {
-        Runtime* fresh = new (std::nothrow) Runtime;
-        if (!fresh)
-            return 0;
-        Runtime* inherited = currentRuntime.exchange(fresh, std::memory_order_acq_rel);
-        if (inherited) {
+        std::unique_ptr<Runtime> fresh;
+        try {
+            fresh = std::make_unique<Runtime>();
+        } catch (const std::bad_alloc&) { return 0; }
+        // The inherited runtime belongs to the parent's threads; never free it here.
+        Runtime* inherited = currentRuntime.exchange(fresh.release(), std::memory_order_acq_rel);
+        if (inherited != nullptr) {
             const int done = inherited->completionFd.load(std::memory_order_acquire);
             const int conn = inherited->connectionFd.load(std::memory_order_acquire);
             if (done >= 0)
@@ -220,7 +223,7 @@ namespace lotus::apphook {
     std::shared_ptr<Task> takeTask(HookBackend backend, const void* connection, uintptr_t focused) {
         Runtime&         state = runtime();
         std::scoped_lock lock(state.mutex);
-        const auto       it = std::find_if(state.pending.begin(), state.pending.end(), [=](const auto& task) {
+        const auto       it = std::ranges::find_if(state.pending, [=](const auto& task) {
             const auto& target = task->target;
             return target.backend == backend && target.connection == connection && target.focused == focused;
         });
@@ -232,7 +235,7 @@ namespace lotus::apphook {
     }
 
     void cancelPendingTasks(HookBackend backend, const void* connection) {
-        if (!connection)
+        if (connection == nullptr)
             return;
         Runtime&         state = runtime();
         std::scoped_lock lock(state.mutex);
@@ -310,7 +313,7 @@ namespace lotus::apphook {
         int dispatch(const Request& request, ssize_t received, std::unordered_map<uint64_t, std::shared_ptr<Task>>& tasks) {
             Runtime& state = runtime();
             if (request.type == Command::Cancel) {
-                if (received != static_cast<ssize_t>(kRequestHeaderSize)) {
+                if (std::cmp_not_equal(received, kRequestHeaderSize)) {
                     return -EINVAL;
                 }
                 {
@@ -319,7 +322,7 @@ namespace lotus::apphook {
                     if (taskIt != tasks.end()) {
                         const auto& task = taskIt->second;
                         task->cancelled.store(true, std::memory_order_release);
-                        const auto pendingIt = std::find(state.pending.begin(), state.pending.end(), task);
+                        const auto pendingIt = std::ranges::find(state.pending, task);
                         if (pendingIt != state.pending.end()) {
                             state.pending.erase(pendingIt);
                             finishLocked(task, -ECANCELED);
@@ -330,17 +333,17 @@ namespace lotus::apphook {
                 return 0;
             }
             if (request.type != Command::Emit || request.requestId == 0 || request.count == 0 || request.count > kMaxOps ||
-                received != static_cast<ssize_t>(kRequestHeaderSize + request.count * sizeof(KeyOperation))) {
+                std::cmp_not_equal(received, kRequestHeaderSize + (request.count * sizeof(KeyOperation)))) {
                 return -EINVAL;
             }
             if (!backendReady()) {
                 return -EAGAIN;
             }
-            uint64_t taps = 0;
-            for (size_t i = 0; i < request.count; ++i) {
-                const auto& op = request.ops[i];
+            const auto used = std::span(request.ops).first(request.count);
+            uint64_t   taps = 0;
+            for (const auto& op : used) {
                 taps += op.count;
-                if (!op.count || op.keycode == KEY_RESERVED || op.keycode > KEY_MAX || op.modifiers > 15 || taps > kMaxTaps) {
+                if ((op.count == 0U) || op.keycode == KEY_RESERVED || op.keycode > KEY_MAX || op.modifiers > 15 || taps > kMaxTaps) {
                     return -EINVAL;
                 }
             }
@@ -350,7 +353,7 @@ namespace lotus::apphook {
             auto task       = std::make_shared<Task>();
             task->target    = target;
             task->requestId = request.requestId;
-            task->ops.assign(request.ops.begin(), request.ops.begin() + request.count);
+            task->ops.assign(used.begin(), used.end());
             {
                 std::scoped_lock lock(state.mutex);
                 if (state.inFlight >= kMaxTasks || tasks.contains(request.requestId)) {
@@ -382,7 +385,7 @@ namespace lotus::apphook {
                 std::scoped_lock lock(state.mutex);
                 for (auto it = tasks.begin(); it != tasks.end();) {
                     if (it->second->done) {
-                        finished.push_back({it->first, it->second->status, it->second->applied.load(std::memory_order_acquire)});
+                        finished.push_back({.requestId = it->first, .status = it->second->status, .applied = it->second->applied.load(std::memory_order_acquire)});
                         --state.inFlight;
                         it = tasks.erase(it);
                     } else {
@@ -390,12 +393,9 @@ namespace lotus::apphook {
                     }
                 }
             }
-            for (const auto& finishedTask : finished) {
-                if (!reply(fd, ResponseKind::Complete, finishedTask.requestId, finishedTask.status, finishedTask.applied ? kCompleteMayHaveApplied : 0)) {
-                    return false;
-                }
-            }
-            return true;
+            return std::ranges::all_of(finished, [fd](const Completion& finishedTask) {
+                return reply(fd, ResponseKind::Complete, finishedTask.requestId, finishedTask.status, finishedTask.applied ? kCompleteMayHaveApplied : 0);
+            });
         }
 
         /**
@@ -407,7 +407,7 @@ namespace lotus::apphook {
             std::scoped_lock lock(state.mutex);
             for (const auto& [requestId, task] : tasks) {
                 task->cancelled.store(true, std::memory_order_release);
-                const auto it = std::find(state.pending.begin(), state.pending.end(), task);
+                const auto it = std::ranges::find(state.pending, task);
                 if (it != state.pending.end()) {
                     state.pending.erase(it);
                 }
@@ -417,15 +417,22 @@ namespace lotus::apphook {
             tasks.clear();
         }
 
-        struct ConnectionRegistration {
-            Runtime& state;
-            explicit ConnectionRegistration(Runtime& state) : state(state) {}
-            void set(int fd) {
-                state.connectionFd.store(fd, std::memory_order_release);
-            }
+        class ConnectionRegistration {
+          public:
+            explicit ConnectionRegistration(Runtime& state) : state_(&state) {}
+            ConnectionRegistration(const ConnectionRegistration&)            = delete;
+            ConnectionRegistration& operator=(const ConnectionRegistration&) = delete;
+            ConnectionRegistration(ConnectionRegistration&&)                 = delete;
+            ConnectionRegistration& operator=(ConnectionRegistration&&)      = delete;
             ~ConnectionRegistration() {
-                state.connectionFd.store(-1, std::memory_order_release);
+                state_->connectionFd.store(-1, std::memory_order_release);
             }
+            void set(int fd) {
+                state_->connectionFd.store(fd, std::memory_order_release);
+            }
+
+          private:
+            Runtime* state_;
         };
 
         /** @brief Reconnects to the shared Fcitx5 listener and handles its requests. */
@@ -466,23 +473,26 @@ namespace lotus::apphook {
                 }
                 std::unordered_map<uint64_t, std::shared_ptr<Task>> tasks;
                 while (!state.shuttingDown.load()) {
-                    pollfd    fds[3] = {{connection.get(), POLLIN, 0}, {state.completionFd.load(), POLLIN, 0}, {waylandWakeFlushFd(), POLLOUT, 0}};
-                    const int result = poll(fds, 3, -1);
+                    std::array fds{
+                        pollfd{.fd = connection.get(), .events = POLLIN, .revents = 0},
+                        pollfd{.fd = state.completionFd.load(), .events = POLLIN, .revents = 0},
+                        pollfd{.fd = waylandWakeFlushFd(), .events = POLLOUT, .revents = 0},
+                    };
+                    const int result = poll(fds.data(), fds.size(), -1);
                     if (state.shuttingDown.load(std::memory_order_acquire))
                         break;
                     if (result < 0 && errno == EINTR) {
                         continue;
                     }
-                    if (result < 0 || (fds[0].revents & (POLLERR | POLLHUP | POLLNVAL))) {
+                    if (result < 0 || hasPollEvents(fds[0].revents, POLLERR | POLLHUP | POLLNVAL)) {
                         break;
                     }
-                    if (fds[2].revents & (POLLOUT | POLLERR | POLLHUP | POLLNVAL))
+                    if (hasPollEvents(fds[2].revents, POLLOUT | POLLERR | POLLHUP | POLLNVAL))
                         retryWaylandWakeFlush();
-                    if (fds[0].revents & POLLIN) {
+                    if (hasPollEvents(fds[0].revents, POLLIN)) {
                         Request       request{};
                         const ssize_t received = recv(connection.get(), &request, sizeof(request), MSG_TRUNC);
-                        if (received < static_cast<ssize_t>(kRequestHeaderSize) || received > static_cast<ssize_t>(sizeof(request)) || request.magic != kMagic ||
-                            request.version != kVersion) {
+                        if (std::cmp_less(received, kRequestHeaderSize) || std::cmp_greater(received, sizeof(request)) || request.magic != kMagic || request.version != kVersion) {
                             break;
                         }
                         const int status = dispatch(request, received, tasks);
@@ -490,14 +500,10 @@ namespace lotus::apphook {
                             break;
                         }
                     }
-                    if (fds[1].revents & POLLIN) {
-                        uint64_t drained;
-                        ssize_t  received;
-                        do {
-                            received = read(fds[1].fd, &drained, sizeof(drained));
-                        } while (received < 0 && errno == EINTR);
+                    if (hasPollEvents(fds[1].revents, POLLIN)) {
+                        uint64_t drained = 0;
                         // A competing notifier may have already drained the fd.
-                        (void)received;
+                        (void)retryOnEintr([&] { return read(fds[1].fd, &drained, sizeof(drained)); });
                         if (!flushCompleted(connection.get(), tasks)) {
                             break;
                         }

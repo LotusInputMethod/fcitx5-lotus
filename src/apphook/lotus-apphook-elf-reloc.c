@@ -10,7 +10,10 @@
 #include <dlfcn.h>
 #include <elf.h>
 #include <link.h>
+#include <errno.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -35,6 +38,38 @@ static uintptr_t dyn_addr(uintptr_t base, uintptr_t value) {
     return value < base ? base + value : value;
 }
 
+/* Loader data (dl_iterate_phdr bases, dynamic entries, relocation offsets)
+ * is integer-typed by the ELF ABI; this is the one conversion point. */
+static void* loader_pointer(uintptr_t address) {
+    return (void*)address; /* NOLINT(performance-no-int-to-ptr) */
+}
+
+/* Parses "start-end perms" from a /proc/self/maps line. */
+static int parse_mapping(const char* line, uintptr_t* start, uintptr_t* end, char perms[5]) {
+    char* cursor      = NULL;
+    errno             = 0;
+    unsigned long low = strtoul(line, &cursor, 16);
+    if (cursor == line || *cursor != '-' || errno)
+        return 0;
+    const char*   high_text = cursor + 1;
+    unsigned long high      = strtoul(high_text, &cursor, 16);
+    if (cursor == high_text || errno)
+        return 0;
+    while (*cursor == ' ' || *cursor == '\t')
+        ++cursor;
+    size_t length = 0;
+    while (length < 4 && cursor[length] && cursor[length] != ' ' && cursor[length] != '\t' && cursor[length] != '\n') {
+        perms[length] = cursor[length];
+        ++length;
+    }
+    if (!length)
+        return 0;
+    perms[length] = '\0';
+    *start        = (uintptr_t)low;
+    *end          = (uintptr_t)high;
+    return 1;
+}
+
 static size_t reloc_sym(ElfW(Xword) info) {
 #if __SIZEOF_POINTER__ == 8
     return ELF64_R_SYM(info);
@@ -51,34 +86,37 @@ static int patch_slot(void** slot, void* old, void* replacement, size_t page_siz
     FILE* maps = fopen("/proc/self/maps", "r");
     if (!maps)
         return 0;
-    uintptr_t addr  = (uintptr_t)slot;
-    uintptr_t start = 0, end = 0;
+    uintptr_t addr     = (uintptr_t)slot;
+    uintptr_t start    = 0;
+    uintptr_t end      = 0;
     char      perms[5] = {0};
     char      line[512];
-    int       protection = 0;
     while (fgets(line, sizeof(line), maps)) {
-        unsigned long a = 0, b = 0;
-        char          p[5] = {0};
-        if (sscanf(line, "%lx-%lx %4s", &a, &b, p) != 3)
+        uintptr_t a    = 0;
+        uintptr_t b    = 0;
+        char      p[5] = {0};
+        if (!parse_mapping(line, &a, &b, p))
             continue;
-        if (addr < (uintptr_t)a || addr > (uintptr_t)b || (uintptr_t)b - addr < sizeof(void*))
+        if (addr < a || addr > b || b - addr < sizeof(void*))
             continue;
-        start = (uintptr_t)a;
-        end   = (uintptr_t)b;
+        start = a;
+        end   = b;
         memcpy(perms, p, sizeof(perms));
         break;
     }
     fclose(maps);
     if (!start || !end || perms[0] != 'r' || perms[2] == 'x')
         return 0;
-    protection        = PROT_READ | (perms[1] == 'w' ? PROT_WRITE : 0);
-    uintptr_t page    = (addr / page_size) * page_size;
-    int       changed = !(protection & PROT_WRITE);
-    if (changed && mprotect((void*)page, page_size, protection | PROT_WRITE) != 0)
+    const int writable   = PROT_READ | PROT_WRITE;
+    const int protection = perms[1] == 'w' ? writable : PROT_READ;
+    /* Page start derived from the slot pointer itself. */
+    char*     page    = (char*)slot - (addr % page_size);
+    const int changed = perms[1] != 'w';
+    if (changed && mprotect(page, page_size, writable) != 0)
         return 0;
     /* No clobber when another thread or interposer changed the binding. */
-    int replaced = __atomic_compare_exchange_n(slot, &old, replacement, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
-    if (changed && mprotect((void*)page, page_size, protection) != 0) {
+    int replaced = (int)__atomic_compare_exchange_n(slot, &old, replacement, false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+    if (changed && mprotect(page, page_size, protection) != 0) {
         /* Failure to restore protection is not an acceptable silent success. */
         fprintf(stderr, "lotus-apphook: cannot restore relocation page protection\n");
     }
@@ -108,8 +146,8 @@ static void scan_relocs(const struct dl_phdr_info* info, struct Scan* scan, uint
     if (!rels || !stride || bytes % stride)
         return;
     for (size_t i = 0; i < bytes / stride; ++i) {
-        ElfW(Xword) rinfo;
-        ElfW(Addr) offset;
+        ElfW(Xword) rinfo = 0;
+        ElfW(Addr) offset = 0;
         if (is_rela) {
             const ElfW(Rela)* r = (const ElfW(Rela)*)rels + i;
             rinfo               = r->r_info;
@@ -131,10 +169,10 @@ static void scan_relocs(const struct dl_phdr_info* info, struct Scan* scan, uint
         const char* name = strs + symbol->st_name;
         for (size_t h = 0; h < 2; ++h) {
             const struct Hook* hook = &scan->hooks[h];
-            if (!hook->native || strcmp(name, hook->name))
+            if (!hook->native || strcmp(name, hook->name) != 0)
                 continue;
             uintptr_t addr = base + offset;
-            void**    slot = (void**)addr;
+            void**    slot = (void**)loader_pointer(addr);
             if (addr % sizeof(void*))
                 break;
             /* Only read the slot after confirming it is an address-bearing
@@ -173,7 +211,7 @@ static int scan_object(struct dl_phdr_info* info, size_t size, void* opaque) {
     const ElfW(Dyn)* dyn = NULL;
     for (size_t i = 0; i < info->dlpi_phnum; ++i)
         if (info->dlpi_phdr[i].p_type == PT_DYNAMIC) {
-            dyn = (const ElfW(Dyn)*)(base + info->dlpi_phdr[i].p_vaddr);
+            dyn = loader_pointer(base + info->dlpi_phdr[i].p_vaddr);
             break;
         }
     if (!dyn)
@@ -181,20 +219,24 @@ static int scan_object(struct dl_phdr_info* info, size_t size, void* opaque) {
     const ElfW(Sym)* syms = NULL;
     const char* strs      = NULL;
     size_t      strsz     = 0;
-    uintptr_t   plt = 0, rel = 0, rela = 0;
-    size_t      pltsz = 0, relsz = 0, relasz = 0;
-    int         pltrel = 0;
+    const void* plt       = NULL;
+    const void* rel       = NULL;
+    const void* rela      = NULL;
+    size_t      pltsz     = 0;
+    size_t      relsz     = 0;
+    size_t      relasz    = 0;
+    ElfW(Xword) pltrel    = 0;
     for (const ElfW(Dyn)* d = dyn; d->d_tag != DT_NULL; ++d) {
         switch (d->d_tag) {
-            case DT_SYMTAB: syms = (const ElfW(Sym)*)dyn_addr(base, d->d_un.d_ptr); break;
-            case DT_STRTAB: strs = (const char*)dyn_addr(base, d->d_un.d_ptr); break;
+            case DT_SYMTAB: syms = loader_pointer(dyn_addr(base, d->d_un.d_ptr)); break;
+            case DT_STRTAB: strs = loader_pointer(dyn_addr(base, d->d_un.d_ptr)); break;
             case DT_STRSZ: strsz = d->d_un.d_val; break;
-            case DT_JMPREL: plt = dyn_addr(base, d->d_un.d_ptr); break;
+            case DT_JMPREL: plt = loader_pointer(dyn_addr(base, d->d_un.d_ptr)); break;
             case DT_PLTRELSZ: pltsz = d->d_un.d_val; break;
             case DT_PLTREL: pltrel = d->d_un.d_val; break;
-            case DT_REL: rel = dyn_addr(base, d->d_un.d_ptr); break;
+            case DT_REL: rel = loader_pointer(dyn_addr(base, d->d_un.d_ptr)); break;
             case DT_RELSZ: relsz = d->d_un.d_val; break;
-            case DT_RELA: rela = dyn_addr(base, d->d_un.d_ptr); break;
+            case DT_RELA: rela = loader_pointer(dyn_addr(base, d->d_un.d_ptr)); break;
             case DT_RELASZ: relasz = d->d_un.d_val; break;
             default: break;
         }
@@ -202,13 +244,13 @@ static int scan_object(struct dl_phdr_info* info, size_t size, void* opaque) {
     if (!syms || !strs || !strsz)
         return 0;
     if (plt && pltrel == DT_RELA)
-        scan_relocs(info, scan, base, (void*)plt, pltsz, 1, 1, syms, strs, strsz);
+        scan_relocs(info, scan, base, plt, pltsz, 1, 1, syms, strs, strsz);
     else if (plt && pltrel == DT_REL)
-        scan_relocs(info, scan, base, (void*)plt, pltsz, 0, 1, syms, strs, strsz);
+        scan_relocs(info, scan, base, plt, pltsz, 0, 1, syms, strs, strsz);
     if (rel)
-        scan_relocs(info, scan, base, (void*)rel, relsz, 0, 0, syms, strs, strsz);
+        scan_relocs(info, scan, base, rel, relsz, 0, 0, syms, strs, strsz);
     if (rela)
-        scan_relocs(info, scan, base, (void*)rela, relasz, 1, 0, syms, strs, strsz);
+        scan_relocs(info, scan, base, rela, relasz, 1, 0, syms, strs, strsz);
     return 0;
 }
 

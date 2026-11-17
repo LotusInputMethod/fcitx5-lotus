@@ -32,10 +32,11 @@ namespace lotus::apphook {
     constexpr uint32_t kReadyFocused           = 1U; ///< Focus snapshot carried by Ready.
     constexpr uint32_t kCompleteMayHaveApplied = 1U; ///< A failed request already delivered synthetic input.
 
+    // The 16-bit enum base types are part of the Request/Response wire layout.
     /** @brief Commands sent from the Fcitx5 addon to an application hook. */
-    enum class Command : uint16_t {
+    enum class Command : uint16_t { // NOLINT(performance-enum-size)
         Emit   = 1,
-        Cancel = 2
+        Cancel = 2,
     };
 
     /**
@@ -44,10 +45,10 @@ namespace lotus::apphook {
      * frontend event API. It does not acknowledge toolkit dispatch or a text
      * mutation. Errors with kCompleteMayHaveApplied indicate partial delivery.
      */
-    enum class ResponseKind : uint16_t {
+    enum class ResponseKind : uint16_t { // NOLINT(performance-enum-size) wire layout
         Ready    = 1,
         Complete = 2,
-        Focus    = 3
+        Focus    = 3,
     };
 
     /** @brief Versioned keyboard request with optional operations. */

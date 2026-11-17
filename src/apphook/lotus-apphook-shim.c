@@ -345,6 +345,9 @@ static void* native_function(const char* symbol, _Atomic(void*)* native) {
 }
 
 #define CORE(symbol) lotus_apphook_impl_##symbol
+/* `ret`, `params` and `call` are a type, a parameter list and an argument
+ * list; parenthesizing them would not compile. */
+/* NOLINTBEGIN(bugprone-macro-parentheses) */
 #define RELAY(ret, symbol, params, call, fallback, trigger)                                                                                                                        \
     extern ret CORE(symbol)                                                                                                                                                        \
     params __attribute__((visibility("hidden")));                                                                                                                                  \
@@ -374,15 +377,20 @@ static void* native_function(const char* symbol, _Atomic(void*)* native) {
         if (fn)                                                                                                                                                                    \
             fn call;                                                                                                                                                               \
     }
+/* NOLINTEND(bugprone-macro-parentheses) */
 
-#define XKEY_MASK (KeyPressMask | KeyReleaseMask)
-RELAY(int, XSelectInput, (Display * d, Window w, long mask), (d, w, mask), 0, (mask & XKEY_MASK))
+#define XKEY_MASK ((unsigned long)KeyPressMask | (unsigned long)KeyReleaseMask)
+/* Xlib event masks are signed longs; test them as unsigned bit sets. */
+static int selects_keys(long mask) {
+    return ((unsigned long)mask & XKEY_MASK) != 0;
+}
+RELAY(int, XSelectInput, (Display * d, Window w, long mask), (d, w, mask), 0, selects_keys(mask))
 RELAY(int, XChangeWindowAttributes, (Display * d, Window w, unsigned long mask, XSetWindowAttributes* a), (d, w, mask, a), 0,
-      ((mask & CWEventMask) && a && (a->event_mask & XKEY_MASK)))
+      ((mask & (unsigned long)CWEventMask) && a && selects_keys(a->event_mask)))
 RELAY(Window, XCreateWindow,
       (Display * d, Window p, int x, int y, unsigned int width, unsigned int height, unsigned int border, int depth, unsigned int cls, Visual* v, unsigned long mask,
        XSetWindowAttributes* a),
-      (d, p, x, y, width, height, border, depth, cls, v, mask, a), None, ((mask & CWEventMask) && a && (a->event_mask & XKEY_MASK)))
+      (d, p, x, y, width, height, border, depth, cls, v, mask, a), None, ((mask & (unsigned long)CWEventMask) && a && selects_keys(a->event_mask)))
 __attribute__((visibility("default"))) void XSetEventQueueOwner(Display* d, int owner) {
     typedef void (*Proc)(Display*, int);
     static _Atomic(void*) native;
@@ -421,11 +429,13 @@ RELAY(Bool, XCheckIfEvent, (Display * d, XEvent* ev, Bool (*pred)(Display*, XEve
 RELAY(int, XPeekIfEvent, (Display * d, XEvent* ev, Bool (*pred)(Display*, XEvent*, XPointer), XPointer arg), (d, ev, pred, arg), -1, 0)
 
 static int subscribes_keyboard(uint32_t mask, const void* values) {
-    if (!(mask & XCB_CW_EVENT_MASK) || !values)
+    const uint32_t event_mask = (uint32_t)XCB_CW_EVENT_MASK;
+    const uint32_t key_events = (uint32_t)XCB_EVENT_MASK_KEY_PRESS | (uint32_t)XCB_EVENT_MASK_KEY_RELEASE;
+    if ((mask & event_mask) == 0 || !values)
         return 0;
     const uint32_t* items = values;
-    unsigned int    index = __builtin_popcount(mask & (XCB_CW_EVENT_MASK - 1));
-    return (items[index] & (XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE)) != 0;
+    unsigned int    index = __builtin_popcount(mask & (event_mask - 1U));
+    return (items[index] & key_events) != 0;
 }
 
 /* Opening an X connection alone is not evidence of a keyboard frontend. */
@@ -518,7 +528,7 @@ __attribute__((visibility("default"))) WlListener wl_proxy_get_listener(struct w
     static _Atomic(void*) native;
     // In a forked child the native proxy still exposes the parent's wrapper.
     if (inherited_runtime()) {
-        WlListener listener;
+        WlListener listener = NULL;
         if (lotus_apphook_inherited_wayland_listener(p, &listener))
             return listener;
     }
@@ -531,7 +541,7 @@ __attribute__((visibility("default"))) struct wl_proxy* wl_proxy_marshal_array_f
                                                                                      union WlArgument* args) {
     typedef struct wl_proxy* (*Proc)(struct wl_proxy*, uint32_t, const struct WlInterface*, uint32_t, uint32_t, union WlArgument*);
     static _Atomic(void*) native;
-    struct wl_proxy*      result;
+    struct wl_proxy*      result = NULL;
     if (runtime_enabled())
         return CORE(wl_proxy_marshal_array_flags)(p, op, i, version, flags, args);
     Proc fn = (Proc)native_function("wl_proxy_marshal_array_flags", &native);
@@ -582,10 +592,10 @@ static _Atomic(int) scan_busy_pid;
 static void         lotus_apphook_try_patch_wayland_imports(void) {
     const int pid      = (int)getpid();
     int       expected = 0;
-    if (!atomic_compare_exchange_strong_explicit(&scan_busy_pid, &expected, pid, memory_order_acq_rel, memory_order_acquire)) {
-        if (expected == pid || !atomic_compare_exchange_strong_explicit(&scan_busy_pid, &expected, pid, memory_order_acq_rel, memory_order_acquire))
-            return;
-    }
+    if ((!atomic_compare_exchange_strong_explicit(&scan_busy_pid, &expected, pid, memory_order_acq_rel, memory_order_acquire)) &&
+        (expected == pid || !atomic_compare_exchange_strong_explicit(&scan_busy_pid, &expected, pid, memory_order_acq_rel, memory_order_acquire)))
+        return;
+
     (void)lotus_apphook_patch_wayland_imports();
     atomic_store_explicit(&scan_busy_pid, 0, memory_order_release);
 }
@@ -637,7 +647,7 @@ static int is_native_wayland_symbol(void* fn) {
 }
 #endif
 
-#if defined(__has_attribute)
+#ifdef __has_attribute
 #if __has_attribute(musttail)
 #define XERN_MUSTTAIL __attribute__((musttail))
 #endif
@@ -651,40 +661,41 @@ static int is_native_wayland_symbol(void* fn) {
 
 #ifdef __GLIBC__
 /* Forward untouched dlsym calls as a tail call: RTLD_NEXT inspects the
- * original caller address, not the location of this interposer. */
-__attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlsym(void* handle, const char* symbol) {
+ * original caller address, not the location of this interposer.
+ * Parameter names match the <dlfcn.h> declarations. */
+__attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlsym(void* __handle, const char* __name) {
     DlsymFunction native = native_dlsym_function();
     if (!native)
         return NULL;
-    if (handle == RTLD_NEXT || strncmp(symbol, "wl_", 3) != 0)
-        XERN_MUSTTAIL return native(handle, symbol);
+    if (__handle == RTLD_NEXT || strncmp(__name, "wl_", 3) != 0)
+        XERN_MUSTTAIL return native(__handle, __name);
     // This API is optional across supported libwayland versions. Its preload
     // wrapper must not make a default-namespace dlsym probe succeed when the
     // native implementation is absent.
-    if (handle == RTLD_DEFAULT && !strcmp(symbol, "wl_proxy_marshal_array_flags")) {
+    if (__handle == RTLD_DEFAULT && !strcmp(__name, "wl_proxy_marshal_array_flags")) {
         // Do not resolve with RTLD_NEXT here: the preloaded wrapper itself can
         // be returned and would make an absent optional API look present.
         void* library = dlopen("libwayland-client.so.0", RTLD_LAZY | RTLD_NOLOAD | RTLD_LOCAL);
         if (!library)
             return NULL;
-        void* resolved = lotus_apphook_native_dlsym(library, symbol);
+        void* resolved = lotus_apphook_native_dlsym(library, __name);
         dlclose(library);
         if (!resolved || !is_native_wayland_symbol(resolved))
             return NULL;
         lotus_apphook_try_patch_wayland_imports();
-        return wayland_wrapper(symbol);
+        return wayland_wrapper(__name);
     }
-    if (handle == RTLD_DEFAULT)
-        XERN_MUSTTAIL return native(handle, symbol);
-    void* hook = wayland_wrapper(symbol);
+    if (__handle == RTLD_DEFAULT)
+        XERN_MUSTTAIL return native(__handle, __name);
+    void* hook = wayland_wrapper(__name);
     if (!hook)
-        XERN_MUSTTAIL return native(handle, symbol);
-    void* resolved = lotus_apphook_native_dlsym(handle, symbol);
+        XERN_MUSTTAIL return native(__handle, __name);
+    void* resolved = lotus_apphook_native_dlsym(__handle, __name);
     if (resolved && is_native_wayland_symbol(resolved)) {
         lotus_apphook_try_patch_wayland_imports();
         return hook;
     }
-    XERN_MUSTTAIL return native(handle, symbol);
+    XERN_MUSTTAIL return native(__handle, __name);
 }
 #endif
 
@@ -692,8 +703,9 @@ __attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlsym(void* h
  * loaded module's imported slots only after its successful load. */
 typedef void* (*DlopenFunction)(const char*, int);
 static _Atomic(DlopenFunction) next_dlopen;
-/* Unrelated dlopen calls preserve their original caller for $ORIGIN. */
-__attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlopen(const char* filename, int flags) {
+/* Unrelated dlopen calls preserve their original caller for $ORIGIN.
+ * Parameter names match the glibc <dlfcn.h> declaration. */
+__attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlopen(const char* __file, int __mode) {
     DlopenFunction native = atomic_load_explicit(&next_dlopen, memory_order_acquire);
     if (!native) {
         native = (DlopenFunction)lotus_apphook_native_dlsym(RTLD_NEXT, "dlopen");
@@ -703,9 +715,9 @@ __attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlopen(const 
     }
     /* Only plain SONAMEs are intercepted. Paths can depend on the
      * dlopen caller's $ORIGIN and must be forwarded without a new frame. */
-    if (!filename || strchr(filename, '/') || strncmp(filename, "libwayland-client.so", sizeof("libwayland-client.so") - 1))
-        XERN_MUSTTAIL return native(filename, flags);
-    void* handle = native(filename, flags);
+    if (!__file || strchr(__file, '/') || strncmp(__file, "libwayland-client.so", sizeof("libwayland-client.so") - 1) != 0)
+        XERN_MUSTTAIL return native(__file, __mode);
+    void* handle = native(__file, __mode);
     if (handle)
         lotus_apphook_try_patch_wayland_imports();
     return handle;

@@ -86,7 +86,7 @@ namespace fcitx {
         LotusState* stateFor(InputContext* ic);
         /** @brief Whether a different input context currently owns focus. */
         bool otherContextActive(const InputContext* ic) const {
-            return activeContext_.get() && activeContext_.get() != ic;
+            return (activeContext_.get() != nullptr) && activeContext_.get() != ic;
         }
 
         /**

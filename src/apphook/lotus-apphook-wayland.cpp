@@ -15,6 +15,7 @@
 #endif
 
 #include "lotus-apphook-target.h"
+#include "lotus-apphook-fd.h"
 #include "lotus-apphook-sequence.h"
 
 #include <algorithm>
@@ -30,7 +31,7 @@
 #include <new>
 #include <string>
 #include <sys/mman.h>
-#include <time.h>
+#include <ctime>
 #include <unistd.h>
 
 // Minimal public Wayland protocol types; no generated bindings are required.
@@ -78,10 +79,40 @@ struct KeyboardListener {
 
 using Dispatcher = int (*)(const void*, void*, uint32_t, const WlMessage*, WlArgument*);
 
+/**
+ * @brief Typed read access to a wl_argument array whose event signature is known.
+ * The only code that reads the C union or indexes the libwayland-provided array.
+ */
+class WlArgs {
+  public:
+    explicit WlArgs(const WlArgument* args) : args_(args) {}
+    [[nodiscard]] uint32_t uintAt(size_t index) const {
+        return at(index).u; // NOLINT(cppcoreguidelines-pro-type-union-access) wl_argument ABI
+    }
+    [[nodiscard]] int32_t intAt(size_t index) const {
+        return at(index).i; // NOLINT(cppcoreguidelines-pro-type-union-access) wl_argument ABI
+    }
+    [[nodiscard]] int32_t fdAt(size_t index) const {
+        return at(index).h; // NOLINT(cppcoreguidelines-pro-type-union-access) wl_argument ABI
+    }
+    [[nodiscard]] void* objectAt(size_t index) const {
+        return at(index).o; // NOLINT(cppcoreguidelines-pro-type-union-access) wl_argument ABI
+    }
+    [[nodiscard]] void* arrayAt(size_t index) const {
+        return at(index).a; // NOLINT(cppcoreguidelines-pro-type-union-access) wl_argument ABI
+    }
+
+  private:
+    [[nodiscard]] const WlArgument& at(size_t index) const {
+        return args_[index]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic) sized by the event signature
+    }
+    const WlArgument* args_;
+};
+
 extern "C" int   lotus_apphook_activate_inherited_keyboard() __attribute__((visibility("hidden")));
 extern "C" void* lotus_apphook_native_dlsym(void*, const char*) __attribute__((visibility("hidden")));
 namespace lotus::apphook {
-    void loadWayland();
+
     namespace {
 
         struct NativeForward;
@@ -135,31 +166,46 @@ namespace lotus::apphook {
         std::atomic<NativeForward*> forwardHead{nullptr};
 
         void                        publishForward(NativeForward* record) {
-            auto* head = forwardHead.load(std::memory_order_relaxed);
-            do {
+            auto* head   = forwardHead.load(std::memory_order_relaxed);
+            record->next = head;
+            while (!forwardHead.compare_exchange_weak(head, record, std::memory_order_release, std::memory_order_relaxed))
                 record->next = head;
-            } while (!forwardHead.compare_exchange_weak(head, record, std::memory_order_release, std::memory_order_relaxed));
         }
 
         // Records are never reclaimed while a fork may still retain a wrapper.
         NativeForward* inheritedForward(wl_proxy* proxy) {
             const pid_t pid = getpid();
-            for (auto* record = forwardHead.load(std::memory_order_acquire); record; record = record->next) {
+            for (auto* record = forwardHead.load(std::memory_order_acquire); record != nullptr; record = record->next) {
                 if (record->proxy == proxy && record->ownerPid != pid && record->alive.load(std::memory_order_acquire))
                     return record;
             }
             return nullptr;
         }
 
+        /** @brief Recovers the mutable published record behind a dispatcher implementation pointer. */
+        NativeForward* publishedForward(const NativeForward* wanted) {
+            for (auto* record = forwardHead.load(std::memory_order_acquire); record != nullptr; record = record->next)
+                if (record == wanted)
+                    return record;
+            return nullptr;
+        }
+
+        /** @brief Allocates a forwarding record. Records are published and never freed. */
+        NativeForward* allocateForward() {
+            try {
+                return std::make_unique<NativeForward>().release();
+            } catch (const std::bad_alloc&) { return nullptr; }
+        }
+
         void retireForward(wl_proxy* proxy) {
-            for (auto* record = forwardHead.load(std::memory_order_acquire); record; record = record->next) {
+            for (auto* record = forwardHead.load(std::memory_order_acquire); record != nullptr; record = record->next) {
                 if (record->proxy == proxy)
                     record->alive.store(false, std::memory_order_release);
             }
         }
 
         void retireDisplay(wl_display* display) {
-            for (auto* record = forwardHead.load(std::memory_order_acquire); record; record = record->next) {
+            for (auto* record = forwardHead.load(std::memory_order_acquire); record != nullptr; record = record->next) {
                 if (record->display == display)
                     record->alive.store(false, std::memory_order_release);
             }
@@ -179,15 +225,14 @@ namespace lotus::apphook {
         std::atomic<WaylandGeneration*> currentWayland{nullptr};
         WaylandGeneration&              waylandGeneration() {
             auto* current = currentWayland.load(std::memory_order_acquire);
-            if (current)
+            if (current != nullptr)
                 return *current;
-            auto*              fresh    = new WaylandGeneration;
+            auto               fresh    = std::make_unique<WaylandGeneration>();
             WaylandGeneration* expected = nullptr;
-            if (!currentWayland.compare_exchange_strong(expected, fresh, std::memory_order_acq_rel)) {
-                delete fresh;
+            if (!currentWayland.compare_exchange_strong(expected, fresh.get(), std::memory_order_acq_rel))
                 return *expected;
-            }
-            return *fresh;
+            // Generations are abandoned, never freed, after fork.
+            return *fresh.release();
         }
 #define keyboards              (waylandGeneration().keyboards)
 #define nextFocusToken         (waylandGeneration().nextFocusToken)
@@ -200,7 +245,7 @@ namespace lotus::apphook {
         void*             xkb = nullptr;
         std::once_flag    resolveOnce;
 
-        int (*originalAddListener)(wl_proxy*, void (**)(void), void*)                                                    = nullptr;
+        int (*originalAddListener)(wl_proxy*, void (**)(), void*)                                                        = nullptr;
         int (*originalAddDispatcher)(wl_proxy*, Dispatcher, const void*, void*)                                          = nullptr;
         int (*originalDispatchQueuePending)(wl_display*, wl_event_queue*)                                                = nullptr;
         int (*originalDispatchPending)(wl_display*)                                                                      = nullptr;
@@ -222,12 +267,17 @@ namespace lotus::apphook {
         wl_proxy* (*originalMarshalArrayFlags)(wl_proxy*, uint32_t, const WlInterface*, uint32_t, uint32_t, WlArgument*) = nullptr;
         wl_display* (*originalGetProxyDisplay)(wl_proxy*)                                                                = nullptr;
         void* (*originalGetUserData)(wl_proxy*)                                                                          = nullptr;
-        using ListenerArray                                                                                              = void (**)(void);
+        using ListenerArray                                                                                              = void (**)();
         ListenerArray (*originalGetListener)(wl_proxy*)                                                                  = nullptr;
         const char* (*originalClass)(wl_proxy*)                                                                          = nullptr;
-        int (*originalFlush)(wl_display*)                                                                                = nullptr;
-        wl_proxy* (*originalMarshalConstructor)(wl_proxy*, uint32_t, const WlInterface*, uint32_t, ...)                  = nullptr;
-        const WlInterface* callbackInterface                                                                             = nullptr;
+
+        /** @brief wl_proxy_get_listener returns registered implementations through a non-const ABI type. */
+        ListenerArray listenerArray(const void* implementation) {
+            return reinterpret_cast<ListenerArray>(const_cast<void*>(implementation)); // NOLINT(cppcoreguidelines-pro-type-const-cast) libwayland ABI
+        }
+        int (*originalFlush)(wl_display*)                                                               = nullptr;
+        wl_proxy* (*originalMarshalConstructor)(wl_proxy*, uint32_t, const WlInterface*, uint32_t, ...) = nullptr;
+        const WlInterface* callbackInterface                                                            = nullptr;
 
         void* (*newXkbContext)(int)                         = nullptr;
         void (*releaseXkbContext)(void*)                    = nullptr;
@@ -267,9 +317,9 @@ namespace lotus::apphook {
             Keyboard*        active = nullptr;
             unsigned         count  = 0;
             for (const auto& keyboard : keyboards) {
-                if (!keyboard->alive || !keyboard->focused || (display && keyboard->display && keyboard->display != display))
+                if (!keyboard->alive || !keyboard->focused || ((display != nullptr) && (keyboard->display != nullptr) && keyboard->display != display))
                     continue;
-                if (!first)
+                if (first == nullptr)
                     first = keyboard.get();
                 if (keyboard.get() == lastInputKeyboard)
                     active = keyboard.get();
@@ -340,10 +390,10 @@ namespace lotus::apphook {
          */
         void loadXkb() {
             std::scoped_lock lock(xkbMutex);
-            if (xkb)
+            if (xkb != nullptr)
                 return;
             xkb = dlopen("libxkbcommon.so.0", RTLD_NOW | RTLD_LOCAL);
-            if (!xkb)
+            if (xkb == nullptr)
                 return;
             newXkbContext     = resolve<decltype(newXkbContext)>(xkb, "xkb_context_new");
             releaseXkbContext = resolve<decltype(releaseXkbContext)>(xkb, "xkb_context_unref");
@@ -359,10 +409,10 @@ namespace lotus::apphook {
          * @param size Keymap byte size.
          */
         void readKeymap(Keyboard* keyboard, int fd, uint32_t size) {
-            if (fd < 0 || size == 0 || size > (1U << 20))
+            if (fd < 0 || size == 0 || size > (1U << 20U))
                 return;
             loadXkb();
-            if (!newXkbContext || !newXkbKeymap || !lookupXkbModifier)
+            if ((newXkbContext == nullptr) || (newXkbKeymap == nullptr) || (lookupXkbModifier == nullptr))
                 return;
             void* mapping = mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
             if (mapping == MAP_FAILED) {
@@ -372,24 +422,24 @@ namespace lotus::apphook {
             std::unique_ptr<void, decltype(unmap)> ownedMapping(mapping, unmap);
             std::string                            keymap(static_cast<const char*>(ownedMapping.get()), size);
             void*                                  context = newXkbContext(0);
-            if (!context)
+            if (context == nullptr)
                 return;
             void* map = newXkbKeymap(context, keymap.c_str(), 1, 0);
-            if (map) {
+            if (map != nullptr) {
                 keyboard->shiftIndex = lookupXkbModifier(map, "Shift");
                 keyboard->ctrlIndex  = lookupXkbModifier(map, "Control");
                 keyboard->altIndex   = lookupXkbModifier(map, "Mod1");
                 keyboard->superIndex = lookupXkbModifier(map, "Mod4");
-                if (keyboard->forward) {
+                if (keyboard->forward != nullptr) {
                     const auto     index = [](uint32_t value) { return std::min(value, 255U); };
                     const uint32_t indices =
-                        index(keyboard->shiftIndex) | (index(keyboard->ctrlIndex) << 8) | (index(keyboard->altIndex) << 16) | (index(keyboard->superIndex) << 24);
+                        index(keyboard->shiftIndex) | (index(keyboard->ctrlIndex) << 8U) | (index(keyboard->altIndex) << 16U) | (index(keyboard->superIndex) << 24U);
                     keyboard->forward->modifierIndices.store(indices, std::memory_order_release);
                 }
-                if (releaseXkbKeymap)
+                if (releaseXkbKeymap != nullptr)
                     releaseXkbKeymap(map);
             }
-            if (releaseXkbContext)
+            if (releaseXkbContext != nullptr)
                 releaseXkbContext(context);
         }
 
@@ -400,46 +450,50 @@ namespace lotus::apphook {
          * @param args Wire-format callback arguments.
          */
         void deliverOriginal(const KeyboardListener* listener, Dispatcher dispatcher, const void* implementation, wl_proxy* proxy, void* data, uint32_t opcode, WlArgument* args) {
-            if (dispatcher) {
-                static const std::array<WlMessage, 6> messages{{
-                    {"keymap", "uhu", nullptr},
-                    {"enter", "uoa", nullptr},
-                    {"leave", "uo", nullptr},
-                    {"key", "uuuu", nullptr},
-                    {"modifiers", "uuuuu", nullptr},
-                    {"repeat_info", "ii", nullptr},
-                }};
+            if (dispatcher != nullptr) {
+                static const std::array<WlMessage, 6> messages{
+                    {
+                        {.name = "keymap", .signature = "uhu", .types = nullptr},
+                        {.name = "enter", .signature = "uoa", .types = nullptr},
+                        {.name = "leave", .signature = "uo", .types = nullptr},
+                        {.name = "key", .signature = "uuuu", .types = nullptr},
+                        {.name = "modifiers", .signature = "uuuuu", .types = nullptr},
+                        {.name = "repeat_info", .signature = "ii", .types = nullptr},
+                    },
+                };
                 // Dispatcher target is the wl_proxy, not the proxy's user_data.
-                (void)dispatcher(implementation, proxy, opcode, &messages[opcode], args);
+                if (opcode < messages.size())
+                    (void)dispatcher(implementation, proxy, opcode, &messages.at(opcode), args);
                 return;
             }
-            if (!listener)
+            if (listener == nullptr)
                 return;
-            auto* keyboardProxy = reinterpret_cast<wl_keyboard*>(proxy);
+            auto*        keyboardProxy = reinterpret_cast<wl_keyboard*>(proxy);
+            const WlArgs in(args);
             switch (opcode) {
                 case 0:
-                    if (listener->keymap)
-                        listener->keymap(data, keyboardProxy, args[0].u, args[1].h, args[2].u);
+                    if (listener->keymap != nullptr)
+                        listener->keymap(data, keyboardProxy, in.uintAt(0), in.fdAt(1), in.uintAt(2));
                     break;
                 case 1:
-                    if (listener->enter)
-                        listener->enter(data, keyboardProxy, args[0].u, static_cast<wl_surface*>(args[1].o), static_cast<wl_array*>(args[2].a));
+                    if (listener->enter != nullptr)
+                        listener->enter(data, keyboardProxy, in.uintAt(0), static_cast<wl_surface*>(in.objectAt(1)), static_cast<wl_array*>(in.arrayAt(2)));
                     break;
                 case 2:
-                    if (listener->leave)
-                        listener->leave(data, keyboardProxy, args[0].u, static_cast<wl_surface*>(args[1].o));
+                    if (listener->leave != nullptr)
+                        listener->leave(data, keyboardProxy, in.uintAt(0), static_cast<wl_surface*>(in.objectAt(1)));
                     break;
                 case 3:
-                    if (listener->key)
-                        listener->key(data, keyboardProxy, args[0].u, args[1].u, args[2].u, args[3].u);
+                    if (listener->key != nullptr)
+                        listener->key(data, keyboardProxy, in.uintAt(0), in.uintAt(1), in.uintAt(2), in.uintAt(3));
                     break;
                 case 4:
-                    if (listener->modifiers)
-                        listener->modifiers(data, keyboardProxy, args[0].u, args[1].u, args[2].u, args[3].u, args[4].u);
+                    if (listener->modifiers != nullptr)
+                        listener->modifiers(data, keyboardProxy, in.uintAt(0), in.uintAt(1), in.uintAt(2), in.uintAt(3), in.uintAt(4));
                     break;
                 case 5:
-                    if (listener->repeatInfo)
-                        listener->repeatInfo(data, keyboardProxy, args[0].i, args[1].i);
+                    if (listener->repeatInfo != nullptr)
+                        listener->repeatInfo(data, keyboardProxy, in.intAt(0), in.intAt(1));
                     break;
                 default: break;
             }
@@ -449,7 +503,7 @@ namespace lotus::apphook {
         // forwarding descriptor into a fresh generation (never the old mutex or
         // Keyboard object). The first callback is sufficient to reactivate IPC.
         std::shared_ptr<Keyboard> adoptInheritedKeyboard(NativeForward* record, uint32_t opcode) {
-            if (!record || !record->alive.load(std::memory_order_acquire) || !lotus_apphook_activate_inherited_keyboard())
+            if ((record == nullptr) || !record->alive.load(std::memory_order_acquire) || (lotus_apphook_activate_inherited_keyboard() == 0))
                 return {};
             loadWayland();
             if (!waylandCapable.load(std::memory_order_acquire))
@@ -474,11 +528,11 @@ namespace lotus::apphook {
                 // A leave/enter event will update focus itself. For all other
                 // events restore only the last *committed* compositor focus.
                 wl_surface* surface = opcode == 1 || opcode == 2 ? nullptr : record->surface.load(std::memory_order_acquire);
-                if (surface) {
+                if (surface != nullptr) {
                     adopted->focused        = true;
                     adopted->focusedSurface = surface;
                     adopted->focusToken     = nextFocusToken.fetch_add(1, std::memory_order_relaxed) + 1;
-                    if (!adopted->focusToken)
+                    if (adopted->focusToken == 0U)
                         adopted->focusToken = nextFocusToken.fetch_add(1, std::memory_order_relaxed) + 1;
                     focused = true;
                 }
@@ -490,9 +544,9 @@ namespace lotus::apphook {
                 adopted->group         = record->group.load(std::memory_order_acquire);
                 const uint32_t indices = record->modifierIndices.load(std::memory_order_acquire);
                 adopted->shiftIndex    = indices & 0xffU;
-                adopted->ctrlIndex     = (indices >> 8) & 0xffU;
-                adopted->altIndex      = (indices >> 16) & 0xffU;
-                adopted->superIndex    = (indices >> 24) & 0xffU;
+                adopted->ctrlIndex     = (indices >> 8U) & 0xffU;
+                adopted->altIndex      = (indices >> 16U) & 0xffU;
+                adopted->superIndex    = (indices >> 24U) & 0xffU;
                 keyboards.push_back(adopted);
             }
             noteWaylandKeyboardAvailable(true);
@@ -506,7 +560,7 @@ namespace lotus::apphook {
         // Keep the exact original callback path if recovery is unavailable.
         bool forwardInherited(wl_proxy* proxy, void* data, uint32_t opcode, WlArgument* args) {
             auto* record = inheritedForward(proxy);
-            if (!record)
+            if (record == nullptr)
                 return false;
             if (adoptInheritedKeyboard(record, opcode))
                 return false;
@@ -515,16 +569,16 @@ namespace lotus::apphook {
         }
 
         void deliver(Keyboard* keyboard, uint32_t opcode, WlArgument* args) {
-            if (!keyboard || !keyboard->alive)
+            if ((keyboard == nullptr) || !keyboard->alive)
                 return;
             // Synthetic events read the application's current user_data.
-            void* data = originalGetUserData ? originalGetUserData(keyboard->proxy) : nullptr;
+            void* data = (originalGetUserData != nullptr) ? originalGetUserData(keyboard->proxy) : nullptr;
             deliverOriginal(keyboard->listener, keyboard->dispatcher, keyboard->implementation, keyboard->proxy, data, opcode, args);
         }
 
         /** Cancel queued work from a surface that has lost keyboard focus. */
         void invalidateWaylandFocus(wl_display* display, uintptr_t token) {
-            if (!display || !token)
+            if ((display == nullptr) || (token == 0U))
                 return;
             std::scoped_lock lock(runtime().mutex);
             auto&            pending = runtime().pending;
@@ -549,8 +603,9 @@ namespace lotus::apphook {
         void observe(Keyboard* keyboard, uint32_t opcode, const WlArgument* args) {
             std::scoped_lock lock(keyboardMutex);
             NativeForward*   forward = keyboard->forward;
+            const WlArgs     in(args);
             // Hide in-progress transitions from a child forked mid-callback.
-            if (forward && (opcode == 1 || opcode == 2))
+            if ((forward != nullptr) && (opcode == 1 || opcode == 2))
                 forward->surface.store(nullptr, std::memory_order_release);
             if (opcode == 1) {
                 // A new focus could belong to another seat. Do not reuse the
@@ -560,15 +615,15 @@ namespace lotus::apphook {
                 // wl_keyboard focus is per seat, not per wl_display. An enter
                 // on another seat does not revoke this keyboard's focus.
                 keyboard->focused        = true;
-                keyboard->focusedSurface = static_cast<wl_surface*>(args[1].o);
+                keyboard->focusedSurface = static_cast<wl_surface*>(in.objectAt(1));
                 // An old request must not follow the same keyboard proxy into
                 // a newly entered surface, even if leave/enter were coalesced
                 // before the IPC task could be delivered.
                 keyboard->focusToken = nextFocusToken.fetch_add(1, std::memory_order_relaxed) + 1;
                 if (keyboard->focusToken == 0)
                     keyboard->focusToken = nextFocusToken.fetch_add(1, std::memory_order_relaxed) + 1;
-                keyboard->serial = args[0].u;
-                if (keyboard->display)
+                keyboard->serial = in.uintAt(0);
+                if (keyboard->display != nullptr)
                     runtime().waylandDisplay.store(keyboard->display, std::memory_order_release);
             } else if (opcode == 2) {
                 invalidateWaylandFocus(keyboard->display, keyboard->focusToken);
@@ -580,18 +635,18 @@ namespace lotus::apphook {
             } else if (opcode == 3) {
                 // A key is not an enter: do not invent focus before the
                 // actual wl_keyboard.enter has reached this listener.
-                if (keyboard->focused && args[3].u == 1)
+                if (keyboard->focused && in.uintAt(3) == 1)
                     lastInputKeyboard = keyboard;
-                keyboard->serial = args[0].u;
-                keyboard->time   = args[1].u;
+                keyboard->serial = in.uintAt(0);
+                keyboard->time   = in.uintAt(1);
             } else if (opcode == 4) {
-                keyboard->serial    = args[0].u;
-                keyboard->depressed = args[1].u;
-                keyboard->latched   = args[2].u;
-                keyboard->locked    = args[3].u;
-                keyboard->group     = args[4].u;
+                keyboard->serial    = in.uintAt(0);
+                keyboard->depressed = in.uintAt(1);
+                keyboard->latched   = in.uintAt(2);
+                keyboard->locked    = in.uintAt(3);
+                keyboard->group     = in.uintAt(4);
             }
-            if (forward) {
+            if (forward != nullptr) {
                 if (opcode == 3 || opcode == 4 || opcode == 1)
                     forward->serial.store(keyboard->serial, std::memory_order_release);
                 if (opcode == 3)
@@ -618,10 +673,8 @@ namespace lotus::apphook {
          * @param size Keymap size in bytes.
          */
         void onKeymap(void* data, wl_keyboard* proxy, uint32_t format, int32_t fd, uint32_t size) {
-            WlArgument args[3]{};
-            args[0].u = format;
-            args[1].h = fd;
-            args[2].u = size;
+            std::array  argv{WlArgument{.u = format}, WlArgument{.h = fd}, WlArgument{.u = size}};
+            WlArgument* args = argv.data();
             if (forwardInherited(reinterpret_cast<wl_proxy*>(proxy), data, 0, args))
                 return;
             auto retained = retainKeyboardByProxy(reinterpret_cast<wl_proxy*>(proxy));
@@ -642,10 +695,8 @@ namespace lotus::apphook {
          * @param keys Pressed keys supplied by the compositor.
          */
         void onEnter(void* data, wl_keyboard* proxy, uint32_t serial, wl_surface* surface, wl_array* keys) {
-            WlArgument args[3]{};
-            args[0].u = serial;
-            args[1].o = surface;
-            args[2].a = keys;
+            std::array  argv{WlArgument{.u = serial}, WlArgument{.o = surface}, WlArgument{.a = keys}};
+            WlArgument* args = argv.data();
             if (forwardInherited(reinterpret_cast<wl_proxy*>(proxy), data, 1, args))
                 return;
             auto retained = retainKeyboardByProxy(reinterpret_cast<wl_proxy*>(proxy));
@@ -664,9 +715,8 @@ namespace lotus::apphook {
          * @param surface Exited surface.
          */
         void onLeave(void* data, wl_keyboard* proxy, uint32_t serial, wl_surface* surface) {
-            WlArgument args[2]{};
-            args[0].u = serial;
-            args[1].o = surface;
+            std::array  argv{WlArgument{.u = serial}, WlArgument{.o = surface}};
+            WlArgument* args = argv.data();
             if (forwardInherited(reinterpret_cast<wl_proxy*>(proxy), data, 2, args))
                 return;
             auto retained = retainKeyboardByProxy(reinterpret_cast<wl_proxy*>(proxy));
@@ -687,11 +737,8 @@ namespace lotus::apphook {
          * @param state Key press or release state.
          */
         void onKey(void* data, wl_keyboard* proxy, uint32_t serial, uint32_t time, uint32_t key, uint32_t state) {
-            WlArgument args[4]{};
-            args[0].u = serial;
-            args[1].u = time;
-            args[2].u = key;
-            args[3].u = state;
+            std::array  argv{WlArgument{.u = serial}, WlArgument{.u = time}, WlArgument{.u = key}, WlArgument{.u = state}};
+            WlArgument* args = argv.data();
             if (forwardInherited(reinterpret_cast<wl_proxy*>(proxy), data, 3, args))
                 return;
             auto retained = retainKeyboardByProxy(reinterpret_cast<wl_proxy*>(proxy));
@@ -716,12 +763,8 @@ namespace lotus::apphook {
          * @param group Keyboard layout group.
          */
         void onModifiers(void* data, wl_keyboard* proxy, uint32_t serial, uint32_t depressed, uint32_t latched, uint32_t locked, uint32_t group) {
-            WlArgument args[5]{};
-            args[0].u = serial;
-            args[1].u = depressed;
-            args[2].u = latched;
-            args[3].u = locked;
-            args[4].u = group;
+            std::array  argv{WlArgument{.u = serial}, WlArgument{.u = depressed}, WlArgument{.u = latched}, WlArgument{.u = locked}, WlArgument{.u = group}};
+            WlArgument* args = argv.data();
             if (forwardInherited(reinterpret_cast<wl_proxy*>(proxy), data, 4, args))
                 return;
             auto retained = retainKeyboardByProxy(reinterpret_cast<wl_proxy*>(proxy));
@@ -740,9 +783,8 @@ namespace lotus::apphook {
          * @param delay Initial repeat delay.
          */
         void onRepeat(void* data, wl_keyboard* proxy, int32_t rate, int32_t delay) {
-            WlArgument args[2]{};
-            args[0].i = rate;
-            args[1].i = delay;
+            std::array  argv{WlArgument{.i = rate}, WlArgument{.i = delay}};
+            WlArgument* args = argv.data();
             if (forwardInherited(reinterpret_cast<wl_proxy*>(proxy), data, 5, args))
                 return;
             auto retained = retainKeyboardByProxy(reinterpret_cast<wl_proxy*>(proxy));
@@ -750,7 +792,8 @@ namespace lotus::apphook {
                 deliver(retained.get(), 5, args);
         }
 
-        const KeyboardListener wrapper{onKeymap, onEnter, onLeave, onKey, onModifiers, onRepeat};
+        // libwayland's listener API takes a non-const pointer; this table is never modified.
+        KeyboardListener wrapper{.keymap = onKeymap, .enter = onEnter, .leave = onLeave, .key = onKey, .modifiers = onModifiers, .repeatInfo = onRepeat};
 
         /**
          * @brief Intercepts dispatcher-style Wayland keyboard callbacks.
@@ -762,23 +805,24 @@ namespace lotus::apphook {
          * @return Original dispatcher return value.
          */
         int dispatchWrapper(const void* implementation, void* data, uint32_t opcode, const WlMessage* message, WlArgument* args) {
-            auto* record = static_cast<const NativeForward*>(implementation);
-            if (!record || !record->alive.load(std::memory_order_acquire))
+            const auto* record = static_cast<const NativeForward*>(implementation);
+            if ((record == nullptr) || !record->alive.load(std::memory_order_acquire))
                 return 0;
-            if (record->ownerPid != getpid() && !adoptInheritedKeyboard(const_cast<NativeForward*>(record), opcode))
-                return record->dispatcher ? record->dispatcher(record->implementation, data, opcode, message, args) : 0;
+            if (record->ownerPid != getpid() && !adoptInheritedKeyboard(publishedForward(record), opcode))
+                return (record->dispatcher != nullptr) ? record->dispatcher(record->implementation, data, opcode, message, args) : 0;
             auto retained = record->ownerPid == getpid() ? retainKeyboard(record->tracked) : retainKeyboardByProxy(record->proxy);
             if (!retained || !retained->alive)
                 return 0;
-            auto* keyboard = retained.get();
-            if (opcode == 0 && args && args[0].u == 1)
-                readKeymap(keyboard, args[1].h, args[2].u);
-            if (opcode >= 1 && opcode <= 4 && args)
+            auto*        keyboard = retained.get();
+            const WlArgs in(args);
+            if (opcode == 0 && (args != nullptr) && in.uintAt(0) == 1)
+                readKeymap(keyboard, in.fdAt(1), in.uintAt(2));
+            if (opcode >= 1 && opcode <= 4 && (args != nullptr))
                 observe(keyboard, opcode, args);
-            if (opcode == 3 && args && args[3].u == 1 && keyboard->focused) {
+            if (opcode == 3 && (args != nullptr) && in.uintAt(3) == 1 && keyboard->focused) {
                 noteKeyboardActivity(true);
             }
-            return keyboard->dispatcher ? keyboard->dispatcher(keyboard->implementation, data, opcode, message, args) : 0;
+            return (keyboard->dispatcher != nullptr) ? keyboard->dispatcher(keyboard->implementation, data, opcode, message, args) : 0;
         }
 
         /**
@@ -789,13 +833,13 @@ namespace lotus::apphook {
          */
         uint32_t modifierMask(const Keyboard& keyboard, uint32_t modifiers) {
             uint32_t mask = 0;
-            if ((modifiers & kModifierShift) && keyboard.shiftIndex < 32)
+            if (((modifiers & kModifierShift) != 0U) && keyboard.shiftIndex < 32)
                 mask |= 1U << keyboard.shiftIndex;
-            if ((modifiers & kModifierCtrl) && keyboard.ctrlIndex < 32)
+            if (((modifiers & kModifierCtrl) != 0U) && keyboard.ctrlIndex < 32)
                 mask |= 1U << keyboard.ctrlIndex;
-            if ((modifiers & kModifierAlt) && keyboard.altIndex < 32)
+            if (((modifiers & kModifierAlt) != 0U) && keyboard.altIndex < 32)
                 mask |= 1U << keyboard.altIndex;
-            if ((modifiers & kModifierSuper) && keyboard.superIndex < 32)
+            if (((modifiers & kModifierSuper) != 0U) && keyboard.superIndex < 32)
                 mask |= 1U << keyboard.superIndex;
             return mask;
         }
@@ -806,12 +850,11 @@ namespace lotus::apphook {
          * @param depressed Depressed modifier bits.
          */
         void emitModifiers(Keyboard* keyboard, uint32_t depressed) {
-            WlArgument args[5]{};
-            args[0].u = keyboard->serial;
-            args[1].u = depressed;
-            args[2].u = keyboard->latched;
-            args[3].u = keyboard->locked;
-            args[4].u = keyboard->group;
+            std::array argv{
+                WlArgument{.u = keyboard->serial}, WlArgument{.u = depressed},       WlArgument{.u = keyboard->latched},
+                WlArgument{.u = keyboard->locked}, WlArgument{.u = keyboard->group},
+            };
+            WlArgument* args = argv.data();
             deliver(keyboard, 4, args);
         }
 
@@ -822,11 +865,8 @@ namespace lotus::apphook {
          * @param pressed One for press, zero for release.
          */
         void emitKey(Keyboard* keyboard, uint32_t keycode, uint32_t pressed) {
-            WlArgument args[4]{};
-            args[0].u = keyboard->serial;
-            args[1].u = ++keyboard->time;
-            args[2].u = keycode;
-            args[3].u = pressed;
+            std::array  argv{WlArgument{.u = keyboard->serial}, WlArgument{.u = ++keyboard->time}, WlArgument{.u = keycode}, WlArgument{.u = pressed}};
+            WlArgument* args = argv.data();
             deliver(keyboard, 3, args);
         }
 
@@ -839,7 +879,8 @@ namespace lotus::apphook {
             {
                 std::scoped_lock lock(keyboardMutex);
                 Keyboard*        focused = focusedKeyboard(display);
-                if (focused && focused->alive && focused->focusToken && focused->focusedSurface && originalGetQueue && originalGetQueue(focused->proxy) == queue) {
+                if ((focused != nullptr) && focused->alive && (focused->focusToken != 0U) && (focused->focusedSurface != nullptr) && (originalGetQueue != nullptr) &&
+                    originalGetQueue(focused->proxy) == queue) {
                     keyboard   = retainKeyboard(focused);
                     focusToken = focused->focusToken;
                 }
@@ -865,6 +906,8 @@ namespace lotus::apphook {
                     emitModifiers(keyboard.get(), combined);
                 while (sequence.operation() == op && sameFocus() && (!task->cancelled.load(std::memory_order_acquire) || sequence.needsRelease())) {
                     const auto edge = sequence.current();
+                    if (!edge)
+                        break;
                     if (edge->pressed)
                         task->applied.store(true, std::memory_order_release);
                     emitKey(keyboard.get(), edge->keycode, edge->pressed ? 1 : 0);
@@ -877,7 +920,13 @@ namespace lotus::apphook {
                     emitModifiers(keyboard.get(), keyboard->depressed.load(std::memory_order_acquire));
                 }
             }
-            const int        status = !keyboard->alive ? -ENOTCONN : !sameFocus() ? -EINPROGRESS : task->cancelled.load(std::memory_order_acquire) ? -ECANCELED : 0;
+            int status = 0;
+            if (!keyboard->alive)
+                status = -ENOTCONN;
+            else if (!sameFocus())
+                status = -EINPROGRESS;
+            else if (task->cancelled.load(std::memory_order_acquire))
+                status = -ECANCELED;
             std::scoped_lock lock(runtime().mutex);
             finishLocked(task, status);
         }
@@ -890,7 +939,7 @@ namespace lotus::apphook {
         void onDispatch(wl_display* display, wl_event_queue* queue, bool completed) {
             (void)queue;
             (void)completed;
-            if (display) {
+            if (display != nullptr) {
                 wl_display* expected = nullptr;
                 (void)runtime().waylandDisplay.compare_exchange_strong(expected, display, std::memory_order_acq_rel);
             }
@@ -898,7 +947,7 @@ namespace lotus::apphook {
 
         /** @brief Checks for queued native events without dispatching an extra event. */
         bool queueDrained(wl_display* display, wl_event_queue* queue) {
-            if (!display || !queue || !originalPrepareReadQueue || !originalCancelRead)
+            if ((display == nullptr) || (queue == nullptr) || (originalPrepareReadQueue == nullptr) || (originalCancelRead == nullptr))
                 return false;
             if (originalPrepareReadQueue(display, queue) != 0)
                 return false;
@@ -910,12 +959,12 @@ namespace lotus::apphook {
          * @brief Pumps work from the wake callback, including native single-event dispatch.
          * @param callback Completed callback proxy.
          */
-        void callbackDone(void*, wl_proxy* callback, uint32_t) {
+        void callbackDone(void* /*unused*/, wl_proxy* callback, uint32_t /*unused*/) {
             // Do not export optional Wayland symbols just to intercept dispatch:
             // the native single-event APIs also deliver this callback.
-            wl_display*     display = originalGetProxyDisplay ? originalGetProxyDisplay(callback) : nullptr;
-            wl_event_queue* queue   = originalGetQueue ? originalGetQueue(callback) : nullptr;
-            if (originalDestroy)
+            wl_display*     display = (originalGetProxyDisplay != nullptr) ? originalGetProxyDisplay(callback) : nullptr;
+            wl_event_queue* queue   = (originalGetQueue != nullptr) ? originalGetQueue(callback) : nullptr;
+            if (originalDestroy != nullptr)
                 originalDestroy(callback);
             if (queueDrained(display, queue)) {
                 onDispatch(display, queue, true);
@@ -923,7 +972,7 @@ namespace lotus::apphook {
                     pump(display, queue);
                 // A native focus change may be queued after this callback. Place
                 // another wake behind it instead of injecting into stale focus.
-                bool pending;
+                bool pending = false;
                 {
                     std::scoped_lock lock(runtime().mutex);
                     pending = std::any_of(runtime().pending.begin(), runtime().pending.end(),
@@ -937,22 +986,22 @@ namespace lotus::apphook {
     } // namespace
 
     FocusCandidates focusedWaylandCandidates() {
-        if (!currentWayland.load(std::memory_order_acquire))
+        if (currentWayland.load(std::memory_order_acquire) == nullptr)
             return {};
         std::scoped_lock lock(keyboardMutex);
         FocusCandidates  candidates;
         for (const auto& keyboard : keyboards) {
-            if (!keyboard->alive || !keyboard->focused || !keyboard->display)
+            if (!keyboard->alive || !keyboard->focused || (keyboard->display == nullptr))
                 continue;
-            if (!keyboard->focusToken || !keyboard->focusedSurface)
+            if ((keyboard->focusToken == 0U) || (keyboard->focusedSurface == nullptr))
                 continue;
             ++candidates.count;
-            candidates.target = {HookBackend::Wayland, keyboard->display, keyboard->focusToken};
+            candidates.target = {.backend = HookBackend::Wayland, .connection = keyboard->display, .focused = keyboard->focusToken};
         }
         if (candidates.count > 1 && lastInputKeyboard && lastInputKeyboard->alive && lastInputKeyboard->focused && lastInputKeyboard->display &&
             lastInputKeyboard->focusedSurface && lastInputKeyboard->focusToken) {
             candidates.count  = 1;
-            candidates.target = {HookBackend::Wayland, lastInputKeyboard->display, lastInputKeyboard->focusToken};
+            candidates.target = {.backend = HookBackend::Wayland, .connection = lastInputKeyboard->display, .focused = lastInputKeyboard->focusToken};
         }
         return candidates;
     }
@@ -1008,7 +1057,7 @@ namespace lotus::apphook {
     }
 
     void wakeWayland() {
-        if (!currentWayland.load(std::memory_order_acquire))
+        if (currentWayland.load(std::memory_order_acquire) == nullptr)
             return;
         std::scoped_lock connectionLock(waylandConnectionMutex);
         auto&            generation = waylandGeneration();
@@ -1016,7 +1065,7 @@ namespace lotus::apphook {
             return;
         // A previous wake may already be queued but not yet written because
         // the socket was full. Retry it instead of adding duplicate callbacks.
-        if (generation.pendingFlushDisplay) {
+        if (generation.pendingFlushDisplay != nullptr) {
             const int flushed = originalFlush(generation.pendingFlushDisplay);
             if (flushed < 0 && errno == EAGAIN)
                 return;
@@ -1028,20 +1077,21 @@ namespace lotus::apphook {
         {
             std::scoped_lock lock(keyboardMutex);
             Keyboard*        keyboard = focusedKeyboard();
-            if (!keyboard || !keyboard->alive || !keyboard->display)
+            if ((keyboard == nullptr) || !keyboard->alive || (keyboard->display == nullptr))
                 return;
             display = keyboard->display;
             queue   = originalGetQueue(keyboard->proxy);
         }
-        if (!queue)
+        if (queue == nullptr)
             return;
         wl_proxy* callback = originalMarshalConstructor(reinterpret_cast<wl_proxy*>(display), 0, callbackInterface, 1, nullptr);
-        if (!callback)
+        if (callback == nullptr)
             return;
         originalSetQueue(callback, queue);
-        static void (*const listener[])(void) = {reinterpret_cast<void (*)(void)>(&callbackDone)};
-        if (originalAddListener(callback, const_cast<void (**)(void)>(listener), nullptr) != 0) {
-            if (originalDestroy)
+        // libwayland's listener API takes a non-const pointer; this table is never modified.
+        static std::array<void (*)(), 1> listener{reinterpret_cast<void (*)()>(&callbackDone)};
+        if (originalAddListener(callback, listener.data(), nullptr) != 0) {
+            if (originalDestroy != nullptr)
                 originalDestroy(callback);
             return;
         }
@@ -1051,28 +1101,25 @@ namespace lotus::apphook {
             const int notify               = runtime().completionFd.load(std::memory_order_acquire);
             if (notify >= 0) {
                 const uint64_t one = 1;
-                ssize_t        written;
-                do {
-                    written = write(notify, &one, sizeof(one));
-                } while (written < 0 && errno == EINTR);
+                (void)retryOnEintr([&] { return write(notify, &one, sizeof(one)); });
             }
         }
     }
 
     int waylandWakeFlushFd() {
-        if (!currentWayland.load(std::memory_order_acquire))
+        if (currentWayland.load(std::memory_order_acquire) == nullptr)
             return -1;
         std::scoped_lock connectionLock(waylandConnectionMutex);
         auto&            generation = waylandGeneration();
-        return generation.pendingFlushDisplay && originalGetFd ? originalGetFd(generation.pendingFlushDisplay) : -1;
+        return (generation.pendingFlushDisplay != nullptr) && (originalGetFd != nullptr) ? originalGetFd(generation.pendingFlushDisplay) : -1;
     }
 
     void retryWaylandWakeFlush() {
-        if (!currentWayland.load(std::memory_order_acquire))
+        if (currentWayland.load(std::memory_order_acquire) == nullptr)
             return;
         std::scoped_lock connectionLock(waylandConnectionMutex);
         auto&            generation = waylandGeneration();
-        if (!generation.pendingFlushDisplay || !originalFlush)
+        if ((generation.pendingFlushDisplay == nullptr) || (originalFlush == nullptr))
             return;
         const int flushed = originalFlush(generation.pendingFlushDisplay);
         if (flushed >= 0 || errno != EAGAIN)
@@ -1107,23 +1154,23 @@ namespace lotus::apphook {
  * @param data Original listener user data.
  * @return Original registration status.
  */
-LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(void), void* data) {
+LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(), void* data) {
     using namespace lotus::apphook;
     loadWayland();
-    if (!originalAddListener)
+    if (originalAddListener == nullptr)
         return -1;
     if (!waylandCapable.load(std::memory_order_acquire))
         return originalAddListener(proxy, callbacks, data);
-    if (!proxy || !callbacks || !originalClass || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || lookupKeyboard(proxy))
+    if ((proxy == nullptr) || (callbacks == nullptr) || (originalClass == nullptr) || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || (lookupKeyboard(proxy) != nullptr))
         return originalAddListener(proxy, callbacks, data);
 
     std::scoped_lock lock(keyboardMutex);
     auto             keyboard = std::make_shared<Keyboard>();
     keyboard->proxy           = proxy;
-    keyboard->display         = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
+    keyboard->display         = (originalGetProxyDisplay != nullptr) ? originalGetProxyDisplay(proxy) : nullptr;
     keyboard->listener        = reinterpret_cast<const KeyboardListener*>(callbacks);
-    auto* record              = new (std::nothrow) NativeForward;
-    if (!record)
+    auto* record              = allocateForward();
+    if (record == nullptr)
         return originalAddListener(proxy, callbacks, data);
     record->proxy     = proxy;
     record->display   = keyboard->display;
@@ -1133,12 +1180,13 @@ LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(void), v
     keyboard->forward = record;
     keyboards.push_back(std::move(keyboard));
     publishForward(record);
-    const int result = originalAddListener(proxy, reinterpret_cast<void (**)(void)>(const_cast<KeyboardListener*>(&wrapper)), data);
+    const int result = originalAddListener(proxy, reinterpret_cast<void (**)()>(&wrapper), data);
     if (result != 0) {
         record->alive.store(false, std::memory_order_release);
         keyboards.pop_back();
-    } else
+    } else {
         noteWaylandKeyboardAvailable(true);
+    }
     return result;
 }
 
@@ -1153,21 +1201,21 @@ LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(void), v
 LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, const void* implementation, void* data) {
     using namespace lotus::apphook;
     loadWayland();
-    if (!originalAddDispatcher)
+    if (originalAddDispatcher == nullptr)
         return -1;
     if (!waylandCapable.load(std::memory_order_acquire))
         return originalAddDispatcher(proxy, dispatcher, implementation, data);
-    if (!proxy || !dispatcher || !originalClass || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || lookupKeyboard(proxy))
+    if ((proxy == nullptr) || (dispatcher == nullptr) || (originalClass == nullptr) || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || (lookupKeyboard(proxy) != nullptr))
         return originalAddDispatcher(proxy, dispatcher, implementation, data);
 
     std::scoped_lock lock(keyboardMutex);
     auto             keyboard = std::make_shared<Keyboard>();
     keyboard->proxy           = proxy;
-    keyboard->display         = originalGetProxyDisplay ? originalGetProxyDisplay(proxy) : nullptr;
+    keyboard->display         = (originalGetProxyDisplay != nullptr) ? originalGetProxyDisplay(proxy) : nullptr;
     keyboard->dispatcher      = dispatcher;
     keyboard->implementation  = implementation;
-    auto* record              = new (std::nothrow) NativeForward;
-    if (!record)
+    auto* record              = allocateForward();
+    if (record == nullptr)
         return originalAddDispatcher(proxy, dispatcher, implementation, data);
     record->proxy          = proxy;
     record->display        = keyboard->display;
@@ -1182,25 +1230,26 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
     if (result != 0) {
         record->alive.store(false, std::memory_order_release);
         keyboards.pop_back();
-    } else
+    } else {
         noteWaylandKeyboardAvailable(true);
+    }
     return result;
 }
 
 /** Expose the application's original listener/dispatcher implementation. */
-LH_EXPORT void (**wl_proxy_get_listener(wl_proxy* proxy))(void) {
+LH_EXPORT void (**wl_proxy_get_listener(wl_proxy* proxy))() {
     using namespace lotus::apphook;
     loadWayland();
-    if (!originalGetListener)
+    if (originalGetListener == nullptr)
         return nullptr;
     auto keyboard = retainKeyboardByProxy(proxy);
     if (keyboard) {
-        const void* implementation = keyboard->dispatcher ? keyboard->implementation : static_cast<const void*>(keyboard->listener);
-        return reinterpret_cast<void (**)(void)>(const_cast<void*>(implementation));
+        const void* implementation = (keyboard->dispatcher != nullptr) ? keyboard->implementation : static_cast<const void*>(keyboard->listener);
+        return listenerArray(implementation);
     }
     if (auto* inherited = inheritedForward(proxy)) {
-        const void* implementation = inherited->dispatcher ? inherited->implementation : static_cast<const void*>(inherited->listener);
-        return reinterpret_cast<void (**)(void)>(const_cast<void*>(implementation));
+        const void* implementation = (inherited->dispatcher != nullptr) ? inherited->implementation : static_cast<const void*>(inherited->listener);
+        return listenerArray(implementation);
     }
     return originalGetListener(proxy);
 }
@@ -1209,10 +1258,10 @@ LH_EXPORT void (**wl_proxy_get_listener(wl_proxy* proxy))(void) {
 LH_EXPORT wl_proxy* wl_proxy_marshal_array_flags(wl_proxy* proxy, uint32_t opcode, const WlInterface* interface, uint32_t version, uint32_t flags, WlArgument* args) {
     using namespace lotus::apphook;
     loadWayland();
-    if (!originalMarshalArrayFlags)
+    if (originalMarshalArrayFlags == nullptr)
         return nullptr;
     wl_proxy* result = originalMarshalArrayFlags(proxy, opcode, interface, version, flags, args);
-    if (flags & 1U)
+    if ((flags & 1U) != 0U)
         forgetProxy(proxy);
     return result;
 }
@@ -1237,7 +1286,7 @@ LH_EXPORT void wl_display_disconnect(wl_display* display) {
         forgetProxy(proxy);
     if (runtime().waylandDisplay.load(std::memory_order_acquire) == display)
         runtime().waylandDisplay.store(nullptr, std::memory_order_release);
-    if (originalDisconnect)
+    if (originalDisconnect != nullptr)
         originalDisconnect(display);
 }
 
@@ -1249,7 +1298,7 @@ LH_EXPORT void wl_proxy_destroy(wl_proxy* proxy) {
     using namespace lotus::apphook;
     forgetProxy(proxy);
     loadWayland();
-    if (originalDestroy)
+    if (originalDestroy != nullptr)
         originalDestroy(proxy);
 }
 
@@ -1263,7 +1312,7 @@ LH_EXPORT int wl_display_dispatch_queue_pending(wl_display* display, wl_event_qu
     using namespace lotus::apphook;
     loadWayland();
     onDispatch(display, queue, false);
-    const int result = originalDispatchQueuePending ? originalDispatchQueuePending(display, queue) : -1;
+    const int result = (originalDispatchQueuePending != nullptr) ? originalDispatchQueuePending(display, queue) : -1;
     if (result >= 0)
         onDispatch(display, queue, true);
     return result;
@@ -1277,10 +1326,10 @@ LH_EXPORT int wl_display_dispatch_queue_pending(wl_display* display, wl_event_qu
 LH_EXPORT int wl_display_dispatch_pending(wl_display* display) {
     using namespace lotus::apphook;
     loadWayland();
-    onDispatch(display, originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, false);
-    const int result = originalDispatchPending ? originalDispatchPending(display) : -1;
+    onDispatch(display, (originalGetQueue != nullptr) ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, false);
+    const int result = (originalDispatchPending != nullptr) ? originalDispatchPending(display) : -1;
     if (result >= 0)
-        onDispatch(display, originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, true);
+        onDispatch(display, (originalGetQueue != nullptr) ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, true);
     return result;
 }
 
@@ -1292,10 +1341,10 @@ LH_EXPORT int wl_display_dispatch_pending(wl_display* display) {
 LH_EXPORT int wl_display_dispatch(wl_display* display) {
     using namespace lotus::apphook;
     loadWayland();
-    onDispatch(display, originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, false);
-    const int result = originalDispatch ? originalDispatch(display) : -1;
+    onDispatch(display, (originalGetQueue != nullptr) ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, false);
+    const int result = (originalDispatch != nullptr) ? originalDispatch(display) : -1;
     if (result >= 0)
-        onDispatch(display, originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, true);
+        onDispatch(display, (originalGetQueue != nullptr) ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr, true);
     return result;
 }
 
@@ -1309,7 +1358,7 @@ LH_EXPORT int wl_display_dispatch_queue(wl_display* display, wl_event_queue* que
     using namespace lotus::apphook;
     loadWayland();
     onDispatch(display, queue, false);
-    const int result = originalDispatchQueue ? originalDispatchQueue(display, queue) : -1;
+    const int result = (originalDispatchQueue != nullptr) ? originalDispatchQueue(display, queue) : -1;
     if (result >= 0)
         onDispatch(display, queue, true);
     return result;
@@ -1324,11 +1373,11 @@ LH_EXPORT int wl_display_dispatch_queue(wl_display* display, wl_event_queue* que
 LH_EXPORT int wl_display_dispatch_timeout(wl_display* display, const timespec* timeout) {
     using namespace lotus::apphook;
     loadWayland();
-    if (!originalDispatchTimeout) {
+    if (originalDispatchTimeout == nullptr) {
         errno = ENOSYS;
         return -1;
     }
-    wl_event_queue* queue = originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr;
+    wl_event_queue* queue = (originalGetQueue != nullptr) ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr;
     onDispatch(display, queue, false);
     const int result = originalDispatchTimeout(display, timeout);
     if (result >= 0)
@@ -1346,7 +1395,7 @@ LH_EXPORT int wl_display_dispatch_timeout(wl_display* display, const timespec* t
 LH_EXPORT int wl_display_dispatch_queue_timeout(wl_display* display, wl_event_queue* queue, const timespec* timeout) {
     using namespace lotus::apphook;
     loadWayland();
-    if (!originalDispatchQueueTimeout) {
+    if (originalDispatchQueueTimeout == nullptr) {
         errno = ENOSYS;
         return -1;
     }
@@ -1365,11 +1414,11 @@ LH_EXPORT int wl_display_dispatch_queue_timeout(wl_display* display, wl_event_qu
 LH_EXPORT int wl_display_dispatch_pending_single(wl_display* display) {
     using namespace lotus::apphook;
     loadWayland();
-    if (!originalDispatchPendingSingle) {
+    if (originalDispatchPendingSingle == nullptr) {
         errno = ENOSYS;
         return -1;
     }
-    wl_event_queue* queue = originalGetQueue ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr;
+    wl_event_queue* queue = (originalGetQueue != nullptr) ? originalGetQueue(reinterpret_cast<wl_proxy*>(display)) : nullptr;
     onDispatch(display, queue, false);
     const int result = originalDispatchPendingSingle(display);
     // Returning 1 may leave native FocusOut pending. Probe the queue without
@@ -1388,7 +1437,7 @@ LH_EXPORT int wl_display_dispatch_pending_single(wl_display* display) {
 LH_EXPORT int wl_display_dispatch_queue_pending_single(wl_display* display, wl_event_queue* queue) {
     using namespace lotus::apphook;
     loadWayland();
-    if (!originalDispatchQueuePendingSingle) {
+    if (originalDispatchQueuePendingSingle == nullptr) {
         errno = ENOSYS;
         return -1;
     }
@@ -1407,8 +1456,8 @@ LH_EXPORT int wl_display_dispatch_queue_pending_single(wl_display* display, wl_e
 LH_EXPORT wl_display* wl_display_connect(const char* name) {
     using namespace lotus::apphook;
     loadWayland();
-    wl_display* display = originalConnect ? originalConnect(name) : nullptr;
-    if (display)
+    wl_display* display = (originalConnect != nullptr) ? originalConnect(name) : nullptr;
+    if (display != nullptr)
         runtime().waylandDisplay.store(display);
     return display;
 }
@@ -1421,20 +1470,20 @@ LH_EXPORT wl_display* wl_display_connect(const char* name) {
 LH_EXPORT wl_display* wl_display_connect_to_fd(int fd) {
     using namespace lotus::apphook;
     loadWayland();
-    wl_display* display = originalConnectFd ? originalConnectFd(fd) : nullptr;
-    if (display)
+    wl_display* display = (originalConnectFd != nullptr) ? originalConnectFd(fd) : nullptr;
+    if (display != nullptr)
         runtime().waylandDisplay.store(display);
     return display;
 }
 
 // Forked children still have wrappers installed in inherited Wayland proxies.
 // These lookups only touch immutable callback descriptors (no runtime locks).
-extern "C" __attribute__((visibility("hidden"))) int lotus_apphook_inherited_wayland_listener(wl_proxy* proxy, void (***out)(void)) {
+extern "C" __attribute__((visibility("hidden"))) int lotus_apphook_inherited_wayland_listener(wl_proxy* proxy, void (***out)()) {
     auto* record = lotus::apphook::inheritedForward(proxy);
-    if (!record)
+    if (record == nullptr)
         return 0;
-    const void* implementation = record->dispatcher ? record->implementation : static_cast<const void*>(record->listener);
-    *out                       = reinterpret_cast<void (**)(void)>(const_cast<void*>(implementation));
+    const void* implementation = (record->dispatcher != nullptr) ? record->implementation : static_cast<const void*>(record->listener);
+    *out                       = lotus::apphook::listenerArray(implementation);
     return 1;
 }
 extern "C" __attribute__((visibility("hidden"))) void lotus_apphook_retire_wayland_proxy(wl_proxy* proxy) {

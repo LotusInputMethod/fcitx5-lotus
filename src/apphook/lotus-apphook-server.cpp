@@ -15,6 +15,7 @@
 #endif
 
 #include "lotus-apphook-server.h"
+#include "lotus-apphook-fd.h"
 #include "lotus-apphook-protocol.h"
 #include "lotus-log.h"
 
@@ -24,6 +25,7 @@
 #include <cstring>
 #include <poll.h>
 #include <string>
+#include <utility>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -69,11 +71,8 @@ namespace fcitx {
         condition_.notify_all();
         if (stopFd_.isValid()) {
             const uint64_t one = 1;
-            ssize_t        written;
-            do {
-                written = write(stopFd_.get(), &one, sizeof(one));
-            } while (written < 0 && errno == EINTR);
             // EAGAIN means the eventfd is already signalled.
+            (void)retryOnEintr([&] { return write(stopFd_.get(), &one, sizeof(one)); });
         }
         for (auto& work : abandoned)
             if (work.completion)
@@ -114,7 +113,8 @@ namespace fcitx {
             if (stopping_) {
                 return false;
             }
-            queue_.push_back({pid, std::move(operations), requestId, preDelayMs, postDelayMs, std::move(complete)});
+            queue_.push_back(
+                {.pid = pid, .operations = std::move(operations), .requestId = requestId, .preDelayMs = preDelayMs, .postDelayMs = postDelayMs, .completion = std::move(complete)});
         }
         condition_.notify_one();
         return true;
@@ -126,7 +126,7 @@ namespace fcitx {
             return -ENOTCONN;
         }
         const ssize_t sent = send(session->fd.get(), &request, size, MSG_NOSIGNAL | MSG_DONTWAIT);
-        if (sent != static_cast<ssize_t>(size)) {
+        if (std::cmp_not_equal(sent, size)) {
             return sent < 0 ? -errno : -EIO;
         }
         return 0;
@@ -146,8 +146,8 @@ namespace fcitx {
         bool                     active  = false;
         {
             std::scoped_lock lock(mutex_);
-            const RequestKey key{pid, requestId};
-            const auto       it = std::find_if(queue_.begin(), queue_.end(), [&key](const Work& item) { return item.pid == key.pid && item.requestId == key.requestId; });
+            const RequestKey key{.pid = pid, .requestId = requestId};
+            const auto       it = std::ranges::find_if(queue_, [&key](const Work& item) { return item.pid == key.pid && item.requestId == key.requestId; });
             if (it != queue_.end()) {
                 completion = std::move(it->completion);
                 queue_.erase(it);
@@ -198,31 +198,31 @@ namespace fcitx {
         request.requestId = work.requestId;
         request.count     = static_cast<uint32_t>(work.operations.size());
         uint64_t taps     = 0;
-        for (size_t i = 0; i < work.operations.size(); ++i) {
-            const auto& op = work.operations[i];
+        for (const auto& op : work.operations) {
             taps += op.count;
-            if (!op.count || op.modifiers > 15 || taps > kMaxTaps) {
+            if ((op.count == 0U) || op.modifiers > 15 || taps > kMaxTaps) {
                 return -EINVAL;
             }
-            request.ops[i] = op;
         }
+        // Bounded above: operations.size() <= kMaxOps.
+        std::ranges::copy(work.operations, request.ops.begin());
 
         {
             std::scoped_lock lock(session->mutex);
             session->waitingId = work.requestId;
             session->hasReply  = false;
         }
-        const int sent = sendRequest(session, request, kRequestHeaderSize + request.count * sizeof(KeyOperation));
+        const int sent = sendRequest(session, request, kRequestHeaderSize + (request.count * sizeof(KeyOperation)));
         if (sent != 0) {
             std::scoped_lock lock(session->mutex);
             session->waitingId = 0;
             return sent;
         }
         // Close the race where cancellation reaches the target before Emit.
-        bool cancelled;
+        bool cancelled = false;
         {
             std::scoped_lock lock(mutex_);
-            cancelled = cancelled_.contains({work.pid, work.requestId});
+            cancelled = cancelled_.contains({.pid = work.pid, .requestId = work.requestId});
         }
         if (cancelled) {
             Request cancel{};
@@ -250,7 +250,7 @@ namespace fcitx {
     void LotusAppHook::run() {
         const auto waitForDelay = [this](const Work& work, uint32_t delayMs) {
             std::unique_lock lock(mutex_);
-            const RequestKey key{work.pid, work.requestId};
+            const RequestKey key{.pid = work.pid, .requestId = work.requestId};
             return !condition_.wait_for(lock, std::chrono::milliseconds(delayMs), [&] { return stopping_ || cancelled_.contains(key); });
         };
 
@@ -260,7 +260,7 @@ namespace fcitx {
                 std::unique_lock lock(mutex_);
                 // An unresponsive application must not block requests to other
                 // PIDs. Only one burst per PID may run at once.
-                const auto available = [&] { return std::find_if(queue_.begin(), queue_.end(), [&](const Work& item) { return !activePids_.contains(item.pid); }); };
+                const auto available = [&] { return std::ranges::find_if(queue_, [&](const Work& item) { return !activePids_.contains(item.pid); }); };
                 condition_.wait(lock, [&] { return stopping_ || available() != queue_.end(); });
                 if (stopping_)
                     return;
@@ -268,28 +268,28 @@ namespace fcitx {
                 work    = std::move(*it);
                 queue_.erase(it);
                 activePids_.insert(work.pid);
-                activeRequests_.insert({work.pid, work.requestId});
+                activeRequests_.insert({.pid = work.pid, .requestId = work.requestId});
             }
 
             int        result         = -ECANCELED;
             const bool delayCompleted = work.preDelayMs == 0 || waitForDelay(work, work.preDelayMs);
             if (delayCompleted) {
-                bool cancelled;
+                bool cancelled = false;
                 {
                     std::scoped_lock lock(mutex_);
-                    cancelled = cancelled_.contains({work.pid, work.requestId}) || stopping_.load();
+                    cancelled = cancelled_.contains({.pid = work.pid, .requestId = work.requestId}) || stopping_.load();
                 }
                 if (!cancelled)
                     result = sendKeys(work);
             }
-            if (result == 0 && work.postDelayMs)
+            if (result == 0 && (work.postDelayMs != 0U))
                 (void)waitForDelay(work, work.postDelayMs);
             if (work.completion)
                 work.completion(result);
             {
                 std::scoped_lock lock(mutex_);
-                cancelled_.erase({work.pid, work.requestId});
-                activeRequests_.erase({work.pid, work.requestId});
+                cancelled_.erase({.pid = work.pid, .requestId = work.requestId});
+                activeRequests_.erase({.pid = work.pid, .requestId = work.requestId});
                 activePids_.erase(work.pid);
             }
             condition_.notify_all();
@@ -327,18 +327,18 @@ namespace fcitx {
             std::vector<pollfd> fds;
             const size_t        clientOffset = stopFd_.isValid() ? 2 : 1;
             fds.reserve(clients.size() + clientOffset);
-            fds.push_back({listener.get(), POLLIN, 0});
+            fds.push_back({.fd = listener.get(), .events = POLLIN, .revents = 0});
             if (stopFd_.isValid())
-                fds.push_back({stopFd_.get(), POLLIN, 0});
+                fds.push_back({.fd = stopFd_.get(), .events = POLLIN, .revents = 0});
             for (const auto& session : clients)
-                fds.push_back({session->fd.get(), POLLIN, 0});
+                fds.push_back({.fd = session->fd.get(), .events = POLLIN, .revents = 0});
             // Fall back to bounded polling if eventfd creation failed.
             const int polled = poll(fds.data(), fds.size(), stopFd_.isValid() ? -1 : 200);
             if (polled < 0 && errno == EINTR)
                 continue;
-            if (polled < 0 || stopping_ || (stopFd_.isValid() && fds[1].revents))
+            if (polled < 0 || stopping_ || (stopFd_.isValid() && (fds[1].revents != 0)))
                 break;
-            if (fds[0].revents & POLLIN) {
+            if (hasPollEvents(fds[0].revents, POLLIN)) {
                 while (true) {
                     FdGuard peer(accept4(listener.get(), nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK));
                     if (peer.get() < 0) {
@@ -369,25 +369,21 @@ namespace fcitx {
             for (size_t i = 0; i < clients.size(); ++i) {
                 const auto& session = clients[i];
                 const short events  = fds[i + clientOffset].revents;
-                if (!events) {
+                if (events == 0) {
                     continue;
                 }
-                const bool peerClosed = (events & (POLLERR | POLLHUP | POLLNVAL)) != 0;
+                const bool peerClosed = hasPollEvents(events, POLLERR | POLLHUP | POLLNVAL);
                 bool       drop       = peerClosed;
-                if (events & POLLIN) {
+                if (hasPollEvents(events, POLLIN)) {
                     bool responseError = false;
                     // HUP can accompany several queued packets (e.g. Focus,
                     // then Complete). Drain them before disconnecting the peer.
-                    do {
-                        Response response{};
-                        ssize_t  got;
-                        do {
-                            got = recv(session->fd.get(), &response, sizeof(response), MSG_DONTWAIT | MSG_TRUNC);
-                        } while (got < 0 && errno == EINTR);
-                        if (got != sizeof(response) || response.magic != kMagic || response.version != kVersion) {
-                            drop          = true;
-                            responseError = true;
-                        } else if (response.type == ResponseKind::Ready && response.requestId == 0 && (response.reserved & ~kReadyFocused) == 0) {
+                    bool readMore = true;
+                    while (readMore) {
+                        Response      response{};
+                        const ssize_t got   = retryOnEintr([&] { return recv(session->fd.get(), &response, sizeof(response), MSG_DONTWAIT | MSG_TRUNC); });
+                        const bool    valid = got == sizeof(response) && response.magic == kMagic && response.version == kVersion;
+                        if (valid && response.type == ResponseKind::Ready && response.requestId == 0 && (response.reserved & ~kReadyFocused) == 0) {
                             {
                                 std::scoped_lock lock(mutex_);
                                 const auto       found = sessions_.find(session->pid);
@@ -406,7 +402,7 @@ namespace fcitx {
                                 drop          = true;
                                 responseError = true;
                             }
-                        } else if (response.type == ResponseKind::Focus && response.requestId == 0 && (response.status == 0 || response.status == 1)) {
+                        } else if (valid && response.type == ResponseKind::Focus && response.requestId == 0 && (response.status == 0 || response.status == 1)) {
                             std::scoped_lock lock(mutex_);
                             const auto       found = sessions_.find(session->pid);
                             if (found != sessions_.end() && found->second == session) {
@@ -417,10 +413,10 @@ namespace fcitx {
                                     focusedPid_ = 0;
                                 }
                             }
-                        } else if (response.type == ResponseKind::Complete && response.requestId != 0) {
+                        } else if (valid && response.type == ResponseKind::Complete && response.requestId != 0) {
                             std::scoped_lock lock(session->mutex);
                             if (response.requestId == session->waitingId) {
-                                session->result   = response.status != 0 && (response.reserved & kCompleteMayHaveApplied) ? -EINPROGRESS : response.status;
+                                session->result   = response.status != 0 && ((response.reserved & kCompleteMayHaveApplied) != 0U) ? -EINPROGRESS : response.status;
                                 session->hasReply = true;
                                 session->completed.notify_all();
                             }
@@ -428,7 +424,8 @@ namespace fcitx {
                             drop          = true;
                             responseError = true;
                         }
-                    } while (peerClosed && !responseError);
+                        readMore = peerClosed && !responseError;
+                    }
                 }
                 if (drop) {
                     disconnect(session);

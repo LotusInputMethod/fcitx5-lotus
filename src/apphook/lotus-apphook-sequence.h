@@ -45,9 +45,9 @@ namespace lotus::apphook {
 
         [[nodiscard]] std::optional<KeyEdge> current() const {
             const auto* op = operation();
-            if (!op)
+            if (op == nullptr)
                 return std::nullopt;
-            return KeyEdge{op->keycode, op->modifiers, !releaseNext_};
+            return KeyEdge{.keycode = op->keycode, .modifiers = op->modifiers, .pressed = !releaseNext_};
         }
 
         [[nodiscard]] bool needsRelease() const {
@@ -59,7 +59,7 @@ namespace lotus::apphook {
 
         void advance() {
             const auto* op = operation();
-            if (!op)
+            if (op == nullptr)
                 return;
             if (!releaseNext_) {
                 releaseNext_ = true;
@@ -79,7 +79,7 @@ namespace lotus::apphook {
                 ++operation_;
         }
 
-        std::span<const KeyOperation> operations_{};
+        std::span<const KeyOperation> operations_;
         size_t                        operation_   = 0;
         uint32_t                      tap_         = 0;
         bool                          releaseNext_ = false;
