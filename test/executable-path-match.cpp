@@ -6,27 +6,21 @@
  */
 
 #include "common-executable-path.h"
+#include "test-utils.h"
 
-#include <iostream>
 #include <string>
 #include <string_view>
 
 namespace {
-
-    bool fail(const std::string& step, bool expected, bool actual) {
-        std::cerr << "Step: " << step << '\n'
-                  << "Expected: " << (expected ? "true" : "false") << '\n'
-                  << "Actual: " << (actual ? "true" : "false") << '\n'
-                  << "Meaning: the executable path policy accepted or rejected a peer incorrectly\n";
-        return false;
-    }
 
     bool expect(std::string_view exe, std::string_view expectedPath, std::string_view prefix, bool want) {
         const bool got = isAllowedExecutablePath(exe, expectedPath, prefix);
         if (got == want) {
             return true;
         }
-        return fail("isAllowedExecutablePath(\"" + std::string(exe) + "\", \"" + std::string(expectedPath) + "\", \"" + std::string(prefix) + "\")", want, got);
+        reportFailure("isAllowedExecutablePath(\"" + std::string(exe) + "\", \"" + std::string(expectedPath) + "\", \"" + std::string(prefix) + "\")", want ? "true" : "false",
+                      got ? "true" : "false", "the executable path policy accepted or rejected a peer incorrectly");
+        return false;
     }
 
 } // namespace

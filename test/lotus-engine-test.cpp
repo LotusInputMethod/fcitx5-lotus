@@ -55,14 +55,14 @@ namespace {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got [%s], expected [%s]\n", name, hexOf(actual).c_str(), hexOf(expected).c_str());
+        reportFailure(name, hexOf(expected), hexOf(actual), "engine behaviour must match the expectations ported from the Go tests");
         ++failures;
     }
 
     void checkValid(const char* name, Engine& engine, bool inputIsFullComplete, bool expected) {
         const bool actual = engine.isValid(inputIsFullComplete);
         if (actual != expected) {
-            std::printf("FAIL %s: got %s, expected %s\n", name, actual ? "true" : "false", expected ? "true" : "false");
+            reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "IsValid must agree with the Go engine's validity for the composed word");
             ++failures;
         }
     }
@@ -534,12 +534,13 @@ namespace {
             engine.processString(typed, kVietnamese);
             const std::u32string got = engine.processedString(kVietnamese);
             if (got != want) {
-                std::printf("FAIL Process [%s], got [%s], expected [%s]\n", hexOf(typed).c_str(), hexOf(got).c_str(), hexOf(want).c_str());
+                reportFailure("Process [" + hexOf(typed) + "]", hexOf(want), hexOf(got), "free CV spelling must compose the word the rime rules allow");
                 ++failures;
             }
             const bool valid = engine.isValid(true);
             if (valid != wantValid) {
-                std::printf("FAIL IsValid(true) for [%s]: got %s, expected %s\n", hexOf(typed).c_str(), valid ? "true" : "false", wantValid ? "true" : "false");
+                reportFailure("IsValid(true) for [" + hexOf(typed) + "]", wantValid ? "true" : "false", valid ? "true" : "false",
+                              "the composed word must keep the validity the Go engine reports");
                 ++failures;
             }
         };
@@ -694,8 +695,9 @@ namespace {
                 ++mismatches;
                 if (shown < 20) {
                     ++shown;
-                    std::printf("FAIL golden %s step %s key U+%04X mode %u: processed=[%s], expected=[%s], valid=%d, want=%d\n", id.c_str(), row.fields[1].c_str(),
-                                static_cast<unsigned>(key), mode.bits, actual.c_str(), expected.c_str(), valid ? 1 : 0, wantValid ? 1 : 0);
+                    reportFailure("golden " + id + " step " + row.fields[1] + " key " + hexOf(std::u32string(1, key)) + " mode " + std::to_string(mode.bits),
+                                  "processed=[" + expected + "], valid=" + (wantValid ? "1" : "0"), "processed=[" + actual + "], valid=" + (valid ? "1" : "0"),
+                                  "the engine must reproduce the golden corpus the Go engine dumped");
                 }
             }
         }

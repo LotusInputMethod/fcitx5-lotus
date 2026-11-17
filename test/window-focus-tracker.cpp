@@ -8,6 +8,7 @@
 #include "lotus-engine.h"
 #include "lotus-utils.h"
 #include "test-input-context.h"
+#include "test-utils.h"
 #include "window_focus_tracker.h"
 
 #include <atomic>
@@ -119,7 +120,7 @@ namespace {
 
     bool check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "accessibility focus and window events must drive the app rules reliably");
         }
         return condition;
     }

@@ -5,6 +5,7 @@
 // Sanity checks for the golden corpus: the files must exist, parse, and keep the column layout the
 // differential tests rely on.
 #include "golden-reader.h"
+#include "test-utils.h"
 
 #include <cstdio>
 #include <string>
@@ -15,7 +16,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the golden corpus must stay parseable and keep its column layout");
             ++failures;
         }
     }

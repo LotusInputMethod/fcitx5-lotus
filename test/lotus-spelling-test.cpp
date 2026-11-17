@@ -9,6 +9,7 @@
 #include "spelling.h"
 
 #include "data/spelling_data.h"
+#include "test-utils.h"
 
 #include <cstdio>
 #include <string_view>
@@ -20,7 +21,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the spelling tables must answer lookups exactly like bamboo-core/spelling.go");
             ++failures;
         }
     }
@@ -31,14 +32,14 @@ namespace {
                 return;
             }
         }
-        std::printf("FAIL %s: missing row %d\n", name, expected);
+        reportFailure(name, "the expected row is among the matches", "the expected row is missing", "lookup must report every matching row of the generated table");
         ++failures;
     }
 
     void checkCvc(const char* name, std::u32string_view firstConsonant, std::u32string_view vowel, std::u32string_view lastConsonant, bool expected) {
         const bool actual = lotus::isValidCVC(firstConsonant, vowel, lastConsonant, true);
         if (actual != expected) {
-            std::printf("FAIL %s: got %s, expected %s\n", name, actual ? "true" : "false", expected ? "true" : "false");
+            reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "isValidCVC must accept exactly the branches of Go's implementation");
             ++failures;
         }
     }

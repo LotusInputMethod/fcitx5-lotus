@@ -6,6 +6,7 @@
 // English mode, virtual keys, ToneLess/MarkLess/LowerCase) plus the composition split helpers.
 #include "composition.h"
 #include "flattener.h"
+#include "test-utils.h"
 
 #include <cstdio>
 #include <memory>
@@ -27,7 +28,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the flattener must render compositions exactly like bamboo-core/flattener.go");
             ++failures;
         }
     }
@@ -35,7 +36,8 @@ namespace {
     void checkCanvas(const char* name, const Composition& composition, lotus::ModeSet mode, std::u32string_view expected) {
         const std::u32string actual = lotus::flatten(composition, mode);
         if (actual != expected) {
-            std::printf("FAIL %s: got %zu code points, expected %zu\n", name, actual.size(), expected.size());
+            reportFailure(name, std::to_string(expected.size()) + " code points", std::to_string(actual.size()) + " code points",
+                          "the flattened canvas must match the expectation ported from the Go tests");
             ++failures;
         }
     }

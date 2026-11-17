@@ -6,6 +6,7 @@
 
 #include "input_method.h"
 #include "macro_table.h"
+#include "test-utils.h"
 #include "utf8.h"
 
 #include <cstdint>
@@ -58,7 +59,8 @@ int run_numeric_macro_case() {
 
     const std::string actual = lotus::utf8::encode(processor.takeCommit());
     if (!accepted || actual != "Mixed Case") {
-        std::printf("FAIL numeric macro: accepted=%d expected [Mixed Case] actual [%s]\n", accepted ? 1 : 0, actual.c_str());
+        reportFailure("numeric macro expansion", "accepted=1, commit=[Mixed Case]", std::string("accepted=") + (accepted ? "1" : "0") + ", commit=[" + actual + "]",
+                      "a numeric macro key must not lose the letter case of its expansion (regression #370)");
         return 1;
     }
     std::printf("numeric macro case preservation: all checks passed\n");

@@ -5,6 +5,7 @@
  */
 
 #include "lotus-x11-keyboard.h"
+#include "test-utils.h"
 
 #include <chrono>
 #include <cstdio>
@@ -21,7 +22,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the Xtest backend must inject ordered keys with the mandated interval and restore the keymap");
             ++failures;
         }
     }

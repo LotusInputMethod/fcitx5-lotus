@@ -11,6 +11,7 @@
 #include "lotus-kb-sender.h"
 #include "lotus-utils.h"
 #include "test-input-context.h"
+#include "test-utils.h"
 
 #include <cstdio>
 #include <thread>
@@ -36,7 +37,8 @@ int main() {
     const bool backspaceSeen = (a.op == KbOp::Backspace && a.count == 3 && a.interval == 7) || (b.op == KbOp::Backspace && b.count == 3 && b.interval == 7);
     const bool selectSeen    = (a.op == KbOp::Select && a.count == 5 && a.interval == 9) || (b.op == KbOp::Select && b.count == 5 && b.interval == 9);
     if (!backspaceSeen || !selectSeen) {
-        std::printf("FAIL both bursts arrive intact\n");
+        reportFailure("two concurrent bursts", "both bursts arrive intact", "a burst arrived incomplete or interleaved",
+                      "two threads writing at the same time must never interleave bytes: the listener has to receive complete messages");
         return 1;
     }
 

@@ -24,7 +24,7 @@ namespace {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got [%s] expected [%s]\n", name, hexOf(actual, "<empty>").c_str(), hexOf(expected, "<empty>").c_str());
+        reportFailure(name, hexOf(expected, "<empty>"), hexOf(actual, "<empty>"), "the diff must split changes at grapheme cluster boundaries exactly as expected");
         ++failures;
     }
 
@@ -32,7 +32,7 @@ namespace {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got [%zu] expected [%zu]\n", name, actual, expected);
+        reportFailure(name, std::to_string(expected), std::to_string(actual), "cluster accounting must produce the expected counts");
         ++failures;
     }
 
@@ -40,8 +40,7 @@ namespace {
         if (isCombiningMark(codePoint) == expected) {
             return;
         }
-        std::printf("FAIL %s: got [%d] expected [%d] for U+%04X\n", name, static_cast<int>(isCombiningMark(codePoint)), static_cast<int>(expected),
-                    static_cast<unsigned int>(codePoint));
+        reportFailure(name, expected ? "true" : "false", isCombiningMark(codePoint) ? "true" : "false", "combining mark classification must match Unicode");
         ++failures;
     }
 
@@ -49,7 +48,8 @@ namespace {
     // attaches to, so the deleted part must never start with one.
     void checkStartsAtClusterBoundary(const char* name, const DiffPart& diff) {
         if (!diff.deletedPart.empty() && isCombiningMark(diff.deletedPart.front())) {
-            std::printf("FAIL %s: deleted part starts with a combining mark [%s]\n", name, hexOf(diff.deletedPart, "<empty>").c_str());
+            reportFailure(name, "the deleted part starts at a cluster boundary", "deleted part starts with a combining mark [" + hexOf(diff.deletedPart, "<empty>") + "]",
+                          "a combining mark on its own is not a character: the client deletes it together with its base");
             ++failures;
         }
     }

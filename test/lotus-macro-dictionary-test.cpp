@@ -9,6 +9,7 @@
 // missing table or dictionary is a null pointer the caller checks before calling them.
 #include "dictionary.h"
 #include "macro_table.h"
+#include "test-utils.h"
 #include "utf8.h"
 
 #include <cstdio>
@@ -22,14 +23,14 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "macro table and dictionary behaviour must match the Go tests");
             ++failures;
         }
     }
 
     void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected) {
         if (actual != expected) {
-            std::printf("FAIL %s: got [%s] expected [%s]\n", name, lotus::utf8::encode(actual).c_str(), lotus::utf8::encode(expected).c_str());
+            reportFailure(name, lotus::utf8::encode(expected), lotus::utf8::encode(actual), "macro table lookups must return the value the Go tests expect");
             ++failures;
         }
     }

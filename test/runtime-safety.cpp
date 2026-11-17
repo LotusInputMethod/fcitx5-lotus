@@ -14,6 +14,7 @@
 #include "key_processor.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
+#include "test-utils.h"
 
 #include <cstdlib>
 #include <filesystem>

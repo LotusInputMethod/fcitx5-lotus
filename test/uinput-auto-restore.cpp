@@ -186,8 +186,8 @@ int main() {
                     return 1;
                 }
                 if (text != test.want) {
-                    std::printf("FAIL uinput auto restore '%s' in '%s' (%s): expected '%s', got '%s'\n", std::string(test.keys).c_str(), mode, deferred ? "deferred" : "immediate",
-                                encode(test.want).c_str(), encode(text).c_str());
+                    reportFailure("uinput auto restore '" + std::string(test.keys) + "' in " + std::string(mode) + " (" + (deferred ? "deferred" : "immediate") + ")",
+                                  encode(test.want), encode(text), "a deferred reset must still restore the committed word in every mode");
                     for (const std::string& step : trace) {
                         std::printf("  %s\n", step.c_str());
                     }
