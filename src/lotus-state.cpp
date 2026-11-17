@@ -53,6 +53,14 @@ namespace fcitx {
         return ucs4 == ' ' || ucs4 == '\t' || ucs4 == '\n' || ucs4 == '\r' || ucs4 == 0 || (ucs4 >= 58 && ucs4 <= 64);
     }
 
+    namespace {
+        // These frontends receive application key events before the toolkit
+        // applies them, so an echoed anchor follows every earlier synthetic key.
+        bool echoesApplicationKeys(const std::string& frontend) {
+            return frontend == "dbus" || frontend == "fcitx4" || frontend == "x11" || frontend == "xim";
+        }
+    } // namespace
+
     LotusState::LotusState(LotusEngine* engine, InputContext* ic) : engine_(*engine), ic_(*ic) {
         setEngine();
     }
@@ -106,7 +114,7 @@ namespace fcitx {
     }
 
     bool LotusState::ahUsable() const {
-        return *engine_.config().preferVirtualKeyboard && engine_.appHook().ready(engine_.appHookPid());
+        return *engine_.config().preferVirtualKeyboard && echoesApplicationKeys(getFrontendName(&ic_)) && engine_.appHook().ready(engine_.appHookPid());
     }
 
     bool LotusState::injectionUsable() const {
@@ -731,7 +739,7 @@ namespace fcitx {
         }
 
         const std::string frontend     = getFrontendName(&ic_);
-        const bool        echoFrontend = frontend == "dbus" || frontend == "fcitx4" || frontend == "x11" || frontend == "xim";
+        const bool        echoFrontend = echoesApplicationKeys(frontend);
         const std::string addedUtf8    = lotus::utf8::encode(diffPart.addedPart);
         const int         burstCount   = static_cast<int>(delSize) + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0);
         const bool        x11Backend   = !vkUsable() && x11Usable();
@@ -741,7 +749,8 @@ namespace fcitx {
         bool        selectMode  = uinputSelect;
         const pid_t hookPid     = engine_.appHookPid();
         const bool  hookEnabled = *engine_.config().preferVirtualKeyboard;
-        const bool  hookReady   = hookEnabled && engine_.appHook().ready(hookPid);
+        // The anchor echo is the only ordering barrier between AppHook keys and the commit.
+        const bool hookReady = hookEnabled && echoFrontend && engine_.appHook().ready(hookPid);
         LOTUS_DEBUG("AppHook selection: allowed=" + std::to_string(allowAppHook) + " enabled=" + std::to_string(hookEnabled) + " pid=" + std::to_string(hookPid) +
                     " ready=" + std::to_string(hookReady) + " selected=" + std::to_string(allowAppHook && hookReady));
         if (allowAppHook && hookReady) {
@@ -759,6 +768,9 @@ namespace fcitx {
                 lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
                 return;
             }
+            // Commit only when this anchor comes back through Fcitx, after the
+            // frontend has handed every earlier synthetic deletion to the widget.
+            keys.push_back({.keycode = KEY_PAUSE, .modifiers = 0, .count = 1});
             const uint64_t token     = replacementToken_;
             const uint64_t requestId = engine_.appHook().nextRequestId();
             auto           icRef     = ic_.watch();
@@ -768,11 +780,13 @@ namespace fcitx {
             expectedBackspaces_      = 0;
             realSelect_              = false;
             lastSelect_              = false;
+            appHookSelect_           = selectMode;
             appHookPid_              = hookPid;
             appHookRequestId_        = requestId;
             appHookPending_          = true;
             g_isDeleting.store(true, std::memory_order_release);
             replacementDeadlineMs_ = nowMs() + 5000;
+            replacementEchoGrace_  = 5000; // AppHook bursts are not paced by the uinput interval.
             if (engine_.appHook().emit(
                     hookPid, std::move(keys), requestId, preDelay, postDelay,
                     [engine, icRef, token, hookPid, requestId, deletedText = std::u32string(diffPart.deletedPart), addedText = std::u32string(diffPart.addedPart)](int result) {
@@ -784,14 +798,11 @@ namespace fcitx {
                             }
                             state->appHookPid_       = 0;
                             state->appHookRequestId_ = 0;
-                            // Complete confirms the intercepted key edges were handed
-                            // to the frontend event API, not that its text widget has
-                            // finished dispatching/processing those events.
+                            // Complete only proves handoff to the frontend event API.
+                            // The replacement is committed by the echoed anchor key.
                             if (result == 0) {
                                 if (!icRef.get()->hasFocus())
                                     state->deferCompletedAppHookReplacement();
-                                else
-                                    state->finishScheduledReplacement(token);
                             } else if (result == -EINPROGRESS) {
                                 // The target may have applied some keys. Replaying the full
                                 // burst via uinput would delete text twice.
@@ -1493,7 +1504,12 @@ namespace fcitx {
             abortUncertainAppHookReplacement();
             return;
         }
-        cancelPendingUinput();
+        if (appHookPending_) {
+            // Complete(0) arrived, but the anchor echo did not.
+            appHookPending_ = false;
+        } else {
+            cancelPendingUinput();
+        }
         LOTUS_WARN("Replacement ack timed out, finishing without the remaining backspace echoes");
         appendCommit(pendingCommitString_);
         pendingCommitString_.clear();
@@ -1573,7 +1589,7 @@ namespace fcitx {
             } else if (currentSym == FcitxKey_Pause) {
                 handleUInputKeyPress(keyEvent, currentSym);
                 return true;
-            } else if (realSelect_ && (currentSym == FcitxKey_Left || currentSym == FcitxKey_Delete)) {
+            } else if ((realSelect_ || (appHookPending_ && appHookSelect_)) && (currentSym == FcitxKey_Left || currentSym == FcitxKey_Delete)) {
                 if (currentSym == FcitxKey_Left) {
                     // Echoed left arrow extends the selection in the app: consume it as
                     // a selection signal, never buffer it for replay.

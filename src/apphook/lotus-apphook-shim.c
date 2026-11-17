@@ -259,16 +259,30 @@ static void activate(void) {
 
 /* Resolve native dlsym without reentering this interposer, then preserve
  * the next resolver in the preload chain. */
+#ifdef __GLIBC__
 typedef void* (*DlsymFunction)(void*, const char*);
 static _Atomic(DlsymFunction) next_dlsym;
+static _Atomic(DlsymFunction) raw_dlsym;
 
-static DlsymFunction          native_dlsym_function(void) {
+/* Backend resolution must bypass other preload dlsym wrappers. Keep that
+ * separate from the public resolver chain used for untouched application calls. */
+static DlsymFunction raw_dlsym_function(void) {
+    DlsymFunction raw = atomic_load_explicit(&raw_dlsym, memory_order_acquire);
+    if (raw)
+        return raw;
+    raw = (DlsymFunction)dlvsym(RTLD_NEXT, "dlsym", "GLIBC_2.34");
+    if (!raw)
+        raw = (DlsymFunction)dlvsym(RTLD_NEXT, "dlsym", "GLIBC_2.2.5");
+    if (raw)
+        atomic_store_explicit(&raw_dlsym, raw, memory_order_release);
+    return raw;
+}
+
+static DlsymFunction native_dlsym_function(void) {
     DlsymFunction next = atomic_load_explicit(&next_dlsym, memory_order_acquire);
     if (next)
         return next;
-    DlsymFunction bootstrap = (DlsymFunction)dlvsym(RTLD_NEXT, "dlsym", "GLIBC_2.34");
-    if (!bootstrap)
-        bootstrap = (DlsymFunction)dlvsym(RTLD_NEXT, "dlsym", "GLIBC_2.2.5");
+    DlsymFunction bootstrap = raw_dlsym_function();
     if (!bootstrap)
         return NULL;
     next = (DlsymFunction)bootstrap(RTLD_NEXT, "dlsym");
@@ -279,11 +293,18 @@ static DlsymFunction          native_dlsym_function(void) {
         next = expected;
     return next;
 }
+#endif
 
 /* Internal resolvers must never receive interposed Wayland entrypoints. */
 __attribute__((visibility("hidden"))) void* lotus_apphook_native_dlsym(void* handle, const char* symbol) {
-    DlsymFunction native = native_dlsym_function();
-    return native ? native(handle, symbol) : NULL;
+#ifdef __GLIBC__
+    DlsymFunction raw = raw_dlsym_function();
+    return raw ? raw(handle, symbol) : NULL;
+#else
+    /* dlvsym is glibc-only, so other libcs (musl) build no dlsym interposer
+     * below: this call binds directly to libc's dlsym. */
+    return dlsym(handle, symbol);
+#endif
 }
 
 /* RTLD_NEXT cannot resolve symbols from RTLD_LOCAL frontend libraries. */
@@ -569,6 +590,13 @@ static void         lotus_apphook_try_patch_wayland_imports(void) {
     atomic_store_explicit(&scan_busy_pid, 0, memory_order_release);
 }
 
+#ifdef __GLIBC__
+/* The dlsym interposer needs dlvsym to reach libc's dlsym, so it exists only
+ * on glibc. Elsewhere, RTLD_LOCAL Wayland lookups through dlsym (Chromium,
+ * Electron) are not redirected; ELF import patching on dlopen still applies.
+ * The wl_proxy_marshal_array_flags wrapper stays exported there because it
+ * tracks proxies released by destructor requests, so a default-namespace
+ * dlsym probe finds it even with libwayland < 1.20, which lacks that API. */
 /* Dynamic Wayland function tables (Chromium/Electron) may resolve entrypoints
  * from a RTLD_LOCAL libwayland-client handle, bypassing ELF interposition.
  * Return the existing preload wrappers only for symbols that actually resolve
@@ -607,6 +635,7 @@ static int is_native_wayland_symbol(void* fn) {
     const size_t n        = sizeof(prefix) - 1;
     return strncmp(filename, prefix, n) == 0 && (filename[n] == '.' || filename[n] == '\0');
 }
+#endif
 
 #if defined(__has_attribute)
 #if __has_attribute(musttail)
@@ -620,6 +649,7 @@ static int is_native_wayland_symbol(void* fn) {
 #define XERN_DLSYM_ATTRIBUTES
 #endif
 
+#ifdef __GLIBC__
 /* Forward untouched dlsym calls as a tail call: RTLD_NEXT inspects the
  * original caller address, not the location of this interposer. */
 __attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlsym(void* handle, const char* symbol) {
@@ -637,7 +667,7 @@ __attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlsym(void* h
         void* library = dlopen("libwayland-client.so.0", RTLD_LAZY | RTLD_NOLOAD | RTLD_LOCAL);
         if (!library)
             return NULL;
-        void* resolved = native(library, symbol);
+        void* resolved = lotus_apphook_native_dlsym(library, symbol);
         dlclose(library);
         if (!resolved || !is_native_wayland_symbol(resolved))
             return NULL;
@@ -649,13 +679,14 @@ __attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlsym(void* h
     void* hook = wayland_wrapper(symbol);
     if (!hook)
         XERN_MUSTTAIL return native(handle, symbol);
-    void* resolved = native(handle, symbol);
+    void* resolved = lotus_apphook_native_dlsym(handle, symbol);
     if (resolved && is_native_wayland_symbol(resolved)) {
         lotus_apphook_try_patch_wayland_imports();
         return hook;
     }
-    return resolved;
+    XERN_MUSTTAIL return native(handle, symbol);
 }
+#endif
 
 /* A Wayland library may be loaded after process startup. Refresh the already
  * loaded module's imported slots only after its successful load. */

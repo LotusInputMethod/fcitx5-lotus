@@ -146,6 +146,7 @@ namespace fcitx {
         pid_t                                 appHookPid_            = 0;
         uint64_t                              appHookRequestId_      = 0;
         bool                                  appHookPending_        = false; ///< Context-local AppHook replacement, including completion processing
+        bool                                  appHookSelect_         = false; ///< AppHook burst extends a Shift+Left selection before Delete
         bool                                  lastSelect_            = false; ///< kind of the most recent burst, for replay
         std::u32string                        pendingCommitString_;
         std::u32string                        commitBatch_;                   ///< Text of the replacement batch, sent as one commitString
