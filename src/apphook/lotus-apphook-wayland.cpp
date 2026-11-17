@@ -356,32 +356,28 @@ namespace lotus::apphook {
         // Keep callback data alive during reentrant wl_keyboard_release/destroy.
         void forgetProxy(wl_proxy* proxy) {
             retireForward(proxy);
-            bool changed   = false;
-            bool available = false;
-            bool focused   = false;
-            {
-                std::scoped_lock lock(keyboardMutex);
-                for (auto it = keyboards.begin(); it != keyboards.end();) {
-                    if ((*it)->proxy == proxy) {
-                        invalidateWaylandFocus((*it)->display, (*it)->focusToken);
-                        (*it)->alive   = false;
-                        (*it)->focused = false;
-                        if (lastInputKeyboard == it->get())
-                            lastInputKeyboard = nullptr;
-                        (*it)->focusedSurface = nullptr;
-                        (*it)->focusToken     = 0;
-                        it                    = keyboards.erase(it);
-                        changed               = true;
-                    } else {
-                        ++it;
-                    }
+            std::scoped_lock lock(keyboardMutex);
+            bool             changed = false;
+            for (auto it = keyboards.begin(); it != keyboards.end();) {
+                if ((*it)->proxy == proxy) {
+                    invalidateWaylandFocus((*it)->display, (*it)->focusToken);
+                    (*it)->alive   = false;
+                    (*it)->focused = false;
+                    if (lastInputKeyboard == it->get())
+                        lastInputKeyboard = nullptr;
+                    (*it)->focusedSurface = nullptr;
+                    (*it)->focusToken     = 0;
+                    it                    = keyboards.erase(it);
+                    changed               = true;
+                } else {
+                    ++it;
                 }
-                available = !keyboards.empty();
-                focused   = hasFocusedKeyboard();
             }
             if (changed) {
-                noteWaylandKeyboardAvailable(available);
-                noteWaylandFocus(focused);
+                // Publish under the same lock as registration and enter/leave,
+                // so an old snapshot cannot overwrite a newer focused keyboard.
+                noteWaylandKeyboardAvailable(!keyboards.empty());
+                noteWaylandFocus(hasFocusedKeyboard());
             }
         }
 
@@ -548,12 +544,12 @@ namespace lotus::apphook {
                 adopted->altIndex      = (indices >> 16U) & 0xffU;
                 adopted->superIndex    = (indices >> 24U) & 0xffU;
                 keyboards.push_back(adopted);
+                noteWaylandKeyboardAvailable(true);
+                noteWaylandFocus(hasFocusedKeyboard());
+                if (focused)
+                    runtime().waylandDisplay.store(adopted->display, std::memory_order_release);
             }
-            noteWaylandKeyboardAvailable(true);
-            if (focused) {
-                runtime().waylandDisplay.store(adopted->display, std::memory_order_release);
-                noteWaylandFocus(true);
-            }
+            ensureWaylandWorkerStarted();
             return adopted;
         }
 
@@ -705,6 +701,7 @@ namespace lotus::apphook {
 
             auto* keyboard = retained.get();
             observe(keyboard, 1, args);
+            ensureWaylandWorkerStarted();
             deliver(keyboard, 1, args);
         }
 
@@ -819,6 +816,8 @@ namespace lotus::apphook {
                 readKeymap(keyboard, in.fdAt(1), in.uintAt(2));
             if (opcode >= 1 && opcode <= 4 && (args != nullptr))
                 observe(keyboard, opcode, args);
+            if (opcode == 1 && (args != nullptr))
+                ensureWaylandWorkerStarted();
             if (opcode == 3 && (args != nullptr) && in.uintAt(3) == 1 && keyboard->focused) {
                 noteKeyboardActivity(true);
             }
@@ -970,17 +969,17 @@ namespace lotus::apphook {
                 onDispatch(display, queue, true);
                 if (runtime().workersStarted.load(std::memory_order_acquire))
                     pump(display, queue);
-                // A native focus change may be queued after this callback. Place
-                // another wake behind it instead of injecting into stale focus.
-                bool pending = false;
-                {
-                    std::scoped_lock lock(runtime().mutex);
-                    pending = std::any_of(runtime().pending.begin(), runtime().pending.end(),
-                                          [display](const auto& task) { return task->target.backend == HookBackend::Wayland && task->target.connection == display; });
-                }
-                if (pending)
-                    wakeWayland();
             }
+            // A native focus change may be queued after this callback. Place
+            // another wake behind it instead of injecting into stale focus.
+            bool pending = false;
+            {
+                std::scoped_lock lock(runtime().mutex);
+                pending = std::any_of(runtime().pending.begin(), runtime().pending.end(),
+                                      [display](const auto& task) { return task->target.backend == HookBackend::Wayland && task->target.connection == display; });
+            }
+            if (pending)
+                wakeWayland();
         }
 
     } // namespace
@@ -1164,7 +1163,7 @@ LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(), void*
     if ((proxy == nullptr) || (callbacks == nullptr) || (originalClass == nullptr) || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || (lookupKeyboard(proxy) != nullptr))
         return originalAddListener(proxy, callbacks, data);
 
-    std::scoped_lock lock(keyboardMutex);
+    std::unique_lock lock(keyboardMutex);
     auto             keyboard = std::make_shared<Keyboard>();
     keyboard->proxy           = proxy;
     keyboard->display         = (originalGetProxyDisplay != nullptr) ? originalGetProxyDisplay(proxy) : nullptr;
@@ -1187,6 +1186,9 @@ LH_EXPORT int wl_proxy_add_listener(wl_proxy* proxy, void (**callbacks)(), void*
     } else {
         noteWaylandKeyboardAvailable(true);
     }
+    lock.unlock();
+    if (result == 0)
+        ensureWaylandWorkerStarted();
     return result;
 }
 
@@ -1208,7 +1210,7 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
     if ((proxy == nullptr) || (dispatcher == nullptr) || (originalClass == nullptr) || std::strcmp(originalClass(proxy), "wl_keyboard") != 0 || (lookupKeyboard(proxy) != nullptr))
         return originalAddDispatcher(proxy, dispatcher, implementation, data);
 
-    std::scoped_lock lock(keyboardMutex);
+    std::unique_lock lock(keyboardMutex);
     auto             keyboard = std::make_shared<Keyboard>();
     keyboard->proxy           = proxy;
     keyboard->display         = (originalGetProxyDisplay != nullptr) ? originalGetProxyDisplay(proxy) : nullptr;
@@ -1233,6 +1235,9 @@ LH_EXPORT int wl_proxy_add_dispatcher(wl_proxy* proxy, Dispatcher dispatcher, co
     } else {
         noteWaylandKeyboardAvailable(true);
     }
+    lock.unlock();
+    if (result == 0)
+        ensureWaylandWorkerStarted();
     return result;
 }
 

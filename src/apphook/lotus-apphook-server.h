@@ -103,6 +103,7 @@ namespace fcitx {
             std::atomic<bool>       connected{true};
             std::atomic<bool>       ready{false};
             std::atomic<bool>       focused{false};
+            uint32_t                focusStamp = 0;
             std::mutex              sendMutex;
             std::mutex              mutex;
             std::condition_variable completed;
@@ -148,7 +149,8 @@ namespace fcitx {
         std::condition_variable                             condition_;
         std::deque<Work>                                    queue_;
         std::unordered_map<pid_t, std::shared_ptr<Session>> sessions_;
-        pid_t                                               focusedPid_ = 0;
+        pid_t                                               focusedPid_   = 0;
+        uint32_t                                            focusedStamp_ = 0;
         std::unordered_set<RequestKey, RequestKeyHash>      cancelled_;
         std::unordered_set<RequestKey, RequestKeyHash>      activeRequests_;
         std::unordered_set<pid_t>                           activePids_;

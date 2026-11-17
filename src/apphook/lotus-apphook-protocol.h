@@ -41,9 +41,10 @@ namespace lotus::apphook {
 
     /**
      * @brief Responses from the application hook.
-     * Complete(0) means all synthetic key edges were handed to the intercepted
-     * frontend event API. It does not acknowledge toolkit dispatch or a text
-     * mutation. Errors with kCompleteMayHaveApplied indicate partial delivery.
+     * Complete(0) means all synthetic key presses reached the frontend event
+     * API. Xlib releases may remain queued for a filtered reader. It does not
+     * acknowledge toolkit dispatch or text mutation. Errors with
+     * kCompleteMayHaveApplied indicate partial delivery.
      */
     enum class ResponseKind : uint16_t { // NOLINT(performance-enum-size) wire layout
         Ready    = 1,
@@ -68,7 +69,7 @@ namespace lotus::apphook {
         uint16_t     version   = kVersion;
         ResponseKind type      = ResponseKind::Ready;
         int32_t      status    = 0;
-        uint32_t     reserved  = 0; ///< Ready: focus flag; Complete: partial-delivery flag.
+        uint32_t     reserved  = 0; ///< Ready: focus flag; Focus: monotonic ms stamp, 0 if unknown; Complete: partial-delivery flag.
         uint64_t     requestId = 0;
     };
 

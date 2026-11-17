@@ -44,6 +44,11 @@ namespace fcitx {
             pid = peer.pid;
             return true;
         }
+
+        // A zero stamp comes from an older hook: retain its arrival-order behavior.
+        bool focusIsCurrent(uint32_t candidate, uint32_t current) {
+            return candidate == 0U || current == 0U || static_cast<int32_t>(candidate - current) >= 0;
+        }
     } // namespace
 
     LotusAppHook::LotusAppHook() : stopFd_(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)), server_(&LotusAppHook::serve, this) {
@@ -85,7 +90,8 @@ namespace fcitx {
         {
             std::scoped_lock lock(mutex_);
             sessions_.clear();
-            focusedPid_ = 0;
+            focusedPid_   = 0;
+            focusedStamp_ = 0;
         }
     }
 
@@ -360,7 +366,8 @@ namespace fcitx {
                     if (found != sessions_.end()) {
                         disconnect(found->second);
                         if (focusedPid_ == pid) {
-                            focusedPid_ = 0;
+                            focusedPid_   = 0;
+                            focusedStamp_ = 0;
                         }
                     }
                     sessions_[pid] = std::move(session);
@@ -391,10 +398,15 @@ namespace fcitx {
                                     const bool focused = response.status == 0 && (response.reserved & kReadyFocused) != 0;
                                     session->ready.store(response.status == 0);
                                     session->focused.store(focused);
-                                    if (focused) {
-                                        focusedPid_ = session->pid;
-                                    } else if (focusedPid_ == session->pid) {
-                                        focusedPid_ = 0;
+                                    session->focusStamp = 0;
+                                    // A stamped Focus follows from current hooks. Do not let an
+                                    // unstamped reconnect snapshot steal a newer focused process.
+                                    if (focused && focusedPid_ == 0) {
+                                        focusedPid_   = session->pid;
+                                        focusedStamp_ = 0;
+                                    } else if (!focused && focusedPid_ == session->pid) {
+                                        focusedPid_   = 0;
+                                        focusedStamp_ = 0;
                                     }
                                 }
                             }
@@ -406,11 +418,16 @@ namespace fcitx {
                             std::scoped_lock lock(mutex_);
                             const auto       found = sessions_.find(session->pid);
                             if (found != sessions_.end() && found->second == session) {
-                                session->focused.store(response.status == 1);
-                                if (response.status == 1) {
-                                    focusedPid_ = session->pid;
-                                } else if (focusedPid_ == session->pid) {
-                                    focusedPid_ = 0;
+                                const bool     focused = response.status == 1;
+                                const uint32_t stamp   = response.reserved;
+                                session->focused.store(focused);
+                                session->focusStamp = focused ? stamp : 0;
+                                if (focused && (focusedPid_ == 0 || focusedPid_ == session->pid || focusIsCurrent(stamp, focusedStamp_))) {
+                                    focusedPid_   = session->pid;
+                                    focusedStamp_ = stamp;
+                                } else if (!focused && focusedPid_ == session->pid) {
+                                    focusedPid_   = 0;
+                                    focusedStamp_ = 0;
                                 }
                             }
                         } else if (valid && response.type == ResponseKind::Complete && response.requestId != 0) {
@@ -433,7 +450,8 @@ namespace fcitx {
                     const auto       found = sessions_.find(session->pid);
                     if (found != sessions_.end() && found->second == session) {
                         if (focusedPid_ == session->pid) {
-                            focusedPid_ = 0;
+                            focusedPid_   = 0;
+                            focusedStamp_ = 0;
                         }
                         sessions_.erase(found);
                     }
@@ -445,6 +463,7 @@ namespace fcitx {
             disconnect(session);
         }
         sessions_.clear();
-        focusedPid_ = 0;
+        focusedPid_   = 0;
+        focusedStamp_ = 0;
     }
 } // namespace fcitx

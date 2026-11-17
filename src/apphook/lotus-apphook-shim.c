@@ -270,9 +270,9 @@ static DlsymFunction raw_dlsym_function(void) {
     DlsymFunction raw = atomic_load_explicit(&raw_dlsym, memory_order_acquire);
     if (raw)
         return raw;
-    raw = (DlsymFunction)dlvsym(RTLD_NEXT, "dlsym", "GLIBC_2.34");
-    if (!raw)
-        raw = (DlsymFunction)dlvsym(RTLD_NEXT, "dlsym", "GLIBC_2.2.5");
+    static const char* const versions[] = {"GLIBC_2.34", "GLIBC_2.2.5", "GLIBC_2.17", "GLIBC_2.4", "GLIBC_2.3", "GLIBC_2.0"};
+    for (size_t i = 0; i < sizeof(versions) / sizeof(versions[0]) && !raw; ++i)
+        raw = (DlsymFunction)dlvsym(RTLD_NEXT, "dlsym", versions[i]);
     if (raw)
         atomic_store_explicit(&raw_dlsym, raw, memory_order_release);
     return raw;
@@ -699,12 +699,11 @@ __attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlsym(void* _
 }
 #endif
 
-/* A Wayland library may be loaded after process startup. Refresh the already
- * loaded module's imported slots only after its successful load. */
+/* dlopen resolves bare SONAMEs using the caller's RPATH/RUNPATH. Preserve the
+ * original caller even for Wayland; handle-based dlsym performs the import
+ * scan after the library is loaded. */
 typedef void* (*DlopenFunction)(const char*, int);
-static _Atomic(DlopenFunction) next_dlopen;
-/* Unrelated dlopen calls preserve their original caller for $ORIGIN.
- * Parameter names match the glibc <dlfcn.h> declaration. */
+static _Atomic(DlopenFunction)                                     next_dlopen;
 __attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlopen(const char* __file, int __mode) {
     DlopenFunction native = atomic_load_explicit(&next_dlopen, memory_order_acquire);
     if (!native) {
@@ -713,12 +712,5 @@ __attribute__((visibility("default"))) XERN_DLSYM_ATTRIBUTES void* dlopen(const 
             return NULL;
         atomic_store_explicit(&next_dlopen, native, memory_order_release);
     }
-    /* Only plain SONAMEs are intercepted. Paths can depend on the
-     * dlopen caller's $ORIGIN and must be forwarded without a new frame. */
-    if (!__file || strchr(__file, '/') || strncmp(__file, "libwayland-client.so", sizeof("libwayland-client.so") - 1) != 0)
-        XERN_MUSTTAIL return native(__file, __mode);
-    void* handle = native(__file, __mode);
-    if (handle)
-        lotus_apphook_try_patch_wayland_imports();
-    return handle;
+    XERN_MUSTTAIL return native(__file, __mode);
 }

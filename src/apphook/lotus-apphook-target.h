@@ -84,6 +84,8 @@ namespace lotus::apphook {
         std::atomic<bool>                 observedX11Focus{false};
         std::atomic<bool>                 focusedWayland{false};
         std::atomic<bool>                 focusedXcb{false};
+        std::mutex                        focusStateMutex;
+        uint32_t                          focusStamp = 0; ///< Monotonic ms of the latest focus transition.
         std::deque<std::shared_ptr<Task>> pending;
         std::shared_ptr<Task>             activeX11;
         void*                             activeX11Display = nullptr;
@@ -120,10 +122,12 @@ namespace lotus::apphook {
     void noteX11Focus(bool focused);
     /** @brief Starts IPC when an Xlib window selects keyboard events, before focus-in. */
     void noteX11KeyboardAvailable(bool available = true);
-    /** @brief Updates Wayland keyboard focus. */
+    /** @brief Publishes Wayland focus without starting a worker under backend locks. */
     void noteWaylandFocus(bool focused);
-    /** @brief Starts IPC when a Wayland keyboard listener is registered, before focus-in. */
-    void            noteWaylandKeyboardAvailable(bool available);
+    /** @brief Publishes Wayland keyboard availability without starting a worker. */
+    void noteWaylandKeyboardAvailable(bool available);
+    /** @brief Starts the Wayland IPC worker outside backend locks. */
+    void            ensureWaylandWorkerStarted();
     void            noteXcbFocus(bool focused);
     void            noteXcbKeyboardAvailable(bool available);
     void            markXlibOwnedXcbConnection(void* ptr);

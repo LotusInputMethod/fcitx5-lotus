@@ -88,6 +88,10 @@ namespace lotus::apphook {
         void freeEvent(xcb_generic_event_t* event) {
             std::free(event); // NOLINT(cppcoreguidelines-no-malloc, cppcoreguidelines-owning-memory) libxcb ABI
         }
+        /** @brief Releases a reply owned through malloc(), as libxcb replies are. */
+        void freeReply(void* reply) {
+            std::free(reply); // NOLINT(cppcoreguidelines-no-malloc, cppcoreguidelines-owning-memory) libxcb ABI
+        }
         std::once_flag resolveOnce;
         void*          xcbLibrary = nullptr;
 
@@ -113,6 +117,9 @@ namespace lotus::apphook {
                                                   uint32_t, const void*)                                             = nullptr;
         xcb_void_cookie_t (*originalCreateWindowChecked)(xcb_connection_t*, uint8_t, xcb_window_t, xcb_window_t, int16_t, int16_t, uint16_t, uint16_t, uint16_t, uint16_t,
                                                          xcb_visualid_t, uint32_t, const void*)                      = nullptr;
+
+        xcb_get_input_focus_cookie_t (*originalGetInputFocus)(xcb_connection_t*)                                                           = nullptr;
+        xcb_get_input_focus_reply_t* (*originalGetInputFocusReply)(xcb_connection_t*, xcb_get_input_focus_cookie_t, xcb_generic_error_t**) = nullptr;
 
         template <typename Function>
         Function resolve(const char* symbol) {
@@ -329,6 +336,32 @@ namespace lotus::apphook {
             }
             return reinterpret_cast<xcb_generic_event_t*>(event);
         }
+        /** Called with xcbMutex held; a key-only subscription may miss FocusOut. */
+        bool targetHasServerFocus(xcb_connection_t* connection, xcb_window_t target) {
+            if ((originalGetInputFocus == nullptr) || (originalGetInputFocusReply == nullptr) || target == XCB_NONE)
+                return false;
+            const auto cookie = originalGetInputFocus(connection);
+            auto*      reply  = originalGetInputFocusReply(connection, cookie, nullptr);
+            if (reply == nullptr)
+                return false;
+            const bool focused = reply->focus == target;
+            freeReply(reply);
+            return focused;
+        }
+
+        /** Reject a stale target without replaying work into a different window. */
+        bool validateSyntheticFocus(xcb_connection_t* connection, XcbFocus& state, xcb_window_t target) {
+            if (targetHasServerFocus(connection, target))
+                return true;
+            state.focused = false;
+            state.focus   = XCB_NONE;
+            state.target  = XCB_NONE;
+            if (state.active)
+                state.active->cancelled.store(true, std::memory_order_release);
+            cancelPendingTasks(HookBackend::Xcb, connection);
+            updateFocusState();
+            return false;
+        }
 
         xcb_generic_event_t* trySynthetic(xcb_connection_t* connection) {
             std::scoped_lock lock(xcbMutex);
@@ -336,7 +369,8 @@ namespace lotus::apphook {
                 return nullptr;
             auto& state = connections[connection];
             if (state.active) {
-                if (!state.focused || !state.keyboardAvailable)
+                // A delivered press still needs its release, even if focus changed.
+                if (!state.sequence.needsRelease() && (!state.focused || !state.keyboardAvailable || !validateSyntheticFocus(connection, state, state.activeTarget)))
                     state.active->cancelled.store(true, std::memory_order_release);
                 return syntheticEdge(connection, state);
             }
@@ -348,6 +382,10 @@ namespace lotus::apphook {
             state.active = takeTask(HookBackend::Xcb, connection, static_cast<uintptr_t>(state.target));
             if (!state.active)
                 return nullptr;
+            if (!validateSyntheticFocus(connection, state, state.target)) {
+                finishXcb(state, -EINPROGRESS);
+                return nullptr;
+            }
             // X11 core keycodes occupy 8..255; reject rather than truncate.
             for (const auto& operation : state.active->ops) {
                 if (operation.keycode > 247) {
@@ -470,6 +508,8 @@ namespace lotus::apphook {
             originalPoll                    = resolve<decltype(originalPoll)>("xcb_poll_for_event");
             originalPollQueued              = resolve<decltype(originalPollQueued)>("xcb_poll_for_queued_event");
             originalWait                    = resolve<decltype(originalWait)>("xcb_wait_for_event");
+            originalGetInputFocus           = resolve<decltype(originalGetInputFocus)>("xcb_get_input_focus");
+            originalGetInputFocusReply      = resolve<decltype(originalGetInputFocusReply)>("xcb_get_input_focus_reply");
             originalSendEvent               = resolve<decltype(originalSendEvent)>("xcb_send_event");
             originalFlush                   = resolve<decltype(originalFlush)>("xcb_flush");
             originalDestroyWindow           = resolve<decltype(originalDestroyWindow)>("xcb_destroy_window");

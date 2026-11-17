@@ -59,6 +59,12 @@ namespace fcitx {
         bool echoesApplicationKeys(const std::string& frontend) {
             return frontend == "dbus" || frontend == "fcitx4" || frontend == "x11" || frontend == "xim";
         }
+
+        // Wayland clients receive synthetic keys directly in their keyboard
+        // callback, so those keys do not echo through the Fcitx frontend.
+        bool supportsAppHook(const std::string& frontend) {
+            return frontend == "wayland" || echoesApplicationKeys(frontend);
+        }
     } // namespace
 
     LotusState::LotusState(LotusEngine* engine, InputContext* ic) : engine_(*engine), ic_(*ic) {
@@ -114,7 +120,7 @@ namespace fcitx {
     }
 
     bool LotusState::ahUsable() const {
-        return *engine_.config().preferVirtualKeyboard && echoesApplicationKeys(getFrontendName(&ic_)) && engine_.appHook().ready(engine_.appHookPid());
+        return *engine_.config().preferVirtualKeyboard && supportsAppHook(getFrontendName(&ic_)) && engine_.appHook().ready(engine_.appHookPid());
     }
 
     bool LotusState::injectionUsable() const {
@@ -746,13 +752,14 @@ namespace fcitx {
         bool              echoDriven   = false;
         injectionBackend_              = InjectionBackend::None;
 
-        bool        selectMode  = uinputSelect;
-        const pid_t hookPid     = engine_.appHookPid();
-        const bool  hookEnabled = *engine_.config().preferVirtualKeyboard;
-        // The anchor echo is the only ordering barrier between AppHook keys and the commit.
-        const bool hookReady = hookEnabled && echoFrontend && engine_.appHook().ready(hookPid);
+        bool        selectMode     = uinputSelect;
+        const pid_t hookPid        = engine_.appHookPid();
+        const bool  hookEnabled    = *engine_.config().preferVirtualKeyboard;
+        const bool  hookRegistered = engine_.appHook().ready(hookPid);
+        const bool  hookReady      = hookEnabled && supportsAppHook(frontend) && hookRegistered;
         LOTUS_DEBUG("AppHook selection: allowed=" + std::to_string(allowAppHook) + " enabled=" + std::to_string(hookEnabled) + " pid=" + std::to_string(hookPid) +
-                    " ready=" + std::to_string(hookReady) + " selected=" + std::to_string(allowAppHook && hookReady));
+                    " frontend=" + frontend + " registered=" + std::to_string(hookRegistered) + " echo=" + std::to_string(echoFrontend) + " ready=" + std::to_string(hookReady) +
+                    " selected=" + std::to_string(allowAppHook && hookReady));
         if (allowAppHook && hookReady) {
             using lotus::apphook::KeyOperation;
             std::vector<KeyOperation> keys;
@@ -770,9 +777,10 @@ namespace fcitx {
                 lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
                 return;
             }
-            // Commit only when this anchor comes back through Fcitx, after the
-            // frontend has handed every earlier synthetic deletion to the widget.
-            keys.push_back({.keycode = KEY_PAUSE, .modifiers = 0, .count = 1});
+            // Echoing frontends use the anchor as an ordering barrier. Wayland
+            // receives local key callbacks directly and cannot echo it to Fcitx.
+            if (echoFrontend)
+                keys.push_back({.keycode = KEY_PAUSE, .modifiers = 0, .count = 1});
             const uint64_t token     = replacementToken_;
             const uint64_t requestId = engine_.appHook().nextRequestId();
             auto           icRef     = ic_.watch();
@@ -789,45 +797,48 @@ namespace fcitx {
             g_isDeleting.store(true, std::memory_order_release);
             replacementDeadlineMs_ = nowMs() + 5000;
             replacementEchoGrace_  = 5000; // AppHook bursts are not paced by the uinput interval.
-            if (engine_.appHook().emit(
-                    hookPid, std::move(keys), requestId, preDelay, postDelay,
-                    [engine, icRef, token, hookPid, requestId, deletedText = std::u32string(diffPart.deletedPart), addedText = std::u32string(diffPart.addedPart)](int result) {
-                        engine->scheduleOnMainThread([engine, icRef, token, hookPid, requestId, deletedText, addedText, result] {
-                            auto* state = engine->stateFor(icRef.get());
-                            if (!state || state->replacementToken_ != token || state->appHookPid_ != hookPid || state->appHookRequestId_ != requestId) {
-                                LOTUS_DEBUG("apphook: stale completion ignored request=" + std::to_string(requestId));
-                                return;
-                            }
-                            state->appHookPid_       = 0;
-                            state->appHookRequestId_ = 0;
-                            // Complete only proves handoff to the frontend event API.
-                            // The replacement is committed by the echoed anchor key.
-                            if (result == 0) {
-                                if (!icRef.get()->hasFocus())
-                                    state->deferCompletedAppHookReplacement();
-                            } else if (result == -EINPROGRESS) {
-                                // The target may have applied some keys. Replaying the full
-                                // burst via uinput would delete text twice.
-                                LOTUS_WARN("apphook: uncertain partial delivery, aborting replacement without replay");
-                                state->abortUncertainAppHookReplacement();
-                            } else {
-                                if (!icRef.get()->hasFocus()) {
-                                    // The failure occurred after focus was lost. Do not
-                                    // replay a burst into the newly focused application.
-                                    state->abortUncertainAppHookReplacement();
-                                    return;
-                                }
-                                LOTUS_DEBUG("apphook: failed request=" + std::to_string(requestId) + ", using standard backend fallback");
-                                // No keys were applied: discard the AppHook burst state before
-                                // retrying the existing display-server backend selection.
-                                state->pendingCommitString_.clear();
-                                state->appHookPending_        = false;
-                                state->replacementDeadlineMs_ = 0;
-                                g_isDeleting.store(false, std::memory_order_release);
-                                state->performReplacement({.deletedPart = deletedText, .addedPart = addedText}, false);
-                            }
-                        });
-                    })) {
+            if (engine_.appHook().emit(hookPid, std::move(keys), requestId, preDelay, postDelay,
+                                       [engine, icRef, token, hookPid, requestId, echoFrontend, deletedText = std::u32string(diffPart.deletedPart),
+                                        addedText = std::u32string(diffPart.addedPart)](int result) {
+                                           engine->scheduleOnMainThread([engine, icRef, token, hookPid, requestId, echoFrontend, deletedText, addedText, result] {
+                                               auto* state = engine->stateFor(icRef.get());
+                                               if (!state || state->replacementToken_ != token || state->appHookPid_ != hookPid || state->appHookRequestId_ != requestId) {
+                                                   LOTUS_DEBUG("apphook: stale completion ignored request=" + std::to_string(requestId));
+                                                   return;
+                                               }
+                                               state->appHookPid_       = 0;
+                                               state->appHookRequestId_ = 0;
+                                               // Wayland has no key echo. Its completion is sent
+                                               // after the callbacks return and the configured
+                                               // post-delay elapses, but cannot prove widget mutation.
+                                               if (result == 0) {
+                                                   if (!icRef.get()->hasFocus())
+                                                       state->deferCompletedAppHookReplacement();
+                                                   else if (!echoFrontend)
+                                                       state->finishScheduledReplacement(token);
+                                               } else if (result == -EINPROGRESS) {
+                                                   // The target may have applied some keys. Replaying the full
+                                                   // burst via uinput would delete text twice.
+                                                   LOTUS_WARN("apphook: uncertain partial delivery, aborting replacement without replay");
+                                                   state->abortUncertainAppHookReplacement();
+                                               } else {
+                                                   if (!icRef.get()->hasFocus()) {
+                                                       // The failure occurred after focus was lost. Do not
+                                                       // replay a burst into the newly focused application.
+                                                       state->abortUncertainAppHookReplacement();
+                                                       return;
+                                                   }
+                                                   LOTUS_DEBUG("apphook: failed request=" + std::to_string(requestId) + ", using standard backend fallback");
+                                                   // No keys were applied: discard the AppHook burst state before
+                                                   // retrying the existing display-server backend selection.
+                                                   state->pendingCommitString_.clear();
+                                                   state->appHookPending_        = false;
+                                                   state->replacementDeadlineMs_ = 0;
+                                                   g_isDeleting.store(false, std::memory_order_release);
+                                                   state->performReplacement({.deletedPart = deletedText, .addedPart = addedText}, false);
+                                               }
+                                           });
+                                       })) {
                 return;
             }
             LOTUS_DEBUG("apphook: queue rejected pid=" + std::to_string(hookPid) + ", using fallback");

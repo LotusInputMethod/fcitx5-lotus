@@ -21,10 +21,12 @@
 
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
+#include <xcb/xcb.h>
 #include <algorithm>
 #include <array>
 #include <memory>
 #include <cerrno>
+#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <dlfcn.h>
@@ -32,6 +34,7 @@
 #include <mutex>
 #include <new>
 #include <ranges>
+#include <string_view>
 #include <unordered_set>
 #include <poll.h>
 #include <sys/eventfd.h>
@@ -42,7 +45,19 @@
 namespace lotus::apphook {
     namespace {
 
-        constexpr unsigned long kInjectedSerial = 0x4c485831UL;
+        constexpr unsigned long    kInjectedSerial = 0x4c485831UL;
+        constexpr std::string_view kWakePayload    = "lotus-apphook-wakeup";
+        static_assert(kWakePayload.size() == sizeof(xcb_client_message_data_t::data8));
+
+        bool isWakeEvent(const XEvent* event) {
+            return event->type == ClientMessage && event->xclient.send_event != False && event->xclient.message_type == None && event->xclient.format == 8 &&
+                std::memcmp(&event->xclient.data, kWakePayload.data(), kWakePayload.size()) == 0;
+        }
+
+        /** @brief Releases a reply owned through malloc(), as libxcb replies are. */
+        void freeReply(void* reply) {
+            std::free(reply); // NOLINT(cppcoreguidelines-no-malloc, cppcoreguidelines-owning-memory) libxcb ABI
+        }
 
         /** @brief Tests whether an Xlib event mask (a signed long) selects key events. */
         constexpr bool selectsKeys(long mask) {
@@ -53,6 +68,15 @@ namespace lotus::apphook {
         /** @brief Reports whether an event is a key event synthesized by this hook. */
         bool isInjectedKey(const XEvent* event) {
             return (event->type == KeyPress || event->type == KeyRelease) && event->xkey.serial == kInjectedSerial;
+        }
+
+        /** @brief Reports whether an event is a key press synthesized by this hook. */
+        bool isInjectedPress(const XEvent* event) {
+            return isInjectedKey(event) && event->type == KeyPress;
+        }
+
+        bool sameKeycode(const XEvent* first, const XEvent* second) {
+            return first->xkey.keycode == second->xkey.keycode;
         }
 
         /** @brief Reports whether an event is a focus transition. */
@@ -146,6 +170,14 @@ namespace lotus::apphook {
         KeyCode (*originalKeysymToKeycode)(Display*, KeySym)                                          = nullptr;
         Window (*originalRootWindow)(Display*)                                                        = nullptr;
 
+        const char* (*originalDisplayString)(Display*)                                                                            = nullptr;
+        xcb_connection_t* (*wakeConnect)(const char*, int*)                                                                       = nullptr;
+        void (*wakeDisconnect)(xcb_connection_t*)                                                                                 = nullptr;
+        xcb_void_cookie_t (*wakeSendEvent)(xcb_connection_t*, uint8_t, xcb_window_t, uint32_t, const char*)                       = nullptr;
+        int (*wakeFlush)(xcb_connection_t*)                                                                                       = nullptr;
+        xcb_get_input_focus_cookie_t (*wakeGetFocus)(xcb_connection_t*)                                                           = nullptr;
+        xcb_get_input_focus_reply_t* (*wakeGetFocusReply)(xcb_connection_t*, xcb_get_input_focus_cookie_t, xcb_generic_error_t**) = nullptr;
+
         /**
          * @brief Looks up an original Xlib function.
          * @param name Xlib dynamic symbol name.
@@ -156,9 +188,12 @@ namespace lotus::apphook {
             return reinterpret_cast<Function>(dlsym(xlib, name));
         }
 
-        /** @brief Matches application-local synthetic events in the Xlib queue. */
-        Bool syntheticEvent(Display* /*unused*/, XEvent* event, XPointer /*unused*/) {
-            return isInjectedKey(event) ? True : False;
+        /** @brief Matches private wake events without consuming application events. */
+        Bool wakeEvent(Display* /*unused*/, XEvent* event, XPointer /*unused*/) {
+            return isWakeEvent(event) ? True : False;
+        }
+        Bool syntheticPress(Display* /*unused*/, XEvent* event, XPointer /*unused*/) {
+            return isInjectedPress(event) ? True : False;
         }
 
         /** @brief Recomputes readiness across eligible Xlib displays. Called with focusMutex. */
@@ -230,26 +265,15 @@ namespace lotus::apphook {
                 const auto       task = state.activeX11;
                 if (task && state.activeX11Display == target && task->cancelled.load(std::memory_order_acquire)) {
                     XEvent discarded{};
+                    // Keep all queued releases: filtered consumers can have
+                    // received more than one press without consuming releases.
                     if (originalCheckIf != nullptr) {
-                        while (originalCheckIf(target, &discarded, &syntheticEvent, nullptr) != 0) {
-                            if (task->x11Remaining != 0U)
-                                --task->x11Remaining;
-                        }
+                        while (originalCheckIf(target, &discarded, &syntheticPress, nullptr) != 0) {}
                     }
-                    auto pressed = pressedEvents.find(target);
-                    if (pressed != pressedEvents.end()) {
-                        XEvent release    = pressed->second;
-                        release.type      = KeyRelease;
-                        release.xkey.type = KeyRelease;
-                        if (originalPutBack != nullptr) {
-                            (void)originalPutBack(target, &release);
-                            task->x11Remaining = 1;
-                        }
-                    } else {
-                        finishLocked(task, -EINPROGRESS);
-                        state.activeX11.reset();
-                        state.activeX11Display = nullptr;
-                    }
+                    pressedEvents.erase(target);
+                    finishLocked(task, -EINPROGRESS);
+                    state.activeX11.reset();
+                    state.activeX11Display = nullptr;
                 }
             }
             originalUnlockDisplay(target);
@@ -281,16 +305,21 @@ namespace lotus::apphook {
                 }
                 const bool transition = std::ranges::any_of(queued, [](const XEvent& event) { return isFocusChange(&event); });
                 if (transition) {
-                    // Native events must precede synthetic events before a focus change.
-                    for (auto& it : std::views::reverse(queued))
-                        if (isInjectedKey(&it))
-                            (void)originalPutBack(target, &it);
-                    for (auto& it : std::views::reverse(queued))
-                        if (!isInjectedKey(&it))
-                            (void)originalPutBack(target, &it);
-                } else {
-                    for (auto& it : std::views::reverse(queued))
-                        (void)originalPutBack(target, &it);
+                    // Filtered Xlib reads may skip FocusOut even when it is at
+                    // the head of the queue. Cancel the remaining synthetic
+                    // presses before any filtered lookup can consume them.
+                    std::scoped_lock lock(runtime().mutex);
+                    if (runtime().activeX11 && runtime().activeX11Display == target) {
+                        runtime().activeX11->cancelled.store(true, std::memory_order_release);
+                        finishLocked(runtime().activeX11, -EINPROGRESS);
+                        runtime().activeX11.reset();
+                        runtime().activeX11Display = nullptr;
+                        pressedEvents.erase(target);
+                    }
+                }
+                for (auto& event : std::views::reverse(queued)) {
+                    if (!transition || !isInjectedPress(&event))
+                        (void)originalPutBack(target, &event);
                 }
             }
             originalUnlockDisplay(target);
@@ -334,16 +363,15 @@ namespace lotus::apphook {
                 if (cancel)
                     purgeCancelled(event.xfocus.display);
             }
-            if ((event.type == KeyPress || event.type == KeyRelease) && event.xkey.serial == kInjectedSerial) {
+            if (event.type == KeyPress && event.xkey.serial == kInjectedSerial) {
                 Runtime&         state = runtime();
                 std::scoped_lock lock(state.mutex);
                 if (state.activeX11 && state.activeX11Display == event.xkey.display && state.activeX11->x11Remaining > 0) {
                     auto task = state.activeX11;
                     task->applied.store(true, std::memory_order_release);
-                    if (event.type == KeyPress)
-                        pressedEvents[event.xkey.display] = event;
-                    else
-                        pressedEvents.erase(event.xkey.display);
+                    pressedEvents[event.xkey.display] = event;
+                    // A filtered reader may never request KeyRelease. Account
+                    // for delivered presses while leaving releases queued.
                     if (--task->x11Remaining == 0) {
                         finishLocked(task, task->cancelled.load(std::memory_order_acquire) ? -EINPROGRESS : 0);
                         state.activeX11.reset();
@@ -351,6 +379,11 @@ namespace lotus::apphook {
                         pressedEvents.erase(event.xkey.display);
                     }
                 }
+            } else if (event.type == KeyRelease && event.xkey.serial == kInjectedSerial) {
+                std::scoped_lock lock(runtime().mutex);
+                auto             it = pressedEvents.find(event.xkey.display);
+                if (it != pressedEvents.end() && sameKeycode(&it->second, &event))
+                    pressedEvents.erase(it);
             }
             if ((event.type == KeyPress || event.type == KeyRelease) && event.xkey.serial != kInjectedSerial) {
                 // Real keyboard events identify the window that handles keys.
@@ -534,7 +567,7 @@ namespace lotus::apphook {
                             injected.clear();
                         } else {
                             std::scoped_lock lock(runtime().mutex);
-                            task->x11Remaining = injected.size();
+                            task->x11Remaining = taps;
                         }
                     }
                 }
@@ -626,6 +659,10 @@ namespace lotus::apphook {
                 markXlibOwnedXcbConnection(getXcbConnection(target));
             if ((getXcbConnection != nullptr) && xcbOwnsXlibConnection(getXcbConnection(target)))
                 return;
+            if (originalCheckIf != nullptr) {
+                XEvent wake{};
+                while (originalCheckIf(target, &wake, &wakeEvent, nullptr) != 0) {}
+            }
             purgeCancelled(target);
             promoteFocusTransition(target);
             // XPutBackEvent prepends events, so never overtake native events already queued.
@@ -697,18 +734,47 @@ namespace lotus::apphook {
         auto* generation = currentX11.load(std::memory_order_acquire);
         if (generation == nullptr)
             return;
-        std::scoped_lock lock(wakeWaitersMutex);
         {
-            const auto& waiters = generation->wakeWaiters;
-            for (const auto& entry : waiters) {
-                if (auto waiter = entry.lock()) {
-                    if (waiter->fd >= 0) {
-                        const uint64_t one     = 1;
-                        const ssize_t  written = write(waiter->fd, &one, sizeof(one));
-                        (void)written; // An already-signalled eventfd needs no extra notification.
-                    }
+            std::scoped_lock lock(wakeWaitersMutex);
+            for (const auto& entry : generation->wakeWaiters) {
+                if (auto waiter = entry.lock(); waiter && waiter->fd >= 0) {
+                    const uint64_t one     = 1;
+                    const ssize_t  written = write(waiter->fd, &one, sizeof(one));
+                    (void)written;
                 }
             }
+        }
+        // Wake external poll/select loops on the X connection itself. Sending
+        // from a separate connection avoids calling Xlib from the IPC thread.
+        if (originalDisplayString == nullptr || wakeConnect == nullptr || wakeDisconnect == nullptr || wakeSendEvent == nullptr || wakeFlush == nullptr ||
+            wakeGetFocus == nullptr || wakeGetFocusReply == nullptr)
+            return;
+        std::vector<const void*> targets;
+        {
+            std::scoped_lock lock(runtime().mutex);
+            for (const auto& task : runtime().pending)
+                if (task->target.backend == HookBackend::X11)
+                    targets.push_back(task->target.connection);
+        }
+        std::scoped_lock lock(focusMutex);
+        for (const auto& [display, state] : focusByDisplay) {
+            if (!state.focused || state.target == None || xcbOwnerDisplays.contains(display) || std::ranges::find(targets, display) == targets.end())
+                continue;
+            auto* sender = wakeConnect(originalDisplayString(display), nullptr);
+            if (sender == nullptr)
+                continue;
+            xcb_client_message_event_t event{};
+            event.response_type = XCB_CLIENT_MESSAGE;
+            event.format        = 8;
+            event.window        = static_cast<xcb_window_t>(state.target);
+            event.type          = XCB_ATOM_NONE;
+            std::memcpy(event.data.data8, kWakePayload.data(), kWakePayload.size());
+            (void)wakeSendEvent(sender, 0, event.window, 0, reinterpret_cast<const char*>(&event));
+            (void)wakeFlush(sender);
+            // Wait until the server has processed the send before closing the
+            // temporary connection; otherwise it can discard the wake event.
+            freeReply(wakeGetFocusReply(sender, wakeGetFocus(sender), nullptr));
+            wakeDisconnect(sender);
         }
     }
 
@@ -761,6 +827,15 @@ namespace lotus::apphook {
             originalGetFocus               = resolve<decltype(originalGetFocus)>("XGetInputFocus");
             originalKeysymToKeycode        = resolve<decltype(originalKeysymToKeycode)>("XKeysymToKeycode");
             originalRootWindow             = resolve<decltype(originalRootWindow)>("XDefaultRootWindow");
+            originalDisplayString          = resolve<decltype(originalDisplayString)>("XDisplayString");
+            if (void* xcb = dlopen("libxcb.so.1", RTLD_NOW | RTLD_NOLOAD)) {
+                wakeConnect       = reinterpret_cast<decltype(wakeConnect)>(dlsym(xcb, "xcb_connect"));
+                wakeDisconnect    = reinterpret_cast<decltype(wakeDisconnect)>(dlsym(xcb, "xcb_disconnect"));
+                wakeSendEvent     = reinterpret_cast<decltype(wakeSendEvent)>(dlsym(xcb, "xcb_send_event"));
+                wakeFlush         = reinterpret_cast<decltype(wakeFlush)>(dlsym(xcb, "xcb_flush"));
+                wakeGetFocus      = reinterpret_cast<decltype(wakeGetFocus)>(dlsym(xcb, "xcb_get_input_focus"));
+                wakeGetFocusReply = reinterpret_cast<decltype(wakeGetFocusReply)>(dlsym(xcb, "xcb_get_input_focus_reply"));
+            }
         });
     }
 
@@ -974,15 +1049,19 @@ LH_EXPORT int XNextEvent(Display* target, XEvent* event) {
     loadX11();
     if (originalNext == nullptr)
         return -1;
-    onEntry(target);
-    if ((originalPending != nullptr) && (originalConnectionNumber != nullptr) && runtime().workersStarted.load(std::memory_order_acquire)) {
-        while (originalPending(target) == 0)
-            waitForEvent(target);
+    while (true) {
+        onEntry(target);
+        if ((originalPending != nullptr) && (originalConnectionNumber != nullptr) && runtime().workersStarted.load(std::memory_order_acquire)) {
+            while (originalPending(target) == 0)
+                waitForEvent(target);
+        }
+        const int result = originalNext(target, event);
+        if (result == 0 && isWakeEvent(event))
+            continue;
+        if (result == 0)
+            recordEvent(*event, true);
+        return result;
     }
-    const int result = originalNext(target, event);
-    if (result == 0)
-        recordEvent(*event, true);
-    return result;
 }
 
 /**

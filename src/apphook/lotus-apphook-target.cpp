@@ -32,6 +32,7 @@
 #include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <thread>
+#include <ctime>
 #include <unordered_map>
 #include <utility>
 #include <unistd.h>
@@ -130,6 +131,35 @@ namespace lotus::apphook {
             Runtime& state = runtime();
             return state.focusedX11.load(std::memory_order_acquire) || state.focusedWayland.load(std::memory_order_acquire) || state.focusedXcb.load(std::memory_order_acquire);
         }
+
+        uint32_t focusStampNow() {
+            timespec now{};
+            clock_gettime(CLOCK_MONOTONIC, &now);
+            const auto stamp = static_cast<uint32_t>((static_cast<uint64_t>(now.tv_sec) * 1000U) + (static_cast<uint64_t>(now.tv_nsec) / 1000000U));
+            return stamp == 0U ? 1U : stamp;
+        }
+
+        bool publishFocus(std::atomic<bool>& field, bool focused) {
+            Runtime&         state = runtime();
+            std::scoped_lock lock(state.focusStateMutex);
+            if (field.exchange(focused, std::memory_order_acq_rel) == focused)
+                return false;
+            state.focusStamp = focusStampNow();
+            return true;
+        }
+
+        struct FocusSnapshot {
+            bool     focused = false;
+            uint32_t stamp   = 0;
+        };
+
+        // Focus messages from separate processes arrive on separate sockets;
+        // the event-time stamp lets the server ignore an older transition.
+        FocusSnapshot keyboardFocusSnapshot() {
+            Runtime&         state = runtime();
+            std::scoped_lock lock(state.focusStateMutex);
+            return {.focused = hasKeyboardFocus(), .stamp = state.focusStamp};
+        }
     } // namespace
 
     void ensureRuntimeInitialized() {
@@ -163,9 +193,8 @@ namespace lotus::apphook {
     }
 
     void noteX11Focus(bool focused) {
-        if (runtime().focusedX11.exchange(focused, std::memory_order_acq_rel) != focused) {
+        if (publishFocus(runtime().focusedX11, focused))
             signalChange();
-        }
         if (focused) {
             startWorkers();
         }
@@ -180,25 +209,24 @@ namespace lotus::apphook {
     }
 
     void noteWaylandFocus(bool focused) {
-        if (runtime().focusedWayland.exchange(focused, std::memory_order_acq_rel) != focused) {
+        if (publishFocus(runtime().focusedWayland, focused))
             signalChange();
-        }
-        if (focused) {
-            startWorkers();
-        }
+        // Wayland publishes while holding its keyboard-state lock; worker
+        // startup is performed separately after that lock is released.
     }
 
     void noteWaylandKeyboardAvailable(bool available) {
         if (runtime().readyWayland.exchange(available, std::memory_order_acq_rel) != available) {
             signalChange();
         }
-        if (available) {
-            startWorkers();
-        }
+    }
+
+    void ensureWaylandWorkerStarted() {
+        startWorkers();
     }
 
     void noteXcbFocus(bool focused) {
-        if (runtime().focusedXcb.exchange(focused, std::memory_order_acq_rel) != focused)
+        if (publishFocus(runtime().focusedXcb, focused))
             signalChange();
         if (focused)
             startWorkers();
@@ -212,11 +240,8 @@ namespace lotus::apphook {
     }
 
     void noteKeyboardActivity(bool wayland) {
-        if (wayland) {
-            noteWaylandFocus(true);
-        } else {
+        if (!wayland)
             noteX11Focus(true);
-        }
         startWorkers();
     }
 
@@ -466,9 +491,12 @@ namespace lotus::apphook {
                 if (!backendReady()) {
                     continue;
                 }
-                const bool reportedReady   = true;
-                bool       reportedFocused = hasKeyboardFocus();
-                if (!reply(connection.get(), ResponseKind::Ready, 0, 0, reportedFocused ? kReadyFocused : 0)) {
+                const bool    reportedReady = true;
+                FocusSnapshot reportedFocus = keyboardFocusSnapshot();
+                if (!reply(connection.get(), ResponseKind::Ready, 0, 0, reportedFocus.focused ? kReadyFocused : 0)) {
+                    continue;
+                }
+                if (reportedFocus.focused && !reply(connection.get(), ResponseKind::Focus, 0, 1, reportedFocus.stamp)) {
                     continue;
                 }
                 std::unordered_map<uint64_t, std::shared_ptr<Task>> tasks;
@@ -507,15 +535,15 @@ namespace lotus::apphook {
                         if (!flushCompleted(connection.get(), tasks)) {
                             break;
                         }
-                        const bool currentReady   = backendReady();
-                        const bool currentFocused = hasKeyboardFocus();
+                        const bool          currentReady = backendReady();
+                        const FocusSnapshot currentFocus = keyboardFocusSnapshot();
                         if (currentReady != reportedReady) {
                             // A lost backend invalidates the session; reconnect after recovery.
                             break;
                         }
-                        if (currentFocused != reportedFocused) {
-                            reportedFocused = currentFocused;
-                            if (!reply(connection.get(), ResponseKind::Focus, 0, reportedFocused ? 1 : 0)) {
+                        if (currentFocus.focused != reportedFocus.focused) {
+                            reportedFocus = currentFocus;
+                            if (!reply(connection.get(), ResponseKind::Focus, 0, reportedFocus.focused ? 1 : 0, reportedFocus.stamp)) {
                                 break;
                             }
                         }
