@@ -17,6 +17,7 @@ BuildRequires:  libinput-devel
 BuildRequires:  libevdev-devel
 BuildRequires:  libnotify-devel
 BuildRequires:  dbus-1-devel
+BuildRequires:  libX11-devel
 BuildRequires:  libxcb-devel
 BuildRequires:  systemd-devel
 BuildRequires:  wayland-devel
@@ -69,6 +70,7 @@ cd %{_builddir}/%{name}-%{version}
 %{_bindir}/fcitx5-lotus-settings
 
 %{_libdir}/fcitx5/liblotus.so
+%{_libdir}/liblotus-apphook.so
 
 %{_modulesloaddir}/fcitx5-lotus.conf
 %{_unitdir}/fcitx5-lotus-server@.service
