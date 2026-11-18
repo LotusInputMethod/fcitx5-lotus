@@ -10,7 +10,6 @@
 #include "lotus-log.h"
 #include "lotus-utils.h"
 
-#include <atomic>
 #include <fcitx-utils/utf8.h>
 
 #include <algorithm>
@@ -272,8 +271,7 @@ namespace fcitx {
         }
         lseek(fd.get(), 0, SEEK_SET);
         zwp_virtual_keyboard_v1_keymap(keyboard_.get(), WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, fd.get(), size);
-        // A keymap upload resets the client's xkb state, so mirror the user's Shift in the modifiers.
-        zwp_virtual_keyboard_v1_modifiers(keyboard_.get(), userShift_.load(std::memory_order_acquire) ? kShiftMod : 0, 0, 0, 0);
+        zwp_virtual_keyboard_v1_modifiers(keyboard_.get(), 0, 0, 0, 0);
         return wl_display_roundtrip(display_.get()) >= 0;
     }
 
@@ -287,10 +285,6 @@ namespace fcitx {
 
     void LotusWlrVirtualKeyboard::setShift(bool down) {
         zwp_virtual_keyboard_v1_modifiers(keyboard_.get(), down ? kShiftMod : 0, 0, 0, 0);
-    }
-
-    void LotusWlrVirtualKeyboard::setUserShift(bool down) {
-        userShift_.store(down, std::memory_order_release);
     }
 
     bool LotusWlrVirtualKeyboard::consumeEcho(uint32_t code, uint32_t time) {
@@ -354,10 +348,6 @@ namespace fcitx {
                     if (!cps.empty()) {
                         tap(KEY_DELETE, trackEcho);
                     }
-                    // The selection taps end with Shift off; restore the user's Shift for later forwarded keys.
-                    if (userShift_.load(std::memory_order_acquire)) {
-                        setShift(true);
-                    }
                 } else {
                     for (int i = 0; i < count; ++i) {
                         tap(KEY_BACKSPACE, trackEcho);
@@ -374,7 +364,7 @@ namespace fcitx {
         injecting_ = false;
         if (!ok) {
             echo_.clear();
-            setShift(userShift_.load(std::memory_order_acquire));
+            setShift(false);
             LOTUS_ERROR("wlr-virtual-keyboard: keymap upload failed");
         }
         return ok;
