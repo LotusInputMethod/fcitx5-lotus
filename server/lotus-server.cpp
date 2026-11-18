@@ -22,10 +22,8 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
-#include <span>
 #include <thread>
 #include <utility>
-#include <vector>
 #include <csignal>
 #include <cstddef>
 
@@ -127,31 +125,6 @@ void signalHandler(int sig) {
     }
 }
 
-std::string getCurrentUsername() {
-    struct passwd  pwd{};
-    struct passwd* result  = nullptr;
-    long           bufSize = sysconf(_SC_GETPW_R_SIZE_MAX);
-    if (bufSize == -1) {
-        bufSize = 16384;
-    }
-    std::vector<char> buffer(static_cast<std::size_t>(bufSize));
-    if (getpwuid_r(getuid(), &pwd, buffer.data(), buffer.size(), &result) != 0 || result == nullptr) {
-        return "unknown";
-    }
-    return {result->pw_name};
-}
-
-std::optional<uid_t> getUidForUser(std::string_view username) {
-    const std::string      name(username);
-    struct passwd          pwBuf{};
-    struct passwd*         pw = nullptr;
-    std::array<char, 1024> buffer{};
-    if (getpwnam_r(name.c_str(), &pwBuf, buffer.data(), buffer.size(), &pw) != 0 || pw == nullptr) {
-        return std::nullopt;
-    }
-    return pw->pw_uid;
-}
-
 void boostProcessPriority() {
     if (setpriority(PRIO_PROCESS, 0, -10) != 0) { //NOLINT
         LotusLogger::instance().error("Failed to boost process priority");
@@ -182,15 +155,11 @@ const struct libinput_interface interface = {
     .close_restricted = close_restricted,
 };
 
-std::optional<pid_t> authorizePeer(int fd, uid_t expectedUid, std::string_view socketLabel) {
+std::optional<pid_t> authorizePeer(int fd, std::string_view socketLabel) {
     struct ucred cred{};
     socklen_t    len = sizeof(struct ucred);
     if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cred, &len) != 0) {
         LotusLogger::instance().warn("Failed to get peer credentials for " + std::string(socketLabel));
-        return std::nullopt;
-    }
-    if (cred.uid != expectedUid) {
-        LotusLogger::instance().warn("Unauthorized UID connection attempt to " + std::string(socketLabel) + " from UID: " + std::to_string(cred.uid));
         return std::nullopt;
     }
 
@@ -210,27 +179,15 @@ std::optional<pid_t> authorizePeer(int fd, uid_t expectedUid, std::string_view s
     return cred.pid;
 }
 
-int main(int argc, char* argv[]) {
-    const std::span<char* const> args(argv, static_cast<std::size_t>(argc));
-    const std::string            targetUser = args.size() == 3 && std::string_view(args[1]) == "-u" ? std::string(args[2]) : getCurrentUsername();
-    LotusLogger::instance().info("Target user: " + targetUser);
-
-    const std::optional<uid_t> expectedUid = getUidForUser(targetUser);
-    if (!expectedUid.has_value()) {
-        LotusLogger::instance().error("Failed to find UID for target user: " + targetUser);
-        return 1;
-    }
-
+int main() {
     boostProcessPriority();
     pinToPcore();
 
-    const std::string    socketNamespace = lotusSocketNamespace(targetUser);
-    const AbstractSocket kbSocket        = makeAbstractSocket("lotussocket-" + socketNamespace + "-kbSocket");
-    const AbstractSocket mouseSocket     = makeAbstractSocket("lotussocket-" + socketNamespace + "-mouseSocket");
+    const AbstractSocket kbSocket    = makeAbstractSocket(lotusSocketName("kbSocket"));
+    const AbstractSocket mouseSocket = makeAbstractSocket(lotusSocketName("mouseSocket"));
 
-    // Setup Uinput
-    UinputDevice       uinput;
-    PhysicalShiftState physical_shift;
+    UinputDevice         uinput;
+    PhysicalShiftState   physical_shift;
     if (!uinput.initialize()) {
         LotusLogger::instance().error("Failed to initialize uinput device");
         return 1;
@@ -346,7 +303,7 @@ int main(int argc, char* argv[]) {
         if ((static_cast<unsigned>(fds[kKeyboardServerIndex].revents) & static_cast<unsigned>(POLLIN)) != 0) {
             FdGuard candidate(accept4(serverFd.get(), nullptr, nullptr, SOCK_NONBLOCK));
             if (candidate.isValid()) {
-                const std::optional<pid_t> peer = authorizePeer(candidate.get(), *expectedUid, "keyboard socket");
+                const std::optional<pid_t> peer = authorizePeer(candidate.get(), "keyboard socket");
 
                 if (peer.has_value()) {
                     LotusLogger::instance().info("Fcitx5 connected to keyboard socket (PID: " + std::to_string(*peer) + ")");
@@ -452,7 +409,7 @@ int main(int argc, char* argv[]) {
         if ((static_cast<unsigned>(fds[kMouseServerIndex].revents) & static_cast<unsigned>(POLLIN)) != 0) {
             FdGuard candidate(accept4(mouseServerFd.get(), nullptr, nullptr, SOCK_NONBLOCK));
             if (candidate.isValid()) {
-                const std::optional<pid_t> peer = authorizePeer(candidate.get(), *expectedUid, "mouse socket");
+                const std::optional<pid_t> peer = authorizePeer(candidate.get(), "mouse socket");
 
                 if (peer.has_value()) {
                     LotusLogger::instance().info("New mouse flag client connected");

@@ -6,8 +6,7 @@
  */
 
 /*
- * Header-only because the addon and the server are two separate targets that both include it from
- * common/, and the server must not link the addon core.
+ * Header-only: shared by the addon and the server, two targets that must not link each other.
  */
 
 #ifndef _COMMON_SOCKET_NAME_H_
@@ -18,21 +17,38 @@
 #include <string_view>
 
 /**
- * @brief Environment variable that replaces the user segment of the abstract socket names.
+ * @brief Environment variable that overrides the namespace segment of the socket names.
  */
 inline constexpr const char* LOTUS_SOCKET_NAMESPACE_ENV = "LOTUS_SOCKET_NAMESPACE";
 
 /**
- * @brief Resolves the user segment of the abstract socket name.
- * @param username Default segment, the name of the current user.
- * @return Value of LOTUS_SOCKET_NAMESPACE_ENV when set and non-empty, @p username otherwise.
+ * @brief Resolves the socket namespace segment.
+ * @return Value of LOTUS_SOCKET_NAMESPACE_ENV when set and non-empty, an empty string otherwise.
  */
-inline std::string lotusSocketNamespace(std::string_view username) {
+inline std::string lotusSocketNamespace() {
     const char* override_value = std::getenv(LOTUS_SOCKET_NAMESPACE_ENV);
     if (override_value != nullptr && *override_value != '\0') {
         return override_value;
     }
-    return std::string(username);
+    return {};
+}
+
+/**
+ * @brief Builds the abstract socket name for a socket role.
+ * @param suffix Socket role, e.g. "kbSocket" or "mouseSocket".
+ * @return Name in the form "lotussocket[-<namespace>]-<suffix>".
+ */
+inline std::string lotusSocketName(std::string_view suffix) {
+    std::string name;
+    name.reserve(suffix.size() + 12);
+    name += "lotussocket-";
+    const std::string namespaceSegment = lotusSocketNamespace();
+    if (!namespaceSegment.empty()) {
+        name += namespaceSegment;
+        name += '-';
+    }
+    name += suffix;
+    return name;
 }
 
 #endif // _COMMON_SOCKET_NAME_H_
