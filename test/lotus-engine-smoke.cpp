@@ -8,6 +8,7 @@
 #include "engine.h"
 
 #include "input_method.h"
+#include "test-utils.h"
 #include "types.h"
 
 #include <cstdio>
@@ -19,7 +20,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the engine must expose the structure the ported Go tests rely on");
             ++failures;
         }
     }
@@ -27,15 +28,7 @@ namespace {
     void checkPreedit(const char* name, lotus::Engine& engine, std::u32string_view expected) {
         const std::u32string actual = engine.processedString(lotus::Mode::VietnameseMode | lotus::Mode::FullText);
         if (actual != expected) {
-            std::printf("FAIL %s: got", name);
-            for (const char32_t codePoint : actual) {
-                std::printf(" U+%04X", static_cast<unsigned int>(codePoint));
-            }
-            std::printf(", expected");
-            for (const char32_t codePoint : expected) {
-                std::printf(" U+%04X", static_cast<unsigned int>(codePoint));
-            }
-            std::printf("\n");
+            reportFailure(name, hexOf(expected), hexOf(actual), "the engine must process the smoke strings into the expected preedit");
             ++failures;
         }
     }

@@ -81,7 +81,7 @@ namespace {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got [%s], expected [%s]\n", name, hexOf(actual).c_str(), hexOf(expected).c_str());
+        reportFailure(name, hexOf(expected), hexOf(actual), "key processing must match the expectations ported from the Go tests");
         ++failures;
     }
 
@@ -89,7 +89,7 @@ namespace {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got [%s], expected [%s]\n", name, std::string(actual).c_str(), std::string(expected).c_str());
+        reportFailure(name, expected, actual, "string results must match the Go engine's output");
         ++failures;
     }
 
@@ -97,7 +97,7 @@ namespace {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got %s, expected %s\n", name, actual ? "true" : "false", expected ? "true" : "false");
+        reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "boolean results must match the Go engine's behaviour");
         ++failures;
     }
 
@@ -167,7 +167,8 @@ namespace {
         for (const Case& c : cases) {
             const MacroCase got = lotus::determineMacroCase(c.in);
             if (got != c.want) {
-                std::printf("FAIL determineMacroCase(%s): got [%d], expected [%d]\n", hexOf(c.in).c_str(), static_cast<int>(got), static_cast<int>(c.want));
+                reportFailure("determineMacroCase(" + hexOf(c.in) + ")", "MacroCase " + std::to_string(static_cast<int>(c.want)),
+                              "MacroCase " + std::to_string(static_cast<int>(got)), "macro case detection must match the Go implementation");
                 ++failures;
             }
         }
@@ -364,8 +365,8 @@ namespace {
         for (const Case& c : cases) {
             const char32_t got = engine.toUpper(c.in);
             if (got != c.want) {
-                std::printf("FAIL toUpper(%s) with bracket mode: got [U+%04X], expected [U+%04X]\n", hexOf(std::u32string(1, c.in)).c_str(), static_cast<unsigned int>(got),
-                            static_cast<unsigned int>(c.want));
+                reportFailure("toUpper(" + hexOf(std::u32string(1, c.in)) + ") with bracket mode", hexOf(std::u32string(1, c.want)), hexOf(std::u32string(1, got)),
+                              "bracket mode must transform opening and closing brackets symmetrically");
                 ++failures;
             }
         }
@@ -854,9 +855,11 @@ namespace {
                 ++mismatches;
                 if (shown < 20) {
                     ++shown;
-                    std::printf("FAIL golden %s step %s key U+%04X state %u: accepted=%d/%d preedit=[%s]/[%s] commit=[%s]/[%s]\n", id.c_str(), row.fields[1].c_str(),
-                                static_cast<unsigned>(key), state.bits, accepted ? 1 : 0, wantAccepted ? 1 : 0, toHex(actualPreedit).c_str(), toHex(wantPreedit).c_str(),
-                                toHex(actualCommit).c_str(), toHex(wantCommit).c_str());
+                    reportFailure("golden " + id + " step " + row.fields[1] + " key " + hexOf(std::u32string(1, static_cast<char32_t>(key))) + " state " +
+                                      std::to_string(state.bits),
+                                  std::string("accepted=") + (wantAccepted ? "1" : "0") + ", preedit=[" + toHex(wantPreedit) + "], commit=[" + toHex(wantCommit) + "]",
+                                  std::string("accepted=") + (accepted ? "1" : "0") + ", preedit=[" + toHex(actualPreedit) + "], commit=[" + toHex(actualCommit) + "]",
+                                  "the key processor must reproduce the golden corpus the Go wrapper dumped");
                 }
             }
         }

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "engine-fixture.h"
 #include "lotus-engine.h"
 #include "lotus-utils.h"
 #include "test-input-context.h"
@@ -13,20 +14,6 @@
 #include <iostream>
 #include <memory>
 #include <string>
-
-namespace {
-
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (!event.accepted()) {
-            reportFailure("send emoji navigation key", "key accepted", "key rejected", "the real Emoji-mode key handler did not handle the navigation key");
-            return false;
-        }
-        return true;
-    }
-
-} // namespace
 
 int main() {
     configureTestPaths("fcitx5-lotus-emoji-history-page-navigation");
@@ -65,7 +52,7 @@ int main() {
 
     // Move Up from the first candidate. This must wrap to the last candidate
     // of the same page, rather than changing page.
-    if (!send(engine, entry, *context, FcitxKey_Up))
+    if (!sendKey(engine, entry, *context, FcitxKey_Up, true, "the real Emoji-mode key handler must handle the navigation key"))
         return 1;
 
     if (candidates->currentPage() != 0 || candidates->globalCursorIndex() != 8) {
@@ -77,7 +64,7 @@ int main() {
 
     // Move Down from the last candidate. This must wrap to the first
     // candidate of the same page.
-    if (!send(engine, entry, *context, FcitxKey_Down))
+    if (!sendKey(engine, entry, *context, FcitxKey_Down, true, "the real Emoji-mode key handler must handle the navigation key"))
         return 1;
 
     if (candidates->currentPage() != 0 || candidates->globalCursorIndex() != 0) {

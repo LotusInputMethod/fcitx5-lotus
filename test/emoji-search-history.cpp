@@ -9,23 +9,25 @@
  */
 
 #include "emoji.h"
+#include "test-utils.h"
 
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
 
     int  failures = 0;
 
-    void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual) {
+    void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual, std::string_view meaning) {
         if (ok) {
             return;
         }
         ++failures;
-        std::cerr << "Step: " << step << "\nExpected: " << expected << "\nActual: " << actual << "\n";
+        reportFailure(step, expected, actual, meaning);
     }
 
     std::string triggers(const std::vector<EmojiEntry>& entries) {
@@ -69,7 +71,8 @@ int main() {
         std::error_code ec;
         std::filesystem::remove(missing, ec);
         loader.setHistoryPathForTest(missing.string());
-        check(loader.history().empty(), "missing history", "empty", std::to_string(loader.history().size()));
+        check(loader.history().empty(), "missing history", "empty", std::to_string(loader.history().size()),
+              "a missing history file must load as empty instead of failing the search");
     }
 
     // Tier order exact > prefix > boundary > fuzzy, plus case-insensitive exact.
@@ -78,17 +81,19 @@ int main() {
         loader.setEmojiListForTest(tierEntries());
 
         const auto results = loader.search("cat");
-        check(results.size() == 4, "tier size", "4", triggers(results));
-        check(indexOf(results, "cat") < indexOf(results, "cat_face"), "exact>prefix", "cat first", triggers(results));
-        check(indexOf(results, "cat_face") < indexOf(results, "black_cat"), "prefix>boundary", "cat_face before black_cat", triggers(results));
-        check(indexOf(results, "black_cat") < indexOf(results, "educational"), "boundary>fuzzy", "black_cat before educational", triggers(results));
-        check(!contains(results, "dog"), "non-match excluded", "no dog", triggers(results));
+        check(results.size() == 4, "tier size", "4", triggers(results), "the exact, prefix, boundary and fuzzy tiers together return the four matching entries");
+        check(indexOf(results, "cat") < indexOf(results, "cat_face"), "exact>prefix", "cat first", triggers(results), "an exact trigger must rank above a prefix match");
+        check(indexOf(results, "cat_face") < indexOf(results, "black_cat"), "prefix>boundary", "cat_face before black_cat", triggers(results),
+              "a prefix match must rank above a word-boundary match");
+        check(indexOf(results, "black_cat") < indexOf(results, "educational"), "boundary>fuzzy", "black_cat before educational", triggers(results),
+              "a word-boundary match must rank above a fuzzy match");
+        check(!contains(results, "dog"), "non-match excluded", "no dog", triggers(results), "entries that do not match the query must stay out of the results");
 
         const auto upper = loader.search("CAT");
-        check(!upper.empty() && upper[0].trigger == "cat", "CAT exact ci", "cat", triggers(upper));
+        check(!upper.empty() && upper[0].trigger == "cat", "CAT exact ci", "cat", triggers(upper), "exact matching must be case-insensitive");
 
-        check(loader.search("xyz").empty(), "non-subsequence", "0", triggers(loader.search("xyz")));
-        check(loader.search("").empty(), "empty", "0", "non-empty");
+        check(loader.search("xyz").empty(), "non-subsequence", "0", triggers(loader.search("xyz")), "a query no entry matches must return no results");
+        check(loader.search("").empty(), "empty", "0", "non-empty", "an empty query must return no results");
     }
 
     // Top-K: the best match is inserted last, so naive truncation (first 100)
@@ -103,9 +108,10 @@ int main() {
         entries.push_back({.trigger = "rank", .output = "BEST"});
         loader.setEmojiListForTest(std::move(entries));
         const auto results = loader.search("rank");
-        check(results.size() == EmojiLoader::kMaxEmojiSearchResults, "top-k size", "100", std::to_string(results.size()));
-        check(!results.empty() && results[0].trigger == "rank", "best match first", "rank", triggers(results));
-        check(!contains(results, "rank_99"), "worst dropped", "rank_99 absent", triggers(results));
+        check(results.size() == EmojiLoader::kMaxEmojiSearchResults, "top-k size", "100", std::to_string(results.size()),
+              "search must cap the result list at kMaxEmojiSearchResults");
+        check(!results.empty() && results[0].trigger == "rank", "best match first", "rank", triggers(results), "the best match must survive the cap and lead the results");
+        check(!contains(results, "rank_99"), "worst dropped", "rank_99 absent", triggers(results), "truncation must drop the worst match instead of the best one");
     }
 
     // Duplicate triggers keep insertion order (deterministic tie-break).
@@ -116,9 +122,10 @@ int main() {
             {.trigger = "dup", .output = "B"},
         });
         const auto results = loader.search("dup");
-        check(results.size() == 2, "dup size", "2", triggers(results));
+        check(results.size() == 2, "dup size", "2", triggers(results), "duplicate triggers must both be returned");
         check(results.size() == 2 && results[0].output == "A" && results[1].output == "B", "dup order", "[A][B]",
-              results.size() == 2 ? "[" + results[0].output + "][" + results[1].output + "]" : triggers(results));
+              results.size() == 2 ? "[" + results[0].output + "][" + results[1].output + "]" : triggers(results),
+              "duplicate triggers must keep insertion order so tie-breaking is deterministic");
     }
 
     if (failures > 0) {

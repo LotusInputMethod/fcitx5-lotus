@@ -49,7 +49,7 @@ namespace {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got [%s], expected [%s]\n", name, hexOf(actual).c_str(), hexOf(expected).c_str());
+        reportFailure(name, hexOf(expected), hexOf(actual), "the rebuild path must reproduce the composition the Go engine rebuilds");
         ++failures;
     }
 

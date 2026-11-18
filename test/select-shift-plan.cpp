@@ -4,6 +4,7 @@
 // and a physically held Shift must turn a Select request into the Backspace fallback: a Shift+Left
 // selection would fight the user's own modifier.
 #include "lotus-physical-shift.h"
+#include "test-utils.h"
 
 #include <array>
 #include <cstdio>
@@ -14,7 +15,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the server must fail safe to Backspace whenever the physical Shift state is not certainly Released");
             ++failures;
         }
     }

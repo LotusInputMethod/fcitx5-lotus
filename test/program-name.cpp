@@ -5,6 +5,7 @@
  */
 
 #include "lotus-utils.h"
+#include "test-utils.h"
 
 #include <array>
 #include <cstdio>
@@ -19,7 +20,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "program name resolution must follow the app-rule platform rules");
             ++failures;
         }
     }

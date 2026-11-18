@@ -7,11 +7,11 @@
 // the client would. Guards the W2U undo: "ww" must leave "w", not "ưw".
 #include "lotus-engine.h"
 #include "test-input-context.h"
+#include "test-utils.h"
 
 #include <fcitx-utils/utf8.h>
 
 #include <array>
-#include <iostream>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -97,7 +97,8 @@ int main() {
     for (const Case& test : cases) {
         const std::string got = typer.type(test.keys);
         if (got != test.want) {
-            std::cerr << "Surrounding Text typing '" << test.keys << "': expected '" << test.want << "', got '" << got << "'\n";
+            reportFailure("Surrounding Text typing '" + std::string(test.keys) + "'", test.want, got,
+                          "every commit and deleteSurroundingText must keep the simulated client text consistent with the engine");
             ++failures;
         }
     }

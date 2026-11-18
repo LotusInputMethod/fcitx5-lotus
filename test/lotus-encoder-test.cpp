@@ -6,6 +6,7 @@
 // charset corpus produced by the Go engine.
 #include "encoder.h"
 #include "golden-reader.h"
+#include "test-utils.h"
 #include "utf8.h"
 
 #include <algorithm>
@@ -20,7 +21,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the encoder must produce the same bytes as the Go engine for every charset");
             ++failures;
         }
     }
@@ -67,7 +68,8 @@ int run_encoder() {
         const std::u32string single(1U, static_cast<char32_t>(hexValue(codepointHex)));
         const std::string    actual = lotus::encode(static_cast<lotus::Charset>(static_cast<std::size_t>(name - kNames.begin())), single);
         if (actual != fromHex(row.fields[2])) {
-            std::printf("FAIL golden %s U+%s: got %zu bytes, expected %zu\n", row.fields[0].c_str(), row.fields[1].c_str(), actual.size(), fromHex(row.fields[2]).size());
+            reportFailure("golden " + row.fields[0] + " " + row.fields[1], std::to_string(fromHex(row.fields[2]).size()) + " bytes", std::to_string(actual.size()) + " bytes",
+                          "every charset entry must match the bytes the Go engine produced");
             ++failures;
         }
     }
