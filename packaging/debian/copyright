@@ -18,12 +18,6 @@ Copyright: 2018 Luong Thanh Lam <ltlam93@gmail.com>
            2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com>
 License: GPL-3.0-or-later
 
-Files: cmake/*
-Copyright: 2016 Xuetian Weng <wengxt@gmail.com>
-           2007 Alexander Neundorf <neundorf@kde.org>
-           2006 Chusslove Illich <caslav.ilic@gmx.net>
-License: BSD-3-Clause
-
 Files: data/dictionaries/*
 Copyright: 1997-2003 The Free Vietnamese Dictionary Project
 License: GPL-3.0-or-later
