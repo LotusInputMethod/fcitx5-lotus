@@ -17,7 +17,7 @@ target_link_libraries(lotus_test_core PUBLIC
     PkgConfig::XCB
     PkgConfig::XCB_XTEST
     PkgConfig::WAYLAND_CLIENT
-    Pthread::Pthread
+    Threads::Threads
 )
 
 # The headless tests compile without PIC while lotus_core_objects builds with
@@ -34,7 +34,7 @@ target_link_libraries(lotus_test_pch PRIVATE
     Fcitx5::Core
     Fcitx5::Config
     Fcitx5::Module::Emoji
-    Pthread::Pthread
+    Threads::Threads
 )
 target_compile_definitions(lotus_test_pch PRIVATE
     FCITX5_LOTUS_SETTINGS_PATH="${CMAKE_INSTALL_FULL_BINDIR}/fcitx5-lotus-settings"
@@ -81,7 +81,7 @@ function(add_lotus_headless_test)
         Fcitx5::Core
         Fcitx5::Config
         Fcitx5::Module::Emoji
-        Pthread::Pthread
+        Threads::Threads
         ${ARG_LINK_LIBRARIES}
     )
     if(ARG_INCLUDE_DIRECTORIES)
