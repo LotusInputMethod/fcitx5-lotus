@@ -21,6 +21,7 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string_view>
 #include <utility>
 
@@ -97,8 +98,9 @@ namespace fcitx {
      * @brief Wayland zwp_virtual_keyboard_v1 helper.
      *
      * Sends BackSpace, Shift+Left and Unicode on one virtual-keyboard channel so the compositor preserves order.
-     * Shift is set with zwp_virtual_keyboard_v1_modifiers, not a real Shift key, so it does not leak into the seat
-     * and upcase later characters. A custom XKB keymap maps spare keycodes to the needed characters.
+     * Shift is set with zwp_virtual_keyboard_v1_modifiers, not a real Shift key. The modifier state is mirrored from
+     * the physical keyboard so a held Shift keeps later forwarded keys uppercase and a release clears it again.
+     * A custom XKB keymap maps spare keycodes to the needed characters.
      *
      * available() only looks for the manager global; the virtual keyboard device itself is created on the first
      * emit, so simply probing the compositor has no visible side effect.
@@ -111,12 +113,17 @@ namespace fcitx {
         // Shift+Left via zwp_virtual_keyboard_v1_modifiers, not a real Shift key.
         bool               emitSelect(int count, std::string_view utf8, bool trackEcho = true);
         [[nodiscard]] bool injecting() const {
-            return injecting_;
+            return injecting_.load(std::memory_order_acquire);
         }
         bool consumeEcho(uint32_t code, uint32_t time);
 
         /**
-         * @brief Records the user's physical Shift state.
+         * @brief Keeps the virtual keyboard's Shift in sync with the physical Shift key.
+         *
+         * Applies the state immediately and re-applies it after each keymap upload,
+         * which resets the compositor's modifiers. Without the sync, a held Shift is
+         * lost on forwarded keys, and a released Shift stays stuck and upcases later keys.
+         *
          * @param down True while the user holds Shift.
          */
         void setUserShift(bool down);
@@ -166,11 +173,13 @@ namespace fcitx {
         ZwpVirtualKeyboardManagerPtr              manager_;  ///< Manager global of the compositor
         ZwpVirtualKeyboardPtr                     keyboard_; ///< Virtual keyboard device, created on the first emit
         uint32_t                                  time_      = 1;
-        bool                                      injecting_ = false;
+        std::atomic<bool>                         injecting_ = false;
         bool                                      probed_    = false;
+        bool                                      keymapSet_ = false;
         bool                                      supported_ = false;
         std::atomic<bool>                         userShift_ = false;
         std::deque<std::pair<uint32_t, uint32_t>> echo_;
+        std::mutex                                deviceMutex_; ///< Serialises the Wayland device between the main and worker threads
 
         LotusDelayedTaskRunner                    runner_; ///< Delivers the replacement pre/post delay off the main thread
     };
