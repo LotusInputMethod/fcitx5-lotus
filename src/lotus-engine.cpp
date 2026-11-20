@@ -4,6 +4,8 @@
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
  * SPDX-FileCopyrightText: 2026 kimxuanhong <kimxuanhong@outlook.com>
  *
+ * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
+ *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  */
@@ -163,6 +165,10 @@ namespace fcitx {
         return windowFocusTracker_->isLikeAddressBarChromium();
     }
 
+    pid_t LotusEngine::appHookPid() const {
+        return appHook_.focusedPid();
+    }
+
     LotusEngine::LotusEngine(Instance* instance) :
         instance_(*instance), kbSender_(buildSocketPath("kbSocket")), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
         windowFocusTracker_ = std::make_unique<WindowFocusTracker>([this] { appRuleDispatcher_.schedule([this] { refreshFocusedAppRule(); }); });
@@ -263,6 +269,7 @@ namespace fcitx {
 
     LotusEngine::~LotusEngine() {
         windowFocusTracker_->stop();
+        appHook_.shutdown();
         LotusWlrVirtualKeyboard::instance().cancelPendingTasks();
         LotusX11Keyboard::instance().cancelPendingTasks();
         appRuleDispatcher_.detach();
@@ -443,6 +450,19 @@ namespace fcitx {
         const LotusMode targetMode = getAppRule(appName);
         LOTUS_INFO("Target mode: " + LotusModeI18NAnnotation::toString(targetMode));
 
+        const pid_t hookPid = appHookPid();
+        std::string hookExe = "N/A";
+
+        if (hookPid > 0) {
+            std::error_code ec;
+            auto            path = std::filesystem::read_symlink("/proc/" + std::to_string(hookPid) + "/exe", ec);
+            if (!ec)
+                hookExe = path.string();
+        }
+
+        LOTUS_INFO("AppHook: pid=" + std::to_string(hookPid) + " exe=" + hookExe + " enabled=" + std::to_string(*config_.preferVirtualKeyboard) +
+                   " ready=" + std::to_string(appHook_.ready(hookPid)));
+
         updateCharsetAction(event.inputContext());
 
         state->isLibreoffice_ = (appName == "soffice");
@@ -458,8 +478,11 @@ namespace fcitx {
         state->deletionInterruptedAt_ = 0;
 
         if (!resumeReplacement) {
-            state->cancelPendingUinput();
-            g_isDeleting.store(false, std::memory_order_release);
+            // A pending AppHook burst belongs to this context, not to the
+            // global uinput echo flag (which another context may have reset).
+            if (!state->appHookPending_)
+                state->cancelPendingUinput();
+            g_isDeleting.store(state->appHookPending_, std::memory_order_release);
         } else {
             state->cancelSelectAbort();
             state->rearmReplacementDeadline();
@@ -480,7 +503,7 @@ namespace fcitx {
             state->clearAllBuffers();
         }
         if (!resumeReplacement) {
-            g_isDeleting.store(false, std::memory_order_release);
+            g_isDeleting.store(state->appHookPending_, std::memory_order_release);
         }
         if (targetMode == LotusMode::Emoji) {
             state->updateEmojiPreedit();
@@ -777,10 +800,10 @@ namespace fcitx {
         auto*      state      = ic->propertyFor(&factory_);
         const bool uinputMode = isUinputMode(currentMode());
 
-        if (uinputMode && g_isDeleting.load(std::memory_order_acquire) && state->expectedBackspaces_ > 0) {
+        if ((g_isDeleting.load(std::memory_order_acquire) || state->appHookPending_) && ((uinputMode && state->expectedBackspaces_ > 0) || state->appHookPid_ > 0)) {
             state->lastDeactivateTime_    = nowMs();
             state->deletionInterruptedAt_ = state->lastDeactivateTime_;
-            if (state->realSelect_) {
+            if (state->realSelect_ && state->appHookPid_ == 0) {
                 state->deferSelectAbort();
             }
             LOTUS_INFO("Replacement interrupted by focus out");

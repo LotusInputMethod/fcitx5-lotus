@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2025 Võ Ngô Hoàng Thành <thanhpy2009@gmail.com>
  * SPDX-FileCopyrightText: 2026 Nguyễn Hoàng Kỳ  <nhktmdzhg@gmail.com>
  * SPDX-FileCopyrightText: 2026 kimxuanhong <kimxuanhong@outlook.com>
+ * SPDX-FileCopyrightText: 2026 Kazoku <k4zoku@disr.it>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -20,7 +21,9 @@
 #include "input_method.h"
 #include "utf8.h"
 
+#include <cerrno>
 #include <cstddef>
+#include <cstdint>
 #include <fcitx-utils/keysym.h>
 #include <fcitx-utils/utf8.h>
 #include <fcitx/candidatelist.h>
@@ -28,6 +31,7 @@
 #include <fcitx/userinterface.h>
 
 #include <algorithm>
+#include <linux/input-event-codes.h>
 #include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -48,6 +52,20 @@ namespace fcitx {
         // Space, tab, newline, carriage return, null, or punctuation/symbols (: ; < = > ? @)
         return ucs4 == ' ' || ucs4 == '\t' || ucs4 == '\n' || ucs4 == '\r' || ucs4 == 0 || (ucs4 >= 58 && ucs4 <= 64);
     }
+
+    namespace {
+        // These frontends receive application key events before the toolkit
+        // applies them, so an echoed anchor follows every earlier synthetic key.
+        bool echoesApplicationKeys(const std::string& frontend) {
+            return frontend == "dbus" || frontend == "fcitx4" || frontend == "x11" || frontend == "xim";
+        }
+
+        // Wayland clients receive synthetic keys directly in their keyboard
+        // callback, so those keys do not echo through the Fcitx frontend.
+        bool supportsAppHook(const std::string& frontend) {
+            return frontend == "wayland" || echoesApplicationKeys(frontend);
+        }
+    } // namespace
 
     LotusState::LotusState(LotusEngine* engine, InputContext* ic) : engine_(*engine), ic_(*ic) {
         setEngine();
@@ -101,8 +119,12 @@ namespace fcitx {
         return *engine_.config().preferVirtualKeyboard && getEnv("WAYLAND_DISPLAY").empty() && LotusX11Keyboard::instance().available();
     }
 
+    bool LotusState::ahUsable() const {
+        return *engine_.config().preferVirtualKeyboard && supportsAppHook(getFrontendName(&ic_)) && engine_.appHook().ready(engine_.appHookPid());
+    }
+
     bool LotusState::injectionUsable() const {
-        return vkUsable() || x11Usable();
+        return vkUsable() || x11Usable() || ahUsable();
     }
 
     bool LotusState::setupUinput() {
@@ -123,7 +145,13 @@ namespace fcitx {
     }
 
     void LotusState::cancelPendingUinput() {
-        if (!g_isDeleting.load(std::memory_order_acquire)) {
+        if (!g_isDeleting.load(std::memory_order_acquire) && !appHookPending_) {
+            return;
+        }
+        if (appHookPid_ > 0) {
+            engine_.appHook().cancel(appHookPid_, appHookRequestId_);
+            appHookPid_       = 0;
+            appHookRequestId_ = 0;
             return;
         }
         sendKbMsg(KbOp::Cancel, 0, 0, 0, 0);
@@ -132,6 +160,8 @@ namespace fcitx {
 
     void LotusState::discardForAppChange() {
         cancelPendingUinput();
+        ++replacementToken_;
+        appHookPending_ = false;
         g_isDeleting.store(false, std::memory_order_release);
         deferredCommitTimer_.reset();
         deferredCommitPending_ = false;
@@ -210,6 +240,10 @@ namespace fcitx {
 
     void LotusState::rearmReplacementDeadline() {
         if (!g_isDeleting.load(std::memory_order_acquire)) {
+            return;
+        }
+        if (appHookPid_ > 0) {
+            replacementDeadlineMs_ = nowMs() + 5000;
             return;
         }
         const auto remaining   = static_cast<int64_t>(expectedBackspaces_ - std::min(expectedBackspaces_, currentBackspaceCount_));
@@ -556,6 +590,9 @@ namespace fcitx {
     void LotusState::finishReplacementNow() {
         ++replacementToken_;
         cancelSelectAbort();
+        appHookPid_       = 0;
+        appHookRequestId_ = 0;
+        appHookPending_   = false;
         appendCommit(pendingCommitString_);
         pendingCommitString_.clear();
         deferCommits_          = getFrontendName(&ic_) == "dbus";
@@ -572,8 +609,47 @@ namespace fcitx {
         }
     }
 
+    void LotusState::deferCompletedAppHookReplacement() {
+        // The target finished deleting text, but the input context is no longer
+        // focused. Never commit into another application; reconcile on refocus.
+        stashedCommit_      = pendingCommitString_;
+        stashedNewWord_     = oldPreBuffer_;
+        uinputAbortTimeMs_  = nowMs();
+        uinputAbortPending_ = !stashedCommit_.empty() || !bufferedKeys_.empty();
+        pendingCommitString_.clear();
+        replacementDeadlineMs_ = 0;
+        expectedBackspaces_    = 0;
+        currentBackspaceCount_ = 0;
+        deletionInterruptedAt_ = 0;
+        appHookPending_        = false;
+        if (!engine_.otherContextActive(&ic_))
+            g_isDeleting.store(false, std::memory_order_release);
+    }
+
+    void LotusState::abortUncertainAppHookReplacement() {
+        ++replacementToken_;
+        cancelSelectAbort();
+        appHookPid_       = 0;
+        appHookRequestId_ = 0;
+        appHookPending_   = false;
+        pendingCommitString_.clear();
+        expectedBackspaces_    = 0;
+        currentBackspaceCount_ = 0;
+        replacementDeadlineMs_ = 0;
+        realSelect_            = false;
+        lastSelect_            = false;
+        if (!engine_.otherContextActive(&ic_))
+            g_isDeleting.store(false, std::memory_order_release);
+        (*lotusEngine_).reset();
+        oldPreBuffer_.clear();
+        hasHistory_ = false;
+        // Unknown partial deletion invalidates the replay context. Do not
+        // trigger another replacement from keys buffered during this burst.
+        bufferedKeys_.clear();
+    }
+
     void LotusState::finishScheduledReplacement(uint64_t token) {
-        if (token != replacementToken_ || !g_isDeleting.load(std::memory_order_acquire)) {
+        if (token != replacementToken_ || (!appHookPending_ && !g_isDeleting.load(std::memory_order_acquire))) {
             return;
         }
         finishReplacementNow();
@@ -624,10 +700,16 @@ namespace fcitx {
         finishReplacement(event);
         return true;
     }
-    void LotusState::performReplacement(DiffPart diffPart) {
+    void LotusState::performReplacement(DiffPart diffPart, bool allowAppHook) {
         LOTUS_INFO("Perform replacement: " + lotus::utf8::encode(diffPart.deletedPart) + " -> " + lotus::utf8::encode(diffPart.addedPart)); //NOLINT
         echoTriggerPending_ = false;
+        if (appHookPid_ > 0) {
+            engine_.appHook().cancel(appHookPid_, appHookRequestId_);
+            appHookPid_       = 0;
+            appHookRequestId_ = 0;
+        }
         ++replacementToken_;
+        appHookPending_ = false;
         // WA for libreoffice (issue #162)
         // force use deleteSurroundingText func
         if (isLibreoffice_) {
@@ -663,14 +745,110 @@ namespace fcitx {
         }
 
         const std::string frontend     = getFrontendName(&ic_);
-        const bool        echoFrontend = frontend == "dbus" || frontend == "fcitx4" || frontend == "x11" || frontend == "xim";
+        const bool        echoFrontend = echoesApplicationKeys(frontend);
         const std::string addedUtf8    = lotus::utf8::encode(diffPart.addedPart);
         const int         burstCount   = static_cast<int>(delSize) + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0);
         const bool        x11Backend   = !vkUsable() && x11Usable();
         bool              echoDriven   = false;
         injectionBackend_              = InjectionBackend::None;
 
-        bool selectMode = uinputSelect;
+        bool        selectMode     = uinputSelect;
+        const pid_t hookPid        = engine_.appHookPid();
+        const bool  hookEnabled    = *engine_.config().preferVirtualKeyboard;
+        const bool  hookRegistered = engine_.appHook().ready(hookPid);
+        const bool  hookReady      = hookEnabled && supportsAppHook(frontend) && hookRegistered;
+        LOTUS_DEBUG("AppHook selection: allowed=" + std::to_string(allowAppHook) + " enabled=" + std::to_string(hookEnabled) + " pid=" + std::to_string(hookPid) +
+                    " frontend=" + frontend + " registered=" + std::to_string(hookRegistered) + " echo=" + std::to_string(echoFrontend) + " ready=" + std::to_string(hookReady) +
+                    " selected=" + std::to_string(allowAppHook && hookReady));
+        if (allowAppHook && hookReady) {
+            using lotus::apphook::KeyOperation;
+            std::vector<KeyOperation> keys;
+            if (burstCount > 0) {
+                keys.push_back({
+                    .keycode   = static_cast<uint32_t>(selectMode ? KEY_LEFT : KEY_BACKSPACE),
+                    .modifiers = selectMode ? lotus::apphook::kModifierShift : 0U,
+                    .count     = static_cast<uint32_t>(burstCount),
+                });
+            }
+            if (selectMode && burstCount > 0) {
+                keys.push_back({.keycode = KEY_DELETE, .modifiers = 0, .count = 1});
+            }
+            if (keys.empty()) {
+                lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
+                return;
+            }
+            // Echoing frontends use the anchor as an ordering barrier. Wayland
+            // receives local key callbacks directly and cannot echo it to Fcitx.
+            if (echoFrontend)
+                keys.push_back({.keycode = KEY_PAUSE, .modifiers = 0, .count = 1});
+            const uint64_t token     = replacementToken_;
+            const uint64_t requestId = engine_.appHook().nextRequestId();
+            auto           icRef     = ic_.watch();
+            LotusEngine*   engine    = &engine_;
+            pendingCommitString_     = diffPart.addedPart;
+            currentBackspaceCount_   = 0;
+            expectedBackspaces_      = 0;
+            realSelect_              = false;
+            lastSelect_              = false;
+            appHookSelect_           = selectMode;
+            appHookPid_              = hookPid;
+            appHookRequestId_        = requestId;
+            appHookPending_          = true;
+            g_isDeleting.store(true, std::memory_order_release);
+            replacementDeadlineMs_ = nowMs() + 5000;
+            replacementEchoGrace_  = 5000; // AppHook bursts are not paced by the uinput interval.
+            if (engine_.appHook().emit(hookPid, std::move(keys), requestId, preDelay, postDelay,
+                                       [engine, icRef, token, hookPid, requestId, echoFrontend, deletedText = std::u32string(diffPart.deletedPart),
+                                        addedText = std::u32string(diffPart.addedPart)](int result) {
+                                           engine->scheduleOnMainThread([engine, icRef, token, hookPid, requestId, echoFrontend, deletedText, addedText, result] {
+                                               auto* state = engine->stateFor(icRef.get());
+                                               if (!state || state->replacementToken_ != token || state->appHookPid_ != hookPid || state->appHookRequestId_ != requestId) {
+                                                   LOTUS_DEBUG("apphook: stale completion ignored request=" + std::to_string(requestId));
+                                                   return;
+                                               }
+                                               state->appHookPid_       = 0;
+                                               state->appHookRequestId_ = 0;
+                                               // Wayland has no key echo. Its completion is sent
+                                               // after the callbacks return and the configured
+                                               // post-delay elapses, but cannot prove widget mutation.
+                                               if (result == 0) {
+                                                   if (!icRef.get()->hasFocus())
+                                                       state->deferCompletedAppHookReplacement();
+                                                   else if (!echoFrontend)
+                                                       state->finishScheduledReplacement(token);
+                                               } else if (result == -EINPROGRESS) {
+                                                   // The target may have applied some keys. Replaying the full
+                                                   // burst via uinput would delete text twice.
+                                                   LOTUS_WARN("apphook: uncertain partial delivery, aborting replacement without replay");
+                                                   state->abortUncertainAppHookReplacement();
+                                               } else {
+                                                   if (!icRef.get()->hasFocus()) {
+                                                       // The failure occurred after focus was lost. Do not
+                                                       // replay a burst into the newly focused application.
+                                                       state->abortUncertainAppHookReplacement();
+                                                       return;
+                                                   }
+                                                   LOTUS_DEBUG("apphook: failed request=" + std::to_string(requestId) + ", using standard backend fallback");
+                                                   // No keys were applied: discard the AppHook burst state before
+                                                   // retrying the existing display-server backend selection.
+                                                   state->pendingCommitString_.clear();
+                                                   state->appHookPending_        = false;
+                                                   state->replacementDeadlineMs_ = 0;
+                                                   g_isDeleting.store(false, std::memory_order_release);
+                                                   state->performReplacement({.deletedPart = deletedText, .addedPart = addedText}, false);
+                                               }
+                                           });
+                                       })) {
+                return;
+            }
+            LOTUS_DEBUG("apphook: queue rejected pid=" + std::to_string(hookPid) + ", using fallback");
+            appHookPid_       = 0;
+            appHookRequestId_ = 0;
+            appHookPending_   = false;
+            g_isDeleting.store(false, std::memory_order_release);
+            pendingCommitString_.clear();
+            replacementDeadlineMs_ = 0;
+        }
         if (selectMode && x11Backend && LotusX11Keyboard::shiftHeld()) {
             // Xtest shares the server modifier state with the user's keyboard: a Shift we press and release would
             // release the user's own Shift, so Select falls back to BackSpace like the uinput server does.
@@ -1329,11 +1507,22 @@ namespace fcitx {
             return;
         }
         replacementDeadlineMs_ = 0;
-        if (!g_isDeleting.load(std::memory_order_acquire)) {
+        if (!g_isDeleting.load(std::memory_order_acquire) && !appHookPending_) {
             return;
         }
 
-        cancelPendingUinput();
+        if (appHookPid_ > 0) {
+            cancelPendingUinput();
+            LOTUS_WARN("apphook: replacement deadline elapsed; aborting without replay");
+            abortUncertainAppHookReplacement();
+            return;
+        }
+        if (appHookPending_) {
+            // Complete(0) arrived, but the anchor echo did not.
+            appHookPending_ = false;
+        } else {
+            cancelPendingUinput();
+        }
         LOTUS_WARN("Replacement ack timed out, finishing without the remaining backspace echoes");
         appendCommit(pendingCommitString_);
         pendingCommitString_.clear();
@@ -1413,7 +1602,7 @@ namespace fcitx {
             } else if (currentSym == FcitxKey_Pause) {
                 handleUInputKeyPress(keyEvent, currentSym);
                 return true;
-            } else if (realSelect_ && (currentSym == FcitxKey_Left || currentSym == FcitxKey_Delete)) {
+            } else if ((realSelect_ || (appHookPending_ && appHookSelect_)) && (currentSym == FcitxKey_Left || currentSym == FcitxKey_Delete)) {
                 if (currentSym == FcitxKey_Left) {
                     // Echoed left arrow extends the selection in the app: consume it as
                     // a selection signal, never buffer it for replay.
@@ -1533,7 +1722,7 @@ namespace fcitx {
         const auto& text        = surrounding.text();
         size_t      textLen     = utf8::length(text);
         g_realTextLen.store(textLen, std::memory_order_release);
-        if (g_isDeleting.load(std::memory_order_acquire)) {
+        if (g_isDeleting.load(std::memory_order_acquire) || appHookPending_) {
             return;
         }
         deliverPendingCommits();
@@ -1630,7 +1819,7 @@ namespace fcitx {
         cancelMouseClickWatchdog();
         deliverPendingCommits();
         LOTUS_DEBUG("Clear all buffers");
-        if (g_isDeleting.load(std::memory_order_acquire)) {
+        if (g_isDeleting.load(std::memory_order_acquire) || appHookPending_) {
             return;
         }
         resetMacroSkip();
