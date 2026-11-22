@@ -303,15 +303,11 @@ namespace fcitx {
         return false;
     }
 
-    bool LotusWlrVirtualKeyboard::emit(int backspaces, std::string_view utf8, bool trackEcho) {
-        return emitImpl(backspaces, utf8, trackEcho, false);
+    bool LotusWlrVirtualKeyboard::emit(int backspaces, std::string_view utf8, bool trackEcho, bool anchorDot) {
+        return emitImpl(backspaces, utf8, trackEcho, anchorDot);
     }
 
-    bool LotusWlrVirtualKeyboard::emitSelect(int count, std::string_view utf8, bool trackEcho) {
-        return emitImpl(count, utf8, trackEcho, true);
-    }
-
-    bool LotusWlrVirtualKeyboard::emitImpl(int count, std::string_view utf8, bool trackEcho, bool shiftLeft) {
+    bool LotusWlrVirtualKeyboard::emitImpl(int count, std::string_view utf8, bool trackEcho, bool anchorDot) {
         count = std::max(count, 0);
         std::vector<uint32_t> cps;
         if (!utf8.empty()) {
@@ -333,7 +329,15 @@ namespace fcitx {
         if (echo_.size() > 512) {
             echo_.clear();
         }
-        bool   ok    = true;
+        bool ok = true;
+        if (anchorDot) {
+            const std::array<uint32_t, 1> anchor{kChromiumAnchorCodePoint};
+            ok = uploadKeymap(anchor.data(), anchor.size());
+            if (ok) {
+                tap(kTextKeys[0], trackEcho);
+                wl_display_roundtrip(display_.get());
+            }
+        }
         bool   first = true;
         size_t pos   = 0;
         while (ok && (first || pos < cps.size())) {
@@ -343,25 +347,8 @@ namespace fcitx {
                 break;
             }
             if (first) {
-                if (shiftLeft) {
-                    setShift(true);
-                    wl_display_roundtrip(display_.get());
-                    for (int i = 0; i < count; ++i) {
-                        tap(KEY_LEFT, trackEcho);
-                    }
-                    setShift(false);
-                    wl_display_roundtrip(display_.get());
-                    if (!cps.empty()) {
-                        tap(KEY_DELETE, trackEcho);
-                    }
-                    // The selection taps end with Shift off; restore the user's Shift for later forwarded keys.
-                    if (userShift_.load(std::memory_order_acquire)) {
-                        setShift(true);
-                    }
-                } else {
-                    for (int i = 0; i < count; ++i) {
-                        tap(KEY_BACKSPACE, trackEcho);
-                    }
+                for (int i = 0; i < count; ++i) {
+                    tap(KEY_BACKSPACE, trackEcho);
                 }
                 first = false;
             }

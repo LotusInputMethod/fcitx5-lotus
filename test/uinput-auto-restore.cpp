@@ -27,23 +27,18 @@ namespace {
     bool completeOneBurst(const KbMsg& msg, KbSocketListener& listener, fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context,
                           std::u32string& text, std::vector<std::string>& trace) {
         (void)listener;
-        const bool isSelect = msg.op == KbOp::Select;
-        if ((!isSelect && msg.op != KbOp::Backspace) || msg.count == 0 || msg.count > text.size()) {
-            reportFailure("receive replacement request", "op=backspace|select, count <= word length",
+        if (msg.op != KbOp::Backspace || msg.count == 0 || msg.count > text.size()) {
+            reportFailure("receive replacement request", "op=backspace, count <= word length",
                           "op=" + std::to_string(static_cast<int>(msg.op)) + ", count=" + std::to_string(msg.count) + ", word length=" + std::to_string(text.size()),
                           "the replacement request does not match the typed word");
             return false;
         }
-        trace.push_back(std::string(isSelect ? "select:" : "burst:") + std::to_string(msg.count) + " (word " + encode(text) + ")");
+        trace.push_back("burst:" + std::to_string(msg.count) + " (word " + encode(text) + ")");
         text.resize(text.size() - msg.count);
-        const fcitx::KeySym injected = isSelect ? FcitxKey_Left : FcitxKey_BackSpace;
         for (size_t i = 0; i < msg.count; ++i) {
-            if (!sendKey(engine, entry, context, injected, false, "the injected echoes must pass through so the client buffer shrinks")) {
+            if (!sendKey(engine, entry, context, FcitxKey_BackSpace, false, "the injected echoes must pass through so the client buffer shrinks")) {
                 return false;
             }
-        }
-        if (isSelect && !sendKey(engine, entry, context, FcitxKey_Delete, false, "the selection's Delete echo must reach the application")) {
-            return false;
         }
         return sendKey(engine, entry, context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement");
     }
@@ -162,7 +157,7 @@ int main() {
     };
 
     int failures = 0;
-    for (const char* mode : {"Uinput (Smooth)", "Uinput (Select)"}) {
+    for (const char* mode : {"Uinput (Smooth)"}) {
         fcitx::RawConfig config;
         config.setValueByPath("Mode", mode);
         config.setValueByPath("InputMethod", "Telex");

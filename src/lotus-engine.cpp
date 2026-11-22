@@ -159,10 +159,6 @@ namespace fcitx {
         return dictionary_;
     }
 
-    bool LotusEngine::isLikeAddressBarChromium() const {
-        return windowFocusTracker_->isLikeAddressBarChromium();
-    }
-
     LotusEngine::LotusEngine(Instance* instance) :
         instance_(*instance), kbSender_(buildSocketPath("kbSocket")), factory_([this](InputContext& ic) { return new LotusState(this, &ic); }) { //NOLINT
         windowFocusTracker_ = std::make_unique<WindowFocusTracker>([this] { appRuleDispatcher_.schedule([this] { refreshFocusedAppRule(); }); });
@@ -431,15 +427,6 @@ namespace fcitx {
         LOTUS_INFO("App name: " + appName);
         LOTUS_INFO("Frontend: " + getFrontendName(ic));
 
-        instance_.inputContextManager().foreach ([this, ic](InputContext* other) {
-            if (other != ic) {
-                if (auto* otherState = other->propertyFor(&factory_)) {
-                    otherState->abortDeferredSelectIfPending();
-                }
-            }
-            return true;
-        });
-
         const LotusMode targetMode = getAppRule(appName);
         LOTUS_INFO("Target mode: " + LotusModeI18NAnnotation::toString(targetMode));
 
@@ -448,9 +435,6 @@ namespace fcitx {
         state->isLibreoffice_ = (appName == "soffice");
         state->isChromium_    = isChromiumProgram(appName);
         state->finishOverdueReplacement();
-        // A burst aborted while the context was away stashed its replacement text: commit it before setMode()
-        // clears the buffers it lives in.
-        state->reconcileAbortedUinputReplacement();
 
         const bool uinputMode         = isUinputMode(targetMode);
         const bool focusBounce        = uinputMode && state->lastDeactivateTime_ > 0 && nowMs() - state->lastDeactivateTime_ < 100;
@@ -461,7 +445,6 @@ namespace fcitx {
             state->cancelPendingUinput();
             g_isDeleting.store(false, std::memory_order_release);
         } else {
-            state->cancelSelectAbort();
             state->rearmReplacementDeadline();
         }
 
@@ -780,9 +763,6 @@ namespace fcitx {
         if (uinputMode && g_isDeleting.load(std::memory_order_acquire) && state->expectedBackspaces_ > 0) {
             state->lastDeactivateTime_    = nowMs();
             state->deletionInterruptedAt_ = state->lastDeactivateTime_;
-            if (state->realSelect_) {
-                state->deferSelectAbort();
-            }
             LOTUS_INFO("Replacement interrupted by focus out");
             return;
         }
@@ -930,8 +910,7 @@ namespace fcitx {
             return;
 
         file << "# Lotus Per-App Configuration\n";
-        file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Smooth, legacy), 3 = Uinput (Super Smooth), 4 = Surrounding Text, 5 = Preedit,\n";
-        file << "# 6 = Emoji Picker, 7 = Uinput (Select)\n";
+        file << "# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Smooth, legacy), 3 = Uinput (Super Smooth), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker\n";
         file << "# app=mode[,commit_interval_ms[,backspace_interval_ms[,post_delay_ms]]]   0/omitted = use defaults\n";
         std::scoped_lock lock(appRulesMutex_);
         for (const auto& pair : appRules_) {

@@ -41,7 +41,6 @@ MODE_SUPER_SMOOTH = 3
 MODE_SURROUNDING = 4
 MODE_PREEDIT = 5
 MODE_EMOJI = 6
-MODE_SELECT = 7
 MODE_DEFAULT = -1  # UI special value for "Use Global Default"
 
 MODE_INFO = {
@@ -52,14 +51,12 @@ MODE_INFO = {
     MODE_SURROUNDING: {"title": "Surrounding Text", "icon": "text-field"},
     MODE_PREEDIT: {"title": "Preedit", "icon": "text-field"},
     MODE_EMOJI: {"title": "Emoji Picker", "icon": "face-smile"},
-    MODE_SELECT: {"title": "Uinput (Select)", "icon": "edit-select"},
 }
 
 # Modes offered as the global default and as per-app modes, in display order.
 SELECTABLE_MODES = [
     MODE_SMOOTH,
     MODE_SUPER_SMOOTH,
-    MODE_SELECT,
     MODE_SURROUNDING,
     MODE_PREEDIT,
     MODE_EMOJI,

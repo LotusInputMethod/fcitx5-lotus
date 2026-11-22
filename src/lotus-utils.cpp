@@ -105,7 +105,6 @@ bool isUinputMode(fcitx::LotusMode mode) {
     static const auto modes = std::to_array<fcitx::LotusMode>({
         fcitx::LotusMode::Smooth,
         fcitx::LotusMode::SuperSmooth,
-        fcitx::LotusMode::Select,
     });
     return std::ranges::find(modes, mode) != modes.end();
 }

@@ -147,20 +147,6 @@ int main() {
         check("the spare keycode is restored after the burst", level0(conn, textKeycode) == XCB_NO_SYMBOL);
     }
 
-    const xcb_keycode_t shiftKey = keycodeFor(conn, XK_Shift_L);
-    check("Shift is not held at first", !fcitx::LotusX11Keyboard::shiftHeld());
-    check("the keymap publishes a Shift keycode", shiftKey != XCB_NO_SYMBOL);
-    if (shiftKey != XCB_NO_SYMBOL) {
-        xcb_test_fake_input(conn, XCB_KEY_PRESS, shiftKey, 0, XCB_NONE, 0, 0, 0);
-        xcb_flush(conn);
-        sync(conn);
-        check("a held Shift is reported", fcitx::LotusX11Keyboard::shiftHeld());
-        xcb_test_fake_input(conn, XCB_KEY_RELEASE, shiftKey, 0, XCB_NONE, 0, 0, 0);
-        xcb_flush(conn);
-        sync(conn);
-        check("a released Shift is not reported", !fcitx::LotusX11Keyboard::shiftHeld());
-    }
-
     xcb_destroy_window(conn, window);
     xcb_disconnect(conn);
 

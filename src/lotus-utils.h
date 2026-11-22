@@ -29,6 +29,11 @@
 */
 #define UNIX_PATH_MAX sizeof(((struct sockaddr_un*)0)->sun_path)
 
+/** @brief Anchor character typed before a Chromium replacement burst (U+00B7 MIDDLE DOT). */
+inline constexpr char32_t kChromiumAnchorCodePoint = 0x00B7;
+/** @brief UTF-32 text of the anchor character. */
+inline constexpr std::u32string_view kChromiumAnchorText = U"\u00B7";
+
 // Forward declaration: the header only passes InputContext pointers around.
 namespace fcitx {
     class InputContext;

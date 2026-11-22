@@ -56,35 +56,12 @@ namespace fcitx {
         void stop();
 
         /**
-         * @brief Reports whether the focused accessibility node is a Chromium address bar.
-         * @return True while the Omnibox of a Chromium browser holds the accessibility focus.
-         */
-        [[nodiscard]] bool isLikeAddressBarChromium() const {
-            return browserUIFocused_.load(std::memory_order_relaxed);
-        }
-
-        /**
-         * @brief Reports the active window's program, falling back to text-field focus when no window is known.
+         * @brief Reports the program behind the active accessibility window.
          * @return Program name, or nullopt when no accessible application holds the focus.
          */
         [[nodiscard]] std::optional<std::string> focusedProgram() const;
 
       private:
-        /**
-         * @brief Reads the "class" attribute of an accessibility node.
-         * @param bus Connection to use.
-         * @param sender Bus name owning the node.
-         * @param path Object path of the node.
-         * @return Class attribute, empty when the node has none.
-         */
-        static std::string queryFocusClass(const DbusConnectionPtr& bus, const char* sender, const char* path);
-
-        /**
-         * @brief Walks the accessibility tree once so Chromium exposes its address bar node.
-         * @param bus Connection to use.
-         */
-        static void pokeAccessibleApps(const DbusConnectionPtr& bus);
-
         /**
          * @brief Registers one AT-SPI event name.
          * @param bus Connection to use.
@@ -109,13 +86,6 @@ namespace fcitx {
         static bool registerFocusEvents(const DbusConnectionPtr& bus);
 
         /**
-         * @brief Classifies an incoming signal as a focus event.
-         * @param message Signal to inspect.
-         * @return Focus state the signal reports; nullopt when it is not a focus event.
-         */
-        static std::optional<bool> focusedState(const DbusMessagePtr& message);
-
-        /**
          * @brief Classifies window activation, deactivation and destruction events.
          * @param message Signal to inspect.
          * @return True for activation, false for deactivation/destruction, nullopt for other events.
@@ -133,12 +103,11 @@ namespace fcitx {
          */
         void                  threadFunc();
 
-        std::thread           thread_;                  ///< Thread following the accessibility focus
-        std::atomic<bool>     stopRequested_{false};    ///< Set by stop() to end the thread
-        std::atomic<bool>     browserUIFocused_{false}; ///< True while a Chromium Omnibox holds the focus
-        std::function<void()> focusChanged_;            ///< Notification delivered on the tracker thread
-        mutable std::mutex    programMutex_;            ///< Guards focusedProgram_
-        std::string           focusedProgram_;          ///< Program behind the focused accessibility window
+        std::thread           thread_;               ///< Thread following the accessibility focus
+        std::atomic<bool>     stopRequested_{false}; ///< Set by stop() to end the thread
+        std::function<void()> focusChanged_;         ///< Notification delivered on the tracker thread
+        mutable std::mutex    programMutex_;         ///< Guards focusedProgram_
+        std::string           focusedProgram_;       ///< Program behind the focused accessibility window
     };
 
 } // namespace fcitx

@@ -25,7 +25,6 @@ int main() {
     check("preedit defers the click to the client", mouseClickAction(fcitx::LotusMode::Preedit) == MouseClickAction::DeferToClient);
     check("smooth clears the buffers", mouseClickAction(fcitx::LotusMode::Smooth) == MouseClickAction::ClearBuffers);
     check("super smooth clears the buffers", mouseClickAction(fcitx::LotusMode::SuperSmooth) == MouseClickAction::ClearBuffers);
-    check("select clears the buffers", mouseClickAction(fcitx::LotusMode::Select) == MouseClickAction::ClearBuffers);
     check("off clears the buffers", mouseClickAction(fcitx::LotusMode::Off) == MouseClickAction::ClearBuffers);
 
     if (failures != 0) {
