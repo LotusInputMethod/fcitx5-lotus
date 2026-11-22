@@ -5,6 +5,7 @@
 // Unit test for lotus::utf8. The decoding rules must match Go's `for range string` and
 // `utf8.DecodeRuneInString` (invalid sequence -> U+FFFD, one byte consumed) because the port
 // of bamboo-core relies on that parity.
+#include "test-utils.h"
 #include "utf8.h"
 
 #include <algorithm>
@@ -24,17 +25,16 @@ namespace {
     void expectCodePoints(const char* name, std::string_view input, const std::vector<char32_t>& expected) {
         const auto actual = decode(input);
         if (actual.size() != expected.size() || !std::equal(actual.begin(), actual.end(), expected.begin())) {
-            std::printf("FAIL %s: decoded %zu code points\n", name, actual.size());
-            for (char32_t cp : actual) {
-                std::printf("    U+%04X\n", static_cast<unsigned>(cp));
-            }
+            const std::u32string actualText(actual.begin(), actual.end());
+            const std::u32string expectedText(expected.begin(), expected.end());
+            reportFailure(name, hexOf(expectedText), hexOf(actualText), "decode must match Go's for range string: invalid bytes become one U+FFFD per consumed byte");
             ++failures;
         }
     }
 
     void expectSize(const char* name, std::size_t actual, std::size_t expected) {
         if (actual != expected) {
-            std::printf("FAIL %s: got %zu, expected %zu\n", name, actual, expected);
+            reportFailure(name, std::to_string(expected), std::to_string(actual), "string metrics must agree with the decoded code point count");
             ++failures;
         }
     }
@@ -42,11 +42,8 @@ namespace {
     void expectEncode(const char* name, std::u32string_view input, std::string_view expected) {
         const std::string actual = encode(input);
         if (actual != expected) {
-            std::printf("FAIL %s: encoded %zu bytes, expected %zu\n", name, actual.size(), expected.size());
-            for (unsigned char c : actual) {
-                std::printf("    \\x%02X", c);
-            }
-            std::printf("\n");
+            reportFailure(name, std::to_string(expected.size()) + " bytes", std::to_string(actual.size()) + " bytes",
+                          "encode must produce the bytes Go's string(rune) produces, mapping out-of-range runes and surrogate halves to U+FFFD");
             ++failures;
         }
     }
@@ -54,7 +51,7 @@ namespace {
     void expectRoundTrip(const char* name, std::string_view input) {
         const std::string back = encode(decode(input));
         if (back != input) {
-            std::printf("FAIL %s: round trip changed the string\n", name);
+            reportFailure(name, "the input unchanged", "the string changed", "decode followed by encode must preserve the input byte-for-byte");
             ++failures;
         }
     }

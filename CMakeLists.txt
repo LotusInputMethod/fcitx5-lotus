@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(fcitx5-lotus VERSION 6.1.1)
+project(fcitx5-lotus VERSION 7.0.0)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_TESTING "Build Lotus tests" OFF)
 
@@ -31,7 +31,7 @@ set(fcitx_lotus_core_sources
 
 set(REQUIRED_FCITX_VERSION 5.0.14)
 find_package(ECM 1.0.0 REQUIRED)
-set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH} ${CMAKE_MODULE_PATH})
 include(FeatureSummary)
 include(GNUInstallDirs)
 include(ECMUninstallTarget)
@@ -39,7 +39,8 @@ include(ECMUninstallTarget)
 find_package(PkgConfig REQUIRED)
 find_package(Fcitx5Core ${REQUIRED_FCITX_VERSION} REQUIRED)
 find_package(Fcitx5ModuleEmoji REQUIRED)
-find_package(Pthread REQUIRED)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
 find_package(Gettext REQUIRED)
 pkg_check_modules(LIBEVDEV REQUIRED IMPORTED_TARGET libevdev)
 pkg_check_modules(LIBINPUT REQUIRED IMPORTED_TARGET libinput)

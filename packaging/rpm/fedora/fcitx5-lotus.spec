@@ -1,7 +1,7 @@
 %bcond_without tests
 
 Name:           fcitx5-lotus
-Version:        6.1.1
+Version:        7.0.0
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -126,5 +126,9 @@ fi
 %systemd_postun_with_restart fcitx5-lotus-server@.service
 
 %changelog
-* Sat Nov 14 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 6.1.1-1
-- Fix shift state wrong when using select mode with wlr backend
+* Sun Nov 22 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 7.0.0-1
+- Restore non-VN word before digit in macro mode
+- Preserve repeated a/e elongation after horn vowels
+- Fix bug in "Unicode tổ hợp"
+- Remove Select mode
+- Add support autocomplete for all app using Uinput Smooth mode

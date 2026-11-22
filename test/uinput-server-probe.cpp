@@ -6,6 +6,7 @@
 #include "lotus-kb-sender.h"
 #include "lotus-utils.h"
 #include "test-input-context.h"
+#include "test-utils.h"
 
 #include <cstdio>
 
@@ -14,7 +15,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the uinput probe must reflect whether the keyboard server is reachable");
             ++failures;
         }
     }

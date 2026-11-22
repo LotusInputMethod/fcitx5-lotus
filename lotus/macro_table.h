@@ -46,6 +46,13 @@ namespace lotus {
         [[nodiscard]] std::optional<std::u32string_view> get(std::u32string_view key) const;
 
         /**
+         * @brief Reports whether any macro key starts with a prefix, matched case-insensitively.
+         * @param prefix Non-empty prefix to test.
+         * @return True when at least one stored key begins with the lowercased prefix.
+         */
+        [[nodiscard]] bool hasPrefix(std::u32string_view prefix) const;
+
+        /**
          * @brief Stores a replacement text under a key, like the map literal and NewMacroTable of Go.
          * @param keyUtf8 Key, stored as given because Go keeps its configuration keys verbatim, so
          *                an entry only matches when the key is lowercase.

@@ -5,6 +5,7 @@
 // Sanity checks for the generated data tables: counts and spot values must match the Go sources
 // they were generated from (bamboo/bamboo-core/{charset_def,utils,spelling,input_method_def}.go).
 #include "data/data.h"
+#include "test-utils.h"
 
 #include <algorithm>
 #include <array>
@@ -21,7 +22,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the generated data tables must stay identical to the Go sources they were generated from");
             ++failures;
         }
     }

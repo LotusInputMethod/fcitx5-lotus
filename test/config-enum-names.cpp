@@ -7,6 +7,7 @@
 // already have in lotus.conf keep resolving to the same enum values, that the configuration writes
 // those strings back, and that the names are not translated.
 #include "lotus-config.h"
+#include "test-utils.h"
 
 #include <fcitx-config/iniparser.h>
 
@@ -24,7 +25,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "config enum names must keep resolving legacy user strings and stay untranslated");
             ++failures;
         }
     }
@@ -114,7 +115,7 @@ int main() {
     try {
         return runConfigEnumNames();
     } catch (const std::exception& error) {
-        std::printf("FAIL unexpected exception: %s\n", error.what());
+        reportFailure("unexpected exception", "no exception escapes the test", error.what(), "an escaped exception would crash fcitx5 instead of failing one check");
         return 1;
     }
 }

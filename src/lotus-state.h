@@ -139,16 +139,13 @@ namespace fcitx {
         bool                                  hasHistory_            = false;
         size_t                                expectedBackspaces_    = 0;
         size_t                                currentBackspaceCount_ = 0;
-        bool                                  realSelect_            = false;                  ///< when real shift +left is send
         bool                                  echoTriggerPending_    = false;                  ///< the injected burst commits on its last echo
         InjectionBackend                      injectionBackend_      = InjectionBackend::None; ///< backend delivering the in-flight burst
-        bool                                  lastSelect_            = false;                  ///< kind of the most recent burst, for replay
         std::u32string                        pendingCommitString_;
         std::u32string                        commitBatch_;                   ///< Text of the replacement batch, sent as one commitString
         std::unique_ptr<EventSourceTime>      deferredCommitTimer_;           ///< Pending dbus commit timer
         std::unique_ptr<EventSourceTime>      mouseClickWatchdog_;            ///< Commits the preedit a click left behind
-        bool                                  selectAbortDeferred_ = false;   ///< Select burst kept alive across a focus bounce
-        uint32_t                              burstIntervalMs_     = 0;       ///< Pacing of the in-flight uinput burst, used to re-arm its deadline
+        uint32_t                              burstIntervalMs_ = 0;           ///< Pacing of the in-flight uinput burst, used to re-arm its deadline
         std::u32string                        deferredCommitText_;            ///< Text waiting for the deferred commit
         bool                                  deferredCommitPending_ = false; ///< Timer armed and not fired yet
         bool                                  deferCommits_          = false; ///< Route the batch through the deferred timer
@@ -167,17 +164,10 @@ namespace fcitx {
         bool                                  shiftHeld_             = false; ///< Live Shift press state tracked from key events
         bool                                  macroSkip_             = false; ///< Macro disabled for the current word
         bool                                  isLibreoffice_         = false;
-        bool                                  isChromium_            = false;
         int64_t                               replacementDeadlineMs_ = 0; ///< ms by which every injected backspace must be echoed (0 = no replacement in flight)
         int64_t                               replacementEchoGrace_  = 0; ///< deadline grace re-armed on each echo
         uint64_t                              replacementToken_      = 0; ///< invalidates a queued virtual-keyboard completion
         std::chrono::steady_clock::time_point lastCommitTime_;
-
-        // Replacement aborted at focus-out, committed once focus returns.
-        bool           uinputAbortPending_ = false; ///< aborted replacement awaiting its commit
-        std::u32string stashedCommit_;              ///< replacement text that must not be lost
-        std::u32string stashedNewWord_;             ///< post-replacement word (oldPreBuffer_ at abort time)
-        int64_t        uinputAbortTimeMs_ = 0;      ///< when the abort happened
 
         /**
          * @brief Performs a reset without the uinput focus-out deferral.
@@ -229,15 +219,6 @@ namespace fcitx {
         void sendBackspaceUinput(size_t count, uint32_t preDelay, uint32_t interval, uint32_t postDelay);
 
         /**
-         * @brief Asks the uinput server to select count characters with Shift+Left.
-         * @param count Number of characters to select.
-         * @param preDelay Delay in milliseconds before executing the keyboard operation.
-         * @param interval Delay in milliseconds between consecutive injected keys.
-         * @param postDelay Delay in milliseconds after completing the keyboard operation.
-         */
-        void sendSelectUinput(size_t count, uint32_t preDelay, uint32_t interval, uint32_t postDelay);
-
-        /**
          * @brief Sends Cancel to drop the keys still pending from the in-flight replacement.
          */
         void cancelPendingUinput();
@@ -246,21 +227,6 @@ namespace fcitx {
          * @brief Discards replacement and commit state when a shared context changes applications.
          */
         void discardForAppChange();
-
-        /**
-         * @brief Cancels the in-flight burst and stashes the replacement text for the refocus commit.
-         */
-        void abortPendingUinputReplacement();
-
-        /**
-         * @brief Keeps a Select burst alive across a focus out.
-         */
-        void deferSelectAbort();
-
-        /**
-         * @brief Drops a deferred Select abort, keeping the in-flight burst alive across a focus bounce.
-         */
-        void cancelSelectAbort();
 
         /**
          * @brief Arms the watchdog that drops a preedit left alive by a click.
@@ -273,22 +239,16 @@ namespace fcitx {
         void cancelMouseClickWatchdog();
 
         /**
-         * @brief Abandons a deferred Select burst when another context took the focus away for good.
-         */
-        void abortDeferredSelectIfPending();
-
-        /**
          * @brief Re-arms the echo deadline of the in-flight burst after a focus bounce.
          */
         void rearmReplacementDeadline();
 
         /**
          * @brief Emits the echo-driven burst through the backend that was selected for it.
-         * @param count Number of BackSpace (or Shift+Left in Select mode) events.
-         * @param select True to select with Shift+Left and Delete instead of backspacing.
+         * @param count Number of BackSpace events.
          * @return True when the backend accepted the burst.
          */
-        bool injectEchoBurst(size_t count, bool select);
+        bool injectEchoBurst(size_t count);
 
         /**
          * @brief Runs a task after the delay on the worker of the selected backend.
@@ -296,16 +256,6 @@ namespace fcitx {
          * @param task Task to run on that worker thread.
          */
         void scheduleAfterInjection(int delayMs, std::function<void()> task);
-
-        /**
-         * @brief Commits the replacement text stashed at focus-out; stale stashes are dropped.
-         */
-        void reconcileAbortedUinputReplacement();
-
-        /**
-         * @brief Drops the stash of an aborted replacement and replays buffered keys.
-         */
-        void dropAbortedUinputStash();
 
         /**
          * @brief Handles the pre-dispatch guards of a key event (engine presence, shift in
@@ -362,13 +312,6 @@ namespace fcitx {
          * @param currentSym The current key symbol.
          */
         void handleActiveMode(KeyEvent& keyEvent, KeySym currentSym);
-
-        /**
-         * @brief Checks if autofill is certain for surrounding text.
-         * @param s The surrounding text.
-         * @return True if autofill should proceed.
-         */
-        bool isAutofillCertain(const SurroundingText& s);
 
         /**
          * @brief Handles key events in preedit mode.
@@ -557,12 +500,6 @@ namespace fcitx {
         void trackShiftModifier(const KeyEvent& keyEvent);
 
         /**
-         * @brief Reports whether Shift is currently held, from tracked events.
-         * @return True while either Shift key is pressed without its release.
-         */
-        [[nodiscard]] bool isShiftHeld() const;
-
-        /**
          * @brief Forgets the tracked Shift state, e.g. after a focus-out may have swallowed a release.
          */
         void forgetShiftState();
@@ -576,13 +513,6 @@ namespace fcitx {
          * @brief Clears the macro-skip state and re-syncs the engine.
          */
         void resetMacroSkip();
-
-        /**
-         * @brief get unshift key of a key symbol
-         * @param sym Key symbol need to unshift
-         * @return The unshifted key symbol
-         */
-        static KeySym unshiftKeySym(KeySym sym);
     };
 
 } // namespace fcitx

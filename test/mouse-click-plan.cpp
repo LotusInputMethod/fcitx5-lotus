@@ -6,6 +6,7 @@
 
 #include "lotus-mode.h"
 #include "lotus-utils.h"
+#include "test-utils.h"
 
 #include <cstdio>
 
@@ -14,7 +15,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "mouse clicks must be routed per mode: only Preedit defers to the client");
             ++failures;
         }
     }
@@ -24,7 +25,6 @@ int main() {
     check("preedit defers the click to the client", mouseClickAction(fcitx::LotusMode::Preedit) == MouseClickAction::DeferToClient);
     check("smooth clears the buffers", mouseClickAction(fcitx::LotusMode::Smooth) == MouseClickAction::ClearBuffers);
     check("super smooth clears the buffers", mouseClickAction(fcitx::LotusMode::SuperSmooth) == MouseClickAction::ClearBuffers);
-    check("select clears the buffers", mouseClickAction(fcitx::LotusMode::Select) == MouseClickAction::ClearBuffers);
     check("off clears the buffers", mouseClickAction(fcitx::LotusMode::Off) == MouseClickAction::ClearBuffers);
 
     if (failures != 0) {

@@ -8,6 +8,7 @@
 #include "common-fd-guard.h"
 #include "lotus-abstract-socket.h"
 #include "lotus-server-socket.h"
+#include "test-utils.h"
 
 #include <cstdio>
 #include <string>
@@ -20,7 +21,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "socket lifecycle errors must be detected and reported, never used deaf");
             ++failures;
         }
     }

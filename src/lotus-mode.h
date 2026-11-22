@@ -27,7 +27,6 @@ namespace fcitx {
         SurroundingText,
         Preedit,
         Emoji,
-        Select,
     };
 
     /**

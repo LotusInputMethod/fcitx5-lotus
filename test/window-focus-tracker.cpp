@@ -8,6 +8,7 @@
 #include "lotus-engine.h"
 #include "lotus-utils.h"
 #include "test-input-context.h"
+#include "test-utils.h"
 #include "window_focus_tracker.h"
 
 #include <atomic>
@@ -109,17 +110,13 @@ namespace {
         dbus_connection_flush(bus.get());
     }
 
-    void emitFocus(const DbusConnectionPtr& bus, const char* path, bool focused) {
-        emitEvent(bus, path, "org.a11y.atspi.Event.Object", "StateChanged", "focused", focused ? 1 : 0);
-    }
-
     void emitWindow(const DbusConnectionPtr& bus, const char* path, const char* event) {
         emitEvent(bus, path, "org.a11y.atspi.Event.Window", event, "", 0);
     }
 
     bool check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "accessibility focus and window events must drive the app rules reliably");
         }
         return condition;
     }
@@ -200,7 +197,7 @@ int main(int argc, char* argv[]) {
         switch (phase) {
             case 0:
                 // Retry only while subscriptions are starting. Later cases emit a single event.
-                emitFocus(application, "/field/first", true);
+                emitWindow(application, "/window/first", "Activate");
                 if (tracker.focusedProgram() == program && g_realMode.load() == fcitx::LotusMode::Off) {
                     advance();
                 }
@@ -219,9 +216,7 @@ int main(int argc, char* argv[]) {
                 }
                 fcitx::KeyEvent escape(context.get(), fcitx::Key(FcitxKey_Escape), false);
                 engine.keyEvent(entry, escape);
-                emitFocus(application, "/field/second", true);
-                emitFocus(application, "/field/first", false);
-                emitFocus(unrelated, "/field/second", false);
+                emitWindow(unrelated, "/window/other", "Deactivate");
                 advance();
                 break;
             }
@@ -229,10 +224,10 @@ int main(int argc, char* argv[]) {
                 if (std::chrono::steady_clock::now() - phaseStarted < std::chrono::milliseconds(200)) {
                     break;
                 }
-                if (!expect("late and unrelated blur events preserve the current node", tracker.focusedProgram() == program)) {
+                if (!expect("an unrelated window deactivation preserves the active window", tracker.focusedProgram() == program)) {
                     return false;
                 }
-                emitFocus(application, "/field/second", false);
+                emitWindow(application, "/window/first", "Deactivate");
                 advance();
                 break;
             case 3: {
@@ -244,7 +239,7 @@ int main(int argc, char* argv[]) {
                 if (!expect("unknown shared context has an unfinished composition", !context->inputPanel().clientPreedit().empty())) {
                     return false;
                 }
-                emitFocus(application, "/field/first", true);
+                emitWindow(application, "/window/first", "Activate");
                 advance();
                 break;
             }
@@ -268,8 +263,6 @@ int main(int argc, char* argv[]) {
                 break;
             case 6:
                 if (tracker.focusedProgram() == program && g_realMode.load() == fcitx::LotusMode::Off) {
-                    emitFocus(windowApplication, "/window/active/field", true);
-                    emitFocus(windowApplication, "/window/active/field", false);
                     emitWindow(unrelated, "/window/old", "Deactivate");
                     advance();
                 }

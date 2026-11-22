@@ -65,7 +65,6 @@ class ModeManagerDataTests(unittest.TestCase):
             mode_manager.MODE_SURROUNDING,
             mode_manager.MODE_PREEDIT,
             mode_manager.MODE_EMOJI,
-            mode_manager.MODE_SELECT,
             mode_manager.MODE_DEFAULT,
         ]
         self.assertEqual(len(mode_ids), len(set(mode_ids)))

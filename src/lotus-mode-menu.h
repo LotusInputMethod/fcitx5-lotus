@@ -37,7 +37,6 @@ namespace fcitx {
      */
     inline constexpr auto kModeNames = std::to_array<ModeNameEntry>({
         {.name = "Smooth", .mode = LotusMode::Smooth},
-        {.name = "Select", .mode = LotusMode::Select},
         {.name = "SurroundingText", .mode = LotusMode::SurroundingText},
         {.name = "Preedit", .mode = LotusMode::Preedit},
         {.name = "Emoji", .mode = LotusMode::Emoji},

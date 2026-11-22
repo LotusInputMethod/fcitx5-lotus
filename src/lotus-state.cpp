@@ -118,10 +118,6 @@ namespace fcitx {
         sendKbMsg(KbOp::Backspace, count, preDelay, interval, postDelay);
     }
 
-    void LotusState::sendSelectUinput(size_t count, uint32_t preDelay, uint32_t interval, uint32_t postDelay) {
-        sendKbMsg(KbOp::Select, count, preDelay, interval, postDelay);
-    }
-
     void LotusState::cancelPendingUinput() {
         if (!g_isDeleting.load(std::memory_order_acquire)) {
             return;
@@ -138,46 +134,7 @@ namespace fcitx {
         deferredCommitText_.clear();
         commitBatch_.clear();
         deferredFocusOut_ = false;
-        realSelect_       = false;
-        lastSelect_       = false;
         clearAllBuffers();
-    }
-
-    void LotusState::abortPendingUinputReplacement() {
-        selectAbortDeferred_ = false;
-        if (!g_isDeleting.load(std::memory_order_acquire)) {
-            return;
-        }
-        cancelPendingUinput();
-        // The server finishes the selection on Cancel, so the old text is always
-        // fully removed: stash the replacement text for the refocus commit.
-        stashedCommit_      = pendingCommitString_;
-        stashedNewWord_     = oldPreBuffer_;
-        uinputAbortTimeMs_  = nowMs();
-        uinputAbortPending_ = !stashedCommit_.empty() || !bufferedKeys_.empty();
-        pendingCommitString_.clear();
-        expectedBackspaces_    = 0;
-        currentBackspaceCount_ = 0;
-        replacementDeadlineMs_ = 0;
-        realSelect_            = false;
-        deletionInterruptedAt_ = 0;
-        g_isDeleting.store(false, std::memory_order_release);
-
-        oldPreBuffer_.clear();
-        hasHistory_   = false;
-        deferCommits_ = getFrontendName(&ic_) == "dbus";
-    }
-
-    void LotusState::deferSelectAbort() {
-        if (!g_isDeleting.load(std::memory_order_acquire)) {
-            return;
-        }
-        selectAbortDeferred_ = true;
-        LOTUS_INFO("Defer the select abort across the focus bounce");
-    }
-
-    void LotusState::cancelSelectAbort() {
-        selectAbortDeferred_ = false;
     }
 
     void LotusState::armMouseClickWatchdog() {
@@ -200,120 +157,12 @@ namespace fcitx {
         mouseClickWatchdog_.reset();
     }
 
-    void LotusState::abortDeferredSelectIfPending() {
-        if (!selectAbortDeferred_ || !g_isDeleting.load(std::memory_order_acquire)) {
-            return;
-        }
-        LOTUS_INFO("Select burst abandoned: the context did not come back");
-        abortPendingUinputReplacement();
-    }
-
     void LotusState::rearmReplacementDeadline() {
         if (!g_isDeleting.load(std::memory_order_acquire)) {
             return;
         }
         const auto remaining   = static_cast<int64_t>(expectedBackspaces_ - std::min(expectedBackspaces_, currentBackspaceCount_));
         replacementDeadlineMs_ = nowMs() + (remaining * static_cast<int64_t>(burstIntervalMs_)) + replacementEchoGrace_;
-    }
-
-    void LotusState::dropAbortedUinputStash() {
-        cancelSelectAbort();
-        stashedCommit_.clear();
-        stashedNewWord_.clear();
-        uinputAbortTimeMs_ = 0;
-        (*lotusEngine_).reset();
-        oldPreBuffer_.clear();
-        hasHistory_   = false;
-        deferCommits_ = getFrontendName(&ic_) == "dbus";
-        if (!bufferedKeys_.empty()) {
-            replayBufferedKeys();
-        }
-        flushCommitBatch();
-    }
-
-    void LotusState::reconcileAbortedUinputReplacement() {
-        if (!uinputAbortPending_) {
-            return;
-        }
-        uinputAbortPending_ = false;
-
-        // Stale abort: the context stayed away too long, likely a real application switch.
-        if (uinputAbortTimeMs_ != 0 && nowMs() - uinputAbortTimeMs_ > 2000) {
-            LOTUS_INFO("Drop the replacement aborted at focus out: it went stale");
-            dropAbortedUinputStash();
-            return;
-        }
-
-        if (stashedCommit_.empty()) {
-            // Nothing to put back; the buffered keys replay as fresh input.
-            dropAbortedUinputStash();
-            return;
-        }
-
-        // The server-side Cancel finished the selection: the replacement text belongs at the cursor.
-        appendCommit(stashedCommit_);
-        oldPreBuffer_ = stashedNewWord_;
-        hasHistory_   = !stashedNewWord_.empty();
-        deferCommits_ = getFrontendName(&ic_) == "dbus";
-        if (!bufferedKeys_.empty()) {
-            replayBufferedKeys();
-        }
-        flushCommitBatch();
-        LOTUS_INFO("Commit the replacement text aborted at focus out");
-    }
-
-    bool LotusState::isAutofillCertain(const SurroundingText& s) {
-        if (!s.isValid() || oldPreBuffer_.empty() || isChromium_) {
-            return false;
-        }
-        auto               textRange = fcitx::utf8::MakeUTF8CharRange(s.text());
-        std::u32string     u32Text(textRange.begin(), textRange.end());
-
-        const unsigned int cursor  = s.cursor();
-        const unsigned int anchor  = s.anchor();
-        const size_t       textLen = u32Text.length();
-
-        // Surrounding text can lag behind IME state, so confirm oldPreBuffer_ is still near the cursor before trusting it.
-        const size_t buffLen    = oldPreBuffer_.length();
-        const size_t pb         = u32Text.find(oldPreBuffer_);
-        size_t       rangeStart = static_cast<size_t>(cursor) >= buffLen ? static_cast<size_t>(cursor) - buffLen : 0;
-        const bool   sameprefix = pb != std::u32string::npos && pb >= rangeStart && pb <= static_cast<size_t>(cursor);
-
-        // Detect browser autofill/autocomplete suggestions via selection.
-        if (cursor != anchor) {
-            unsigned int selectionStart = std::min(anchor, cursor);
-            unsigned int selectionEnd   = std::max(anchor, cursor);
-
-            // Only consider it browser autofill if the selection starts at the cursor
-            // and extends to the end of the line (common address bar behavior).
-            if (selectionStart >= cursor || (selectionStart < cursor && selectionEnd > cursor)) {
-                if (!sameprefix)
-                    return false;
-                // If the selection contains a newline, it's likely a multiline editor (AI ghost text),
-                // not a single-line URL/Search bar.
-                size_t p = u32Text.find(U'\n', selectionStart);
-                return p == std::u32string::npos || p >= static_cast<size_t>(selectionEnd);
-            }
-        }
-
-        if (textLen == static_cast<size_t>(cursor)) {
-            g_realTextLen.store(textLen, std::memory_order_release);
-            return false;
-        }
-
-        // Heuristic: rapid text growth in a single-line context.
-        // Applied only when no newline is present after the cursor to distinguish from AI text in editors.
-        // Gecko/Firefox: if buffLen > textLen, surrounding text is stale (async update race)
-        if (buffLen > textLen) {
-            return false;
-        }
-        if (textLen > static_cast<size_t>(cursor) + 1 && cursor == g_realTextLen.load(std::memory_order_acquire) && u32Text.find(U'\n', cursor) == std::u32string::npos &&
-            sameprefix)
-            return true;
-
-        for (auto v = g_realTextLen.load(std::memory_order_acquire); v < cursor && !g_realTextLen.compare_exchange_weak(v, cursor, std::memory_order_acq_rel);)
-            ;
-        return false;
     }
 
     void LotusState::handlePreeditMode(KeyEvent& keyEvent, KeySym currentSym) {
@@ -555,14 +404,12 @@ namespace fcitx {
 
     void LotusState::finishReplacementNow() {
         ++replacementToken_;
-        cancelSelectAbort();
         appendCommit(pendingCommitString_);
         pendingCommitString_.clear();
         deferCommits_          = getFrontendName(&ic_) == "dbus";
         expectedBackspaces_    = 0;
         currentBackspaceCount_ = 0;
         replacementDeadlineMs_ = 0;
-        realSelect_            = false;
         g_isDeleting.store(false, std::memory_order_release);
         if (deferCommits_) {
             flushCommitBatch();
@@ -583,10 +430,7 @@ namespace fcitx {
         if (!g_isDeleting.load(std::memory_order_acquire)) {
             return false;
         }
-        // In Select mode the uinput server emits Shift+Left, so the echoed Left
-        // presses are the selection signal. The final one is swallowed in
-        // finishReplacement so the app only sees the count it should select.
-        if (!isBackspace(currentSym) && (!realSelect_ || currentSym != FcitxKey_Left) && !(currentSym == FcitxKey_Pause)) {
+        if (!isBackspace(currentSym) && currentSym != FcitxKey_Pause) {
             return false;
         }
         if (currentSym != FcitxKey_Pause) {
@@ -595,8 +439,8 @@ namespace fcitx {
             }
             // Re-arm the deadline so a slow burst is never abandoned.
             replacementDeadlineMs_ = nowMs() + replacementEchoGrace_;
-            // Injected backend: the last echoed backspace or Left is the trigger, commit on it.
-            const bool injectedEcho = echoTriggerPending_ && (realSelect_ ? currentSym == FcitxKey_Left : isBackspace(currentSym));
+            // Injected backend: the last echoed backspace is the trigger, commit on it.
+            const bool injectedEcho = echoTriggerPending_ && isBackspace(currentSym);
             if (injectedEcho && currentBackspaceCount_ >= expectedBackspaces_) {
                 echoTriggerPending_ = false;
                 // Let the app finish the backspaces and the focus bounce before
@@ -617,14 +461,13 @@ namespace fcitx {
                 });
                 return true;
             }
-            return false; // Allow intermediate backspaces/lefts to reach the app to clear autofill/old text / extend the selection.
+            return false; // Allow intermediate backspaces to reach the app to clear the old text.
         }
         // The anchor closes the burst even if echoes are lost.
         currentBackspaceCount_ += 1;
         finishReplacement(event);
         return true;
     }
-
     void LotusState::performReplacement(DiffPart diffPart) {
         LOTUS_INFO("Perform replacement: " + lotus::utf8::encode(diffPart.deletedPart) + " -> " + lotus::utf8::encode(diffPart.addedPart)); //NOLINT
         echoTriggerPending_ = false;
@@ -640,10 +483,10 @@ namespace fcitx {
             return;
         }
 
-        const size_t delSize      = diffPart.deletedPart.size();
-        const bool   autofill     = isAutofillCertain(ic_.surroundingText());
-        const bool   addressBar   = isChromium_ && (ic_.capabilityFlags().test(CapabilityFlag::Url) || engine_.isLikeAddressBarChromium());
-        const bool   uinputSelect = (currentMode() == LotusMode::Select && !autofill) || (isUinputMode(currentMode()) && addressBar);
+        const size_t delSize     = graphemeClusterCount(diffPart.deletedPart);
+        const bool   dotAnchor   = currentMode() == LotusMode::Smooth;
+        const size_t deleteCount = delSize + (dotAnchor ? 1U : 0U);
+        const int    burstCount  = static_cast<int>(deleteCount);
 
         const int    commitMs = clampDelay(appRuleSetting_.commitInterval > 0 ? appRuleSetting_.commitInterval : *engine_.config().defaultCommitInterval);
         const auto   interval =
@@ -666,31 +509,23 @@ namespace fcitx {
         const std::string frontend     = getFrontendName(&ic_);
         const bool        echoFrontend = frontend == "dbus" || frontend == "fcitx4" || frontend == "x11" || frontend == "xim";
         const std::string addedUtf8    = lotus::utf8::encode(diffPart.addedPart);
-        const int         burstCount   = static_cast<int>(delSize) + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0);
         const bool        x11Backend   = !vkUsable() && x11Usable();
         bool              echoDriven   = false;
         injectionBackend_              = InjectionBackend::None;
 
-        bool selectMode = uinputSelect;
-        if (selectMode && x11Backend && LotusX11Keyboard::shiftHeld()) {
-            // Xtest shares the server modifier state with the user's keyboard: a Shift we press and release would
-            // release the user's own Shift, so Select falls back to BackSpace like the uinput server does.
-            LOTUS_INFO("x11-keyboard: physical Shift is held, backspacing instead of selecting");
-            selectMode = false;
-        }
-
         if (vkUsable()) {
             echoDriven = echoFrontend;
             if (!echoDriven) {
-                auto& wlr     = LotusWlrVirtualKeyboard::instance();
-                auto  emitNow = [&wlr, burstCount, addedUtf8, uinputSelect] { return uinputSelect ? wlr.emitSelect(burstCount, addedUtf8) : wlr.emit(burstCount, addedUtf8); };
+                auto&             wlr     = LotusWlrVirtualKeyboard::instance();
+                auto              emitNow = [&wlr, burstCount, addedUtf8, dotAnchor] { return wlr.emit(burstCount, addedUtf8, true, dotAnchor); };
+                const std::string wlrLog  = "wlr-virtual-keyboard: sent " + std::to_string(burstCount) + " backspaces + keys for [" + addedUtf8 + "]";
                 if (preDelay > 0) {
                     wlr.runAfter(static_cast<int>(preDelay), emitNow);
-                    LOTUS_INFO(std::string("wlr-virtual-keyboard: sent ") + (uinputSelect ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
+                    LOTUS_INFO(wlrLog);
                     return;
                 }
                 if (emitNow()) {
-                    LOTUS_INFO(std::string("wlr-virtual-keyboard: sent ") + (uinputSelect ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
+                    LOTUS_INFO(wlrLog);
                     return;
                 }
                 LOTUS_WARN("wlr-virtual-keyboard emit failed, fallback use uinput");
@@ -700,15 +535,16 @@ namespace fcitx {
         } else if (x11Backend) {
             echoDriven = echoFrontend;
             if (!echoDriven) {
-                auto& x11     = LotusX11Keyboard::instance();
-                auto  emitNow = [&x11, burstCount, addedUtf8, interval, selectMode] { return x11.emit(burstCount, addedUtf8, static_cast<int>(interval), selectMode); };
+                auto&             x11     = LotusX11Keyboard::instance();
+                auto              emitNow = [&x11, burstCount, addedUtf8, interval, dotAnchor] { return x11.emit(burstCount, addedUtf8, static_cast<int>(interval), dotAnchor); };
+                const std::string x11Log  = "x11-keyboard: sent " + std::to_string(burstCount) + " backspaces + keys for [" + addedUtf8 + "]";
                 if (preDelay > 0) {
                     x11.runAfter(static_cast<int>(preDelay), emitNow);
-                    LOTUS_INFO(std::string("x11-keyboard: sent ") + (selectMode ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
+                    LOTUS_INFO(x11Log);
                     return;
                 }
                 if (emitNow()) {
-                    LOTUS_INFO(std::string("x11-keyboard: sent ") + (selectMode ? "Shift+Left" : "backspaces") + " + keys for [" + addedUtf8 + "]");
+                    LOTUS_INFO(x11Log);
                     return;
                 }
                 LOTUS_WARN("x11-keyboard emit failed, fallback use uinput");
@@ -717,14 +553,15 @@ namespace fcitx {
             }
         }
 
-        const size_t uinputCount = delSize + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0);
+        if (dotAnchor) {
+            preDelay = std::max<uint32_t>(preDelay, static_cast<uint32_t>(commitMs));
+            lotus::fcitx_text::commit(&ic_, kDotAnchorText, lastCommitTime_);
+        }
 
         currentBackspaceCount_ = 0;
         pendingCommitString_   = diffPart.addedPart;
-        // Echo-driven backends: the extra last backspace/Left is the trigger, it is swallowed and commits
-        expectedBackspaces_ = echoDriven ? delSize + ((currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0) + 1 : uinputCount;
-        realSelect_         = selectMode;
-        lastSelect_         = realSelect_;
+        // Echo-driven backends: the extra last backspace is the trigger, it is swallowed and commits.
+        expectedBackspaces_ = echoDriven ? deleteCount + 1U : deleteCount;
         g_isDeleting.store(true, std::memory_order_release);
 
         const int64_t injectMs = static_cast<int64_t>(expectedBackspaces_) * static_cast<int64_t>(interval);
@@ -740,14 +577,13 @@ namespace fcitx {
                 auto           icRef  = ic_.watch();
                 LotusEngine*   engine = &engine_;
                 const size_t   count  = expectedBackspaces_;
-                const bool     select = selectMode;
-                scheduleAfterInjection(static_cast<int>(preDelay), [engine, icRef, token, count, select] {
-                    engine->scheduleOnMainThread([engine, icRef, token, count, select] {
+                scheduleAfterInjection(static_cast<int>(preDelay), [engine, icRef, token, count] {
+                    engine->scheduleOnMainThread([engine, icRef, token, count] {
                         auto* state = engine->stateFor(icRef.get());
                         if (state == nullptr || token != state->replacementToken_ || !g_isDeleting.load(std::memory_order_acquire)) {
                             return;
                         }
-                        if (!state->injectEchoBurst(count, select)) {
+                        if (!state->injectEchoBurst(count)) {
                             state->echoTriggerPending_ = false;
                             state->finishReplacementNow();
                         }
@@ -755,33 +591,22 @@ namespace fcitx {
                 });
                 return;
             }
-            if (injectEchoBurst(expectedBackspaces_, selectMode)) {
+            if (injectEchoBurst(expectedBackspaces_)) {
                 return;
             }
             LOTUS_WARN("injected burst failed, fallback use uinput");
             echoTriggerPending_ = false;
             injectionBackend_   = InjectionBackend::None;
-            expectedBackspaces_ = uinputCount;
-        }
-        // Select mode: the uinput server selects with Shift+Left instead. The
-        // trigger-key compensation above still applies because the last echoed
-        // Left is swallowed; autofill compensation does not, see above.
-        if (realSelect_) {
-            sendSelectUinput(expectedBackspaces_, preDelay, interval, postDelay);
-            LOTUS_INFO("Send select of " + std::to_string(expectedBackspaces_) + " characters");
-            return;
+            expectedBackspaces_ = deleteCount;
         }
         sendBackspaceUinput(expectedBackspaces_, preDelay, interval, postDelay);
         LOTUS_INFO("Send " + std::to_string(expectedBackspaces_) + " backspaces");
     }
 
-    bool LotusState::injectEchoBurst(size_t count, bool select) {
+    bool LotusState::injectEchoBurst(size_t count) {
         switch (injectionBackend_) {
-            case InjectionBackend::WlrVirtualKeyboard: {
-                auto& wlr = LotusWlrVirtualKeyboard::instance();
-                return select ? wlr.emitSelect(static_cast<int>(count), "", false) : wlr.emit(static_cast<int>(count), "", false);
-            }
-            case InjectionBackend::X11Test: return LotusX11Keyboard::instance().emit(static_cast<int>(count), "", static_cast<int>(burstIntervalMs_), select);
+            case InjectionBackend::WlrVirtualKeyboard: return LotusWlrVirtualKeyboard::instance().emit(static_cast<int>(count), "", false);
+            case InjectionBackend::X11Test: return LotusX11Keyboard::instance().emit(static_cast<int>(count), "", static_cast<int>(burstIntervalMs_), false);
             case InjectionBackend::None: break;
         }
         return false;
@@ -952,7 +777,6 @@ namespace fcitx {
         }
 
         hasHistory_ = true;
-        g_realTextLen.fetch_add(1, std::memory_order_acq_rel);
 
         const std::u32string preeditStr = pullPreeditString();
 
@@ -1284,7 +1108,6 @@ namespace fcitx {
                 clearAllBuffers();
             }
         }
-        reconcileAbortedUinputReplacement();
         KeySym currentSym = keyEvent.rawKey().sym();
         applyAutoCapitalize(keyEvent, currentSym);
 
@@ -1314,7 +1137,6 @@ namespace fcitx {
             currentBackspaceCount_ = 0;
             expectedBackspaces_    = 0;
             replacementDeadlineMs_ = 0;
-            realSelect_            = false;
             if (!bufferedKeys_.empty()) {
                 deferCommits_ = getFrontendName(&ic_) == "dbus";
                 replayBufferedKeys();
@@ -1339,7 +1161,6 @@ namespace fcitx {
         expectedBackspaces_    = 0;
         currentBackspaceCount_ = 0;
         deletionInterruptedAt_ = 0;
-        realSelect_            = false;
         g_isDeleting.store(false, std::memory_order_release);
 
         (*lotusEngine_).reset();
@@ -1404,24 +1225,11 @@ namespace fcitx {
     bool LotusState::handleKeyWhileDeleting(KeyEvent& keyEvent, KeySym currentSym) {
         if (g_isDeleting.load(std::memory_order_acquire)) {
             if (isBackspace(currentSym)) {
-                if (g_realTextLen.load(std::memory_order_acquire) > 0)
-                    g_realTextLen.fetch_sub(1, std::memory_order_acq_rel);
                 if (handleUInputKeyPress(keyEvent, currentSym)) {
                     return true;
                 }
             } else if (currentSym == FcitxKey_Pause) {
                 handleUInputKeyPress(keyEvent, currentSym);
-                return true;
-            } else if (realSelect_ && (currentSym == FcitxKey_Left || currentSym == FcitxKey_Delete)) {
-                if (currentSym == FcitxKey_Left) {
-                    // Echoed left arrow extends the selection in the app: consume it as
-                    // a selection signal, never buffer it for replay.
-                    if (g_realTextLen.load(std::memory_order_acquire) > 0)
-                        g_realTextLen.fetch_sub(1, std::memory_order_acq_rel);
-                    handleUInputKeyPress(keyEvent, currentSym);
-                } else {
-                    keyEvent.forward();
-                }
                 return true;
             } else {
                 // Buffer incoming keys during the short uinput replacement
@@ -1430,10 +1238,6 @@ namespace fcitx {
                 // during this window. Forwarding them immediately could change
                 // the cursor before replacement completes. This is a known
                 // limitation of the fast-typing buffer.
-                // The modifier is not decided here: at press time the echo counter
-                // is a racy proxy for the uinput server's Shift hold in Select
-                // mode. The raw event is buffered and the modifier is chosen when
-                // the key is popped for replay, see replayBufferedKeys().
                 KeySym      symToBuffer   = currentSym;
                 KeyStates   stateToBuffer = keyEvent.rawKey().states();
                 std::string keyUtf8Check  = Key::keySymToUTF8(symToBuffer);
@@ -1487,8 +1291,7 @@ namespace fcitx {
     void LotusState::handleActiveMode(KeyEvent& keyEvent, KeySym currentSym) {
         switch (currentMode()) {
             case LotusMode::Smooth:
-            case LotusMode::SuperSmooth:
-            case LotusMode::Select: {
+            case LotusMode::SuperSmooth: {
                 handleUinputMode(keyEvent, currentSym);
                 break;
             }
@@ -1526,12 +1329,7 @@ namespace fcitx {
     }
 
     void LotusState::resetNow(bool isFocusOut) {
-        cancelSelectAbort();
         cancelMouseClickWatchdog();
-        const auto& surrounding = ic_.surroundingText();
-        const auto& text        = surrounding.text();
-        size_t      textLen     = utf8::length(text);
-        g_realTextLen.store(textLen, std::memory_order_release);
         if (g_isDeleting.load(std::memory_order_acquire)) {
             return;
         }
@@ -1561,8 +1359,7 @@ namespace fcitx {
             }
             case LotusMode::SurroundingText:
             case LotusMode::Smooth:
-            case LotusMode::SuperSmooth:
-            case LotusMode::Select: {
+            case LotusMode::SuperSmooth: {
                 ic_.inputPanel().reset();
                 break;
             }
@@ -1611,8 +1408,7 @@ namespace fcitx {
             }
             case LotusMode::Smooth:
             case LotusMode::SurroundingText:
-            case LotusMode::SuperSmooth:
-            case LotusMode::Select: {
+            case LotusMode::SuperSmooth: {
                 if (lotusEngine_) {
                     (*lotusEngine_).reset();
                 }
@@ -1625,7 +1421,6 @@ namespace fcitx {
     }
 
     void LotusState::clearAllBuffers(bool keepSentenceState) {
-        cancelSelectAbort();
         cancelMouseClickWatchdog();
         deliverPendingCommits();
         LOTUS_DEBUG("Clear all buffers");
@@ -1634,11 +1429,7 @@ namespace fcitx {
         }
         resetMacroSkip();
         oldPreBuffer_.clear();
-        hasHistory_         = false;
-        uinputAbortPending_ = false;
-        stashedCommit_.clear();
-        stashedNewWord_.clear();
-        uinputAbortTimeMs_ = 0;
+        hasHistory_ = false;
         if (!g_isDeleting.load(std::memory_order_acquire)) {
             expectedBackspaces_    = 0;
             currentBackspaceCount_ = 0;
@@ -1709,27 +1500,11 @@ namespace fcitx {
     }
 
     void LotusState::replayBufferedKeys() {
-        const bool stripSelectShift = lastSelect_;
         LOTUS_INFO("Starting replay buffered keys");
         while (!bufferedKeys_.empty()) {
             const KeyEntry entry = bufferedKeys_.pop();
             auto           sym   = static_cast<KeySym>(entry.sym);
             KeyStates      state(entry.state);
-            // The modifier is chosen at pop time, not at press time. Replay
-            // runs after the replacement burst finished, so the uinput server
-            // has already released the synthetic Shift it held for the
-            // Shift+Left selection. A stored Shift bit is therefore stripped
-            // unless Shift is still physically held right now (tracked live
-            // from key events), which means the user is holding it for a
-            // genuine capital letter. Backspace-driven modes never touch
-            // Shift, so their state is replayed untouched.
-            // Known limitation: Shift is sampled at replay time, not press
-            // time. A capital typed with Shift during the burst is replayed
-            // as lowercase if Shift was released before the replay runs.
-            if (stripSelectShift && state.test(KeyState::Shift) && !isShiftHeld()) {
-                sym   = unshiftKeySym(sym);
-                state = state.unset(KeyState::Shift);
-            }
             const uint32_t keyCodePoint = Key::keySymToUnicode(sym);
             if (keyCodePoint == 0U) {
                 continue;
@@ -1759,7 +1534,6 @@ namespace fcitx {
                 appendCommit(keyText);
             } else {
                 hasHistory_ = true;
-                g_realTextLen.fetch_add(1, std::memory_order_acq_rel);
 
                 const std::u32string preeditStr = pullPreeditString();
 
@@ -1837,10 +1611,6 @@ namespace fcitx {
         }
     }
 
-    bool LotusState::isShiftHeld() const {
-        return shiftHeld_;
-    }
-
     void LotusState::forgetShiftState() {
         shiftHeld_ = false;
         LotusWlrVirtualKeyboard::instance().setUserShift(false);
@@ -1862,36 +1632,6 @@ namespace fcitx {
         macroSkip_           = false;
         if (lotusEngine_) {
             lotusEngine_->setMacroEnabled(*engine_.config().enableMacro);
-        }
-    }
-
-    KeySym LotusState::unshiftKeySym(KeySym sym) {
-        if (sym >= FcitxKey_A && sym <= FcitxKey_Z) {
-            return static_cast<KeySym>(sym + (FcitxKey_a - FcitxKey_A));
-        }
-        switch (sym) {
-            case FcitxKey_asciitilde: return FcitxKey_grave;
-            case FcitxKey_exclam: return FcitxKey_1;
-            case FcitxKey_at: return FcitxKey_2;
-            case FcitxKey_numbersign: return FcitxKey_3;
-            case FcitxKey_dollar: return FcitxKey_4;
-            case FcitxKey_percent: return FcitxKey_5;
-            case FcitxKey_asciicircum: return FcitxKey_6;
-            case FcitxKey_ampersand: return FcitxKey_7;
-            case FcitxKey_asterisk: return FcitxKey_8;
-            case FcitxKey_parenleft: return FcitxKey_9;
-            case FcitxKey_parenright: return FcitxKey_0;
-            case FcitxKey_underscore: return FcitxKey_minus;
-            case FcitxKey_plus: return FcitxKey_equal;
-            case FcitxKey_braceleft: return FcitxKey_bracketleft;
-            case FcitxKey_braceright: return FcitxKey_bracketright;
-            case FcitxKey_bar: return FcitxKey_backslash;
-            case FcitxKey_colon: return FcitxKey_semicolon;
-            case FcitxKey_quotedbl: return FcitxKey_apostrophe;
-            case FcitxKey_less: return FcitxKey_comma;
-            case FcitxKey_greater: return FcitxKey_period;
-            case FcitxKey_question: return FcitxKey_slash;
-            default: return sym;
         }
     }
 

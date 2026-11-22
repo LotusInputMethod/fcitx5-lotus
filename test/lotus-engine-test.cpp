@@ -8,7 +8,6 @@
 // guessed. Column semantics of the corpus are documented in bamboo/golden_dump_test.go: the "mode"
 // column is only the mode handed to ProcessKey, while processedHex is always
 // GetProcessedString(VietnameseMode | FullText) (mask 33) and isValid is IsValid(true).
-#include <optional>
 #include "engine.h"
 
 #include "input_method.h"
@@ -16,11 +15,13 @@
 #include "utf8.h"
 
 #include "golden-reader.h"
+#include "test-utils.h"
 
 #include <array>
 #include <cstdint>
 #include <cstdio>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -50,29 +51,18 @@ namespace {
         return flags.remove(lotus::EngineFlag::StdToneStyle);
     }
 
-    // Renders a code point list as "U+XXXX U+YYYY", used to report mismatching expectations.
-    std::string hexOf(std::u32string_view text) {
-        std::string          out;
-        std::array<char, 16> buffer{};
-        for (const char32_t codePoint : text) {
-            std::snprintf(buffer.data(), buffer.size(), "%sU+%04X", out.empty() ? "" : " ", static_cast<unsigned int>(codePoint));
-            out += buffer.data();
-        }
-        return out;
-    }
-
     void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected) {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got [%s], expected [%s]\n", name, hexOf(actual).c_str(), hexOf(expected).c_str());
+        reportFailure(name, hexOf(expected), hexOf(actual), "engine behaviour must match the expectations ported from the Go tests");
         ++failures;
     }
 
     void checkValid(const char* name, Engine& engine, bool inputIsFullComplete, bool expected) {
         const bool actual = engine.isValid(inputIsFullComplete);
         if (actual != expected) {
-            std::printf("FAIL %s: got %s, expected %s\n", name, actual ? "true" : "false", expected ? "true" : "false");
+            reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "IsValid must agree with the Go engine's validity for the composed word");
             ++failures;
         }
     }
@@ -461,15 +451,15 @@ namespace {
         type(engine, U"nhuw", kVietnamese);
         checkU32("Process [nhuw]", processed(engine, kVietnamese), U"như");
         checkValid("Findresultmatch full", engine, true, true);
-        // AddDictionaryToSpellingTrie(map[string]bool{"thứ": true})
         engine.reset();
+        // The Go test seeds the spelling trie with "thứ" before this word.
         type(engine, U"thuw", kVietnamese);
         checkValid("thuw is valid", engine, true, true);
         engine.reset();
         type(engine, U"thow", kVietnamese);
         checkValid("thow is valid", engine, true, true);
         engine.reset();
-        // AddDictionaryToSpellingTrie(map[string]bool{"tôi": true, "tối": true, "tời": true, "tơi": true})
+        // The Go test seeds the spelling trie with {tôi, tối, tời, tơi} here.
         type(engine, U"tooi", kVietnamese);
         checkU32("Process [tooi]", processed(engine, kVietnamese), U"tôi");
         checkValid("Findresultmatch full", engine, true, true);
@@ -490,7 +480,6 @@ namespace {
         type(engine, U"turyn", kVietnamese);
         engine.removeLastChar(true);
         engine.removeLastChar(true);
-        // engine.ProcessString("r", VietnameseMode)
         checkU32("Process turyen,BS,BS,BS,r", processed(engine, kVietnamese), U"tủ");
         engine.reset();
         type(engine, U"chuyển", kVietnamese);
@@ -505,10 +494,6 @@ namespace {
         engine.reset();
         type(engine, U"quawcj", kVietnamese);
         checkU32("Process quawcj", processed(engine, kVietnamese), U"quặc");
-        // eechs
-        engine.reset();
-        type(engine, U"quawcj", kVietnamese);
-        checkU32("Process quawcj", processed(engine, kVietnamese), U"quặc");
         engine.reset();
         type(engine, U"tôi）t", kEnglish);
         checkU32("Process [tôi）t]", processed(engine, kVietnamese), U"t");
@@ -516,11 +501,11 @@ namespace {
     }
 
     void case_ew2u_enabled() {
-        // Standard Telex (no w -> ư rule)
-        const lotus::InputMethod im = lotus::cachedInputMethod(lotus::InputMethodId::Telex);
+        // Standard Telex (no w -> ư rule); bind by reference, the cache owns the object.
+        const lotus::InputMethod& im = lotus::cachedInputMethod(lotus::InputMethodId::Telex);
 
         // Flag OFF
-        Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), withoutW2u());
+        Engine engine(im, withoutW2u());
         engine.processKey(U'w', kVietnamese);
         checkU32("Ew2uEnabled OFF: Process [w]", processed(engine, kVietnamese), U"w");
 
@@ -549,12 +534,13 @@ namespace {
             engine.processString(typed, kVietnamese);
             const std::u32string got = engine.processedString(kVietnamese);
             if (got != want) {
-                std::printf("FAIL Process [%s], got [%s], expected [%s]\n", hexOf(typed).c_str(), hexOf(got).c_str(), hexOf(want).c_str());
+                reportFailure("Process [" + hexOf(typed) + "]", hexOf(want), hexOf(got), "free CV spelling must compose the word the rime rules allow");
                 ++failures;
             }
             const bool valid = engine.isValid(true);
             if (valid != wantValid) {
-                std::printf("FAIL IsValid(true) for [%s]: got %s, expected %s\n", hexOf(typed).c_str(), valid ? "true" : "false", wantValid ? "true" : "false");
+                reportFailure("IsValid(true) for [" + hexOf(typed) + "]", wantValid ? "true" : "false", valid ? "true" : "false",
+                              "the composed word must keep the validity the Go engine reports");
                 ++failures;
             }
         };
@@ -627,6 +613,24 @@ namespace {
         checkU32("Bracket Disabled + Tone: m[f", processed(engine, kVietnameseFullText), U"m[f");
     }
 
+    void case_horn_vowel_elongation() {
+        struct Case {
+            std::u32string_view keys;
+            std::u32string_view want;
+        };
+        const std::vector<Case> cases = {
+            {.keys = U"uwfaaa", .want = U"ừaaa"}, {.keys = U"owfaaa", .want = U"ờaaa"}, {.keys = U"vuwfaaa", .want = U"vừaaa"}, {.keys = U"muwaaaa", .want = U"mưaaaa"},
+            {.keys = U"muwaa", .want = U"mưaa"},  {.keys = U"uwfeee", .want = U"ừeee"}, {.keys = U"Uwfaaa", .want = U"Ừaaa"},   {.keys = U"quaa", .want = U"quâ"},
+            {.keys = U"taa", .want = U"tâ"},      {.keys = U"uwoo", .want = U"uô"},     {.keys = U"uwfa aa", .want = U"ừa â"},  {.keys = U"owuwee", .want = U"ơưê"},
+        };
+        for (const Case& c : cases) {
+            Engine engine(lotus::cachedInputMethod(lotus::InputMethodId::Telex), lotus::kEstdFlags);
+            type(engine, c.keys, kVietnamese);
+            const std::string name = "Horn elongation: " + lotus::utf8::encode(c.keys);
+            checkU32(name.c_str(), processed(engine, kVietnameseFullText), c.want);
+        }
+    }
+
     // Replays test/golden/engine_core.tsv: one engine per case id, built from the flags/w2u/bracket
     // of its first row, then one ProcessKey per step. Returns the number of rows checked.
     // LOTUS_GOLDEN_DIR redirects the replay to a locally generated sweep; the compiled in
@@ -691,8 +695,9 @@ namespace {
                 ++mismatches;
                 if (shown < 20) {
                     ++shown;
-                    std::printf("FAIL golden %s step %s key U+%04X mode %u: processed=[%s], expected=[%s], valid=%d, want=%d\n", id.c_str(), row.fields[1].c_str(),
-                                static_cast<unsigned>(key), mode.bits, actual.c_str(), expected.c_str(), valid ? 1 : 0, wantValid ? 1 : 0);
+                    reportFailure("golden " + id + " step " + row.fields[1] + " key " + hexOf(std::u32string(1, key)) + " mode " + std::to_string(mode.bits),
+                                  "processed=[" + expected + "], valid=" + (wantValid ? "1" : "0"), "processed=[" + actual + "], valid=" + (valid ? "1" : "0"),
+                                  "the engine must reproduce the golden corpus the Go engine dumped");
                 }
             }
         }
@@ -750,12 +755,13 @@ int run_engine() {
     case_bracket_transform_global();
     case_bracket_transform_with_tone();
     case_bracket_disabled_with_tone();
+    case_horn_vowel_elongation();
     const long goldenRows = replayGolden();
 
     if (failures != 0) {
         std::printf("%d failure(s)\n", failures);
         return 1;
     }
-    std::printf("lotus engine: all checks passed (46 cases + golden %ld rows)\n", goldenRows);
+    std::printf("lotus engine: all checks passed (47 cases + golden %ld rows)\n", goldenRows);
     return 0;
 }

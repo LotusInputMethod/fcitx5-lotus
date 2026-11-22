@@ -7,6 +7,7 @@
 // The Go test TestParseRulesWithIm is empty and therefore has nothing to port.
 #include "input_method.h"
 #include "rules_parser.h"
+#include "test-utils.h"
 
 #include <cstddef>
 #include <cstdio>
@@ -29,7 +30,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the parsed rules must match the expectations ported from bamboo-core/rules_parser_test.go");
             ++failures;
         }
     }
@@ -38,7 +39,8 @@ namespace {
         const bool ok = index < rules.size() && rules[index].key == key && rules[index].effectType == EffectType::MarkTransformation && rules[index].mark() == mark &&
             rules[index].effectOn == effectOn;
         if (!ok) {
-            std::printf("FAIL %s (index %zu)\n", name, index);
+            reportFailure(std::string(name) + " (index " + std::to_string(index) + ")", "the parsed rule carries the ported key, mark and target", "the parsed rule diverges",
+                          "the rule parser must reproduce the Go rule tables exactly");
             ++failures;
         }
     }
@@ -46,7 +48,7 @@ namespace {
     void checkAppendRule(const char* name, const Rule& rule, char32_t key, char32_t effectOn) {
         const bool ok = rule.key == key && rule.effectType == EffectType::Appending && rule.effectOn == effectOn;
         if (!ok) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "the parsed rule appends the ported key and target", "the parsed rule diverges", "the rule parser must reproduce the Go rule tables exactly");
             ++failures;
         }
     }

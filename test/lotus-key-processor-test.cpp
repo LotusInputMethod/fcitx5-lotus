@@ -24,6 +24,7 @@
 #include "utf8.h"
 
 #include "golden-reader.h"
+#include "test-utils.h"
 
 #include <algorithm>
 #include <array>
@@ -65,17 +66,6 @@ namespace {
         return flags.remove(lotus::EngineFlag::FreeToneMarking);
     }
 
-    // Renders a code point list as "U+XXXX U+YYYY", used to report mismatching expectations.
-    std::string hexOf(std::u32string_view text) {
-        std::string          out;
-        std::array<char, 16> buffer{};
-        for (const char32_t codePoint : text) {
-            std::snprintf(buffer.data(), buffer.size(), "%sU+%04X", out.empty() ? "" : " ", static_cast<unsigned int>(codePoint));
-            out += buffer.data();
-        }
-        return out;
-    }
-
     // Renders a byte string as lowercase hex, used to report golden mismatches.
     std::string toHex(std::string_view bytes) {
         std::string         out;
@@ -91,7 +81,7 @@ namespace {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got [%s], expected [%s]\n", name, hexOf(actual).c_str(), hexOf(expected).c_str());
+        reportFailure(name, hexOf(expected), hexOf(actual), "key processing must match the expectations ported from the Go tests");
         ++failures;
     }
 
@@ -99,7 +89,7 @@ namespace {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got [%s], expected [%s]\n", name, std::string(actual).c_str(), std::string(expected).c_str());
+        reportFailure(name, expected, actual, "string results must match the Go engine's output");
         ++failures;
     }
 
@@ -107,7 +97,7 @@ namespace {
         if (actual == expected) {
             return;
         }
-        std::printf("FAIL %s: got %s, expected %s\n", name, actual ? "true" : "false", expected ? "true" : "false");
+        reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "boolean results must match the Go engine's behaviour");
         ++failures;
     }
 
@@ -177,7 +167,8 @@ namespace {
         for (const Case& c : cases) {
             const MacroCase got = lotus::determineMacroCase(c.in);
             if (got != c.want) {
-                std::printf("FAIL determineMacroCase(%s): got [%d], expected [%d]\n", hexOf(c.in).c_str(), static_cast<int>(got), static_cast<int>(c.want));
+                reportFailure("determineMacroCase(" + hexOf(c.in) + ")", "MacroCase " + std::to_string(static_cast<int>(c.want)),
+                              "MacroCase " + std::to_string(static_cast<int>(got)), "macro case detection must match the Go implementation");
                 ++failures;
             }
         }
@@ -374,8 +365,8 @@ namespace {
         for (const Case& c : cases) {
             const char32_t got = engine.toUpper(c.in);
             if (got != c.want) {
-                std::printf("FAIL toUpper(%s) with bracket mode: got [U+%04X], expected [U+%04X]\n", hexOf(std::u32string(1, c.in)).c_str(), static_cast<unsigned int>(got),
-                            static_cast<unsigned int>(c.want));
+                reportFailure("toUpper(" + hexOf(std::u32string(1, c.in)) + ") with bracket mode", hexOf(std::u32string(1, c.want)), hexOf(std::u32string(1, got)),
+                              "bracket mode must transform opening and closing brackets symmetrically");
                 ++failures;
             }
         }
@@ -663,6 +654,128 @@ namespace {
         checkBool("SetFlag(EstdFlags|EfreeToneMarking): flag not present", modernEngine.engine().flag().has(lotus::EngineFlag::FreeToneMarking), true);
     }
 
+    void case_restore_word_before_digits_in_macro_mode() {
+        // Non-dictionary syllable before digits restores immediately in preedit and stays restored on space or trailing letters.
+        KeyProcessor engine = newTestEngine({"chào", "đcu"}, true);
+        engine.setMacroEnabled(true);
+        engine.options().ddFreeStyle = false;
+
+        typeKeys(engine, "Sose");
+        checkU32("preedit after [Sose] expected [Sóe]", engine.preedit(), U"Sóe");
+        typeKeys(engine, "2026");
+        checkU32("preedit after [Sose2026] expected [Sose2026]", engine.preedit(), U"Sose2026");
+        engine.processKey(lotus::kFcitxSpace, {});
+        checkU32("commit after [Sose2026 ] expected [Sose2026 ]", engine.takeCommit(), U"Sose2026 ");
+
+        typeKeys(engine, "Sose2b");
+        checkU32("preedit after [Sose2b] expected [Sose2b]", engine.preedit(), U"Sose2b");
+        engine.commitPreeditAndReset(U"");
+
+        typeKeys(engine, "khoawjm2");
+        checkU32("preedit after [khoawjm2] expected [khoawjm2]", engine.preedit(), U"khoawjm2");
+        engine.commitPreeditAndReset(U"");
+
+        typeKeys(engine, "ddc2");
+        checkU32("preedit after [ddc2] (incomplete dict prefix) expected [ddc2]", engine.preedit(), U"ddc2");
+        engine.commitPreeditAndReset(U"");
+
+        // Valid dictionary word before digits keeps its Vietnamese marks.
+        typeKeys(engine, "chaof2");
+        checkU32("preedit after [chaof2] (dict hit) expected [chào2]", engine.preedit(), U"chào2");
+        engine.processKey(lotus::kFcitxSpace, {});
+        checkU32("commit after [chaof2 ] expected [chào2 ]", engine.takeCommit(), U"chào2 ");
+
+        // ddFreeStyle preserves đ before digits.
+        engine.options().ddFreeStyle = true;
+        typeKeys(engine, "dd2");
+        checkU32("preedit after [dd2] (ddFreeStyle) expected [đ2]", engine.preedit(), U"đ2");
+        engine.commitPreeditAndReset(U"");
+
+        // Composed macro key ending with digits keeps marks and expands on Space and Tab.
+        auto table = std::make_shared<lotus::MacroTable>();
+        table->set("á1", "Á một");
+        engine.setMacroTable(std::move(table));
+        typeKeys(engine, "as1");
+        checkU32("preedit after [as1] (macro key) expected [á1]", engine.preedit(), U"á1");
+        engine.processKey(lotus::kFcitxSpace, {});
+        checkU32("commit after [as1 ] expected [Á một ]", engine.takeCommit(), U"Á một ");
+
+        typeKeys(engine, "as1");
+        checkBool("tab macro on [as1] accepted", engine.processKey(lotus::kFcitxTab, {}), true);
+        checkU32("tab macro commit on [as1] expected [Á một]", engine.takeCommit(), U"Á một");
+
+        // A digit no macro key starts with still restores, so the prefix gate is not over-broad.
+        typeKeys(engine, "as9");
+        checkU32("preedit after [as9] (no macro starts with á9) expected [as9]", engine.preedit(), U"as9");
+        engine.commitPreeditAndReset(U"");
+
+        // Disabled autoNonVnRestore leaves composed Vietnamese syllable intact before digits.
+        engine.options().autoNonVnRestore = false;
+        typeKeys(engine, "Sose2026");
+        checkU32("preedit after [Sose2026] with autoNonVnRestore=false expected [Sóe2026]", engine.preedit(), U"Sóe2026");
+    }
+
+    // TestHornVowelElongation.
+    void case_horn_vowel_elongation() {
+        struct Case {
+            std::string_view    keys;
+            std::u32string_view want;
+        };
+        const std::vector<Case> cases = {
+            {.keys = "uwfaaa", .want = U"ừaaa "}, {.keys = "owfaaa", .want = U"ờaaa "}, {.keys = "vuwfaaa", .want = U"vừaaa "}, {.keys = "muwaaaa", .want = U"mưaaaa "},
+            {.keys = "uwfeee", .want = U"ừeee "}, {.keys = "Uwfaaa", .want = U"Ừaaa "}, {.keys = "owe", .want = U"owe "},       {.keys = "twee", .want = U"twee "},
+            {.keys = "wee", .want = U"wee "},     {.keys = "weee", .want = U"weee "},   {.keys = "waaa", .want = U"waaa "},     {.keys = "bluwfaaa", .want = U"bluwfaaa "},
+        };
+        const std::vector<std::string> dict = {"ừa", "ờ", "vừa", "mưa", "ừ", "tư", "ư"};
+        for (const bool withDicts : {true, false}) {
+            for (const Case& c : cases) {
+                KeyProcessor engine = newTestEngine(dict, withDicts);
+                typeKeys(engine, c.keys);
+                engine.processKey(lotus::kFcitxSpace, {});
+                const std::string name = "horn elongation dict=" + std::string(withDicts ? "true" : "false") + ": [" + std::string(c.keys) + "] commit";
+                checkU32(name.c_str(), engine.takeCommit(), c.want);
+            }
+        }
+        // In dictionary mode, a horn syllable absent from the dictionary (e.g. "zừa") still restores.
+        KeyProcessor dictEngine = newTestEngine(dict, true);
+        typeKeys(dictEngine, "zuwfaaa");
+        dictEngine.processKey(lotus::kFcitxSpace, {});
+        checkU32("horn elongation dict=true: [zuwfaaa] commit", dictEngine.takeCommit(), U"zuwfaaa ");
+    }
+
+    // The repeated 'e' elongation must be kept exactly like the 'a' one when the horn head only
+    // occurs in the dictionary as the start of a longer word ("vừ" -> "vừa", "mư" -> "mưa").
+    // The 'a' shape already works through the head + "a" fallback; the 'e' shape used to be
+    // restored to the raw key strokes instead, which is inconsistent.
+    void case_horn_elongation_dict_edges() {
+        const std::vector<std::string> dict = {"ừ", "ừa", "mưa", "vừa", "tư", "ơ", "ờ"};
+        struct Case {
+            std::string_view    keys;
+            std::u32string_view want;
+        };
+        const std::vector<Case> kept = {
+            {.keys = "vuwfeee", .want = U"vừeee "},
+            {.keys = "muweeee", .want = U"mưeeee "},
+            {.keys = "muwaaa", .want = U"mưaaa "},
+        };
+        for (const Case& c : kept) {
+            KeyProcessor engine = newTestEngine(dict, true);
+            typeKeys(engine, c.keys);
+            engine.processKey(lotus::kFcitxSpace, {});
+            const std::string name = "horn elongation dict=true: [" + std::string(c.keys) + "] commit";
+            checkU32(name.c_str(), engine.takeCommit(), c.want);
+        }
+        // Two repeated letters are below the expressive-elongation threshold: the word must still be
+        // restored to the raw key strokes, in both spell-check modes.
+        for (const bool withDicts : {true, false}) {
+            KeyProcessor engine = newTestEngine(dict, withDicts);
+            typeKeys(engine, "uwfaa");
+            engine.processKey(lotus::kFcitxSpace, {});
+            const std::string name = "horn elongation dict=" + std::string(withDicts ? "true" : "false") + ": [uwfaa] commit";
+            checkU32(name.c_str(), engine.takeCommit(), U"uwfaa ");
+        }
+    }
+
     // Replays test/golden/key_processor.tsv: one processor per case id, built from the opts/flags/
     // w2u/bracket of its first row exactly like bamboo/golden_dump_test.go dumpKeyProcessor does,
     // then one preeditProcessKeyEvent per step. Columns are case, step, keyHex, state, opts, flags,
@@ -742,9 +855,11 @@ namespace {
                 ++mismatches;
                 if (shown < 20) {
                     ++shown;
-                    std::printf("FAIL golden %s step %s key U+%04X state %u: accepted=%d/%d preedit=[%s]/[%s] commit=[%s]/[%s]\n", id.c_str(), row.fields[1].c_str(),
-                                static_cast<unsigned>(key), state.bits, accepted ? 1 : 0, wantAccepted ? 1 : 0, toHex(actualPreedit).c_str(), toHex(wantPreedit).c_str(),
-                                toHex(actualCommit).c_str(), toHex(wantCommit).c_str());
+                    reportFailure("golden " + id + " step " + row.fields[1] + " key " + hexOf(std::u32string(1, static_cast<char32_t>(key))) + " state " +
+                                      std::to_string(state.bits),
+                                  std::string("accepted=") + (wantAccepted ? "1" : "0") + ", preedit=[" + toHex(wantPreedit) + "], commit=[" + toHex(wantCommit) + "]",
+                                  std::string("accepted=") + (accepted ? "1" : "0") + ", preedit=[" + toHex(actualPreedit) + "], commit=[" + toHex(actualCommit) + "]",
+                                  "the key processor must reproduce the golden corpus the Go wrapper dumped");
                 }
             }
         }
@@ -788,12 +903,15 @@ int run_key_processor() {
     case_modern_style();
     case_bracket_transform();
     case_free_marking_flag();
+    case_restore_word_before_digits_in_macro_mode();
+    case_horn_vowel_elongation();
+    case_horn_elongation_dict_edges();
     const long goldenRows = replayGolden();
 
     if (failures != 0) {
         std::printf("%d failure(s)\n", failures);
         return 1;
     }
-    std::printf("lotus key processor: all checks passed (32 cases + golden %ld rows)\n", goldenRows);
+    std::printf("lotus key processor: all checks passed (35 cases + golden %ld rows)\n", goldenRows);
     return 0;
 }

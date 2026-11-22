@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "engine-fixture.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
 
 #include <fcitx-utils/utf8.h>
-#include <iostream>
+#include <memory>
+#include <string>
 
 int main() {
     configureTestPaths("fcitx5-lotus-preedit-client");
@@ -14,7 +16,8 @@ int main() {
     config.setValueByPath("InputMethod", "Telex");
     engine.setConfig(config);
     if (engine.config().mode.value() != fcitx::LotusMode::Preedit || engine.config().inputMethod.value() != fcitx::InputMethodId::Telex) {
-        std::cerr << "failed to configure Preedit/Telex\n";
+        reportFailure("configure Preedit/Telex", "mode=Preedit, inputMethod=Telex", "the configuration did not load",
+                      "the test cannot exercise the preedit path without Preedit/Telex");
         return 1;
     }
     auto context = std::make_unique<TestInputContext>(&testInstance.instance);
@@ -27,18 +30,17 @@ int main() {
 
     // Bamboo Telex processes a then s as U+00E1 LATIN SMALL LETTER A WITH ACUTE.
     for (auto sym : {FcitxKey_a, FcitxKey_s}) {
-        fcitx::KeyEvent event(context.get(), fcitx::Key(sym), false);
-        engine.keyEvent(entry, event);
-        if (!event.accepted()) {
-            std::cerr << "key " << sym << " accepted=" << event.accepted() << '\n';
+        if (!sendKey(engine, entry, *context, sym, true, "composition keys must be swallowed into the client preedit")) {
             return 1;
         }
     }
     const auto& preedit = context->inputPanel().clientPreedit();
     if (preedit.toString() != "á" || !fcitx::utf8::validate(preedit.toString()) || preedit.cursor() != 2 || context->preeditUpdates() != 2 || !context->commits().empty() ||
         !context->inputPanel().preedit().toString().empty()) {
-        std::cerr << "client='" << preedit.toString() << "' server='" << context->inputPanel().preedit().toString() << "' cursor=" << preedit.cursor()
-                  << " updates=" << context->preeditUpdates() << " commits=" << context->commits().size() << '\n';
+        const std::string actual = "client='" + preedit.toString() + "' server='" + context->inputPanel().preedit().toString() + "' cursor=" + std::to_string(preedit.cursor()) +
+            " updates=" + std::to_string(context->preeditUpdates()) + " commits=" + std::to_string(context->commits().size());
+        reportFailure("compose 'as' into the client preedit", "client=á, cursor=2, updates=2, no commits, empty server preedit", actual,
+                      "the client preedit must carry the composed word while the server preedit stays empty");
         return 1;
     }
     return 0;

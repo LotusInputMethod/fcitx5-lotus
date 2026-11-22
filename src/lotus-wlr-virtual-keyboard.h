@@ -107,10 +107,8 @@ namespace fcitx {
       public:
         static LotusWlrVirtualKeyboard& instance();
 
-        bool                            emit(int backspaces, std::string_view utf8, bool trackEcho = true);
-        // Shift+Left via zwp_virtual_keyboard_v1_modifiers, not a real Shift key.
-        bool               emitSelect(int count, std::string_view utf8, bool trackEcho = true);
-        [[nodiscard]] bool injecting() const {
+        bool                            emit(int backspaces, std::string_view utf8, bool trackEcho = true, bool anchorDot = false);
+        [[nodiscard]] bool              injecting() const {
             return injecting_;
         }
         bool consumeEcho(uint32_t code, uint32_t time);
@@ -157,7 +155,7 @@ namespace fcitx {
         bool                                      uploadKeymap(const uint32_t* cps, size_t n);
         void                                      tap(uint32_t evdevKey, bool track);
         void                                      setShift(bool down);
-        bool                                      emitImpl(int count, std::string_view utf8, bool trackEcho, bool shiftLeft);
+        bool                                      emitImpl(int count, std::string_view utf8, bool trackEcho, bool anchorDot);
         void                                      disconnect();
 
         WlDisplayPtr                              display_;  ///< Display opened on the first probe

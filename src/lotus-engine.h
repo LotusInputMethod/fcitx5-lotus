@@ -232,12 +232,6 @@ namespace fcitx {
          */
         EmojiLoader& emojiLoader();
 
-        /**
-         * @brief Reports whether the AT-SPI focus is a Chromium address bar.
-         * @return True when the focused accessibility node is the Omnibox of a Chromium browser.
-         */
-        [[nodiscard]] bool isLikeAddressBarChromium() const;
-
       private:
         Instance&                                            instance_;
         lotusConfig                                          config_;
@@ -383,12 +377,6 @@ namespace fcitx {
          * @return True when the event was consumed by the hotkey.
          */
         bool handleModeMenuHotkey(InputContext* ic, KeyEvent& keyEvent);
-
-        /**
-         * @brief Stores the surrounding text length when the cursor sits at the end of the text.
-         * @param ic Current input context.
-         */
-        static void syncRealtextLen(InputContext* ic);
 
         /**
          * @brief Collects the visible modes in Mode Order order, skipping duplicates.
