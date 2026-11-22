@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Chromium drops a text replacement unless a character was just typed and deleted: the addon commits
-// the anchor U+00B7 before the burst and deletes one extra character. Every other application keeps
+// Smooth targets clients with autocomplete: the addon commits the anchor U+00B7 right before the
+// burst and deletes one extra character. Super Smooth targets clients without autocomplete and uses
 // the plain backspace burst.
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
@@ -13,7 +13,6 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include <fcitx-utils/keysym.h>
 
@@ -56,26 +55,23 @@ namespace {
 } // namespace
 
 int main() {
-    configureTestPaths("fcitx5-lotus-chromium-dot-anchor");
+    configureTestPaths("fcitx5-lotus-mode-dot-anchor");
     TestInstance       testInstance;
     fcitx::LotusEngine engine(&testInstance.instance);
-    fcitx::RawConfig   config;
-    config.setValueByPath("Mode", "Uinput (Smooth)");
-    config.setValueByPath("InputMethod", "Telex");
-    engine.setConfig(config);
-    if (engine.config().mode.value() != fcitx::LotusMode::Smooth || engine.config().inputMethod.value() != fcitx::InputMethodId::Telex) {
-        std::printf("FAIL configure Smooth/Telex\n");
-        return 1;
-    }
 
-    KbSocketListener listener;
+    KbSocketListener   listener;
     if (!listener.valid()) {
         return 1;
     }
 
     // "a" then "s" in Telex composes "á", so the engine replaces the single character.
-    const auto runApp = [&](const char* program, bool expectAnchor) {
-        auto context = std::make_unique<TestInputContext>(&testInstance.instance, program);
+    const auto runMode = [&](const char* mode, bool expectAnchor) {
+        fcitx::RawConfig config;
+        config.setValueByPath("Mode", mode);
+        config.setValueByPath("InputMethod", "Telex");
+        engine.setConfig(config);
+
+        auto context = std::make_unique<TestInputContext>(&testInstance.instance);
         context->focusIn();
         fcitx::InputMethodEntry  entry("lotus", "Lotus", "vi", "lotus");
         fcitx::InputContextEvent focus(context.get(), fcitx::EventType::InputContextFocusIn);
@@ -96,12 +92,11 @@ int main() {
 
         size_t anchorCommits = 0;
         for (const auto& commit : context->commits()) {
-            const std::u32string text = lotus::utf8::decode(commit);
-            if (text == kAnchor) {
+            if (lotus::utf8::decode(commit) == kAnchor) {
                 ++anchorCommits;
             }
         }
-        check("anchor is committed before the burst", anchorCommits == (expectAnchor ? 1U : 0U), "anchor commits=" + std::to_string(anchorCommits));
+        check("anchor commit", anchorCommits == (expectAnchor ? 1U : 0U), "anchor commits=" + std::to_string(anchorCommits));
 
         for (size_t i = 0; i < msg.count; ++i) {
             if (!send(engine, entry, *context, FcitxKey_BackSpace, false)) {
@@ -122,13 +117,13 @@ int main() {
         check("replacement text", replaced == kExpectedWord, "text=[" + hexText(replaced) + "]");
     };
 
-    runApp("chrome", true);
-    runApp("gedit", false);
+    runMode("Uinput (Smooth)", true);
+    runMode("Uinput (Super Smooth)", false);
 
     if (failures != 0) {
         std::printf("%d failure(s)\n", failures);
         return 1;
     }
-    std::printf("chromium dot anchor: all checks passed\n");
+    std::printf("mode dot anchor: all checks passed\n");
     return 0;
 }

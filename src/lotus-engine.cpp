@@ -433,7 +433,6 @@ namespace fcitx {
         updateCharsetAction(event.inputContext());
 
         state->isLibreoffice_ = (appName == "soffice");
-        state->isChromium_    = isChromiumProgram(appName);
         state->finishOverdueReplacement();
 
         const bool uinputMode         = isUinputMode(targetMode);
@@ -652,7 +651,6 @@ namespace fcitx {
             return;
         }
         state->keyEvent(keyEvent);
-        syncRealtextLen(ic);
     }
 
     bool LotusEngine::handleModeMenuHotkey(InputContext* ic, KeyEvent& keyEvent) {
@@ -672,15 +670,6 @@ namespace fcitx {
             return true;
         }
         return false;
-    }
-
-    void LotusEngine::syncRealtextLen(InputContext* ic) {
-        const auto&  s       = ic->surroundingText();
-        const auto&  text    = s.text();
-        const size_t textLen = lotus::utf8::length(text);
-        unsigned int cursor  = s.cursor();
-        if (textLen == static_cast<size_t>(cursor))
-            g_realTextLen.store(static_cast<unsigned int>(textLen), std::memory_order_release);
     }
 
     bool LotusEngine::handleCycleModeHotkey(InputContext* ic, KeyEvent& keyEvent) {
@@ -1213,7 +1202,6 @@ namespace fcitx {
         // composition into the newly focused field.
         state->discardForAppChange();
         state->isLibreoffice_ = program == "soffice";
-        state->isChromium_    = isChromiumProgram(program);
         ic->inputPanel().reset();
         setMode(getAppRule(program), ic);
         ic->updatePreedit();

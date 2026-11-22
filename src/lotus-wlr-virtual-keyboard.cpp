@@ -331,7 +331,7 @@ namespace fcitx {
         }
         bool ok = true;
         if (anchorDot) {
-            const std::array<uint32_t, 1> anchor{kChromiumAnchorCodePoint};
+            const std::array<uint32_t, 1> anchor{kDotAnchorCodePoint};
             ok = uploadKeymap(anchor.data(), anchor.size());
             if (ok) {
                 tap(kTextKeys[0], trackEcho);

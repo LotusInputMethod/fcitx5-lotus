@@ -75,11 +75,12 @@ int main() {
     TestInstance       testInstance;
     fcitx::LotusEngine engine(&testInstance.instance);
     fcitx::RawConfig   config;
-    config.setValueByPath("Mode", "Uinput (Smooth)");
+    config.setValueByPath("Mode", "Uinput (Super Smooth)");
     config.setValueByPath("InputMethod", "Telex");
     engine.setConfig(config);
-    if (engine.config().mode.value() != fcitx::LotusMode::Smooth || engine.config().inputMethod.value() != fcitx::InputMethodId::Telex) {
-        reportFailure("configure Smooth/Telex", "mode=Smooth, input method=Telex", "configured mode or input method differs", "the test cannot exercise Smooth Telex behavior");
+    if (engine.config().mode.value() != fcitx::LotusMode::SuperSmooth || engine.config().inputMethod.value() != fcitx::InputMethodId::Telex) {
+        reportFailure("configure SuperSmooth/Telex", "mode=SuperSmooth, input method=Telex", "configured mode or input method differs",
+                      "the test cannot exercise SuperSmooth Telex behavior");
         return 1;
     }
 

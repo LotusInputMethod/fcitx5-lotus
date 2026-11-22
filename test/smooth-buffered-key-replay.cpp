@@ -59,9 +59,10 @@ int main() {
     if (!receiveBackspaceRequest(listener, backspaces, "the initial Telex replacement request did not arrive"))
         return 1;
 
-    if (!sendKey(engine, entry, *context, FcitxKey_x, true, "the buffered key must be swallowed while the replacement runs") || !context->commits().empty()) {
-        reportFailure("buffer key x before deletion completes", "no immediate commits", "commits=" + std::to_string(context->commits().size()),
-                      "buffered key x was emitted before the first replacement completed");
+    // Smooth commits the dot anchor at replacement start; the buffered key must not be committed yet.
+    const std::vector<std::string> anchorOnly{"\u00B7"};
+    if (!sendKey(engine, entry, *context, FcitxKey_x, true, "the buffered key must be swallowed while the replacement runs") || context->commits() != anchorOnly) {
+        reportFailure("buffer key x before deletion completes", "commits=['·'] only", commitList(*context), "buffered key x was emitted before the first replacement completed");
         return 1;
     }
     for (size_t i = 0; i < backspaces; ++i) {
@@ -81,12 +82,12 @@ int main() {
     if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor of the replayed replacement must be swallowed"))
         return 1;
 
-    const std::vector<std::string> expected{"á", "ã"};
+    const std::vector<std::string> expected{"\u00B7", "á", "\u00B7", "ã"};
     if (context->commits() != expected) {
         const auto meaning = "the buffered key replay did not produce the expected final commits; "
                              "first-backspaces=" +
             std::to_string(backspaces) + ", replay-backspaces=" + std::to_string(replayBackspaces);
-        reportFailure("verify final replay commits", "commits=['á']['ã']", commitList(*context), meaning);
+        reportFailure("verify final replay commits", "commits=['·']['á']['·']['ã']", commitList(*context), meaning);
         return 1;
     }
     return 0;

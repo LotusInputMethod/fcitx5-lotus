@@ -19,7 +19,7 @@ int main() {
     TestInstance       testInstance;
     fcitx::LotusEngine engine(&testInstance.instance);
     fcitx::RawConfig   config;
-    config.setValueByPath("Mode", "Uinput (Smooth)");
+    config.setValueByPath("Mode", "Uinput (Super Smooth)");
     config.setValueByPath("InputMethod", "Telex");
     config.setValueByPath("DefaultBackspaceInterval", "10");
     engine.setConfig(config);

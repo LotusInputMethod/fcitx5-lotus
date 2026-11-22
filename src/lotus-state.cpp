@@ -165,60 +165,6 @@ namespace fcitx {
         replacementDeadlineMs_ = nowMs() + (remaining * static_cast<int64_t>(burstIntervalMs_)) + replacementEchoGrace_;
     }
 
-    bool LotusState::isAutofillCertain(const SurroundingText& s) {
-        if (!s.isValid() || oldPreBuffer_.empty() || isChromium_) {
-            return false;
-        }
-        auto               textRange = fcitx::utf8::MakeUTF8CharRange(s.text());
-        std::u32string     u32Text(textRange.begin(), textRange.end());
-
-        const unsigned int cursor  = s.cursor();
-        const unsigned int anchor  = s.anchor();
-        const size_t       textLen = u32Text.length();
-
-        // Surrounding text can lag behind IME state, so confirm oldPreBuffer_ is still near the cursor before trusting it.
-        const size_t buffLen    = oldPreBuffer_.length();
-        const size_t pb         = u32Text.find(oldPreBuffer_);
-        size_t       rangeStart = static_cast<size_t>(cursor) >= buffLen ? static_cast<size_t>(cursor) - buffLen : 0;
-        const bool   sameprefix = pb != std::u32string::npos && pb >= rangeStart && pb <= static_cast<size_t>(cursor);
-
-        // Detect browser autofill/autocomplete suggestions via selection.
-        if (cursor != anchor) {
-            unsigned int selectionStart = std::min(anchor, cursor);
-            unsigned int selectionEnd   = std::max(anchor, cursor);
-
-            // Only consider it browser autofill if the selection starts at the cursor
-            // and extends to the end of the line (common address bar behavior).
-            if (selectionStart >= cursor || (selectionStart < cursor && selectionEnd > cursor)) {
-                if (!sameprefix)
-                    return false;
-                // If the selection contains a newline, it's likely a multiline editor (AI ghost text),
-                // not a single-line URL/Search bar.
-                size_t p = u32Text.find(U'\n', selectionStart);
-                return p == std::u32string::npos || p >= static_cast<size_t>(selectionEnd);
-            }
-        }
-
-        if (textLen == static_cast<size_t>(cursor)) {
-            g_realTextLen.store(textLen, std::memory_order_release);
-            return false;
-        }
-
-        // Heuristic: rapid text growth in a single-line context.
-        // Applied only when no newline is present after the cursor to distinguish from AI text in editors.
-        // Gecko/Firefox: if buffLen > textLen, surrounding text is stale (async update race)
-        if (buffLen > textLen) {
-            return false;
-        }
-        if (textLen > static_cast<size_t>(cursor) + 1 && cursor == g_realTextLen.load(std::memory_order_acquire) && u32Text.find(U'\n', cursor) == std::u32string::npos &&
-            sameprefix)
-            return true;
-
-        for (auto v = g_realTextLen.load(std::memory_order_acquire); v < cursor && !g_realTextLen.compare_exchange_weak(v, cursor, std::memory_order_acq_rel);)
-            ;
-        return false;
-    }
-
     void LotusState::handlePreeditMode(KeyEvent& keyEvent, KeySym currentSym) {
         const uint32_t keyVal = engineKeyValue(currentSym);
         if (lotusEngine_->processKey(keyVal, lotus::keyStatesFromBits(static_cast<uint32_t>(keyEvent.rawKey().states())))) {
@@ -515,7 +461,7 @@ namespace fcitx {
                 });
                 return true;
             }
-            return false; // Allow intermediate backspaces/lefts to reach the app to clear autofill/old text / extend the selection.
+            return false; // Allow intermediate backspaces to reach the app to clear the old text.
         }
         // The anchor closes the burst even if echoes are lost.
         currentBackspaceCount_ += 1;
@@ -537,12 +483,10 @@ namespace fcitx {
             return;
         }
 
-        const size_t delSize        = graphemeClusterCount(diffPart.deletedPart);
-        const bool   autofill       = isAutofillCertain(ic_.surroundingText());
-        const bool   chromiumAnchor = isChromium_;
-        const int    autofillExtra  = (currentMode() != LotusMode::SuperSmooth && autofill) ? 1 : 0;
-        const size_t deleteCount    = delSize + static_cast<size_t>(autofillExtra) + (chromiumAnchor ? 1U : 0U);
-        const int    burstCount     = static_cast<int>(deleteCount);
+        const size_t delSize     = graphemeClusterCount(diffPart.deletedPart);
+        const bool   dotAnchor   = currentMode() == LotusMode::Smooth;
+        const size_t deleteCount = delSize + (dotAnchor ? 1U : 0U);
+        const int    burstCount  = static_cast<int>(deleteCount);
 
         const int    commitMs = clampDelay(appRuleSetting_.commitInterval > 0 ? appRuleSetting_.commitInterval : *engine_.config().defaultCommitInterval);
         const auto   interval =
@@ -573,7 +517,7 @@ namespace fcitx {
             echoDriven = echoFrontend;
             if (!echoDriven) {
                 auto&             wlr     = LotusWlrVirtualKeyboard::instance();
-                auto              emitNow = [&wlr, burstCount, addedUtf8, chromiumAnchor] { return wlr.emit(burstCount, addedUtf8, true, chromiumAnchor); };
+                auto              emitNow = [&wlr, burstCount, addedUtf8, dotAnchor] { return wlr.emit(burstCount, addedUtf8, true, dotAnchor); };
                 const std::string wlrLog  = "wlr-virtual-keyboard: sent " + std::to_string(burstCount) + " backspaces + keys for [" + addedUtf8 + "]";
                 if (preDelay > 0) {
                     wlr.runAfter(static_cast<int>(preDelay), emitNow);
@@ -591,9 +535,9 @@ namespace fcitx {
         } else if (x11Backend) {
             echoDriven = echoFrontend;
             if (!echoDriven) {
-                auto& x11     = LotusX11Keyboard::instance();
-                auto  emitNow = [&x11, burstCount, addedUtf8, interval, chromiumAnchor] { return x11.emit(burstCount, addedUtf8, static_cast<int>(interval), chromiumAnchor); };
-                const std::string x11Log = "x11-keyboard: sent " + std::to_string(burstCount) + " backspaces + keys for [" + addedUtf8 + "]";
+                auto&             x11     = LotusX11Keyboard::instance();
+                auto              emitNow = [&x11, burstCount, addedUtf8, interval, dotAnchor] { return x11.emit(burstCount, addedUtf8, static_cast<int>(interval), dotAnchor); };
+                const std::string x11Log  = "x11-keyboard: sent " + std::to_string(burstCount) + " backspaces + keys for [" + addedUtf8 + "]";
                 if (preDelay > 0) {
                     x11.runAfter(static_cast<int>(preDelay), emitNow);
                     LOTUS_INFO(x11Log);
@@ -609,9 +553,9 @@ namespace fcitx {
             }
         }
 
-        if (chromiumAnchor) {
+        if (dotAnchor) {
             preDelay = std::max<uint32_t>(preDelay, static_cast<uint32_t>(commitMs));
-            lotus::fcitx_text::commit(&ic_, kChromiumAnchorText, lastCommitTime_);
+            lotus::fcitx_text::commit(&ic_, kDotAnchorText, lastCommitTime_);
         }
 
         currentBackspaceCount_ = 0;
@@ -833,7 +777,6 @@ namespace fcitx {
         }
 
         hasHistory_ = true;
-        g_realTextLen.fetch_add(1, std::memory_order_acq_rel);
 
         const std::u32string preeditStr = pullPreeditString();
 
@@ -1282,8 +1225,6 @@ namespace fcitx {
     bool LotusState::handleKeyWhileDeleting(KeyEvent& keyEvent, KeySym currentSym) {
         if (g_isDeleting.load(std::memory_order_acquire)) {
             if (isBackspace(currentSym)) {
-                if (g_realTextLen.load(std::memory_order_acquire) > 0)
-                    g_realTextLen.fetch_sub(1, std::memory_order_acq_rel);
                 if (handleUInputKeyPress(keyEvent, currentSym)) {
                     return true;
                 }
@@ -1389,10 +1330,6 @@ namespace fcitx {
 
     void LotusState::resetNow(bool isFocusOut) {
         cancelMouseClickWatchdog();
-        const auto& surrounding = ic_.surroundingText();
-        const auto& text        = surrounding.text();
-        size_t      textLen     = utf8::length(text);
-        g_realTextLen.store(textLen, std::memory_order_release);
         if (g_isDeleting.load(std::memory_order_acquire)) {
             return;
         }
@@ -1597,7 +1534,6 @@ namespace fcitx {
                 appendCommit(keyText);
             } else {
                 hasHistory_ = true;
-                g_realTextLen.fetch_add(1, std::memory_order_acq_rel);
 
                 const std::u32string preeditStr = pullPreeditString();
 

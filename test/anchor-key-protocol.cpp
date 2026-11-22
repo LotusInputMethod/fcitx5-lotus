@@ -18,7 +18,7 @@ int main() {
     TestInstance       testInstance;
     fcitx::LotusEngine engine(&testInstance.instance);
     fcitx::RawConfig   config;
-    config.setValueByPath("Mode", "Uinput (Smooth)");
+    config.setValueByPath("Mode", "Uinput (Super Smooth)");
     config.setValueByPath("InputMethod", "Telex");
     engine.setConfig(config);
 

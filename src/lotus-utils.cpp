@@ -29,7 +29,6 @@ std::atomic<fcitx::LotusMode> g_realMode{fcitx::LotusMode::Smooth};
 std::atomic<bool>             g_mouseClicked{false};
 std::atomic<bool>             g_isDeleting{false};
 std::atomic<bool>             g_stopFlagMonitor{false};
-std::atomic<unsigned int>     g_realTextLen{0};
 std::atomic<int>              g_mouseSocketFd{-1};
 
 namespace fcitx {
@@ -114,23 +113,6 @@ MouseClickAction mouseClickAction(fcitx::LotusMode mode) {
         return MouseClickAction::DeferToClient;
     }
     return MouseClickAction::ClearBuffers;
-}
-
-bool isChromiumProgram(std::string_view program) {
-    static const auto names = std::to_array<std::string_view>({
-        "chrome",
-        "chromium",
-        "brave",
-        "edge",
-        "vivaldi",
-        "opera",
-        "cromite",
-        "helium",
-        "thorium",
-        "slimjet",
-        "yandex",
-    });
-    return std::ranges::any_of(names, [program](std::string_view name) { return program.find(name) != std::string_view::npos; });
 }
 
 std::string programForPid(int pid) {

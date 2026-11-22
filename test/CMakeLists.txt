@@ -139,7 +139,7 @@ add_lotus_headless_test(TARGET uinput_auto_restore SOURCES uinput-auto-restore.c
 add_lotus_headless_test(TARGET anchor_key_protocol SOURCES anchor-key-protocol.cpp LABELS "integration;smooth")
 add_lotus_headless_test(TARGET uinput_server_probe SOURCES uinput-server-probe.cpp LABELS "unit;server")
 add_lotus_headless_test(TARGET preedit_backspace SOURCES preedit-backspace.cpp LABELS "integration;preedit")
-add_lotus_headless_test(TARGET chromium_dot_anchor SOURCES chromium-dot-anchor.cpp LABELS "integration;chromium")
+add_lotus_headless_test(TARGET mode_dot_anchor SOURCES mode-dot-anchor.cpp LABELS "integration;uinput")
 add_lotus_headless_test(TARGET replacement_delays SOURCES replacement-delays.cpp LABELS "integration;smooth")
 add_lotus_headless_test(TARGET merged_replacement_commit SOURCES merged-replacement-commit.cpp LABELS "integration;smooth")
 add_lotus_headless_test(TARGET dict_reload SOURCES dict-reload.cpp LABELS "integration;dictionary")
@@ -195,7 +195,7 @@ set_tests_properties(kb_sender PROPERTIES
     ENVIRONMENT "LOTUS_SOCKET_NAMESPACE=ctest-${LOTUS_CTEST_SOCKET_NAMESPACE}")
 
 string(MD5 LOTUS_CTEST_SOCKET_NAMESPACE "${PROJECT_BINARY_DIR}")
-set_tests_properties(smooth_buffered_key_replay focus_bounce_word_survival focus_out_mid_replacement uinput_auto_restore anchor_key_protocol uinput_server_probe chromium_dot_anchor replacement_delays app_rule_delay_wire dbus_deferred_commit merged_replacement_commit runtime_safety
+set_tests_properties(smooth_buffered_key_replay focus_bounce_word_survival focus_out_mid_replacement uinput_auto_restore anchor_key_protocol uinput_server_probe mode_dot_anchor replacement_delays app_rule_delay_wire dbus_deferred_commit merged_replacement_commit runtime_safety
     PROPERTIES RESOURCE_LOCK lotus_kb_socket
     ENVIRONMENT "LOTUS_SOCKET_NAMESPACE=ctest-${LOTUS_CTEST_SOCKET_NAMESPACE}")
 

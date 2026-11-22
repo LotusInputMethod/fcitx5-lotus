@@ -250,7 +250,7 @@ namespace fcitx {
             const xcb_keycode_t             keycode  = anchorSpare[0];
             const std::vector<xcb_keysym_t> original = keycodeKeysyms(map, keycode);
             std::vector<xcb_keysym_t>       keysyms(map.keysymsPerKeycode, XCB_NO_SYMBOL);
-            keysyms[0] = kUnicodeKeysymBase | kChromiumAnchorCodePoint;
+            keysyms[0] = kUnicodeKeysymBase | kDotAnchorCodePoint;
             changeKeycode(conn, map, keycode, keysyms);
             xcb_flush(conn);
             tapKey(conn, keycode, intervalMs);

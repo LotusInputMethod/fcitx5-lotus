@@ -164,7 +164,6 @@ namespace fcitx {
         bool                                  shiftHeld_             = false; ///< Live Shift press state tracked from key events
         bool                                  macroSkip_             = false; ///< Macro disabled for the current word
         bool                                  isLibreoffice_         = false;
-        bool                                  isChromium_            = false;
         int64_t                               replacementDeadlineMs_ = 0; ///< ms by which every injected backspace must be echoed (0 = no replacement in flight)
         int64_t                               replacementEchoGrace_  = 0; ///< deadline grace re-armed on each echo
         uint64_t                              replacementToken_      = 0; ///< invalidates a queued virtual-keyboard completion
@@ -313,13 +312,6 @@ namespace fcitx {
          * @param currentSym The current key symbol.
          */
         void handleActiveMode(KeyEvent& keyEvent, KeySym currentSym);
-
-        /**
-         * @brief Checks if autofill is certain for surrounding text.
-         * @param s The surrounding text.
-         * @return True if autofill should proceed.
-         */
-        bool isAutofillCertain(const SurroundingText& s);
 
         /**
          * @brief Handles key events in preedit mode.

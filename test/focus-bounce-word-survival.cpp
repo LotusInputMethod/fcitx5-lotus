@@ -50,11 +50,11 @@ int main() {
     TestInstance       testInstance;
     fcitx::LotusEngine engine(&testInstance.instance);
     fcitx::RawConfig   config;
-    config.setValueByPath("Mode", "Uinput (Smooth)");
+    config.setValueByPath("Mode", "Uinput (Super Smooth)");
     config.setValueByPath("InputMethod", "Telex");
     engine.setConfig(config);
-    if (engine.config().mode.value() != fcitx::LotusMode::Smooth) {
-        reportFailure("configure Smooth", "mode=Smooth", "configured mode differs", "the test needs uinput mode");
+    if (engine.config().mode.value() != fcitx::LotusMode::SuperSmooth) {
+        reportFailure("configure SuperSmooth", "mode=SuperSmooth", "configured mode differs", "the test needs uinput mode");
         return 1;
     }
 

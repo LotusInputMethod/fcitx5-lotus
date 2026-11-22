@@ -157,7 +157,7 @@ int main() {
     };
 
     int failures = 0;
-    for (const char* mode : {"Uinput (Smooth)"}) {
+    for (const char* mode : {"Uinput (Super Smooth)"}) {
         fcitx::RawConfig config;
         config.setValueByPath("Mode", mode);
         config.setValueByPath("InputMethod", "Telex");

@@ -36,15 +36,15 @@ int main() {
     TestInstance       testInstance;
     fcitx::LotusEngine engine(&testInstance.instance);
     fcitx::RawConfig   config;
-    config.setValueByPath("Mode", "Uinput (Smooth)");
+    config.setValueByPath("Mode", "Uinput (Super Smooth)");
     config.setValueByPath("InputMethod", "Telex");
     config.setValueByPath("DefaultBackspaceInterval", "17");
     config.setValueByPath("DefaultPostDelay", "33");
     config.setValueByPath("DefaultCommitInterval", "1000");
     engine.setConfig(config);
-    if (engine.config().mode.value() != fcitx::LotusMode::Smooth || *engine.config().defaultBackspaceInterval != 17 || *engine.config().defaultPostDelay != 33 ||
+    if (engine.config().mode.value() != fcitx::LotusMode::SuperSmooth || *engine.config().defaultBackspaceInterval != 17 || *engine.config().defaultPostDelay != 33 ||
         *engine.config().defaultCommitInterval != 1000) {
-        reportFailure("configure Smooth/Telex and default delays", "mode=Smooth, intervals 17/33/1000", "configured values differ",
+        reportFailure("configure SuperSmooth/Telex and default delays", "mode=SuperSmooth, intervals 17/33/1000", "configured values differ",
                       "the delay wiring cannot be exercised with the wrong configuration");
         return 1;
     }

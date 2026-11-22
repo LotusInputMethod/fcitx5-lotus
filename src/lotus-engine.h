@@ -379,12 +379,6 @@ namespace fcitx {
         bool handleModeMenuHotkey(InputContext* ic, KeyEvent& keyEvent);
 
         /**
-         * @brief Stores the surrounding text length when the cursor sits at the end of the text.
-         * @param ic Current input context.
-         */
-        static void syncRealtextLen(InputContext* ic);
-
-        /**
          * @brief Collects the visible modes in Mode Order order, skipping duplicates.
          * @return The enabled modes in the order they are cycled through.
          */
