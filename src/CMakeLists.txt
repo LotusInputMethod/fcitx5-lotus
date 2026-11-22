@@ -23,7 +23,7 @@ target_link_libraries(lotus_core_objects PRIVATE
     PkgConfig::XCB
     PkgConfig::XCB_XTEST
     PkgConfig::WAYLAND_CLIENT
-    Pthread::Pthread
+    Threads::Threads
 )
 
 set(LOTUS_VK_HEADER "${CMAKE_CURRENT_BINARY_DIR}/virtual-keyboard-unstable-v1-client-protocol.h")
@@ -115,7 +115,7 @@ target_link_libraries(lotus
         PkgConfig::XCB
         PkgConfig::XCB_XTEST
         PkgConfig::WAYLAND_CLIENT
-        Pthread::Pthread
+        Threads::Threads
 )
 
 target_include_directories(lotus PRIVATE

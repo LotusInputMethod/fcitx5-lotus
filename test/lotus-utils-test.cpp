@@ -4,6 +4,7 @@
 //
 // Ports bamboo-core/utils_test.go 1:1 (same cases, same expectations) plus the case map helpers.
 #include "case_map.h"
+#include "test-utils.h"
 #include "utils.h"
 
 #include <cstdio>
@@ -25,7 +26,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the C++ port must behave exactly like bamboo-core's utils");
             ++failures;
         }
     }

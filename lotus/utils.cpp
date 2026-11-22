@@ -148,6 +148,14 @@ namespace lotus::utils {
         return std::ranges::find(keys, key) != keys.end();
     }
 
+    std::size_t countTrailingRepeat(std::u32string_view word, char32_t codePoint) {
+        std::size_t count = 0U;
+        while (count < word.size() && word[word.size() - 1U - count] == codePoint) {
+            ++count;
+        }
+        return count;
+    }
+
     bool canProcessKey(char32_t lowerKey, std::u32string_view effectKeys) {
         if (isAlpha(lowerKey) || inKeyList(effectKeys, lowerKey)) {
             return true;

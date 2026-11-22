@@ -36,8 +36,6 @@ class UinputDevice {
     UinputDevice() = default;
 
     bool initialize();
-    void sendShiftDown(uint16_t code);
-    void sendShiftUp(uint16_t code);
     /**
      * @brief Emits a press+release batch for one key (press, SYN, release, SYN),
      *        same style as the original backspace write.

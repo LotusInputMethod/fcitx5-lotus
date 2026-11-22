@@ -15,7 +15,6 @@
 #include "common-fd-guard.h"
 #include "common-protocol.h"
 #include "common-socket-name.h"
-#include "lotus-physical-shift.h"
 
 #include <algorithm>
 #include <array>
@@ -101,14 +100,6 @@ void UinputDevice::sendMod(uint16_t code, int value) {
     }
 }
 
-void UinputDevice::sendShiftDown(uint16_t code) {
-    sendMod(code, 1);
-}
-
-void UinputDevice::sendShiftUp(uint16_t code) {
-    sendMod(code, 0);
-}
-
 LibinputContext::LibinputContext(const struct libinput_interface* interface) : udev_(udev_new()) {
     if (udev_ == nullptr) {
         return;
@@ -186,8 +177,8 @@ int main() {
     const AbstractSocket kbSocket    = makeAbstractSocket(lotusSocketName("kbSocket"));
     const AbstractSocket mouseSocket = makeAbstractSocket(lotusSocketName("mouseSocket"));
 
-    UinputDevice         uinput;
-    PhysicalShiftState   physical_shift;
+    // Setup Uinput
+    UinputDevice uinput;
     if (!uinput.initialize()) {
         LotusLogger::instance().error("Failed to initialize uinput device");
         return 1;
@@ -230,11 +221,8 @@ int main() {
 
     FdGuard               addonFd;
     FdGuard               kbClientFd;
-    size_t                pendingBackspaces   = 0;
-    size_t                pendingSelects      = 0;     ///< remaining Shift+Left events to pace out
-    bool                  pendingAnchor       = false; ///< anchor key still to be injected after the backspace burst
-    bool                  pendingSelectAnchor = false; ///< Shift release + Delete + anchor still to run after the left burst
-    bool                  shiftHeld           = false; ///< the server pressed KEY_LEFTSHIFT for an in-flight selection
+    size_t                pendingBackspaces = 0;
+    bool                  pendingAnchor     = false; ///< anchor key still to be injected after the backspace burst
 
     uint32_t              currentPostDelay = 0; ///< stores postDelay from KbMsg
     uint32_t              currentInterval  = 5; ///< ms between injected keys within one request
@@ -251,7 +239,7 @@ int main() {
     while (g_running.load(std::memory_order_acquire)) {
 
         int pollTimeout = -1;
-        if (pendingBackspaces > 0 || pendingSelects > 0 || pendingAnchor || pendingSelectAnchor) {
+        if (pendingBackspaces > 0 || pendingAnchor) {
             pollTimeout = static_cast<int>(currentInterval);
         }
 
@@ -274,22 +262,6 @@ int main() {
                 }
                 uinput.sendTap(KEY_PAUSE);
                 pendingAnchor = false;
-            } else if (pendingSelects > 0) {
-                uinput.sendTap(KEY_LEFT);
-                --pendingSelects;
-            } else if (pendingSelectAnchor) {
-                if (shiftHeld) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                    uinput.sendShiftUp(KEY_LEFTSHIFT);
-                    shiftHeld = false;
-                } else {
-                    uinput.sendTap(KEY_DELETE);
-                    if (currentPostDelay > 0) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(currentPostDelay));
-                    }
-                    uinput.sendTap(KEY_PAUSE);
-                    pendingSelectAnchor = false;
-                }
             }
         }
 
@@ -320,84 +292,22 @@ int main() {
             ssize_t n = recv(fds[kKbClientIndex].fd, &msg, sizeof(msg), 0);
             if (n <= 0) {
                 LotusLogger::instance().warn("Keyboard client disconnected or connection error");
-                if (shiftHeld) {
-                    uinput.sendShiftUp(KEY_LEFTSHIFT); // never leave Shift stuck down
-                    shiftHeld = false;
-                }
-                pendingSelects      = 0;
-                pendingSelectAnchor = false;
                 kbClientFd.reset(-1);
                 fds[kKbClientIndex].fd = -1;
             } else if (std::cmp_not_equal(n, sizeof(KbMsg)) && std::cmp_not_equal(n, sizeof(int32_t))) {
                 LotusLogger::instance().warn("Malformed keyboard message (" + std::to_string(n) + " bytes)");
             } else {
-                currentInterval             = msg.interval > 0 ? std::min<uint32_t>(msg.interval, 1000) : 5;
-                const ShiftState shiftState = physical_shift.shiftHeld();
-                const KbOp       op         = resolveKeyboardOp(msg.op, shiftState);
-                if (op != msg.op) {
-                    if (shiftState == ShiftState::Held) {
-                        LotusLogger::instance().info("Shift is held: replacing with Backspace instead of Shift+Left");
-                    } else {
-                        LotusLogger::instance().info("Shift state unknown, using safe Backspace fallback instead of Shift+Left");
-                    }
-                }
+                currentInterval = msg.interval > 0 ? std::min<uint32_t>(msg.interval, 1000) : 5;
+                const KbOp op   = msg.op;
                 if (op == KbOp::Cancel) {
-                    // Finish the burst instead of leaving a partial selection behind: the
-                    // Select handler taps its first Shift+Left before any later message
-                    // (same socket, FIFO order), so a selection already exists here.
-                    if (pendingSelectAnchor) {
-                        if (pendingSelects > 0) {
-                            if (!shiftHeld) {
-                                uinput.sendShiftDown(KEY_LEFTSHIFT);
-                                shiftHeld = true;
-                            }
-                            while (pendingSelects > 0) {
-                                std::this_thread::sleep_for(std::chrono::milliseconds(currentInterval));
-                                uinput.sendTap(KEY_LEFT);
-                                --pendingSelects;
-                            }
-                        }
-                        if (shiftHeld) {
-                            uinput.sendShiftUp(KEY_LEFTSHIFT);
-                            shiftHeld = false;
-                        }
-                        uinput.sendTap(KEY_DELETE);
-                    } else if (shiftHeld) {
-                        uinput.sendShiftUp(KEY_LEFTSHIFT);
-                        shiftHeld = false;
-                    }
-                    pendingBackspaces   = 0;
-                    pendingSelects      = 0;
-                    pendingAnchor       = false;
-                    pendingSelectAnchor = false;
-                } else if (msg.count > 0 && op == KbOp::Select) {
-                    if (msg.preDelay > 0) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(msg.preDelay));
-                    }
-                    currentPostDelay = msg.postDelay;
-                    if (!shiftHeld) {
-                        uinput.sendShiftDown(KEY_LEFTSHIFT);
-                        shiftHeld = true;
-                    }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(currentInterval));
-                    uinput.sendTap(KEY_LEFT);
-                    // A previous burst may still be draining.
-                    pendingSelects += msg.count - 1;
-                    pendingSelectAnchor = true;
-                    pendingAnchor       = false;
-
+                    pendingBackspaces = 0;
+                    pendingAnchor     = false;
                 } else if (msg.count > 0 && op == KbOp::Backspace) {
                     if (msg.preDelay > 0) {
                         std::this_thread::sleep_for(std::chrono::milliseconds(msg.preDelay));
                     }
                     currentPostDelay = msg.postDelay;
-                    if (shiftHeld) {
-                        uinput.sendShiftUp(KEY_LEFTSHIFT);
-                        shiftHeld           = false;
-                        pendingSelects      = 0;
-                        pendingSelectAnchor = false;
-                    }
-                    pendingAnchor = true;
+                    pendingAnchor    = true;
                     pendingBackspaces += msg.count - 1;
                     uinput.sendTap(KEY_BACKSPACE);
                 } else if (msg.count > 0) {
@@ -437,23 +347,15 @@ int main() {
                     const char* const       rawName = libinput_device_get_name(device);
                     const std::string_view  name    = rawName != nullptr ? std::string_view(rawName) : std::string_view{};
                     LotusLogger::instance().info("Device added: " + std::string(name));
-                    physical_shift.trackDevice(device);
                     if (libinput_device_config_tap_get_finger_count(device) > 0) {
                         libinput_device_config_tap_set_enabled(device, LIBINPUT_CONFIG_TAP_ENABLED);
                         libinput_device_config_tap_set_button_map(device, LIBINPUT_CONFIG_TAP_MAP_LRM);
                     }
                     break;
                 }
-                case LIBINPUT_EVENT_DEVICE_REMOVED: {
-                    physical_shift.forgetDevice(libinput_event_get_device(event.get()));
-                    break;
-                }
                 default: break;
             }
         }
-    }
-    if (shiftHeld) {
-        uinput.sendShiftUp(KEY_LEFTSHIFT);
     }
     LotusLogger::instance().info("Terminating server...");
     return exitCode;

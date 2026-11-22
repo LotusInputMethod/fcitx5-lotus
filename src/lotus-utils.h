@@ -29,6 +29,11 @@
 */
 #define UNIX_PATH_MAX sizeof(((struct sockaddr_un*)0)->sun_path)
 
+/** @brief Anchor character typed before a Smooth replacement burst (U+00B7 MIDDLE DOT). */
+inline constexpr char32_t kDotAnchorCodePoint = 0x00B7;
+/** @brief UTF-32 text of the anchor character. */
+inline constexpr std::u32string_view kDotAnchorText = U"\u00B7";
+
 // Forward declaration: the header only passes InputContext pointers around.
 namespace fcitx {
     class InputContext;
@@ -40,7 +45,6 @@ extern LOTUS_EXPORT std::atomic<fcitx::LotusMode> g_realMode;        ///< Curren
 extern std::atomic<bool>                          g_mouseClicked;    ///< Mouse click detection flag
 extern std::atomic<bool>                          g_isDeleting;      ///< Deletion in progress flag
 extern std::atomic<bool>                          g_stopFlagMonitor; ///< Signal to stop monitor threads
-extern std::atomic<unsigned int>                  g_realTextLen;     ///< Current text length
 extern std::atomic<int>                           g_mouseSocketFd;   ///< Mouse socket file descriptor
 
 /**
@@ -134,13 +138,6 @@ enum class MouseClickAction : std::uint8_t {
 LOTUS_EXPORT MouseClickAction mouseClickAction(fcitx::LotusMode mode);
 
 /**
- * @brief Reports whether a program name belongs to a Chromium based browser.
- * @param program Program name reported by fcitx
- * @return True for Chromium-based
- */
-bool isChromiumProgram(std::string_view program);
-
-/**
  * @brief Reads the process name from /proc/<pid>/comm.
  * @param pid Process id.
  * @return Process name, empty when it cannot be read.
@@ -161,7 +158,22 @@ std::string LOTUS_EXPORT resolveProgramName(std::string_view icProgram, std::str
  * @param B Second text.
  * @return Pairs of delete part and add part.
  */
-DiffPart compareAndSplitU32(std::u32string_view oldText, std::u32string_view newText);
+LOTUS_EXPORT DiffPart compareAndSplitU32(std::u32string_view oldText, std::u32string_view newText);
+
+/**
+ * @brief Reports whether a code point is a combining mark (U+0300..U+036F).
+ * @param codePoint Code point to check.
+ * @return True for a combining mark, which attaches to the preceding base character.
+ */
+LOTUS_EXPORT bool isCombiningMark(char32_t codePoint);
+
+/**
+ * @brief Number of grapheme clusters in a text, the unit a BackSpace deletes.
+ *
+ * @param text Text to measure.
+ * @return Cluster count; a combining mark at the start counts as a cluster of its own.
+ */
+LOTUS_EXPORT size_t graphemeClusterCount(std::u32string_view text);
 
 /**
  * @brief Get the frontend name from the input context.

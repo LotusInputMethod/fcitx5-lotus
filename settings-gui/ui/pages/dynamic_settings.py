@@ -66,7 +66,6 @@ SETTINGS_MAP = {
         "MODE SWITCHING": [
             "ShortcutSmooth",
             "ShortcutSuperSmooth",
-            "ShortcutSelect",
             "ShortcutSurroundingText",
             "ShortcutPreedit",
             "ShortcutEmoji",
@@ -98,7 +97,6 @@ GROUP_DESCRIPTIONS = {
 MODE_SHORTCUT_TO_VISIBILITY = {
     "ShortcutSmooth": "ShowModeSmooth",
     "ShortcutSuperSmooth": "ShowModeSuperSmooth",
-    "ShortcutSelect": "ShowModeSelect",
     "ShortcutSurroundingText": "ShowModeSurroundingText",
     "ShortcutPreedit": "ShowModePreedit",
     "ShortcutEmoji": "ShowModeEmoji",
@@ -109,7 +107,6 @@ MODE_SHORTCUT_TO_VISIBILITY = {
 MODE_KEY_TO_INTERNAL_NAME = {
     "ShortcutSmooth": "Smooth",
     "ShortcutSuperSmooth": "SuperSmooth",
-    "ShortcutSelect": "Select",
     "ShortcutSurroundingText": "SurroundingText",
     "ShortcutPreedit": "Preedit",
     "ShortcutEmoji": "Emoji",
@@ -449,7 +446,7 @@ class DynamicSettingsPage(QWidget):
         # Get current order from config
         order_str = self.current_values.get(
             "ModeOrder",
-            "Smooth,Uinput,Select,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default",
+            "Smooth,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default",
         )
         order = order_str.split(",")
 

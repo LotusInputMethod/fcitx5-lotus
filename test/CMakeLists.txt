@@ -17,7 +17,7 @@ target_link_libraries(lotus_test_core PUBLIC
     PkgConfig::XCB
     PkgConfig::XCB_XTEST
     PkgConfig::WAYLAND_CLIENT
-    Pthread::Pthread
+    Threads::Threads
 )
 
 # The headless tests compile without PIC while lotus_core_objects builds with
@@ -34,7 +34,7 @@ target_link_libraries(lotus_test_pch PRIVATE
     Fcitx5::Core
     Fcitx5::Config
     Fcitx5::Module::Emoji
-    Pthread::Pthread
+    Threads::Threads
 )
 target_compile_definitions(lotus_test_pch PRIVATE
     FCITX5_LOTUS_SETTINGS_PATH="${CMAKE_INSTALL_FULL_BINDIR}/fcitx5-lotus-settings"
@@ -81,7 +81,7 @@ function(add_lotus_headless_test)
         Fcitx5::Core
         Fcitx5::Config
         Fcitx5::Module::Emoji
-        Pthread::Pthread
+        Threads::Threads
         ${ARG_LINK_LIBRARIES}
     )
     if(ARG_INCLUDE_DIRECTORIES)
@@ -139,13 +139,7 @@ add_lotus_headless_test(TARGET uinput_auto_restore SOURCES uinput-auto-restore.c
 add_lotus_headless_test(TARGET anchor_key_protocol SOURCES anchor-key-protocol.cpp LABELS "integration;smooth")
 add_lotus_headless_test(TARGET uinput_server_probe SOURCES uinput-server-probe.cpp LABELS "unit;server")
 add_lotus_headless_test(TARGET preedit_backspace SOURCES preedit-backspace.cpp LABELS "integration;preedit")
-add_lotus_headless_test(TARGET select_mode_replacement SOURCES select-mode-replacement.cpp LABELS "integration;select")
-add_lotus_headless_test(TARGET select_modifier_replay SOURCES select-modifier-replay.cpp LABELS "integration;select")
-add_lotus_headless_test(TARGET chromium_address_bar SOURCES chromium-address-bar.cpp LABELS "integration;select")
-add_lotus_headless_test(TARGET select_anchor_completion SOURCES select-anchor-completion.cpp LABELS "integration;select")
-add_lotus_headless_test(TARGET select_cancel SOURCES select-cancel.cpp LABELS "integration;select")
-add_lotus_headless_test(TARGET select_cancel_reconcile SOURCES select-cancel-reconcile.cpp LABELS "integration;select")
-add_lotus_headless_test(TARGET select_word_break SOURCES select-word-break.cpp LABELS "integration;select")
+add_lotus_headless_test(TARGET mode_dot_anchor SOURCES mode-dot-anchor.cpp LABELS "integration;uinput")
 add_lotus_headless_test(TARGET replacement_delays SOURCES replacement-delays.cpp LABELS "integration;smooth")
 add_lotus_headless_test(TARGET merged_replacement_commit SOURCES merged-replacement-commit.cpp LABELS "integration;smooth")
 add_lotus_headless_test(TARGET dict_reload SOURCES dict-reload.cpp LABELS "integration;dictionary")
@@ -158,16 +152,6 @@ add_lotus_headless_test(
     LABELS "unit;server"
     INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/server
     LINK_LIBRARIES PkgConfig::LIBEVDEV
-)
-add_lotus_headless_test(
-    TARGET select_shift_plan
-    SOURCES
-        select-shift-plan.cpp
-        ${PROJECT_SOURCE_DIR}/server/lotus-physical-shift.cpp
-        ${PROJECT_SOURCE_DIR}/server/lotus-logger.cpp
-    LABELS "unit;server"
-    INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/server
-    LINK_LIBRARIES PkgConfig::LIBEVDEV PkgConfig::LIBINPUT
 )
 add_lotus_headless_test(
     TARGET server_socket_init
@@ -195,6 +179,8 @@ add_lotus_headless_test(TARGET emoji_history_unit SOURCES emoji-history-unit.cpp
 add_lotus_headless_test(TARGET kb_sender SOURCES kb-sender.cpp LABELS "unit;socket")
 add_lotus_headless_test(TARGET program_name SOURCES program-name.cpp LABELS "unit;apprule")
 add_lotus_headless_test(TARGET mouse_click_plan SOURCES mouse-click-plan.cpp LABELS "unit;preedit")
+add_lotus_headless_test(TARGET unicode_cluster SOURCES unicode-cluster-test.cpp LABELS "unit;unicode")
+add_lotus_headless_test(TARGET nfd_terminal_commit SOURCES nfd-terminal-commit.cpp LABELS "integration;unicode")
 add_lotus_headless_test(TARGET x11_keyboard_inject SOURCES x11-keyboard-inject.cpp LABELS "integration;x11" LINK_LIBRARIES PkgConfig::XCB_XTEST PkgConfig::XCB)
 # The real check needs an X server with Xtest: run it again under a throwaway Xvfb.
 find_program(XVFB_RUN xvfb-run)
@@ -209,7 +195,7 @@ set_tests_properties(kb_sender PROPERTIES
     ENVIRONMENT "LOTUS_SOCKET_NAMESPACE=ctest-${LOTUS_CTEST_SOCKET_NAMESPACE}")
 
 string(MD5 LOTUS_CTEST_SOCKET_NAMESPACE "${PROJECT_BINARY_DIR}")
-set_tests_properties(smooth_buffered_key_replay focus_bounce_word_survival focus_out_mid_replacement uinput_auto_restore anchor_key_protocol uinput_server_probe select_mode_replacement select_modifier_replay chromium_address_bar select_anchor_completion select_cancel select_cancel_reconcile select_word_break replacement_delays app_rule_delay_wire dbus_deferred_commit merged_replacement_commit runtime_safety
+set_tests_properties(smooth_buffered_key_replay focus_bounce_word_survival focus_out_mid_replacement uinput_auto_restore anchor_key_protocol uinput_server_probe mode_dot_anchor replacement_delays app_rule_delay_wire dbus_deferred_commit merged_replacement_commit runtime_safety
     PROPERTIES RESOURCE_LOCK lotus_kb_socket
     ENVIRONMENT "LOTUS_SOCKET_NAMESPACE=ctest-${LOTUS_CTEST_SOCKET_NAMESPACE}")
 

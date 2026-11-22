@@ -6,6 +6,7 @@
 // needs no privileges, so this test pins the identity and the exact key set the old raw UI_SET_*
 // setup produced, without opening /dev/uinput (it passes inside a user namespace as well).
 #include "lotus-uinput-device.h"
+#include "test-utils.h"
 
 #include <cstdio>
 #include <exception>
@@ -17,7 +18,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "the uinput keyboard must expose exactly the key set the server injects with");
             ++failures;
         }
     }
@@ -27,7 +28,7 @@ namespace {
 int runUinputDevice() {
     const LibevdevDevice device = buildLotusUinputDevice();
     if (device == nullptr) {
-        std::printf("FAIL libevdev_new\n");
+        reportFailure("build the uinput keyboard", "a libevdev device", "libevdev_new returned null", "without the keyboard the server cannot inject any key");
         return 1;
     }
 
@@ -56,7 +57,7 @@ int main() {
     try {
         return runUinputDevice();
     } catch (const std::exception& error) {
-        std::printf("FAIL unexpected exception: %s\n", error.what());
+        reportFailure("unexpected exception", "no exception escapes the test", error.what(), "an escaped exception would crash the server instead of failing one check");
         return 1;
     }
 }

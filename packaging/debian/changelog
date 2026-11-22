@@ -1,5 +1,9 @@
-fcitx5-lotus (6.1.1-1) unstable; urgency=medium
+fcitx5-lotus (7.0.0-1) unstable; urgency=medium
 
-  * Fix shift state wrong when using select mode with wlr backend
+  * Restore non-VN word before digit in macro mode
+  * Preserve repeated a/e elongation after horn vowels
+  * Fix bug in "Unicode tổ hợp"
+  * Remove Select mode
+  * Add support autocomplete for all app using Uinput Smooth mode
 
- -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Sat, 14 Nov 2026 09:10:00 +0700
+ -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Sun, 22 Nov 2026 16:36:00 +0700

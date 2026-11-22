@@ -44,20 +44,14 @@ namespace fcitx {
         bool available();
 
         /**
-         * @brief Reports whether either Shift key is currently held on the X keyboard.
-         * @return True when Shift is down, or when the state cannot be read (fail safe).
-         */
-        [[nodiscard]] static bool shiftHeld();
-
-        /**
          * @brief Queues a replacement burst.
-         * @param backspaces Number of BackSpace (or Shift+Left when @p select) events.
+         * @param backspaces Number of BackSpace events.
          * @param utf8 Text to type after the deletions; may be empty.
          * @param intervalMs Delay between two injected keys, at least 1 ms.
-         * @param select True to select with Shift+Left and Delete instead of backspacing.
+         * @param anchorDot True to type the Chromium anchor character before the deletions.
          * @return True when the burst was queued.
          */
-        bool emit(int backspaces, std::string_view utf8, int intervalMs, bool select);
+        bool emit(int backspaces, std::string_view utf8, int intervalMs, bool anchorDot);
 
         /**
          * @brief Hands a delayed task to the shared runner.
@@ -83,7 +77,7 @@ namespace fcitx {
         ~LotusX11Keyboard();
 
         xcb_connection_t*      ensureConnection();
-        void                   runBurst(int backspaces, const std::vector<uint32_t>& cps, int intervalMs, bool select);
+        void                   runBurst(int backspaces, const std::vector<uint32_t>& cps, int intervalMs, bool anchorDot);
 
         std::mutex             connectionMutex_;   ///< Guards the worker connection
         XcbConnectionPtr       connection_;        ///< X server connection owned by the runner thread

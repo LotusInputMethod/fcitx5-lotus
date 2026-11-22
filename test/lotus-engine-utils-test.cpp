@@ -12,6 +12,7 @@
 #include "flattener.h"
 #include "input_method.h"
 #include "rule.h"
+#include "test-utils.h"
 #include "transformation.h"
 #include "types.h"
 
@@ -38,7 +39,7 @@ namespace {
 
     void check(const char* name, bool condition) {
         if (!condition) {
-            std::printf("FAIL %s\n", name);
+            reportFailure(name, "holds", "did not hold", "engine utils must behave exactly like the Go helpers they port");
             ++failures;
         }
     }
@@ -46,7 +47,8 @@ namespace {
     void checkCanvas(const char* name, const Composition& composition, lotus::ModeSet mode, std::u32string_view expected) {
         const std::u32string actual = lotus::flatten(composition, mode);
         if (actual != expected) {
-            std::printf("FAIL %s: got %zu code points, expected %zu\n", name, actual.size(), expected.size());
+            reportFailure(name, std::to_string(expected.size()) + " code points", std::to_string(actual.size()) + " code points",
+                          "the flattened canvas must match the expectation ported from the Go tests");
             ++failures;
         }
     }
@@ -117,7 +119,8 @@ namespace {
 } // namespace
 
 int run_engine_utils() {
-    const InputMethod       telex  = lotus::cachedInputMethod(lotus::InputMethodId::Telex);
+    // Bind the cached definition by reference: copying it would clone every rule vector.
+    const InputMethod&      telex  = lotus::cachedInputMethod(lotus::InputMethodId::Telex);
     const std::vector<Rule> wRules = rulesForKey(telex, U'w');
     const std::vector<Rule> oRules = rulesForKey(telex, U'o');
 

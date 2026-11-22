@@ -52,27 +52,8 @@ namespace fcitx {
             }
         };
 
-        /// @brief Releases an xcb_query_keymap reply, which libxcb hands out through malloc.
-        struct QueryKeymapReplyDeleter {
-            /**
-             * @brief Frees the reply.
-             * @param reply Reply to release, may be null.
-             */
-            void operator()(xcb_query_keymap_reply_t* reply) const noexcept {
-                std::free(reply); // NOLINT(cppcoreguidelines-no-malloc, cppcoreguidelines-owning-memory)
-            }
-        };
-
         using KeyboardMappingReplyPtr = std::unique_ptr<xcb_get_keyboard_mapping_reply_t, KeyboardMappingReplyDeleter>; ///< Owning mapping reply
         using TestVersionReplyPtr     = std::unique_ptr<xcb_test_get_version_reply_t, TestVersionReplyDeleter>;         ///< Owning Xtest version reply
-        using QueryKeymapReplyPtr     = std::unique_ptr<xcb_query_keymap_reply_t, QueryKeymapReplyDeleter>;             ///< Owning keymap reply
-
-        /// @brief True when the keymap bit of @p keycode is set, i.e. that key is currently pressed.
-        bool keyPressed(const xcb_query_keymap_reply_t& reply, xcb_keycode_t keycode) {
-            const std::span<const uint8_t> keys(reply.keys, sizeof(reply.keys));
-            const size_t                   index = keycode / 8U;
-            return index < keys.size() && (keys[index] & (1U << (keycode % 8U))) != 0;
-        }
 
         /// @brief The server keyboard mapping of the keycode range.
         struct KeyboardMap {
@@ -188,29 +169,6 @@ namespace fcitx {
         return supported_;
     }
 
-    bool LotusX11Keyboard::shiftHeld() {
-        if (getEnv("DISPLAY").empty()) {
-            // No X session: Shift cannot be held on the X keyboard.
-            return false;
-        }
-        const XcbConnectionPtr conn(xcb_connect(nullptr, nullptr));
-        if (!conn || xcb_connection_has_error(conn.get()) != 0) {
-            // Fail safe: behave like the uinput server's unknown physical state.
-            return true;
-        }
-        const KeyboardMap map        = readKeyboardMap(conn.get());
-        const auto        leftShift  = findKeycode(map, XK_Shift_L);
-        const auto        rightShift = findKeycode(map, XK_Shift_R);
-        if (map.keysyms.empty() || (!leftShift && !rightShift)) {
-            return true;
-        }
-        const QueryKeymapReplyPtr reply(xcb_query_keymap_reply(conn.get(), xcb_query_keymap(conn.get()), nullptr));
-        if (!reply) {
-            return true;
-        }
-        return (leftShift && keyPressed(*reply, *leftShift)) || (rightShift && keyPressed(*reply, *rightShift));
-    }
-
     xcb_connection_t* LotusX11Keyboard::ensureConnection() {
         std::scoped_lock lock(connectionMutex_);
         if (connection_ && xcb_connection_has_error(connection_.get()) == 0) {
@@ -233,7 +191,7 @@ namespace fcitx {
         connection_.reset();
     }
 
-    bool LotusX11Keyboard::emit(int backspaces, std::string_view utf8, int intervalMs, bool select) {
+    bool LotusX11Keyboard::emit(int backspaces, std::string_view utf8, int intervalMs, bool anchorDot) {
         if (!available()) {
             return false;
         }
@@ -249,15 +207,15 @@ namespace fcitx {
                 cps.push_back(static_cast<uint32_t>(cp));
             }
         }
-        if (backspaces == 0 && cps.empty()) {
+        if (backspaces == 0 && cps.empty() && !anchorDot) {
             return true;
         }
         cancelled_.store(false, std::memory_order_release);
-        runner_.runAfter(0, [this, backspaces, cps = std::move(cps), intervalMs, select] { runBurst(backspaces, cps, intervalMs, select); });
+        runner_.runAfter(0, [this, backspaces, cps = std::move(cps), intervalMs, anchorDot] { runBurst(backspaces, cps, intervalMs, anchorDot); });
         return true;
     }
 
-    void LotusX11Keyboard::runBurst(int backspaces, const std::vector<uint32_t>& cps, int intervalMs, bool select) {
+    void LotusX11Keyboard::runBurst(int backspaces, const std::vector<uint32_t>& cps, int intervalMs, bool anchorDot) {
         xcb_connection_t* conn = ensureConnection();
         if (conn == nullptr) {
             LOTUS_ERROR("x11-keyboard: cannot connect to the X server");
@@ -278,34 +236,30 @@ namespace fcitx {
             return;
         }
         const auto backspaceKey = findKeycode(map, XK_BackSpace);
-        const auto leftKey      = findKeycode(map, XK_Left);
-        const auto deleteKey    = findKeycode(map, XK_Delete);
-        const auto shiftKey     = findKeycode(map, XK_Shift_L);
-        if (!backspaceKey || (select && (!leftKey || !deleteKey || !shiftKey))) {
+        if (!backspaceKey) {
             LOTUS_ERROR("x11-keyboard: standard keysyms are missing from the keymap");
             return;
         }
 
-        if (select) {
-            // Shift must stay down for the whole Left run, so it is pressed once and always released.
-            xcb_test_fake_input(conn, XCB_KEY_PRESS, *shiftKey, 0, XCB_NONE, 0, 0, 0);
+        if (anchorDot) {
+            const std::vector<xcb_keycode_t> anchorSpare = spareKeycodes(map, 1);
+            if (anchorSpare.empty()) {
+                LOTUS_ERROR("x11-keyboard: no spare keycode for the anchor");
+                return;
+            }
+            const xcb_keycode_t             keycode  = anchorSpare[0];
+            const std::vector<xcb_keysym_t> original = keycodeKeysyms(map, keycode);
+            std::vector<xcb_keysym_t>       keysyms(map.keysymsPerKeycode, XCB_NO_SYMBOL);
+            keysyms[0] = kUnicodeKeysymBase | kDotAnchorCodePoint;
+            changeKeycode(conn, map, keycode, keysyms);
             xcb_flush(conn);
-            std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
-            for (int i = 0; i < backspaces && !stopped(); ++i) {
-                xcb_test_fake_input(conn, XCB_KEY_PRESS, *leftKey, 0, XCB_NONE, 0, 0, 0);
-                xcb_test_fake_input(conn, XCB_KEY_RELEASE, *leftKey, 0, XCB_NONE, 0, 0, 0);
-                xcb_flush(conn);
-                std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
-            }
-            xcb_test_fake_input(conn, XCB_KEY_RELEASE, *shiftKey, 0, XCB_NONE, 0, 0, 0);
+            tapKey(conn, keycode, intervalMs);
+            changeKeycode(conn, map, keycode, original);
             xcb_flush(conn);
-            if (!cps.empty() && !stopped()) {
-                tapKey(conn, *deleteKey, intervalMs);
-            }
-        } else {
-            for (int i = 0; i < backspaces && !stopped(); ++i) {
-                tapKey(conn, *backspaceKey, intervalMs);
-            }
+        }
+
+        for (int i = 0; i < backspaces && !stopped(); ++i) {
+            tapKey(conn, *backspaceKey, intervalMs);
         }
 
         const std::vector<xcb_keycode_t> spares = spareKeycodes(map, kMaxTextKeycodes);

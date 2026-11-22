@@ -8,6 +8,7 @@
  * key the engine lets through is appended as the client would.
  */
 
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
@@ -23,40 +24,23 @@ namespace {
     using lotus::utf8::decode;
     using lotus::utf8::encode;
 
-    bool sendKey(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                          "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()),
-                          "the uinput auto restore test saw an unexpected key outcome");
-            return false;
-        }
-        return true;
-    }
-
     bool completeOneBurst(const KbMsg& msg, KbSocketListener& listener, fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context,
                           std::u32string& text, std::vector<std::string>& trace) {
         (void)listener;
-        const bool isSelect = msg.op == KbOp::Select;
-        if ((!isSelect && msg.op != KbOp::Backspace) || msg.count == 0 || msg.count > text.size()) {
-            reportFailure("receive replacement request", "op=backspace|select, count <= word length",
+        if (msg.op != KbOp::Backspace || msg.count == 0 || msg.count > text.size()) {
+            reportFailure("receive replacement request", "op=backspace, count <= word length",
                           "op=" + std::to_string(static_cast<int>(msg.op)) + ", count=" + std::to_string(msg.count) + ", word length=" + std::to_string(text.size()),
                           "the replacement request does not match the typed word");
             return false;
         }
-        trace.push_back(std::string(isSelect ? "select:" : "burst:") + std::to_string(msg.count) + " (word " + encode(text) + ")");
+        trace.push_back("burst:" + std::to_string(msg.count) + " (word " + encode(text) + ")");
         text.resize(text.size() - msg.count);
-        const fcitx::KeySym injected = isSelect ? FcitxKey_Left : FcitxKey_BackSpace;
         for (size_t i = 0; i < msg.count; ++i) {
-            if (!sendKey(engine, entry, context, injected, false)) {
+            if (!sendKey(engine, entry, context, FcitxKey_BackSpace, false, "the injected echoes must pass through so the client buffer shrinks")) {
                 return false;
             }
         }
-        if (isSelect && !sendKey(engine, entry, context, FcitxKey_Delete, false)) {
-            return false;
-        }
-        return sendKey(engine, entry, context, FcitxKey_Pause, true);
+        return sendKey(engine, entry, context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement");
     }
 
     bool completeBurst(KbSocketListener& listener, fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, std::u32string& text,
@@ -173,7 +157,7 @@ int main() {
     };
 
     int failures = 0;
-    for (const char* mode : {"Uinput (Smooth)", "Uinput (Select)"}) {
+    for (const char* mode : {"Uinput (Super Smooth)"}) {
         fcitx::RawConfig config;
         config.setValueByPath("Mode", mode);
         config.setValueByPath("InputMethod", "Telex");
@@ -197,8 +181,8 @@ int main() {
                     return 1;
                 }
                 if (text != test.want) {
-                    std::printf("FAIL uinput auto restore '%s' in '%s' (%s): expected '%s', got '%s'\n", std::string(test.keys).c_str(), mode, deferred ? "deferred" : "immediate",
-                                encode(test.want).c_str(), encode(text).c_str());
+                    reportFailure("uinput auto restore '" + std::string(test.keys) + "' in " + std::string(mode) + " (" + (deferred ? "deferred" : "immediate") + ")",
+                                  encode(test.want), encode(text), "a deferred reset must still restore the committed word in every mode");
                     for (const std::string& step : trace) {
                         std::printf("  %s\n", step.c_str());
                     }
