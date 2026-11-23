@@ -227,7 +227,9 @@ namespace fcitx {
             keycodes += ";\n";
             symbols += "    key <";
             symbols += name;
-            symbols += "> { [ ";
+            symbols += "> { type = \"TWO_LEVEL\", [ ";
+            symbols += xkbSymName(cps[i]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            symbols += ", ";
             symbols += xkbSymName(cps[i]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             symbols += " ] };\n";
         }
