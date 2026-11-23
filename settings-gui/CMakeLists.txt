@@ -17,7 +17,7 @@ configure_file(
     @ONLY
 )
 
-install(DIRECTORY core ui
+install(DIRECTORY core adw_ui ui
         DESTINATION "${SETTINGS_GUI_INSTALL_DIR}"
         FILES_MATCHING PATTERN "*.py" PATTERN "*.qss" PATTERN "*.svg")
 

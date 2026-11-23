@@ -7,12 +7,28 @@ import importlib
 import sys
 import unittest
 
-import _stubs  # noqa: F401  (installs the qtpy/dbus stand-ins)
+import _stubs  # noqa: F401  (installs the qtpy/gi/dbus stand-ins)
 
 EXPECTED_MODULES = (
     "i18n",
     "main",
     "core.dbus_handler",
+    "adw_ui",
+    "adw_ui.app_detector",
+    "adw_ui.utils",
+    "adw_ui.window",
+    "adw_ui.widgets",
+    "adw_ui.widgets.reset_dialog",
+    "adw_ui.widgets.section_header",
+    "adw_ui.widgets.shortcut_dialog",
+    "adw_ui.pages",
+    "adw_ui.pages.base",
+    "adw_ui.pages.dictionary",
+    "adw_ui.pages.extra",
+    "adw_ui.pages.keymap",
+    "adw_ui.pages.macros",
+    "adw_ui.pages.mode_manager",
+    "adw_ui.pages.shortcuts",
     "ui.components",
     "ui.helpers",
     "ui.main_window",
@@ -38,10 +54,16 @@ class SmokeImportTests(unittest.TestCase):
     def test_main_entry_point_has_guarded_execution(self):
         module = importlib.import_module("main")
         self.assertTrue(callable(module.main))
+        self.assertTrue(hasattr(module, "LotusAdwApplication"))
 
     def test_settings_window_class_is_exposed(self):
-        module = importlib.import_module("ui.main_window")
-        self.assertTrue(hasattr(module, "LotusSettingsWindow"))
+        adw_module = importlib.import_module("adw_ui.window")
+        self.assertTrue(hasattr(adw_module, "LotusPreferencesWindow"))
+        self.assertTrue(hasattr(adw_module, "LotusSettingsWindow"))
+        self.assertIs(adw_module.LotusSettingsWindow, adw_module.LotusPreferencesWindow)
+
+        qt_module = importlib.import_module("ui.main_window")
+        self.assertTrue(hasattr(qt_module, "LotusSettingsWindow"))
 
     def test_dbus_handler_class_is_exposed(self):
         module = importlib.import_module("core.dbus_handler")
