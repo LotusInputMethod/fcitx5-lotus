@@ -544,8 +544,8 @@ namespace fcitx {
         }
         std::scoped_lock lock(deviceMutex_);
         if (!ensureDevice()) {
-        return false;
-    }
+            return false;
+        }
         keymapFdSlot_ = 0;
         injecting_.store(true, std::memory_order_release);
         if (echo_.size() > 512) {

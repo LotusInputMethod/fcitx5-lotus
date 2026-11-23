@@ -184,7 +184,7 @@ namespace fcitx {
         bool                                      uploadKeymap(const uint32_t* cps, size_t n);
         bool                                      uploadKeymapBytes(std::string_view keymap);
         bool                                      restoreCompositorKeymap();
-        bool                                      writeKeymapToFd(int fd, std::string_view keymap);
+        static bool                               writeKeymapToFd(int fd, std::string_view keymap);
         int                                       keymapFdForUpload();
         void                                      closeKeymapFds();
         void                                      watchCompositorKeymap();
