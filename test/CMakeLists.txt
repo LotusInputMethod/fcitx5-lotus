@@ -130,6 +130,7 @@ add_lotus_headless_test(TARGET preedit_lifecycle SOURCES preedit-lifecycle.cpp L
 add_lotus_headless_test(TARGET preedit_smoke_client SOURCES preedit-smoke-client.cpp LABELS "integration;preedit")
 add_lotus_headless_test(TARGET preedit_smoke_server SOURCES preedit-smoke-server.cpp LABELS "integration;preedit")
 add_lotus_headless_test(TARGET app_rule_reset SOURCES app-rule-reset.cpp LABELS "integration;apprule")
+add_lotus_headless_test(TARGET per_window_mode SOURCES per-window-mode.cpp LABELS "integration;apprule;mode")
 add_lotus_headless_test(TARGET app_rule_delays SOURCES app-rule-delays.cpp LABELS "integration;apprule")
 add_lotus_headless_test(TARGET app_rule_delay_wire SOURCES app-rule-delay-wire.cpp LABELS "integration;apprule")
 add_lotus_headless_test(TARGET smooth_buffered_key_replay SOURCES smooth-buffered-key-replay.cpp LABELS "integration;smooth")

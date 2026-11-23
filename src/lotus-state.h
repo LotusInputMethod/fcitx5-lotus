@@ -28,6 +28,9 @@
 #include <fcitx-utils/event.h>
 #include <fcitx/inputcontext.h>
 #include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
 
 namespace fcitx {
     class LotusEngine;
@@ -121,6 +124,43 @@ namespace fcitx {
          * @return True if no history.
          */
         [[nodiscard]] bool isEmptyHistory() const;
+
+        /**
+         * @brief Whether this input context has chosen a mode of its own.
+         * @return True when a per-window mode was remembered.
+         */
+        [[nodiscard]] bool hasRememberedMode() const {
+            return hasRememberedMode_;
+        }
+
+        /**
+         * @brief Gets the mode remembered for this input context.
+         * @return The remembered mode, or Preedit when none was stored.
+         */
+        [[nodiscard]] LotusMode rememberedMode() const {
+            return rememberedMode_;
+        }
+
+        /**
+         * @brief Gets the program that owned the remembered mode.
+         * @return Application name captured when the mode was remembered.
+         */
+        [[nodiscard]] std::string_view rememberedProgram() const {
+            return rememberedProgram_;
+        }
+
+        /**
+         * @brief Remembers a mode for this input context.
+         * @param mode Mode chosen by the user in this window.
+         * @param programName Application owning the window when the mode was chosen.
+         */
+        void rememberMode(LotusMode mode, std::string programName);
+
+        /**
+         * @brief Drops the remembered mode so the app/global rule applies again.
+         */
+        void forgetRememberedMode();
+
         friend class EmojiCandidateWord;
         friend class LotusEngine;
 
@@ -142,14 +182,17 @@ namespace fcitx {
         bool                                  echoTriggerPending_    = false;                  ///< the injected burst commits on its last echo
         InjectionBackend                      injectionBackend_      = InjectionBackend::None; ///< backend delivering the in-flight burst
         std::u32string                        pendingCommitString_;
-        std::u32string                        commitBatch_;                   ///< Text of the replacement batch, sent as one commitString
-        std::unique_ptr<EventSourceTime>      deferredCommitTimer_;           ///< Pending dbus commit timer
-        std::unique_ptr<EventSourceTime>      mouseClickWatchdog_;            ///< Commits the preedit a click left behind
-        uint32_t                              burstIntervalMs_ = 0;           ///< Pacing of the in-flight uinput burst, used to re-arm its deadline
-        std::u32string                        deferredCommitText_;            ///< Text waiting for the deferred commit
-        bool                                  deferredCommitPending_ = false; ///< Timer armed and not fired yet
-        bool                                  deferCommits_          = false; ///< Route the batch through the deferred timer
-        LotusAppRuleSetting                   appRuleSetting_;                ///< Per-app rule (mode + delay overrides) pushed by the engine
+        std::u32string                        commitBatch_;                         ///< Text of the replacement batch, sent as one commitString
+        std::unique_ptr<EventSourceTime>      deferredCommitTimer_;                 ///< Pending dbus commit timer
+        std::unique_ptr<EventSourceTime>      mouseClickWatchdog_;                  ///< Commits the preedit a click left behind
+        uint32_t                              burstIntervalMs_ = 0;                 ///< Pacing of the in-flight uinput burst, used to re-arm its deadline
+        std::u32string                        deferredCommitText_;                  ///< Text waiting for the deferred commit
+        bool                                  deferredCommitPending_ = false;       ///< Timer armed and not fired yet
+        bool                                  deferCommits_          = false;       ///< Route the batch through the deferred timer
+        LotusAppRuleSetting                   appRuleSetting_;                      ///< Per-app rule (mode + delay overrides) pushed by the engine
+        LotusMode                             rememberedMode_ = LotusMode::Preedit; ///< Mode last chosen in this window
+        std::string                           rememberedProgram_;                   ///< App that owned the window when the mode was chosen
+        bool                                  hasRememberedMode_ = false;           ///< rememberedMode_ holds a window choice
         std::u32string                        emojiBuffer_;
         std::vector<EmojiEntry>               emojiCandidates_;
         KeyBuffer                             bufferedKeys_; ///< Keystrokes buffered during replacement

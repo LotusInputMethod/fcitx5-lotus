@@ -349,6 +349,19 @@ namespace fcitx {
         LotusMode getAppRule(const std::string& appName) const;
 
         /**
+         * @brief Resolves the mode an input context should use.
+         * @param ic Input context to resolve.
+         * @param state The input context's Lotus state.
+         * @return The remembered per-window mode when enabled, otherwise the app rule.
+         */
+        LotusMode resolvedModeFor(InputContext* ic, LotusState* state);
+
+        /**
+         * @brief Drops the remembered mode of every input context.
+         */
+        void clearRememberedModes();
+
+        /**
          * @brief Set application-specific mode rules
          * @param appName The application name
          * @param mode The mode to set

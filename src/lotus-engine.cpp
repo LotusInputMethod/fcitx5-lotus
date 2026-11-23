@@ -402,6 +402,9 @@ namespace fcitx {
                 }
             }
             saveAppRules();
+            // Edited app rules must win over modes remembered while the old
+            // rules were active.
+            clearRememberedModes();
             refreshEngine();
         }
     }
@@ -427,7 +430,7 @@ namespace fcitx {
         LOTUS_INFO("App name: " + appName);
         LOTUS_INFO("Frontend: " + getFrontendName(ic));
 
-        const LotusMode targetMode = getAppRule(appName);
+        const LotusMode targetMode = resolvedModeFor(ic, state);
         LOTUS_INFO("Target mode: " + LotusModeI18NAnnotation::toString(targetMode));
 
         updateCharsetAction(event.inputContext());
@@ -580,14 +583,22 @@ namespace fcitx {
 
             if (selectedMode != std::nullopt) {
                 LOTUS_INFO("Selected mode: " + LotusModeI18NAnnotation::toString(selectedMode.value()));
+                const bool chooseDefault = keySym == Key(*config_.shortcutDefault).sym(); // Default Typing key
                 if (selectedMode != LotusMode::Emoji) {
-                    if (keySym == Key(*config_.shortcutDefault).sym()) { // Default Typing key
+                    if (chooseDefault) {
                         clearAppRule(currentConfigureApp_);
                     } else {
                         setAppRule(currentConfigureApp_, selectedMode.value());
                         if (!currentConfigureApp_.starts_with("ctx_")) {
                             saveAppRules();
                         }
+                    }
+                }
+                if (state != nullptr && *config_.rememberModePerWindow) {
+                    if (chooseDefault) {
+                        state->forgetRememberedMode();
+                    } else {
+                        state->rememberMode(selectedMode.value(), currentConfigureApp_);
                     }
                 }
                 selectionMade = true;
@@ -663,8 +674,7 @@ namespace fcitx {
             }
             currentConfigureApp_ = programNameFor(ic);
             g_mouseClicked.store(false, std::memory_order_release);
-            std::string appName = programNameFor(ic);
-            setMode(getAppRule(appName), ic);
+            setMode(resolvedModeFor(ic, state), ic);
             showAppModeMenu(ic);
             keyEvent.filterAndAccept();
             return true;
@@ -675,8 +685,9 @@ namespace fcitx {
     bool LotusEngine::handleCycleModeHotkey(InputContext* ic, KeyEvent& keyEvent) {
         if (!keyEvent.isRelease() && !config_.cycleModeKey->empty() && keyEvent.key().checkKeyList(*config_.cycleModeKey)) {
             LOTUS_INFO("Cycle mode key pressed");
+            auto*                  state   = ic->propertyFor(&factory_);
             std::string            appName = programNameFor(ic);
-            const LotusMode        appMode = getAppRule(appName);
+            const LotusMode        appMode = resolvedModeFor(ic, state);
 
             std::vector<LotusMode> enabledModes = enabledModesInOrder();
 
@@ -694,6 +705,9 @@ namespace fcitx {
                 LotusMode nextMode = found ? enabledModes[(currentIdx + 1) % enabledModes.size()] : enabledModes[0];
                 setMode(nextMode, ic);
                 setAppRule(appName, nextMode);
+                if (state != nullptr && *config_.rememberModePerWindow) {
+                    state->rememberMode(nextMode, appName);
+                }
                 showCycleModeNotification(nextMode, ic);
             }
 
@@ -790,7 +804,7 @@ namespace fcitx {
             if (ic->hasFocus()) {
                 // Re-resolve the focused window's rule; setEngine() must not
                 // reset it to the global mode.
-                setMode(getAppRule(programNameFor(ic)), ic);
+                setMode(resolvedModeFor(ic, state), ic);
                 state->reset();
             }
             return true;
@@ -934,6 +948,24 @@ namespace fcitx {
         return getAppRuleSetting(appName).mode;
     }
 
+    LotusMode LotusEngine::resolvedModeFor(InputContext* ic, LotusState* state) {
+        const std::string appName = programNameFor(ic);
+        if (state != nullptr && *config_.rememberModePerWindow && state->hasRememberedMode() && state->rememberedProgram() == appName) {
+            return state->rememberedMode();
+        }
+        return getAppRule(appName);
+    }
+
+    void LotusEngine::clearRememberedModes() {
+        if (!factory_.registered())
+            return;
+        instance_.inputContextManager().foreach ([this](InputContext* ic) {
+            if (auto* state = ic->propertyFor(&factory_))
+                state->forgetRememberedMode();
+            return true;
+        });
+    }
+
     void LotusEngine::setAppRule(const std::string& appName, LotusMode mode) {
         auto rules = *appRulesTables_.rules;
 
@@ -999,6 +1031,15 @@ namespace fcitx {
                         if (!currentConfigureApp_.starts_with("ctx_")) {
                             saveAppRules();
                         }
+                    }
+                }
+
+                auto* state = ic->propertyFor(&factory_);
+                if (state != nullptr && *config_.rememberModePerWindow) {
+                    if (isDefault) {
+                        state->forgetRememberedMode();
+                    } else {
+                        state->rememberMode(mode, currentConfigureApp_);
                     }
                 }
 
@@ -1196,14 +1237,22 @@ namespace fcitx {
         if (program == activeProgram_) {
             return;
         }
+        auto* state = ic->propertyFor(&factory_);
+        if (!activeProgram_.empty() && activeProgram_ != program) {
+            if (activeProgram_.starts_with("ctx_") && state->hasRememberedMode()) {
+                // Same context, now identified: keep the window's choice under its real name.
+                state->rememberMode(state->rememberedMode(), program);
+            } else {
+                state->forgetRememberedMode();
+            }
+        }
         activeProgram_ = program;
-        auto* state    = ic->propertyFor(&factory_);
         // A shared GNOME input context may now belong to a different app: never commit its old
         // composition into the newly focused field.
         state->discardForAppChange();
         state->isLibreoffice_ = program == "soffice";
         ic->inputPanel().reset();
-        setMode(getAppRule(program), ic);
+        setMode(resolvedModeFor(ic, state), ic);
         ic->updatePreedit();
         ic->updateUserInterface(UserInterfaceComponent::InputPanel);
     }

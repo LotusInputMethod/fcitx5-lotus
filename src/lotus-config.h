@@ -173,6 +173,7 @@ namespace fcitx {
 
         OptionWithAnnotation<LotusMode, LotusModeI18NAnnotation>   mode{this, "Mode", _("Mode"), LotusMode::Preedit};
         OptionWithAnnotation<InputMethodId, InputMethodAnnotation> inputMethod{this, "InputMethod", _("Input Method"), InputMethodId::Telex};
+        Option<bool>                                               rememberModePerWindow{this, "RememberModePerWindow", _("Remember Input Mode per Window"), true};
         OptionWithAnnotation<Charset, EnumAnnotation> outputCharset{this, "OutputCharset", _("Output Charset"), Charset::Unicode}; KeyListOption modeMenuKey{
             this, "ModeMenuKey", _("Mode Menu Hotkey"), {Key("grave")}, KeyListConstrain({KeyConstrainFlag::AllowModifierLess, KeyConstrainFlag::AllowModifierOnly})};
         KeyListOption cycleModeKey{this, "CycleModeKey", _("Cycle Mode Hotkey"), {}, KeyListConstrain({KeyConstrainFlag::AllowModifierLess, KeyConstrainFlag::AllowModifierOnly})};

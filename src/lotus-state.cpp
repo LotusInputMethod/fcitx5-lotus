@@ -31,6 +31,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <utility>
 
 namespace fcitx {
     constexpr int     kMaxScanLength         = 15;
@@ -51,6 +52,17 @@ namespace fcitx {
 
     LotusState::LotusState(LotusEngine* engine, InputContext* ic) : engine_(*engine), ic_(*ic) {
         setEngine();
+    }
+
+    void LotusState::rememberMode(LotusMode mode, std::string programName) {
+        rememberedMode_    = mode;
+        rememberedProgram_ = std::move(programName);
+        hasRememberedMode_ = true;
+    }
+
+    void LotusState::forgetRememberedMode() {
+        hasRememberedMode_ = false;
+        rememberedProgram_.clear();
     }
 
     void LotusState::setEngine() {

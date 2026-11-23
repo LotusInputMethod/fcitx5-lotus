@@ -44,7 +44,7 @@ class SettingsCategory(Enum):
 # Mapping of settings keys to categories and groups
 SETTINGS_MAP = {
     SettingsCategory.GENERAL: {
-        "INPUT METHOD": ["InputMethod", "Mode", "OutputCharset"],
+        "INPUT METHOD": ["InputMethod", "Mode", "RememberModePerWindow", "OutputCharset"],
         "TYPING": ["W2U", "BracketTransform"],
         "UINPUT BACKEND": ["PreferVirtualKeyboard"],
     },

@@ -38,6 +38,10 @@ HELPERS = {
         "Prefer injecting keys through the system instead of the uinput service: the wlroots virtual keyboard on Wayland and Xtest on X11.\n"
         "Turn this off to always use the uinput service; when neither backend is available the uinput service is used anyway."
     ),
+    "RememberModePerWindow": N_(
+        "Remember the last input mode used in each window and restore it when that window regains focus.\n"
+        "Turn this off to let the per-app rule or the global Mode apply every time."
+    ),
 }
 
 
