@@ -322,6 +322,11 @@ namespace fcitx {
         if (count == 0 && cps.empty()) {
             return true;
         }
+        bool anchored = false;
+        if (anchorDot && !cps.empty() && cps.size() < kTextKeys.size()) {
+            cps.insert(cps.begin(), kDotAnchorCodePoint);
+            anchored = true;
+        }
         if (!ensureDevice()) {
             return false;
         }
@@ -330,7 +335,7 @@ namespace fcitx {
             echo_.clear();
         }
         bool ok = true;
-        if (anchorDot) {
+        if (anchorDot && !anchored) {
             const std::array<uint32_t, 1> anchor{kDotAnchorCodePoint};
             ok = uploadKeymap(anchor.data(), anchor.size());
             if (ok) {
@@ -347,12 +352,16 @@ namespace fcitx {
                 break;
             }
             if (first) {
+                if (anchored) {
+                    tap(kTextKeys[0], trackEcho);
+                    wl_display_roundtrip(display_.get());
+                }
                 for (int i = 0; i < count; ++i) {
                     tap(KEY_BACKSPACE, trackEcho);
                 }
                 first = false;
             }
-            for (size_t i = 0; i < n; ++i) {
+            for (size_t i = (anchored && pos == 0) ? 1 : 0; i < n; ++i) {
                 tap(kTextKeys[i], trackEcho); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             }
             wl_display_roundtrip(display_.get());
