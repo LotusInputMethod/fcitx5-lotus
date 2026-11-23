@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: fcitx5-lotus\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 16:21+0700\n"
-"PO-Revision-Date: 2026-11-11 19:47+0700\n"
+"POT-Creation-Date: 2026-11-23 14:55+0700\n"
+"PO-Revision-Date: 2026-11-24 01:36+0700\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: vi\n"
@@ -18,59 +18,67 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "X-Generator: Poedit 3.10\n"
 
-#: settings-gui/ui/main_window.py:153
-msgid "&Apply"
-msgstr "&Áp dụng"
-
-#: settings-gui/ui/main_window.py:148
-msgid "&Cancel"
-msgstr "&Huỷ"
-
-#: settings-gui/ui/main_window.py:158
-msgid "&OK"
-msgstr "&OK"
-
-#: settings-gui/ui/main_window.py:142
-msgid "&Reset"
-msgstr "&Cài đặt lại"
-
 #: src/lotus-config.h:161 src/lotus-config.h:162 src/lotus-config.h:163
 msgid "(ms, 0 = default)"
 msgstr "(ms, 0 = mặc định)"
 
-#: settings-gui/ui/pages/keymap_editor.py:446
-msgid ". Are you sure?"
-msgstr ". Bạn có chắc chắn?"
+#: settings-gui/adw_ui/pages/mode_manager.py:553
+msgid "0 = inherit default"
+msgstr "0 = dùng mặc định"
 
-#: settings-gui/ui/pages/macro_editor.py:202
+#: settings-gui/adw_ui/pages/macros.py:590
 msgid "Abbreviation"
 msgstr "Từ viết tắt"
 
-#: settings-gui/ui/pages/macro_editor.py:180
-msgid "Abbreviation (e.g. kg)"
-msgstr "Từ viết tắt (ví dụ: kg)"
-
-#: settings-gui/ui/main_window.py:230
+#: settings-gui/adw_ui/window.py:727 settings-gui/adw_ui/window.py:730
 msgid "About"
 msgstr "Giới thiệu"
 
-#: settings-gui/ui/pages/keymap_editor.py:287
-msgid "Action"
-msgstr "Hành động"
+#: settings-gui/adw_ui/pages/extra.py:232
+msgid "About Fcitx5 Lotus"
+msgstr "Giới thiệu Fcitx5 Lotus"
 
-#: settings-gui/ui/pages/dict_editor.py:118
-#: settings-gui/ui/pages/dict_editor.py:362
-#: settings-gui/ui/pages/keymap_editor.py:275
-#: settings-gui/ui/pages/keymap_editor.py:435
-#: settings-gui/ui/pages/macro_editor.py:188
-#: settings-gui/ui/pages/macro_editor.py:468 test/settings-gui/test_i18n.py:94
+#: settings-gui/adw_ui/pages/shortcuts.py:153
+msgid "Active modes and quick-select keys"
+msgstr "Chế độ đang bật và phím chọn nhanh"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:641
+#: settings-gui/adw_ui/pages/macros.py:577
+#: settings-gui/adw_ui/pages/dictionary.py:488
+#: settings-gui/adw_ui/pages/keymap.py:514
 msgid "Add"
 msgstr "Thêm"
 
-#: settings-gui/ui/pages/keymap_editor.py:276
-#: settings-gui/ui/pages/keymap_editor.py:435
-msgid "Add Keymap"
-msgstr "Thêm Keymap"
+#: settings-gui/adw_ui/pages/mode_manager.py:631
+msgid "Add Application"
+msgstr "Thêm ứng dụng"
+
+#: settings-gui/adw_ui/pages/keymap.py:257
+#: settings-gui/adw_ui/pages/keymap.py:496
+msgid "Add Binding"
+msgstr "Thêm phím gán"
+
+#: settings-gui/adw_ui/pages/macros.py:226
+#: settings-gui/adw_ui/pages/macros.py:657
+msgid "Add Macro"
+msgstr "Thêm gõ tắt"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:149
+msgid "Add Rule"
+msgstr "Thêm quy tắc"
+
+#: settings-gui/adw_ui/pages/dictionary.py:155
+#: settings-gui/adw_ui/pages/dictionary.py:478
+msgid "Add Word"
+msgstr "Thêm từ"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:248
+msgid "Added"
+msgstr "Đã thêm"
+
+#: settings-gui/adw_ui/utils.py:215
+msgid "All Files"
+msgstr "Tất cả tệp"
 
 #: src/lotus-config.h:213
 msgid "Allow Macro in Off Mode"
@@ -84,7 +92,11 @@ msgstr "Cho phép gõ dấu tự do"
 msgid "Allow dd To Produce đ When Auto Restore Invalid Words Is On"
 msgstr "Cho phép gõ dd thành đ khi bật Tự động khôi phục với từ sai"
 
-#: settings-gui/ui/helpers.py:30
+#: settings-gui/adw_ui/window.py:40
+msgid "Allow dd to produce đ when Auto Restore Invalid Words is enabled."
+msgstr "Cho phép gõ dd thành đ khi bật Tự động khôi phục với từ sai."
+
+#: settings-gui/adw_ui/pages/macros.py:190
 msgid ""
 "Allow macros to work when the input mode is OFF.\n"
 "When disabled, macros are only available in active typing modes."
@@ -108,44 +120,45 @@ msgstr "Quy tắc ứng dụng"
 msgid "App: "
 msgstr "App: "
 
-#: settings-gui/ui/main_window.py:223
-msgid "Appearance"
-msgstr "Giao diện"
-
-#: settings-gui/ui/pages/backup.py:74 settings-gui/ui/pages/backup.py:200
-#: settings-gui/ui/pages/backup.py:265
+#: settings-gui/adw_ui/pages/mode_manager.py:138
+#: settings-gui/adw_ui/pages/mode_manager.py:403
+#: settings-gui/adw_ui/pages/mode_manager.py:443
+#: settings-gui/adw_ui/pages/extra.py:70 settings-gui/adw_ui/pages/extra.py:472
 msgid "Application Rules"
 msgstr "Quy tắc ứng dụng"
 
-#: settings-gui/ui/pages/mode_manager.py:192 settings-gui/ui/main_window.py:218
+#: settings-gui/adw_ui/window.py:841
 msgid "Applications"
 msgstr "Ứng dụng"
 
-#: settings-gui/ui/pages/keymap_editor.py:249
-msgid "Apply Preset"
-msgstr "Áp dụng cài đặt sẵn"
+#: settings-gui/adw_ui/pages/keymap.py:240
+#: settings-gui/adw_ui/pages/keymap.py:479 settings-gui/adw_ui/window.py:678
+msgid "Apply"
+msgstr "Áp dụng"
 
-#: settings-gui/ui/pages/backup.py:236
-msgid ""
-"Are you sure you want to restore selected components? This will overwrite "
-"current configuration."
-msgstr ""
-"Bạn có muốn khôi phục các thành phần? Điều này sẽ ghi đè cấu hình hiện tại "
-"của bạn."
+#: settings-gui/adw_ui/window.py:497
+msgid "Apply & Close"
+msgstr "Áp dụng & Đóng"
 
-#: settings-gui/ui/pages/dynamic_settings.py:92
-msgid ""
-"Assign hotkeys to open the mode menu or quickly cycle through enabled modes."
-msgstr ""
-"Gán phím tắt để mở menu chế độ hoặc chuyển nhanh giữa các chế độ đang bật."
+#: settings-gui/adw_ui/pages/keymap.py:473
+msgid "Apply Preset?"
+msgstr "Áp dụng mẫu phím?"
 
 #: src/lotus-config.h:67
 msgid "Auto"
 msgstr "Tự động"
 
+#: settings-gui/adw_ui/window.py:1086
+msgid "Auto Capitalize"
+msgstr "Tự động viết hoa"
+
 #: src/lotus-engine.cpp:206 src/lotus-engine.cpp:370
 msgid "Auto Non-VN Restore"
 msgstr "Tự động khôi phục với từ không phải tiếng Việt"
+
+#: settings-gui/adw_ui/window.py:1052
+msgid "Auto Restore"
+msgstr "Tự động khôi phục"
 
 #: src/lotus-config.h:191 src/lotus-engine.cpp:206
 msgid "Auto Restore Invalid Words"
@@ -155,7 +168,7 @@ msgstr "Tự động khôi phục phím với từ sai"
 msgid "Auto capitalize after sentence-ending punctuation (. ! ? Enter)"
 msgstr "Tự động ghi hoa sau dấu câu (. ! ? Enter) (thử nghiệm)"
 
-#: settings-gui/ui/helpers.py:19
+#: settings-gui/adw_ui/pages/macros.py:179
 msgid ""
 "Automatically match expansion case to trigger key case.\n"
 "\n"
@@ -171,7 +184,7 @@ msgstr ""
 "- Kg -> Khô gà\n"
 "- KG -> KHÔ GÀ"
 
-#: settings-gui/ui/helpers.py:26
+#: settings-gui/adw_ui/window.py:31
 msgid ""
 "Automatically revert the typed sequence if the resulting word is not in the "
 "dictionary.\n"
@@ -182,36 +195,76 @@ msgstr ""
 "Nó giúp tránh các trường hợp gõ các từ tiếng Anh mà bị chuyển đổi qua Tiếng "
 "việt hoặc gõ song ngữ."
 
+#: settings-gui/adw_ui/window.py:1025 settings-gui/adw_ui/window.py:1032
+msgid "Backend"
+msgstr "Backend"
+
 #: src/lotus-config.h:162
 msgid "Backspace Interval"
 msgstr "Khoảng cách giữa 2 dấu xoá"
 
-#: settings-gui/ui/main_window.py:224
+#: settings-gui/adw_ui/pages/mode_manager.py:112
+#: settings-gui/adw_ui/pages/mode_manager.py:386
+#: settings-gui/adw_ui/pages/mode_manager.py:546
+msgid "Backspace Interval (ms)"
+msgstr "Khoảng cách xoá (ms)"
+
+#: settings-gui/adw_ui/window.py:855
 msgid "Backup"
 msgstr "Sao lưu"
 
-#: settings-gui/ui/pages/backup.py:55
-msgid "Backup & Restore"
-msgstr "Sao lưu & Khôi phục"
+#: settings-gui/adw_ui/pages/extra.py:381
+msgid "Backup exported"
+msgstr "Đã xuất bản sao lưu"
 
-#: settings-gui/ui/pages/backup.py:167
-msgid "Backup exported to:\n"
-msgstr "Sao lưu được xuất thành công vào:\n"
+#: settings-gui/adw_ui/pages/extra.py:492
+msgid "Backup restored"
+msgstr "Đã khôi phục sao lưu"
 
-#: settings-gui/ui/pages/about.py:179
-msgid ""
-"Based on upstream work originally licensed under <b>LGPL-2.1-or-later</b>."
-"<br>Includes third-party components licensed under the <b>MIT License</b>."
-msgstr ""
-"Dựa trên dự án thượng nguồn ban đầu được cấp phép dưới <b> LGPL-2.1-or-"
-"later</b>.<br>Bao gồm các thành phần của bên thứ ba được cấp phép theo "
-"<b>Giấy phép MIT</b>."
+#: settings-gui/adw_ui/pages/macros.py:165
+#: settings-gui/adw_ui/pages/macros.py:407
+msgid "Behavior"
+msgstr "Hành vi"
 
-#: settings-gui/ui/main_window.py:287
-msgid "Cannot Save"
-msgstr "Không thể lưu"
+#: settings-gui/adw_ui/pages/keymap.py:251
+#: settings-gui/adw_ui/pages/keymap.py:385
+msgid "Bindings"
+msgstr "Phím gán"
 
-#: settings-gui/ui/pages/dict_editor.py:252
+#: settings-gui/adw_ui/pages/extra.py:601
+msgid "Blank Issue / Question"
+msgstr "Vấn đề trống / Câu hỏi"
+
+#: settings-gui/adw_ui/window.py:997
+msgid "Bracket Keys"
+msgstr "Phím ngoặc"
+
+#: settings-gui/adw_ui/pages/extra.py:598
+msgid "Bug Report"
+msgstr "Báo lỗi"
+
+#: settings-gui/adw_ui/pages/dictionary.py:300
+#, python-brace-format
+msgid "Built-in dictionary ({count} words)"
+msgstr "Từ điển mặc định ({count} từ)"
+
+#: settings-gui/adw_ui/pages/extra.py:280
+msgid "Bundle"
+msgstr "Tệp sao lưu"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:640
+#: settings-gui/adw_ui/pages/macros.py:573
+#: settings-gui/adw_ui/pages/dictionary.py:487
+#: settings-gui/adw_ui/pages/keymap.py:478
+#: settings-gui/adw_ui/pages/keymap.py:513
+#: settings-gui/adw_ui/pages/extra.py:424
+#: settings-gui/adw_ui/widgets/shortcut_dialog.py:306
+#: settings-gui/adw_ui/widgets/reset_dialog.py:37
+#: settings-gui/adw_ui/window.py:495 settings-gui/adw_ui/window.py:670
+msgid "Cancel"
+msgstr "Huỷ"
+
+#: settings-gui/adw_ui/pages/dictionary.py:226
 msgid ""
 "Cannot save dictionary because loading failed earlier. Please fix the file "
 "format first."
@@ -222,53 +275,54 @@ msgstr ""
 msgid "Capitalize Macro"
 msgstr "Gõ tắt chữ hoa"
 
+#: settings-gui/adw_ui/window.py:44
+msgid ""
+"Capitalize the next word after sentence-ending punctuation (. ! ? Enter)."
+msgstr "Tự động viết hoa từ tiếp theo sau dấu kết thúc câu (. ! ? Enter)."
+
 #: src/lotus-engine.cpp:175
 msgid "Charset"
 msgstr "Bảng mã"
-
-#: settings-gui/ui/pages/dynamic_settings.py:89
-msgid ""
-"Choose whether Lotus types replacements through the system keyboard "
-"injection instead of the uinput service."
-msgstr ""
-"Chọn xem Lotus liệu có gõ thông qua tính năng chèn phím hệ thống thay vì "
-"dịch vụ uinput."
-
-#: settings-gui/ui/components.py:257
-msgid "Clear hotkey"
-msgstr "Xoá phím tắt"
 
 #: src/lotus-config.h:161
 msgid "Commit Interval"
 msgstr "Khoảng cách giữa 2 commit"
 
+#: settings-gui/adw_ui/pages/mode_manager.py:107
+#: settings-gui/adw_ui/pages/mode_manager.py:385
+#: settings-gui/adw_ui/pages/mode_manager.py:545
+msgid "Commit Interval (ms)"
+msgstr "Khoảng cách commit (ms)"
+
+#: settings-gui/adw_ui/pages/extra.py:265
+msgid "Components"
+msgstr "Thành phần"
+
+#: settings-gui/adw_ui/pages/keymap.py:222
+#: settings-gui/adw_ui/pages/keymap.py:368
+msgid "Configuration"
+msgstr "Cấu hình"
+
 #: settings-gui/org.fcitx.Fcitx5.Addon.Lotus.Settings.desktop.in:3
 msgid "Configure Fcitx5 Lotus Input Method"
 msgstr "Tuỳ chỉnh bộ gõ Fcitx5 Lotus"
 
-#: settings-gui/ui/pages/dynamic_settings.py:79
-msgid "Configure basic input method settings and behaviors."
-msgstr "Thiết lập các cài đặt và hành vi cơ bản của bộ gõ."
+#: settings-gui/adw_ui/pages/extra.py:587
+msgid "Contributors"
+msgstr "Những người đóng góp"
 
-#: settings-gui/ui/pages/keymap_editor.py:443
-msgid "Confirm"
-msgstr "Xác nhận"
-
-#: settings-gui/ui/pages/mode_manager.py:523
-msgid "Confirm Remove"
-msgstr "Xác nhận xoá"
-
-#: settings-gui/ui/main_window.py:238
-msgid "Confirm Reset"
-msgstr "Xác nhận cài đặt lại"
-
-#: settings-gui/ui/pages/backup.py:234
-msgid "Confirm Restore"
-msgstr "Xác nhận khôi phục"
+#: settings-gui/adw_ui/pages/mode_manager.py:108
+msgid "Cooldown between committed replacements when an app rule uses 0"
+msgstr ""
+"Thời gian chờ giữa các lần thay thế đã commit khi quy tắc ứng dụng đặt là 0"
 
 #: src/lotus-config.h:56
 msgid "Ctrl"
 msgstr "Ctrl"
+
+#: settings-gui/adw_ui/pages/shortcuts.py:415
+msgid "Custom"
+msgstr "Tuỳ chỉnh"
 
 #: src/lotus-config.h:197 src/lotus-engine.cpp:208 src/lotus-engine.cpp:371
 msgid "Custom Dictionary"
@@ -278,14 +332,21 @@ msgstr "Từ điển tuỳ chỉnh"
 msgid "Custom Keymap"
 msgstr "Keymap tuỳ chỉnh"
 
-#: settings-gui/ui/pages/backup.py:73 settings-gui/ui/pages/backup.py:199
-#: settings-gui/ui/pages/backup.py:261
-msgid "Custom Keymaps"
-msgstr "Keymap tuỳ chỉnh"
+#: settings-gui/adw_ui/pages/mode_manager.py:506
+msgid "Custom Timing"
+msgstr "Độ trễ tuỳ chỉnh"
 
-#: settings-gui/ui/pages/dynamic_settings.py:81
-msgid "Customize the look and feel of the Lotus status icons and theme."
-msgstr "Tùy chỉnh giao diện, biểu tượng trạng thái và chủ đề của Lotus."
+#: settings-gui/adw_ui/pages/dictionary.py:311
+msgid "Custom Words"
+msgstr "Từ tuỳ chỉnh"
+
+#: settings-gui/adw_ui/pages/extra.py:86
+msgid "Custom excluded dictionary words"
+msgstr "Từ tuỳ chỉnh được loại trừ trong từ điển"
+
+#: settings-gui/adw_ui/pages/extra.py:81
+msgid "Custom key-to-action mappings"
+msgstr "Ánh xạ phím sang hành động tuỳ chỉnh"
 
 #: src/lotus-config.h:178
 msgid "Cycle Mode Hotkey"
@@ -295,15 +356,24 @@ msgstr "Phím tắt chuyển nhanh chế độ"
 msgid "Dark"
 msgstr "Tối"
 
+#: settings-gui/adw_ui/pages/macros.py:211
+#: settings-gui/adw_ui/pages/macros.py:365
+msgid "Date Format"
+msgstr "Định dạng ngày"
+
 #: src/lotus-config.h:219
 msgid "Date Format ($DATE in macro)"
 msgstr "Định dạng ngày ($DATE trong macro)"
 
-#: settings-gui/ui/pages/macro_editor.py:166
-msgid "Date Format:"
-msgstr "Định dạng ngày:"
+#: settings-gui/adw_ui/pages/extra.py:661
+msgid "Debug Log"
+msgstr "Nhật ký gỡ lỗi"
 
-#: settings-gui/ui/pages/mode_manager.py:486
+#: settings-gui/adw_ui/pages/extra.py:675
+msgid "Debug info exported"
+msgstr "Đã xuất thông tin gỡ lỗi"
+
+#: settings-gui/adw_ui/pages/shortcuts.py:415
 msgid "Default"
 msgstr "Mặc định"
 
@@ -319,196 +389,349 @@ msgstr "Khoảng cách giữa 2 commit mặc định"
 msgid "Default Post Delay"
 msgstr "Độ trễ sau commit mặc định"
 
+#: settings-gui/adw_ui/pages/mode_manager.py:99
+#: settings-gui/adw_ui/pages/mode_manager.py:426
+msgid "Default Timing"
+msgstr "Độ trễ mặc định"
+
 #: src/lotus-mode-menu.cpp:52
 msgid "Default Typing"
 msgstr "Chế độ gõ mặc định"
 
-#: settings-gui/ui/pages/about.py:137
-msgid "Developed by"
-msgstr "Được phát triển bởi"
+#: settings-gui/adw_ui/pages/mode_manager.py:118
+msgid "Delay before replaying the final trigger key when an app rule uses 0"
+msgstr ""
+"Độ trễ trước khi gửi lại phím kích hoạt cuối cùng khi quy tắc ứng dụng đặt là "
+"0"
 
-#: settings-gui/ui/main_window.py:220
+#: settings-gui/adw_ui/pages/mode_manager.py:113
+msgid "Delay between simulated backspaces when an app rule uses 0"
+msgstr "Độ trễ giữa các phím xoá giả lập khi quy tắc ứng dụng đặt là 0"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:142
+msgid "Detect Running App"
+msgstr "Phát hiện ứng dụng đang chạy"
+
+#: settings-gui/adw_ui/pages/extra.py:613
+msgid "Diagnostics"
+msgstr "Chẩn đoán"
+
+#: settings-gui/adw_ui/window.py:849
 msgid "Dictionary"
 msgstr "Từ điển"
+
+#: settings-gui/adw_ui/pages/dictionary.py:398
+msgid "Dictionary Empty"
+msgstr "Từ điển trống"
+
+#: settings-gui/adw_ui/pages/dictionary.py:229
+#: settings-gui/adw_ui/pages/dictionary.py:456
+msgid "Dictionary words should not contain spaces."
+msgstr "Từ trong từ điển không được chứa khoảng trắng."
+
+#: settings-gui/adw_ui/widgets/shortcut_dialog.py:310
+msgid "Disable"
+msgstr "Tắt"
 
 #: src/lotus-config.h:37 src/lotus-config.h:44 src/lotus-config.h:56
 msgid "Disabled"
 msgstr "Tắt"
 
+#: settings-gui/adw_ui/pages/shortcuts.py:161
+msgid "Disabled Modes"
+msgstr "Chế độ đang tắt"
+
+#: settings-gui/adw_ui/window.py:496
+msgid "Discard"
+msgstr "Bỏ thay đổi"
+
+#: settings-gui/adw_ui/window.py:1098
+msgid "Double Hyphen Dash"
+msgstr "Gạch ngang kép (--)"
+
 #: src/lotus-config.h:190
 msgid "Double Hyphen to Em-Dash (--)"
 msgstr "Dấu gạch ngang 2 lần để thành dấu gạch dài"
+
+#: settings-gui/adw_ui/window.py:1092
+msgid "Double Space Period"
+msgstr "Cách kép thành dấu chấm"
 
 #: src/lotus-config.h:189
 msgid "Double Space to Period"
 msgstr "Phím cách 2 lần để chấm câu (thử nghiệm)"
 
-#: settings-gui/ui/pages/dynamic_settings.py:251
-msgid ""
-"Drag the handle on the left to reorder modes in the menu. Use checkboxes to "
-"toggle visibility, and click the buttons to reassign shortcuts."
-msgstr ""
-"Kéo thả biểu tượng bên trái để sắp xếp thứ tự chế độ trong menu. Đánh dấu để "
-"bật/tắt hiển thị, và nhấn vào các nút để gán lại phím tắt."
+#: settings-gui/adw_ui/pages/shortcuts.py:191
+msgid "Duplicate"
+msgstr "Trùng lặp"
 
-#: settings-gui/ui/pages/dynamic_settings.py:564
+#: settings-gui/adw_ui/pages/shortcuts.py:332
+#, python-brace-format
+msgid "Duplicate key '{}'"
+msgstr "Trùng phím '{}'"
+
+#: settings-gui/adw_ui/pages/shortcuts.py:327
 #, python-brace-format
 msgid "Duplicate shortcut '{}' used for multiple enabled modes."
 msgstr "Phím tắt '{}' được sử dụng bởi một chế độ gõ khác đang được bật."
+
+#: settings-gui/adw_ui/pages/macros.py:536
+msgid "Edit"
+msgstr "Chỉnh sửa"
+
+#: settings-gui/adw_ui/pages/macros.py:657
+msgid "Edit Macro"
+msgstr "Chỉnh sửa gõ tắt"
 
 #: src/lotus-config.h:31
 msgid "Emoji Picker"
 msgstr "Chọn Emoji"
 
+#: settings-gui/adw_ui/pages/keymap.py:346
+msgid "Empty (0 bindings)"
+msgstr "Trống (0 phím gán)"
+
+#: settings-gui/adw_ui/pages/macros.py:384
+msgid "Empty (0 macros)"
+msgstr "Trống (0 từ gõ tắt)"
+
+#: settings-gui/adw_ui/pages/dictionary.py:309
+msgid "Empty (0 words)"
+msgstr "Trống (0 từ)"
+
+#: settings-gui/adw_ui/pages/dictionary.py:129
+#: settings-gui/adw_ui/pages/dictionary.py:290
+msgid "Enable Dictionary"
+msgstr "Bật từ điển"
+
 #: src/lotus-config.h:184
 msgid "Enable Macro"
+msgstr "Bật gõ tắt"
+
+#: settings-gui/adw_ui/pages/macros.py:172
+#: settings-gui/adw_ui/pages/macros.py:360
+msgid "Enable Macros"
 msgstr "Bật gõ tắt"
 
 #: src/lotus-config.h:184
 msgid "Enable Spell Check Using Dictionary"
 msgstr "Bật kiểm tra chính tả bằng từ điển"
 
-#: settings-gui/ui/pages/backup.py:170 settings-gui/ui/pages/backup.py:220
-#: settings-gui/ui/pages/backup.py:280 settings-gui/ui/pages/backup.py:303
-#: settings-gui/ui/pages/dict_editor.py:250
-#: settings-gui/ui/pages/dict_editor.py:289 settings-gui/ui/main_window.py:298
-msgid "Error"
-msgstr "Lỗi"
+#: settings-gui/adw_ui/pages/keymap.py:497
+msgid "Enter a trigger key and select its action:"
+msgstr "Nhập phím kích hoạt và chọn hành động:"
+
+#: settings-gui/adw_ui/pages/dictionary.py:479
+msgid "Enter a word without spaces:"
+msgstr "Nhập từ không chứa khoảng trắng:"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:632
+msgid "Enter binary name or window class (e.g. discord, code):"
+msgstr "Nhập tên tệp thực thi hoặc lớp cửa sổ (vd: discord, code):"
+
+#: settings-gui/adw_ui/widgets/shortcut_dialog.py:343
+msgid "Escape to cancel · Backspace to disable"
+msgstr "Esc để huỷ · Backspace để tắt"
 
 #: src/lotus-config.h:37 src/lotus-config.h:44
 msgid "Everywhere"
 msgstr "Mọi nơi"
 
-#: settings-gui/ui/pages/dict_editor.py:358
-msgid "Exists"
-msgstr "Đã tồn tại"
+#: settings-gui/adw_ui/pages/macros.py:173
+msgid "Expand shorthand abbreviations while typing"
+msgstr "Mở rộng từ viết tắt khi đang gõ"
 
-#: settings-gui/ui/pages/macro_editor.py:202
-msgid "Expanded Text"
-msgstr "Từ đầy đủ"
+#: settings-gui/adw_ui/pages/macros.py:614
+msgid "Expansion"
+msgstr "Nội dung thay thế"
 
-#: settings-gui/ui/pages/backup.py:126
+#: settings-gui/adw_ui/pages/extra.py:337
 msgid "Export Backup"
 msgstr "Xuất sao lưu"
 
-#: settings-gui/ui/pages/backup.py:85
-msgid "Export Backup..."
-msgstr "Xuất sao lưu..."
+#: settings-gui/adw_ui/pages/extra.py:617 settings-gui/adw_ui/pages/extra.py:660
+msgid "Export Debug Information"
+msgstr "Xuất thông tin gỡ lỗi"
 
-#: settings-gui/ui/pages/backup.py:60
-msgid "Export/Import Settings"
-msgstr "Xuất/Nhập cài đặt"
-
-#: settings-gui/ui/pages/backup.py:170
-msgid "Failed to export backup:\n"
-msgstr "Xuất sao lưu thất bại\n"
-
-#: settings-gui/ui/pages/dynamic_settings.py:210
-msgid "Failed to load configuration."
-msgstr "Tải cấu hình thất bại."
-
-#: settings-gui/ui/pages/dict_editor.py:188
+#: settings-gui/adw_ui/pages/extra.py:384
 #, python-brace-format
-msgid ""
-"Failed to load dictionary completely: {}\n"
-"Saving is disabled to prevent data loss."
-msgstr ""
-"Tải từ điển thất bại: {}\n"
-"Lưu được vô hiệu hoá để chống mất dữ liệu."
+msgid "Export failed: {}"
+msgstr "Xuất thất bại: {}"
 
-#: settings-gui/ui/pages/backup.py:220
-msgid "Failed to open backup file:\n"
-msgstr "Mở tệp sao lưu thất bại:\n"
+#: settings-gui/adw_ui/pages/extra.py:284 settings-gui/adw_ui/pages/extra.py:626
+msgid "Export…"
+msgstr "Xuất…"
 
-#: settings-gui/ui/pages/backup.py:303
-msgid "Failed to restore backup:\n"
-msgstr "Khôi phục sao lưu thất bại:\n"
+#: settings-gui/adw_ui/pages/extra.py:675
+msgid "Failed to export debug info"
+msgstr "Xuất thông tin gỡ lỗi thất bại"
 
-#: settings-gui/ui/pages/backup.py:281
-msgid ""
-"Failed to restore the following components:\n"
-"- "
-msgstr ""
-"Khôi phục sao lưu thất bại:\n"
-"- "
-
-#: settings-gui/ui/pages/dict_editor.py:289
+#: settings-gui/adw_ui/pages/extra.py:406
 #, python-brace-format
-msgid "Failed to save dictionary: {}"
-msgstr "Lưu từ điển thất bại: {}"
+msgid "Failed to read backup: {}"
+msgstr "Đọc bản sao lưu thất bại: {}"
 
-#: settings-gui/ui/main_window.py:299
+#: settings-gui/adw_ui/pages/dictionary.py:347
+msgid "Failed to reset custom dictionary file."
+msgstr "Đặt lại tệp từ điển tuỳ chỉnh thất bại."
+
+#: settings-gui/adw_ui/pages/extra.py:488
+#, python-brace-format
+msgid "Failed to restore: {}"
+msgstr "Khôi phục thất bại: {}"
+
+#: settings-gui/adw_ui/pages/shortcuts.py:470
+#: settings-gui/adw_ui/pages/shortcuts.py:492
+#: settings-gui/adw_ui/pages/mode_manager.py:416
+#: settings-gui/adw_ui/pages/mode_manager.py:434
+#: settings-gui/adw_ui/pages/macros.py:398
+#: settings-gui/adw_ui/pages/macros.py:415
+#: settings-gui/adw_ui/pages/dictionary.py:325
+#: settings-gui/adw_ui/pages/keymap.py:360
+#: settings-gui/adw_ui/pages/keymap.py:376 settings-gui/adw_ui/window.py:457
+#: settings-gui/adw_ui/window.py:557 settings-gui/adw_ui/window.py:613
 msgid "Failed to save settings. Please check if Fcitx5 is running."
 msgstr "Lưu cài đặt thất bại. Hãy kiểm tra xem Fcitx5 có đang chạy hay không."
 
-#: settings-gui/ui/pages/about.py:144
-msgid "Fcitx5 Lotus Contributors"
-msgstr "Những người đóng góp cho Fcitx5 Lotus"
+#: settings-gui/adw_ui/window.py:581 settings-gui/adw_ui/window.py:638
+msgid "Failed to save some settings. Please check if Fcitx5 is running."
+msgstr ""
+"Lưu một số cài đặt thất bại. Hãy kiểm tra xem Fcitx5 có đang chạy hay không."
 
 #: settings-gui/org.fcitx.Fcitx5.Addon.Lotus.Settings.desktop.in:2
 msgid "Fcitx5 Lotus Settings"
 msgstr "Cài đặt Fcitx5 Lotus"
 
-#: settings-gui/ui/pages/dynamic_settings.py:83
-msgid "Fine-tune spelling corrections and advanced typing options."
-msgstr "Tinh chỉnh kiểm tra chính tả và các tùy chọn gõ nâng cao."
+#: settings-gui/adw_ui/pages/extra.py:318
+msgid "Fcitx5 is not running. Cannot export settings."
+msgstr "Fcitx5 đang không chạy. Không thể xuất cài đặt."
 
-#: settings-gui/ui/pages/macro_editor.py:184
-msgid "Full text (e.g. khô gà)"
-msgstr "Từ đầy đủ (ví dụ: khô gà)"
+#: settings-gui/adw_ui/window.py:749
+msgid "Fcitx5 is not running. Settings cannot be loaded or saved."
+msgstr "Fcitx5 đang không chạy. Không thể tải hoặc lưu cài đặt."
 
-#: settings-gui/ui/main_window.py:216
+#: settings-gui/adw_ui/pages/extra.py:599
+msgid "Feature Request"
+msgstr "Yêu cầu tính năng"
+
+#: settings-gui/adw_ui/pages/macros.py:212
+msgid "Format used for the $DATE dynamic placeholder"
+msgstr "Định dạng dùng cho biến động $DATE"
+
+#: settings-gui/adw_ui/pages/macros.py:206
+msgid "Format used for the $TIME dynamic placeholder"
+msgstr "Định dạng dùng cho biến động $TIME"
+
+#: settings-gui/adw_ui/window.py:1080
+msgid "Free Tone Marking"
+msgstr "Gõ dấu tự do"
+
+#: settings-gui/adw_ui/window.py:1058
+msgid "Free dd to đ"
+msgstr "Gõ dd thành đ tự do"
+
+#: settings-gui/adw_ui/window.py:744 settings-gui/adw_ui/window.py:1035
 msgid "General"
 msgstr "Tổng quan"
 
-#: settings-gui/ui/pages/mode_manager.py:199
-msgid "Global Default Mode:"
-msgstr "Chế độ toàn cục mặc định:"
+#: settings-gui/adw_ui/pages/extra.py:65 settings-gui/adw_ui/pages/extra.py:468
+msgid "General & Typing"
+msgstr "Tổng quan & Nhập liệu"
+
+#: settings-gui/adw_ui/pages/extra.py:586
+msgid "GitHub Repository"
+msgstr "Kho mã nguồn GitHub"
+
+#: settings-gui/adw_ui/pages/shortcuts.py:425
+#: settings-gui/adw_ui/pages/shortcuts.py:426
+msgid "Hidden"
+msgstr "Ẩn"
 
 #: src/lotus-config.h:223
 msgid "Icon Color"
 msgstr "Màu biểu tượng"
 
-#: settings-gui/ui/pages/backup.py:89
-msgid "Import Backup..."
-msgstr "Nhập sao lưu..."
+#: settings-gui/adw_ui/window.py:1016
+msgid "Icon Theme"
+msgstr "Chủ đề biểu tượng"
+
+#: settings-gui/adw_ui/pages/extra.py:395
+msgid "Import Backup"
+msgstr "Nhập sao lưu"
+
+#: settings-gui/adw_ui/pages/extra.py:495
+#, python-brace-format
+msgid "Import failed: {}"
+msgstr "Nhập thất bại: {}"
+
+#: settings-gui/adw_ui/pages/extra.py:290
+msgid "Import…"
+msgstr "Nhập…"
+
+#: settings-gui/adw_ui/window.py:955 settings-gui/adw_ui/window.py:980
+msgid "Input"
+msgstr "Kiểu nhập"
 
 #: src/lotus-config.h:175
 msgid "Input Method"
 msgstr "Kiểu gõ"
 
-#: settings-gui/ui/pages/backup.py:214
-msgid "Invalid backup file: No recognizable components found."
-msgstr "Tệp sao lưu không hợp lệ: không có thành phần được tìm thấy."
+#: settings-gui/adw_ui/pages/mode_manager.py:531
+#: settings-gui/adw_ui/window.py:967
+msgid "Input Mode"
+msgstr "Chế độ gõ"
 
-#: settings-gui/ui/pages/backup.py:98
-msgid "Items found in backup:"
-msgstr "Mục được phát hiện trong sao lưu:"
+#: settings-gui/adw_ui/pages/macros.py:620
+msgid "Insert $DATE dynamic placeholder"
+msgstr "Chèn biến động $DATE"
 
-#: settings-gui/ui/pages/backup.py:128 settings-gui/ui/pages/backup.py:178
-msgid "JSON Backup (*.json);;All Files (*)"
-msgstr "Sao lưu JSON(*.json);;Tất cả tệp(*)"
+#: settings-gui/adw_ui/pages/macros.py:619
+msgid "Insert $TIME dynamic placeholder"
+msgstr "Chèn biến động $TIME"
+
+#: settings-gui/adw_ui/window.py:46
+msgid "Insert a period followed by a space when pressing Space twice."
+msgstr "Chèn dấu chấm và khoảng trắng khi nhấn Space hai lần."
+
+#: settings-gui/adw_ui/pages/extra.py:410 settings-gui/adw_ui/pages/extra.py:445
+msgid "Invalid backup file"
+msgstr "Tệp sao lưu không hợp lệ"
+
+#: settings-gui/adw_ui/window.py:546
+msgid "Invalid settings."
+msgstr "Cài đặt không hợp lệ."
+
+#: settings-gui/adw_ui/pages/extra.py:338 settings-gui/adw_ui/pages/extra.py:396
+msgid "JSON Backup"
+msgstr "Sao lưu JSON"
 
 #: src/lotus-config.h:150
 msgid "Key"
 msgstr "Phím"
 
-#: settings-gui/ui/pages/keymap_editor.py:267
-msgid "Key (Example: s)"
-msgstr "Phím (Ví dụ: s)"
+#: settings-gui/adw_ui/pages/keymap.py:503
+msgid "Key (e.g. s)"
+msgstr "Phím (vd: s)"
 
-#: settings-gui/ui/pages/macro_editor.py:193
-msgid "Key:"
-msgstr "Khoá:"
+#: settings-gui/adw_ui/pages/keymap.py:344
+msgid "Key Bindings"
+msgstr "Phím gán"
 
-#: settings-gui/ui/pages/keymap_editor.py:218
-#: settings-gui/ui/main_window.py:221
+#: settings-gui/adw_ui/window.py:854
 msgid "Keymap"
 msgstr "Keymap"
+
+#: settings-gui/adw_ui/pages/extra.py:637
+msgid "Licenses"
+msgstr "Giấy phép"
 
 #: src/lotus-config.h:67
 msgid "Light"
 msgstr "Sáng"
+
+#: settings-gui/adw_ui/pages/keymap.py:237
+msgid "Load bindings from a built-in layout"
+msgstr "Tải phím gán từ bố cục tích hợp sẵn"
 
 #: org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in:7
 msgid "Lotus"
@@ -518,7 +741,8 @@ msgstr "Lotus"
 msgid "Lotus - Off"
 msgstr "Lotus - Tắt"
 
-#: settings-gui/ui/main_window.py:33
+#: settings-gui/adw_ui/window.py:127 settings-gui/adw_ui/window.py:704
+#: settings-gui/adw_ui/window.py:736 settings-gui/main.py:141
 msgid "Lotus Settings"
 msgstr "Cài đặt Lotus"
 
@@ -540,35 +764,40 @@ msgstr "Lotus: máy chủ uinput đang không chạy"
 msgid "Macro"
 msgstr "Gõ tắt"
 
-#: settings-gui/ui/pages/macro_editor.py:61
-msgid "Macro in Off Mode"
-msgstr "Gõ tắt trong chế độ \"Tắt\""
+#: settings-gui/adw_ui/pages/macros.py:382
+msgid "Macro Entries"
+msgstr "Danh sách gõ tắt"
 
-#: settings-gui/ui/pages/macro_editor.py:414
-#: settings-gui/ui/pages/macro_editor.py:459
+#: settings-gui/adw_ui/pages/extra.py:76
+msgid "Macro behavior and shorthand expansions"
+msgstr "Hành vi gõ tắt và danh sách từ viết tắt"
+
+#: settings-gui/adw_ui/pages/macros.py:313
+#: settings-gui/adw_ui/pages/macros.py:512
+#: settings-gui/adw_ui/pages/macros.py:601
+#: settings-gui/adw_ui/pages/macros.py:679
 msgid "Macro keys cannot contain spaces or special characters."
-msgstr "Cảnh báo: từ gõ tắt không được chứa phím cách hoặc ký tự đặc biệt."
+msgstr "Từ gõ tắt không được chứa khoảng trắng hoặc ký tự đặc biệt."
 
-#: settings-gui/ui/pages/backup.py:72 settings-gui/ui/pages/backup.py:198
-#: settings-gui/ui/pages/backup.py:255 settings-gui/ui/pages/macro_editor.py:52
-#: settings-gui/ui/main_window.py:219
+#: settings-gui/adw_ui/pages/macros.py:220
+#: settings-gui/adw_ui/pages/macros.py:424 settings-gui/adw_ui/pages/extra.py:75
+#: settings-gui/adw_ui/pages/extra.py:476 settings-gui/adw_ui/window.py:846
 msgid "Macros"
 msgstr "Gõ tắt"
 
-#: settings-gui/ui/pages/macro_editor.py:113
-msgid "Macros support dynamic placeholders: $TIME and $DATE."
-msgstr ""
-"Gõ tắt có thể sử dụng giữ chỗ động: $TIME (thời gian hiện tại) và $DATE "
-"(ngày hiện tại)."
+#: settings-gui/adw_ui/pages/shortcuts.py:139
+#: settings-gui/adw_ui/pages/shortcuts.py:451
+msgid "Main Shortcuts"
+msgstr "Phím tắt chính"
 
-#: settings-gui/ui/pages/backup.py:71 settings-gui/ui/pages/backup.py:197
-#: settings-gui/ui/pages/backup.py:251
-msgid "Main Settings"
-msgstr "Cài đặt chính"
+#: settings-gui/adw_ui/pages/extra.py:66
+msgid "Main input method, typing rules, shortcuts, and appearance"
+msgstr "Kiểu gõ chính, quy tắc gõ, phím tắt và giao diện"
 
-#: settings-gui/ui/pages/dynamic_settings.py:84
-msgid "Manage input mode shortcuts, display order, and fast cycling."
-msgstr "Quản lý phím tắt, thứ tự hiển thị và chuyển nhanh các chế độ gõ."
+#: settings-gui/adw_ui/pages/macros.py:177
+#: settings-gui/adw_ui/pages/macros.py:361
+msgid "Match Case"
+msgstr "Khớp chữ hoa/thường"
 
 #: src/lotus-config.h:160 src/lotus-config.h:174
 msgid "Mode"
@@ -578,73 +807,162 @@ msgstr "Chế độ"
 msgid "Mode Menu Hotkey"
 msgstr "Phím tắt menu chế độ gõ"
 
+#: settings-gui/adw_ui/pages/shortcuts.py:152
+#: settings-gui/adw_ui/pages/shortcuts.py:459
+msgid "Mode Menu Switching"
+msgstr "Menu chuyển chế độ"
+
 #: src/lotus-config.h:217
 msgid "Mode Order"
 msgstr "Thứ tự chế độ"
 
-#: settings-gui/ui/pages/about.py:86
-msgid "Modern, fast, and stable Vietnamese input method for Linux."
-msgstr "Bộ gõ tiếng việt hiện đại, nhanh và ổn định cho Linux."
+#: settings-gui/adw_ui/pages/shortcuts.py:201
+msgid "Mode Shortcut"
+msgstr "Phím tắt chế độ"
+
+#: settings-gui/adw_ui/window.py:1074
+msgid "Modern Tone Style"
+msgstr "Bỏ dấu kiểu mới"
+
+#: settings-gui/adw_ui/pages/extra.py:572
+msgid "Modern Vietnamese Input Method for Linux"
+msgstr "Bộ gõ tiếng Việt hiện đại cho Linux"
 
 #: src/lotus-config.h:187
 msgid "Modifier to Skip Macro for Next Word"
 msgstr "Phím để bỏ qua gõ tắt cho từ hiện tại"
 
-#: settings-gui/ui/pages/macro_editor.py:84
-msgid "Modifier to Skip Macro for Next Word:"
-msgstr "Phím để bỏ qua gõ tắt cho từ tới:"
-
-#: settings-gui/ui/pages/macro_editor.py:220
+#: settings-gui/adw_ui/pages/shortcuts.py:180
 msgid "Move Down"
 msgstr "Chuyển xuống"
 
-#: settings-gui/ui/pages/macro_editor.py:218
+#: settings-gui/adw_ui/pages/shortcuts.py:175
 msgid "Move Up"
 msgstr "Chuyển lên"
 
-#: settings-gui/ui/pages/dynamic_settings.py:283
-msgid "No interface settings available yet."
-msgstr "Không có cài đặt nào hiện khả dụng."
+#: settings-gui/adw_ui/pages/mode_manager.py:483
+msgid "No Application Rules"
+msgstr "Chưa có quy tắc ứng dụng"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:231
+msgid "No Apps Found"
+msgstr "Không tìm thấy ứng dụng"
+
+#: settings-gui/adw_ui/pages/keymap.py:416
+msgid "No Bindings"
+msgstr "Chưa có phím gán"
+
+#: settings-gui/adw_ui/pages/macros.py:458
+msgid "No Macros Defined"
+msgstr "Chưa có từ gõ tắt"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:231
+#: settings-gui/adw_ui/pages/mode_manager.py:481
+msgid "No Matching Apps"
+msgstr "Không có ứng dụng khớp"
+
+#: settings-gui/adw_ui/pages/keymap.py:416
+msgid "No Matching Bindings"
+msgstr "Không có phím gán khớp"
+
+#: settings-gui/adw_ui/pages/macros.py:458
+msgid "No Matching Macros"
+msgstr "Không có từ gõ tắt khớp"
+
+#: settings-gui/adw_ui/pages/dictionary.py:398
+msgid "No Matching Words"
+msgstr "Không có từ khớp"
+
+#: settings-gui/adw_ui/pages/extra.py:325
+msgid "No custom dictionary file to export."
+msgstr "Không có tệp từ điển tuỳ chỉnh để xuất."
+
+#: settings-gui/adw_ui/pages/extra.py:417
+msgid "No matching components found in backup"
+msgstr "Không tìm thấy thành phần phù hợp trong bản sao lưu"
 
 #: src/lotus-config.h:37 src/lotus-config.h:44
 msgid "Non-Start"
 msgstr "Không phải đầu từ"
 
-#: settings-gui/ui/pages/macro_editor.py:135
-#: settings-gui/ui/pages/macro_editor.py:158 settings-gui/ui/components.py:341
-#: settings-gui/ui/components.py:459
+#: settings-gui/adw_ui/pages/macros.py:38 settings-gui/adw_ui/pages/macros.py:47
+#: settings-gui/adw_ui/pages/macros.py:354
 msgid "None"
 msgstr "Rỗng"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:403
+msgid "None (0 rules)"
+msgstr "Trống (0 quy tắc)"
 
 #: src/lotus-config.h:31
 msgid "OFF"
 msgstr "Tắt"
 
-#: settings-gui/ui/pages/about.py:160
-msgid "Open Source Licenses"
-msgstr "Các giấy phép mã nguồn mở"
+#: settings-gui/adw_ui/pages/macros.py:350
+#: settings-gui/adw_ui/pages/dictionary.py:291
+#: settings-gui/adw_ui/pages/dictionary.py:292
+#: settings-gui/adw_ui/pages/keymap.py:337 settings-gui/adw_ui/window.py:379
+#: settings-gui/adw_ui/window.py:380
+msgid "Off"
+msgstr "Tắt"
 
-#: settings-gui/ui/pages/keymap_editor.py:244
-msgid "Original Input Method:"
-msgstr "Kiểu gõ gốc:"
+#: settings-gui/adw_ui/pages/macros.py:188
+#: settings-gui/adw_ui/pages/macros.py:362
+msgid "Off-Mode Macros"
+msgstr "Gõ tắt ở chế độ Tắt"
+
+#: settings-gui/adw_ui/pages/macros.py:350
+#: settings-gui/adw_ui/pages/dictionary.py:291
+#: settings-gui/adw_ui/pages/dictionary.py:292
+#: settings-gui/adw_ui/pages/keymap.py:337 settings-gui/adw_ui/window.py:379
+#: settings-gui/adw_ui/window.py:380
+msgid "On"
+msgstr "Bật"
+
+#: settings-gui/adw_ui/pages/extra.py:602
+msgid "Open a blank issue or ask a question"
+msgstr "Mở một vấn đề mới hoặc đặt câu hỏi"
+
+#: settings-gui/adw_ui/pages/shortcuts.py:415
+msgid "Order"
+msgstr "Thứ tự"
 
 #: src/lotus-config.h:176
 msgid "Output Charset"
 msgstr "Bảng mã"
 
+#: settings-gui/adw_ui/pages/extra.py:422
+#, python-brace-format
+msgid "Overwrite selected components: {}?"
+msgstr "Ghi đè các thành phần đã chọn: {}?"
+
 #: src/lotus-state.cpp:204
 msgid "Page "
 msgstr "Trang "
+
+#: settings-gui/adw_ui/pages/extra.py:71
+msgid "Per-application input modes and timing overrides"
+msgstr "Chế độ gõ và độ trễ riêng cho từng ứng dụng"
+
+#: settings-gui/adw_ui/window.py:42
+msgid "Place tone marks on newer vowel positions (oà, uý instead of òa, úy)."
+msgstr "Đặt dấu thanh theo kiểu mới (oà, uý thay vì òa, úy)."
 
 #: src/lotus-config.h:163
 msgid "Post Delay"
 msgstr "Độ trễ sau commit"
 
+#: settings-gui/adw_ui/pages/mode_manager.py:117
+#: settings-gui/adw_ui/pages/mode_manager.py:387
+#: settings-gui/adw_ui/pages/mode_manager.py:547
+msgid "Post Delay (ms)"
+msgstr "Độ trễ sau commit (ms)"
+
 #: src/lotus-config.h:31
 msgid "Preedit"
 msgstr "Gạch chân"
 
-#: settings-gui/ui/helpers.py:38
+#: settings-gui/adw_ui/window.py:35
 msgid ""
 "Prefer injecting keys through the system instead of the uinput service: the "
 "wlroots virtual keyboard on Wayland and Xtest on X11.\n"
@@ -653,118 +971,169 @@ msgid ""
 msgstr ""
 "Ưu tiên bơm phím qua hệ thống thay vì dịch vụ uinput: sử dụng bàn phím ảo "
 "wlroots trên wayland và Xtest trên X11.\n"
-"Tắt tuỳ chọn này để luôn sử dụng dịch vụ uinput, khi không có backend nào "
-"khả dụng thì uinput sẽ luôn được sử dụng."
+"Tắt tuỳ chọn này để luôn sử dụng dịch vụ uinput, khi không có backend nào khả "
+"dụng thì uinput sẽ luôn được sử dụng."
 
 #: src/lotus-config.h:199
 msgid "Prefer system keyboard injection when available"
 msgstr "Ưu tiên bơm phím qua hệ thống khi khả dụng"
 
-#: settings-gui/ui/helpers.py:34
+#: settings-gui/adw_ui/pages/keymap.py:236
+msgid "Preset"
+msgstr "Mẫu phím"
+
+#: settings-gui/adw_ui/widgets/shortcut_dialog.py:331
+msgid "Press a single key…"
+msgstr "Nhấn một phím…"
+
+#: settings-gui/adw_ui/pages/macros.py:198
 msgid ""
 "Press and release the selected modifier key before typing to skip macro "
 "expansion for the next word.\n"
 "If another key is pressed between the modifier's press and release, the skip "
 "is cancelled."
 msgstr ""
-"Ấn phím được chọn trước khi gõ để bỏ qua phím tắt cho từ tiếp theo.\n"
-"Nếu có phím được nhấn cùng phím này trước khi nhả phím, việc bỏ qua sẽ bị "
-"huỷ."
+"Nhấn và thả phím bổ trợ đã chọn trước khi gõ để bỏ qua gõ tắt cho từ tiếp "
+"theo.\n"
+"Nếu nhấn phím khác trong lúc đang giữ phím này, thao tác bỏ qua sẽ bị huỷ."
 
-#: settings-gui/ui/pages/dict_editor.py:144
-#: settings-gui/ui/pages/keymap_editor.py:301
-#: settings-gui/ui/pages/macro_editor.py:216
-#: settings-gui/ui/pages/mode_manager.py:173
+#: settings-gui/adw_ui/widgets/shortcut_dialog.py:331
+msgid "Press shortcut…"
+msgstr "Nhấn phím tắt…"
+
+#: settings-gui/adw_ui/window.py:986 settings-gui/adw_ui/window.py:1001
+msgid "Quick Keys"
+msgstr "Phím nhanh"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:170
+msgid "Refresh"
+msgstr "Làm mới"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:573
+#: settings-gui/adw_ui/pages/dictionary.py:463 settings-gui/adw_ui/utils.py:107
 msgid "Remove"
 msgstr "Xoá"
 
-#: settings-gui/ui/pages/mode_manager.py:524
-msgid "Remove rules for this application?"
-msgstr "Bạn có chắc chắn muốn xoá quy tắc cho ứng dụng này?"
+#: settings-gui/adw_ui/pages/mode_manager.py:566
+msgid "Remove Rule"
+msgstr "Xoá quy tắc"
 
-#: settings-gui/ui/pages/keymap_editor.py:302
-msgid "Remove selected row"
-msgstr "Xoá dòng đang chọn"
+#: settings-gui/adw_ui/pages/mode_manager.py:575
+msgid "Remove application rule"
+msgstr "Xoá quy tắc ứng dụng"
 
-#: settings-gui/ui/pages/about.py:105
-msgid "Report Bug"
-msgstr "Báo cáo lỗi"
+#: settings-gui/adw_ui/pages/keymap.py:242
+msgid "Replace bindings with the selected preset"
+msgstr "Thay thế phím gán bằng mẫu đã chọn"
 
-#: settings-gui/ui/pages/about.py:116
-msgid "Request Feature"
-msgstr "Đề xuất tính năng"
+#: settings-gui/adw_ui/pages/extra.py:598
+msgid "Report a bug (bug_report.yml)"
+msgstr "Báo cáo lỗi (bug_report.yml)"
 
-#: settings-gui/ui/pages/backup.py:103
-msgid "Restore Selected Now"
-msgstr "Khôi phục đang chọn hiện tại"
+#: settings-gui/adw_ui/pages/extra.py:595
+msgid "Report an Issue"
+msgstr "Báo cáo vấn đề"
 
-#: settings-gui/ui/main_window.py:239
-msgid "Restore all settings to defaults?"
-msgstr "Bạn có chắc chắn muốn khôi phục tất cả cài đặt về giá trị mặc định?"
+#: settings-gui/adw_ui/widgets/reset_dialog.py:38
+msgid "Reset"
+msgstr "Đặt lại"
+
+#: settings-gui/adw_ui/window.py:307
+msgid "Resolve validation errors before saving."
+msgstr "Hãy khắc phục các lỗi xác thực trước khi lưu."
+
+#: settings-gui/adw_ui/pages/extra.py:425
+msgid "Restore"
+msgstr "Khôi phục"
+
+#: settings-gui/adw_ui/widgets/reset_dialog.py:65
+msgid "Restore All Defaults"
+msgstr "Khôi phục tất cả mặc định"
+
+#: settings-gui/adw_ui/pages/extra.py:421
+msgid "Restore Backup?"
+msgstr "Khôi phục sao lưu?"
+
+#: settings-gui/adw_ui/widgets/reset_dialog.py:63
+#, python-brace-format
+msgid "Restore Defaults — {}"
+msgstr "Khôi phục mặc định — {}"
+
+#: settings-gui/adw_ui/widgets/reset_dialog.py:70
+msgid "Restore all modified settings to their factory defaults?"
+msgstr "Khôi phục tất cả cài đặt đã thay đổi về mặc định ban đầu?"
+
+#: settings-gui/adw_ui/widgets/section_header.py:31
+msgid "Restore section defaults"
+msgstr "Khôi phục mặc định của mục này"
+
+#: settings-gui/adw_ui/pages/extra.py:291
+msgid "Restore selected components from a JSON backup file"
+msgstr "Khôi phục các thành phần đã chọn từ tệp sao lưu JSON"
+
+#: settings-gui/adw_ui/window.py:641
+msgid "Restored all defaults"
+msgstr "Đã khôi phục tất cả mặc định"
+
+#: settings-gui/adw_ui/pages/base.py:98 settings-gui/adw_ui/window.py:463
+#, python-brace-format
+msgid "Restored defaults for {}"
+msgstr "Đã khôi phục mặc định cho {}"
+
+#: settings-gui/adw_ui/window.py:750
+msgid "Retry"
+msgstr "Thử lại"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:650
+msgid "Rule already exists"
+msgstr "Quy tắc đã tồn tại"
 
 #: src/lotus-config.h:166
 msgid "Rules"
 msgstr "Quy tắc"
 
-#: settings-gui/ui/pages/backup.py:63
+#: settings-gui/adw_ui/pages/mode_manager.py:160
+msgid "Running Apps"
+msgstr "Ứng dụng đang chạy"
+
+#: settings-gui/adw_ui/pages/macros.py:577
+msgid "Save"
+msgstr "Lưu"
+
+#: settings-gui/adw_ui/pages/extra.py:285
+msgid "Save selected components to a JSON backup file"
+msgstr "Lưu các thành phần đã chọn vào tệp sao lưu JSON"
+
+#: settings-gui/adw_ui/pages/extra.py:619
 msgid ""
-"Save or restore configuration via JSON files. Select components to include:"
+"Save system details, Lotus config, uinput logs, and fcitx5-diagnose output"
 msgstr ""
-"Lưu hoặc khôi phục cấu hình của bạn vào một tệp JSON. Chọn cái bạn muốn:"
+"Lưu thông tin hệ thống, cấu hình Lotus, nhật ký uinput và kết quả fcitx5-"
+"diagnose"
 
-#: settings-gui/ui/pages/mode_manager.py:160
-msgid "Search applications..."
-msgstr "Tìm ứng dụng..."
+#: settings-gui/adw_ui/pages/mode_manager.py:183
+msgid "Search running apps…"
+msgstr "Tìm ứng dụng đang chạy…"
 
-#: settings-gui/ui/pages/keymap_editor.py:234
-msgid "Search keys..."
-msgstr "Tìm phím..."
+#: settings-gui/adw_ui/widgets/section_header.py:77
+msgid "Search…"
+msgstr "Tìm kiếm…"
 
-#: settings-gui/ui/pages/macro_editor.py:93
-msgid "Search macros..."
-msgstr "Tìm từ gõ tắt..."
+#: settings-gui/adw_ui/pages/extra.py:314
+msgid "Select at least one component to export"
+msgstr "Chọn ít nhất một thành phần để xuất"
 
-#: settings-gui/ui/pages/dict_editor.py:95
-msgid "Search words..."
-msgstr "Tìm từ..."
-
-#: settings-gui/ui/pages/dict_editor.py:99
-#: settings-gui/ui/pages/keymap_editor.py:238
-#: settings-gui/ui/pages/macro_editor.py:230
-msgid "Search:"
-msgstr "Tìm:"
-
-#: settings-gui/ui/pages/backup.py:176
-msgid "Select Backup File"
-msgstr "Chọn tệp sao lưu"
-
-#: settings-gui/ui/pages/mode_manager.py:232
-msgid "Select an application"
-msgstr "Tìm một ứng dụng"
-
-#: settings-gui/ui/pages/backup.py:120
-msgid "Select at least one item to export."
-msgstr "Hãy chọn ít nhất một mục để xuất."
-
-#: settings-gui/ui/pages/backup.py:229
-msgid "Select at least one item to restore."
-msgstr "Chọn ít nhất một mục để khôi phục."
-
-#: settings-gui/ui/pages/backup.py:289
-msgid ""
-"Selected components restored. Fcitx5 restart may be required for some "
-"changes."
-msgstr ""
-"Các thành phần được chọn đã khôi phục thành công. Vài thay đổi cần khởi động "
-"lại fcitx5."
+#: settings-gui/adw_ui/pages/extra.py:390
+msgid "Select at least one component to import"
+msgstr "Chọn ít nhất một thành phần để nhập"
 
 #: src/lotus-engine.cpp:212
 msgid "Settings"
 msgstr "Cài đặt"
 
-#: settings-gui/ui/main_window.py:307
-msgid "Settings saved."
-msgstr "Cài đặt đã được lưu."
+#: settings-gui/adw_ui/window.py:586
+msgid "Settings saved"
+msgstr "Đã lưu cài đặt"
 
 #: src/lotus-config.h:56
 msgid "Shift"
@@ -798,7 +1167,7 @@ msgstr "Phím tắt cho Uinput (Mượt)"
 msgid "Shortcut for Uinput (Super Smooth)"
 msgstr "Phím tắt cho Uinput (Siêu mượt)"
 
-#: settings-gui/ui/main_window.py:222
+#: settings-gui/adw_ui/window.py:834
 msgid "Shortcuts"
 msgstr "Phím tắt"
 
@@ -809,6 +1178,11 @@ msgstr "Hiển thị chế độ gõ mặc định"
 #: src/lotus-config.h:209
 msgid "Show Emoji Picker"
 msgstr "Hiển thị chế độ Chọn Emoji"
+
+#: settings-gui/adw_ui/pages/dictionary.py:436
+#, python-brace-format
+msgid "Show More ({})"
+msgstr "Xem thêm ({})"
 
 #: src/lotus-config.h:210
 msgid "Show OFF"
@@ -830,38 +1204,69 @@ msgstr "Hiển thị chế độ Uinput (Mượt)"
 msgid "Show Uinput (Super Smooth)"
 msgstr "Hiển thị chế độ Uinput (Siêu mượt)"
 
+#: settings-gui/adw_ui/pages/macros.py:196
+#: settings-gui/adw_ui/pages/macros.py:363
+msgid "Skip Modifier"
+msgstr "Phím bỏ qua"
+
 #: src/lotus-engine.cpp:202 src/lotus-engine.cpp:367
 msgid "Spell Check"
 msgstr "Kiểm tra chính tả"
 
-#: settings-gui/ui/pages/backup.py:167 settings-gui/ui/pages/backup.py:288
-#: settings-gui/ui/main_window.py:307
-msgid "Success"
-msgstr "Thành công"
+#: settings-gui/adw_ui/window.py:1042 settings-gui/adw_ui/window.py:1063
+msgid "Spelling"
+msgstr "Chính tả"
+
+#: settings-gui/adw_ui/pages/extra.py:599
+msgid "Suggest an enhancement (feature_request.yml)"
+msgstr "Đề xuất cải tiến (feature_request.yml)"
 
 #: src/lotus-config.h:31
 msgid "Surrounding Text"
 msgstr "Văn bản xung quanh"
 
-#: settings-gui/ui/pages/keymap_editor.py:444
-msgid "This operation will replace all existing keys with "
-msgstr "Việc này sẽ thay thế mọi phím sẵn có với "
+#: settings-gui/adw_ui/window.py:1029
+msgid "System Keyboard Injection"
+msgstr "Bơm phím qua hệ thống"
 
-#: settings-gui/ui/pages/about.py:167
-msgid ""
-"This project is licensed under the <b>GNU General Public License v3.0 or "
-"later (GPL-3.0-or-later)</b>."
+#: settings-gui/adw_ui/widgets/reset_dialog.py:68
+msgid "The following settings will be reset to their factory defaults:"
+msgstr "Các cài đặt sau sẽ được đặt lại về mặc định ban đầu:"
+
+#: settings-gui/adw_ui/pages/keymap.py:474
+#, python-brace-format
+msgid "This operation will replace all existing keys with {}. Are you sure?"
 msgstr ""
-"Dự án được cấp phép dưới <b>Giấy phép Công cộng GNU phiên bản 3.0 hoặc mới "
-"hơn (GPL-3.0-or-later)</b>."
+"Thao tác này sẽ thay thế toàn bộ các phím hiện có bằng {}. Bạn có chắc chắn?"
+
+#: settings-gui/adw_ui/pages/macros.py:205
+#: settings-gui/adw_ui/pages/macros.py:364
+msgid "Time Format"
+msgstr "Định dạng giờ"
 
 #: src/lotus-config.h:218
 msgid "Time Format ($TIME in macro)"
 msgstr "Định dạng giờ ($TIME trong gõ tắt)"
 
-#: settings-gui/ui/pages/macro_editor.py:143
-msgid "Time Format:"
-msgstr "Định dạng giờ:"
+#: settings-gui/adw_ui/window.py:1070 settings-gui/adw_ui/window.py:1103
+msgid "Tone & Punctuation"
+msgstr "Dấu thanh & Dấu câu"
+
+#: settings-gui/adw_ui/pages/dictionary.py:149
+msgid "Total words"
+msgstr "Tổng số từ"
+
+#: settings-gui/adw_ui/window.py:47
+msgid "Transform -- into an em-dash (—)."
+msgstr "Chuyển -- thành dấu gạch ngang dài (—)."
+
+#: settings-gui/adw_ui/window.py:41
+msgid "Transform [ to ơ, ] to ư, { to Ơ, and } to Ư."
+msgstr "Chuyển [ thành ơ, ] thành ư, { thành Ơ và } thành Ư."
+
+#: settings-gui/adw_ui/window.py:1006 settings-gui/adw_ui/window.py:1020
+msgid "Tray Icon"
+msgstr "Biểu tượng khay"
 
 #: src/lotus-engine.cpp:1054
 msgid "Type"
@@ -871,11 +1276,15 @@ msgstr "Gõ"
 msgid "Type [ -> ơ, ] -> ư, { -> Ơ, } -> Ư"
 msgstr "Gõ [ -> ơ, ] -> ư, { -> Ơ, } -> Ư"
 
+#: settings-gui/adw_ui/window.py:990
+msgid "Type w as ư"
+msgstr "Gõ w thành ư"
+
 #: src/lotus-config.h:180
 msgid "Type w to Produce ư"
 msgstr "Gõ w thành ư"
 
-#: settings-gui/ui/main_window.py:217
+#: settings-gui/adw_ui/window.py:1114
 msgid "Typing"
 msgstr "Nhập liệu"
 
@@ -889,24 +1298,27 @@ msgstr "Uinput (Siêu mượt)"
 
 #: src/lotus-notify.cpp:84
 msgid ""
-"Uinput modes need the Lotus uinput server. Enable the server service for "
-"your distribution and init system."
+"Uinput modes need the Lotus uinput server. Enable the server service for your "
+"distribution and init system."
 msgstr ""
-"Chế độ uinput cần máy chủ uinput Lotus. Bật dịch vụ máy chủ cho bản phân "
-"phối và hệ thống init của bạn."
+"Chế độ uinput cần máy chủ uinput Lotus. Bật dịch vụ máy chủ cho bản phân phối "
+"và hệ thống init của bạn."
 
-#: settings-gui/ui/pages/keymap_editor.py:435
-#: settings-gui/ui/pages/macro_editor.py:468
-msgid "Update"
-msgstr "Cập nhật"
+#: settings-gui/adw_ui/window.py:486
+msgid "Unsaved Changes"
+msgstr "Thay đổi chưa lưu"
 
-#: settings-gui/ui/pages/keymap_editor.py:435
-msgid "Update Keymap"
-msgstr "Cập Nhật Keymap"
+#: settings-gui/adw_ui/window.py:1010
+msgid "Use Lotus Icons"
+msgstr "Dùng biểu tượng Lotus"
 
 #: src/lotus-config.h:195
 msgid "Use Lotus Status Icons"
 msgstr "Sử dụng biểu tượng trạng thái Lotus"
+
+#: settings-gui/adw_ui/pages/keymap.py:229
+msgid "Use custom key-to-action bindings when Input Method is Custom"
+msgstr "Dùng ánh xạ phím sang hành động tuỳ chỉnh khi Kiểu gõ là Custom"
 
 #: src/lotus-config.h:192
 msgid "Use oà, uý (Instead Of òa, úy)"
@@ -916,55 +1328,75 @@ msgstr "Sử dụng oà, uý (Thay vì òa, úy)"
 msgid "Value"
 msgstr "Giá trị"
 
-#: settings-gui/ui/pages/macro_editor.py:195
-msgid "Value:"
-msgstr "Giá trị:"
-
-#: settings-gui/ui/pages/about.py:71
-#, python-brace-format
-msgid "Version {}"
-msgstr "Phiên bản {}"
-
 #: org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in:8
 msgid "Vietnamese input method (Lotus)"
 msgstr "Bộ gõ tiếng Việt (Lotus)"
 
-#: settings-gui/ui/pages/backup.py:120 settings-gui/ui/pages/backup.py:229
-#: settings-gui/ui/pages/dict_editor.py:186
-msgid "Warning"
-msgstr "Cảnh báo"
+#: settings-gui/adw_ui/pages/shortcuts.py:425
+#: settings-gui/adw_ui/pages/shortcuts.py:426
+msgid "Visible"
+msgstr "Hiện"
 
-#: settings-gui/ui/pages/dict_editor.py:317
-#: settings-gui/ui/pages/dict_editor.py:349
-msgid "Warning: Dictionary words should not contain spaces."
-msgstr "Cảnh báo: Từ trong từ điển không chứa dấu cách."
+#: settings-gui/adw_ui/pages/dictionary.py:501
+msgid "Word already exists"
+msgstr "Từ đã tồn tại"
 
-#: settings-gui/ui/pages/dict_editor.py:114
-msgid "Word (e.g. khongdau)"
-msgstr "Từ (ví dụ: khongdau)"
+#: settings-gui/adw_ui/pages/dictionary.py:143
+#: settings-gui/adw_ui/pages/dictionary.py:359
+msgid "Words"
+msgstr "Danh sách từ"
 
-#: settings-gui/ui/pages/dict_editor.py:122
-msgid "Word:"
-msgstr "Từ:"
+#: settings-gui/adw_ui/pages/dictionary.py:499
+msgid "Words cannot contain spaces"
+msgstr "Từ không được chứa khoảng trắng"
 
-#: settings-gui/ui/pages/dict_editor.py:79
+#: settings-gui/adw_ui/pages/dictionary.py:132
 msgid ""
-"Words in the custom dictionary will be excluded from 'Auto Restore Invalid "
-"Words'. Use this for names, technical terms, or words not yet in the built-"
-"in dictionary."
+"Words in the custom dictionary are excluded from 'Auto Restore Invalid "
+"Words'. Use this for names, technical terms, or words missing from the built-"
+"in list."
 msgstr ""
-"Các từ trong từ điển tuỳ chỉnh sẽ được bảo vệ trong tuỳ chọn \"Tự động khôi "
-"phục với từ sai'. Sử dụng nó cho các tên, thuật ngữ kỹ thuật, hoặc các từ "
-"không có trong từ điển cơ bản."
+"Các từ trong từ điển tuỳ chỉnh sẽ được loại trừ khỏi 'Tự động khôi phục phím "
+"với từ sai'. Dùng cho tên riêng, thuật ngữ kỹ thuật hoặc từ chưa có trong "
+"danh sách mặc định."
 
-#: settings-gui/ui/helpers.py:17
+#: settings-gui/adw_ui/window.py:29
 msgid "You can type tone marks at the end of the word or anywhere inside."
-msgstr "Bạn có thể gõ dấu câu ở cuối từ hoặc bất cứ đâu."
+msgstr "Bạn có thể gõ dấu thanh ở cuối từ hoặc ở bất cứ đâu trong từ."
 
-#: settings-gui/ui/components.py:455
-msgid "[ Press Key... ]"
-msgstr "[ Nhấn phím... ]"
+#: settings-gui/adw_ui/window.py:487
+msgid "You have unsaved settings. Save before closing?"
+msgstr "Bạn có cài đặt chưa lưu. Lưu trước khi đóng?"
 
-#: settings-gui/ui/components.py:327
-msgid "[ Recording... ]"
-msgstr "[ Đang ghi lại... ]"
+#: settings-gui/adw_ui/pages/dictionary.py:483
+msgid "e.g. khongdau"
+msgstr "vd: khongdau"
+
+#: settings-gui/adw_ui/pages/macros.py:595
+msgid "e.g. vn, branch, cnow"
+msgstr "vd: vn, branch, cnow"
+
+#: settings-gui/adw_ui/pages/keymap.py:345
+#, python-brace-format
+msgid "{count} bindings"
+msgstr "{count} phím gán"
+
+#: settings-gui/adw_ui/pages/macros.py:383
+#, python-brace-format
+msgid "{count} macros"
+msgstr "{count} từ gõ tắt"
+
+#: settings-gui/adw_ui/pages/mode_manager.py:402
+#, python-brace-format
+msgid "{count} rules ({apps})"
+msgstr "{count} quy tắc ({apps})"
+
+#: settings-gui/adw_ui/pages/dictionary.py:310
+#, python-brace-format
+msgid "{count} words"
+msgstr "{count} từ"
+
+#: settings-gui/adw_ui/pages/dictionary.py:305
+#, python-brace-format
+msgid "{count} words (+{added} / -{removed})"
+msgstr "{count} từ (+{added} / -{removed})"

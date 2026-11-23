@@ -13,7 +13,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 from unittest import mock
 
-import _stubs  # noqa: F401  (installs the qtpy/dbus stand-ins)
+import _stubs  # noqa: F401  (installs the gi/dbus stand-ins)
 import i18n
 
 

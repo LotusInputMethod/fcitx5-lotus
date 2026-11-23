@@ -29,7 +29,7 @@ class _FakeMeta(type):
         return unittest.mock.MagicMock()
 
 
-class _QtNamespace:
+class _EnumNamespace:
     """Attribute bag whose members are stable, unique integers."""
 
     def __init__(self, namespace):
@@ -453,6 +453,9 @@ class _FakeViewStack(_FakeGObject):
             self._visible_child = child
         return page
 
+    def add_titled(self, child, name, title):
+        return self.add_titled_with_icon(child, name, title, "")
+
     def get_page(self, child):
         return self._page_meta.get(id(child))
 
@@ -472,6 +475,51 @@ class _FakeViewStack(_FakeGObject):
             if page.get_name() == name:
                 self.set_visible_child(page.get_child())
                 return
+
+
+class _FakeListBox(_FakeGObject):
+    """Minimal ``Gtk.ListBox`` stand-in supporting single-row selection."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._selected_row = None
+
+    def select_row(self, row):
+        if row is not self._selected_row:
+            self._selected_row = row
+            self.emit("row-selected", row)
+
+    def get_selected_row(self):
+        return self._selected_row
+
+    def get_row_at_index(self, index):
+        return self._children[index] if 0 <= index < len(self._children) else None
+
+    def remove(self, widget):
+        if widget is self._selected_row:
+            self._selected_row = None
+        super().remove(widget)
+
+
+class _FakeBanner(_FakeGObject):
+    """Minimal ``Adw.Banner`` stand-in tracking ``revealed`` and ``button_label``."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._revealed = bool(kwargs.get("revealed", False))
+        self._button_label = str(kwargs.get("button_label", ""))
+
+    def set_revealed(self, revealed):
+        self._revealed = bool(revealed)
+
+    def get_revealed(self):
+        return self._revealed
+
+    def set_button_label(self, label):
+        self._button_label = str(label)
+
+    def get_button_label(self):
+        return self._button_label
 
 
 class _FakeApplicationWindow(_FakeGObject):
@@ -751,8 +799,8 @@ def build_gi_module():
     gio = _fake_g_module(
         "gi.repository.Gio",
         {
-            "ApplicationFlags": _QtNamespace("Gio.ApplicationFlags"),
-            "IOErrorEnum": _QtNamespace("Gio.IOErrorEnum"),
+            "ApplicationFlags": _EnumNamespace("Gio.ApplicationFlags"),
+            "IOErrorEnum": _EnumNamespace("Gio.IOErrorEnum"),
             "ListStore": _FakeListStore,
         },
     )
@@ -761,23 +809,24 @@ def build_gi_module():
     pango = _fake_g_module(
         "gi.repository.Pango",
         {
-            "EllipsizeMode": _QtNamespace("Pango.EllipsizeMode"),
+            "EllipsizeMode": _EnumNamespace("Pango.EllipsizeMode"),
         },
     )
 
     gtk = _fake_g_module(
         "gi.repository.Gtk",
         {
-            "Orientation": _QtNamespace("Gtk.Orientation"),
-            "Align": _QtNamespace("Gtk.Align"),
-            "SelectionMode": _QtNamespace("Gtk.SelectionMode"),
-            "PropagationPhase": _QtNamespace("Gtk.PropagationPhase"),
-            "PolicyType": _QtNamespace("Gtk.PolicyType"),
-            "License": _QtNamespace("Gtk.License"),
-            "DialogError": _QtNamespace("Gtk.DialogError"),
+            "Orientation": _EnumNamespace("Gtk.Orientation"),
+            "Align": _EnumNamespace("Gtk.Align"),
+            "SelectionMode": _EnumNamespace("Gtk.SelectionMode"),
+            "PropagationPhase": _EnumNamespace("Gtk.PropagationPhase"),
+            "PolicyType": _EnumNamespace("Gtk.PolicyType"),
+            "License": _EnumNamespace("Gtk.License"),
+            "DialogError": _EnumNamespace("Gtk.DialogError"),
             "STYLE_PROVIDER_PRIORITY_APPLICATION": 600,
             "StringList": _FakeStringList,
             "Image": _FakeImage,
+            "ListBox": _FakeListBox,
             "TextBuffer": _FakeTextBuffer,
             "TextView": _FakeTextView,
             "Window": _FakeApplicationWindow,
@@ -787,8 +836,9 @@ def build_gi_module():
     adw = _fake_g_module(
         "gi.repository.Adw",
         {
-            "ResponseAppearance": _QtNamespace("Adw.ResponseAppearance"),
+            "ResponseAppearance": _EnumNamespace("Adw.ResponseAppearance"),
             "ApplicationWindow": _FakeApplicationWindow,
+            "Banner": _FakeBanner,
             "ViewStack": _FakeViewStack,
             "SpinRow": _FakeSpinRow,
             "Toast": _FakeToast,

@@ -6,7 +6,7 @@ xgettext \
 --keyword=_ \
 --keyword=N_ \
 -o /tmp/lotus-cpp.pot \
-$(find . \( -name "*.cpp" -o -name "*.h" \))
+$(find src \( -name "*.cpp" -o -name "*.h" \))
 
 xgettext \
 --language=appdata \
@@ -20,7 +20,7 @@ xgettext \
 --keyword=_ \
 --keyword=N_ \
 -o /tmp/lotus-python.pot \
-$(find . -name "*.py")
+$(find settings-gui -name "*.py")
 
 xgettext \
 --language=Desktop \

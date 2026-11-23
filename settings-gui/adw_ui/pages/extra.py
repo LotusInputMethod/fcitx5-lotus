@@ -13,7 +13,7 @@ from datetime import datetime
 
 from core.dbus_handler import LotusDBusHandler
 from gi.repository import Adw, GLib, Gtk
-from i18n import _
+from i18n import N_, _
 
 from adw_ui.utils import (
     build_file_filters,
@@ -57,31 +57,33 @@ _ENV_KEYS = (
     "XMODIFIERS",
 )
 
+_DBUS_COMPONENTS = ("config", "rules", "macros", "keymaps")
+
 _COMPONENTS = [
     (
         "config",
-        _("General & Typing"),
-        _("Main input method, typing rules, shortcuts, and appearance"),
+        N_("General & Typing"),
+        N_("Main input method, typing rules, shortcuts, and appearance"),
     ),
     (
         "rules",
-        _("Application Rules"),
-        _("Per-application input modes and timing overrides"),
+        N_("Application Rules"),
+        N_("Per-application input modes and timing overrides"),
     ),
     (
         "macros",
-        _("Macros"),
-        _("Macro behavior and shorthand expansions"),
+        N_("Macros"),
+        N_("Macro behavior and shorthand expansions"),
     ),
     (
         "keymaps",
-        _("Custom Keymap"),
-        _("Custom key-to-action mappings"),
+        N_("Custom Keymap"),
+        N_("Custom key-to-action mappings"),
     ),
     (
         "dictionary",
-        _("Custom Dictionary"),
-        _("Custom excluded dictionary words"),
+        N_("Custom Dictionary"),
+        N_("Custom excluded dictionary words"),
     ),
 ]
 
@@ -265,8 +267,8 @@ class BackupPage(Adw.PreferencesPage):
         for key, title, tooltip in _COMPONENTS:
             row = Adw.SwitchRow()
             row.set_use_markup(False)
-            row.set_title(title)
-            row.set_tooltip_text(tooltip)
+            row.set_title(_(title))
+            row.set_tooltip_text(_(tooltip))
             row.set_active(True)
             self.switches[key] = row
             group_components.add(row)
@@ -307,10 +309,26 @@ class BackupPage(Adw.PreferencesPage):
     def _selected_components(self) -> dict[str, bool]:
         return {k: sw.get_active() for k, sw in self.switches.items()}
 
-    def _on_export_clicked(self, _button):
-        selected = self._selected_components()
+    def _can_export(self, selected: dict[str, bool]) -> bool:
         if not any(selected.values()):
             self._show_toast(_("Select at least one component to export"))
+            return False
+        has_dbus_selected = any(selected.get(k) for k in _DBUS_COMPONENTS)
+        if has_dbus_selected and not getattr(self.dbus, "iface", None):
+            self._show_toast(_("Fcitx5 is not running. Cannot export settings."))
+            return False
+        if (
+            not has_dbus_selected
+            and selected.get("dictionary")
+            and not os.path.exists(local_dict_path())
+        ):
+            self._show_toast(_("No custom dictionary file to export."))
+            return False
+        return True
+
+    def _on_export_clicked(self, _button):
+        selected = self._selected_components()
+        if not self._can_export(selected):
             return
 
         default_name = f"lotus-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
@@ -324,8 +342,7 @@ class BackupPage(Adw.PreferencesPage):
 
     def _do_export(self, path: str) -> bool:
         selected = self._selected_components()
-        if not any(selected.values()):
-            self._show_toast(_("Select at least one component to export"))
+        if not self._can_export(selected):
             return False
 
         try:
@@ -334,7 +351,7 @@ class BackupPage(Adw.PreferencesPage):
                     "version": 2,
                     "timestamp": datetime.now().isoformat(),
                     "app": "fcitx5-lotus",
-                    "components": [k for k, v in selected.items() if v],
+                    "components": [],
                 }
             }
 
@@ -353,9 +370,10 @@ class BackupPage(Adw.PreferencesPage):
 
             if selected["dictionary"]:
                 dict_path = local_dict_path()
-                backup["dictionary"] = (
-                    read_dict_words(dict_path) if os.path.exists(dict_path) else []
-                )
+                if os.path.exists(dict_path):
+                    backup["dictionary"] = read_dict_words(dict_path)
+
+            backup["meta"]["components"] = [k for k, v in selected.items() if v and k in backup]
 
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(backup, f, indent=2, ensure_ascii=False)
@@ -393,7 +411,7 @@ class BackupPage(Adw.PreferencesPage):
             return
 
         matched_labels = [
-            title for key, title, _ in _COMPONENTS if selected.get(key) and key in data
+            _(title) for key, title, _tip in _COMPONENTS if selected.get(key) and key in data
         ]
         if not matched_labels:
             self._show_toast(_("No matching components found in backup"))
@@ -428,10 +446,25 @@ class BackupPage(Adw.PreferencesPage):
                 return False
 
             failed = []
-            restored_dict_only = False
+            dict_restored = False
+            config_reloaded = False
+
+            # Write local dictionary override before set_config() so LotusEngine::loadDictionary()
+            # reads the newly restored file when config reloads.
+            if selected.get("dictionary") and "dictionary" in data:
+                dict_payload = data["dictionary"]
+                if isinstance(dict_payload, (list, str)):
+                    try:
+                        write_dict_words_atomic(local_dict_path(), dict_payload)
+                        dict_restored = True
+                    except OSError as e:
+                        print(f"Failed to restore dictionary: {e}")
+                        failed.append(_("Custom Dictionary"))
 
             if selected.get("config") and "config" in data and isinstance(data["config"], dict):
-                if not self.dbus.set_config(data["config"]):
+                if self.dbus.set_config(data["config"]):
+                    config_reloaded = True
+                else:
                     failed.append(_("General & Typing"))
 
             if selected.get("rules") and "rules" in data and isinstance(data["rules"], list):
@@ -448,17 +481,7 @@ class BackupPage(Adw.PreferencesPage):
                 ):
                     failed.append(_("Custom Keymap"))
 
-            if selected.get("dictionary") and "dictionary" in data:
-                dict_payload = data["dictionary"]
-                if isinstance(dict_payload, (list, str)):
-                    try:
-                        write_dict_words_atomic(local_dict_path(), dict_payload)
-                        restored_dict_only = not (selected.get("config") and "config" in data)
-                    except OSError as e:
-                        print(f"Failed to restore dictionary: {e}")
-                        failed.append(_("Custom Dictionary"))
-
-            if restored_dict_only:
+            if dict_restored and not config_reloaded:
                 reload_dbus_config(self.dbus)
 
             if failed:
@@ -615,8 +638,8 @@ class AboutPage(Adw.PreferencesPage):
 
         for name, spdx in (
             ("Fcitx5 Lotus", "GPL-3.0-or-later"),
-            ("Bamboo Core Engine", "LGPL-2.1-or-later"),
-            (_("Third-Party"), "MIT"),
+            ("Bamboo Core Engine", "MIT"),
+            ("fcitx5-bamboo", "LGPL-2.1-or-later"),
         ):
             row = Adw.ActionRow()
             row.set_use_markup(False)

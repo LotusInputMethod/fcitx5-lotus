@@ -11,10 +11,10 @@ import tempfile
 import unittest
 from unittest import mock
 
-import _stubs  # noqa: F401  (installs the qtpy/gi/dbus stand-ins)
+import _stubs  # noqa: F401  (installs the gi/dbus stand-ins)
 from adw_ui.app_detector import DesktopAppIndex, clean_proc_name
 from adw_ui.pages.base import StagedPage
-from adw_ui.pages.dictionary import DictEditorPage
+from adw_ui.pages.dictionary import _DEFAULT_ENABLE_DICT, DictEditorPage
 from adw_ui.pages.extra import (
     _BLANK_ISSUE_URL,
     _BUG_URL,
@@ -46,7 +46,12 @@ from adw_ui.pages.mode_manager import (
     SELECTABLE_MODES,
     ModeManagerPage,
 )
-from adw_ui.pages.shortcuts import DEFAULT_MODE_ORDER, MODE_DEFS, ShortcutsPage
+from adw_ui.pages.shortcuts import (
+    _MAIN_SHORTCUT_DEFAULTS,
+    DEFAULT_MODE_ORDER,
+    MODE_DEFS,
+    ShortcutsPage,
+)
 from adw_ui.utils import (
     as_bool,
     bool_to_str,
@@ -76,18 +81,28 @@ from adw_ui.widgets.shortcut_dialog import (
     keyval_to_shortcut_string,
     pretty_format_hotkey_parts,
 )
-from adw_ui.window import LotusPreferencesWindow, LotusSettingsWindow
+from adw_ui.window import FALLBACK_DEFAULTS, LotusPreferencesWindow, LotusSettingsWindow
 from gi.repository import Adw, Gdk, Gtk
+
+_UNSET = object()
 
 
 class FakeDBusHandler:
     """In-memory LotusDBusHandler replacement for headless page tests."""
 
-    def __init__(self, values=None, metadata=None, subconfigs=None, fail_save=False):
+    def __init__(
+        self,
+        values=None,
+        metadata=None,
+        subconfigs=None,
+        fail_save=False,
+        iface=_UNSET,
+    ):
         self.values = dict(values or {})
         self.metadata = list(metadata or [])
         self.subconfigs = {k: list(v) for k, v in (subconfigs or {}).items()}
         self.fail_save = fail_save
+        self.iface = object() if iface is _UNSET else iface
         self.saved_configs = []
         self.saved_subconfigs = []
 
@@ -275,6 +290,9 @@ class ShortcutsPageTests(unittest.TestCase):
             DEFAULT_MODE_ORDER,
             "Smooth,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default",
         )
+        self.assertEqual(_MAIN_SHORTCUT_DEFAULTS["ModeMenuKey"], "grave")
+        page = ShortcutsPage(FakeDBusHandler())
+        self.assertEqual(page.current_main_shortcuts["ModeMenuKey"], "grave")
 
     def test_staged_modifications_validation_apply_and_cancel(self):
         dbus = FakeDBusHandler(
@@ -718,21 +736,37 @@ class DictEditorPageTests(unittest.TestCase):
             self.assertEqual(f.read().splitlines(), ["r&d", "lotus"])
 
         # Factory reset buttons appear for non-default toggle / local dictionary override
-        page.row_enable.set_active(False)
         self.assertTrue(page.btn_reset_config.get_visible())
         self.assertTrue(page.btn_reset_words.get_visible())
 
         page.btn_reset_config.emit("clicked")
         page._reset_dialog.emit("response", "reset")
         self.assertFalse(page.btn_reset_config.get_visible())
-        self.assertTrue(page.row_enable.get_active())
-        self.assertEqual(dbus.values["EnableDictionary"], "True")
+        self.assertFalse(page.row_enable.get_active())
+        self.assertEqual(dbus.values["EnableDictionary"], "False")
 
         page.btn_reset_words.emit("clicked")
         page._reset_dialog.emit("response", "reset")
         self.assertFalse(page.btn_reset_words.get_visible())
         self.assertFalse(os.path.exists(local_dict))
         self.assertFalse(page.is_modified())
+
+    def test_enable_dictionary_factory_default_is_false(self):
+        self.assertFalse(_DEFAULT_ENABLE_DICT)
+        dbus = FakeDBusHandler()
+        page = DictEditorPage(dbus)
+        self.assertFalse(page.row_enable.get_active())
+        self.assertFalse(page.is_modified_from_default())
+        self.assertFalse(page.btn_reset_config.get_visible())
+
+        page.row_enable.set_active(True)
+        self.assertTrue(page.is_modified_from_default())
+        self.assertTrue(page.btn_reset_config.get_visible())
+        self.assertEqual(page.get_factory_reset_changes(), [("Enable Dictionary", "On", "Off")])
+
+        page.restore_defaults()
+        self.assertFalse(page.row_enable.get_active())
+        self.assertFalse(page.is_modified_from_default())
 
     def test_dictionary_uses_multicolumn_chip_flowbox(self):
         words = ["a", "ai", "am", "an", "ang", "anh", "ao", "au", "ay", "ba", "ban", "bang"]
@@ -854,7 +888,7 @@ class BackupPageTests(unittest.TestCase):
         backup_path = os.path.join(self._tmp.name, "backup.json")
         self.assertFalse(page._do_export(backup_path))
 
-        # Export selected components
+        # Export selected components (no local dict override -> dictionary omitted)
         for sw in page.switches.values():
             sw.set_active(True)
         self.assertTrue(page._do_export(backup_path))
@@ -862,12 +896,79 @@ class BackupPageTests(unittest.TestCase):
             exported = json.load(f)
         self.assertEqual(exported["config"]["Mode"], "Preedit")
         self.assertEqual(exported["rules"], [{"App": "kitty", "Mode": "4"}])
+        self.assertNotIn("dictionary", exported)
+        self.assertNotIn("dictionary", exported["meta"]["components"])
 
         # Mutate dbus and import backup
         dbus.values["Mode"] = "OFF"
         self.assertTrue(page._do_import(backup_path))
         self.assertEqual(dbus.values["Mode"], "Preedit")
         self.assertEqual(reloaded, [True])
+
+    def test_offline_export_rejected_and_local_dict_omitted_or_ordered_before_set_config(self):
+        # Offline Fcitx5 rejects D-Bus exports and does not write a file
+        offline_dbus = FakeDBusHandler(iface=None)
+        offline_page = BackupPage(offline_dbus)
+        toasts = []
+        offline_page._show_toast = toasts.append
+        offline_path = os.path.join(self._tmp.name, "offline.json")
+        self.assertFalse(offline_page._do_export(offline_path))
+        self.assertFalse(os.path.exists(offline_path))
+        self.assertEqual(toasts[-1], "Fcitx5 is not running. Cannot export settings.")
+
+        # Local-dictionary-only export still succeeds offline when local override exists
+        write_dict_words_atomic(local_dict_path(), ["khongdau"])
+        for key, sw in offline_page.switches.items():
+            sw.set_active(key == "dictionary")
+        self.assertTrue(offline_page._do_export(offline_path))
+        with open(offline_path, "r", encoding="utf-8") as f:
+            dict_only_export = json.load(f)
+        self.assertEqual(dict_only_export["dictionary"], ["khongdau"])
+
+        # Importing config + dictionary writes local dict BEFORE calling set_config()
+        os.remove(local_dict_path())
+        observed_words_at_set_config = []
+
+        class RecordingDBusHandler(FakeDBusHandler):
+            def set_config(self, values_dict):
+                if os.path.exists(local_dict_path()):
+                    observed_words_at_set_config.append(read_dict_words(local_dict_path()))
+                else:
+                    observed_words_at_set_config.append(None)
+                return super().set_config(values_dict)
+
+        dbus = RecordingDBusHandler(values={"Mode": "OFF"})
+        page = BackupPage(dbus)
+        bundle_path = os.path.join(self._tmp.name, "bundle.json")
+        with open(bundle_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "config": {"Mode": "Preedit"},
+                    "dictionary": ["lotusword", "customword"],
+                },
+                f,
+            )
+
+        self.assertTrue(page._do_import(bundle_path))
+        self.assertEqual(observed_words_at_set_config, [["lotusword", "customword"]])
+        self.assertEqual(len(dbus.saved_configs), 1)
+
+        # Dictionary-only import (without config) triggers reload_dbus_config after write
+        dict_only_path = os.path.join(self._tmp.name, "dict-only.json")
+        with open(dict_only_path, "w", encoding="utf-8") as f:
+            json.dump({"dictionary": ["onlydict"]}, f)
+        self.assertTrue(page._do_import(dict_only_path))
+        self.assertEqual(observed_words_at_set_config[-1], ["onlydict"])
+        self.assertEqual(len(dbus.saved_configs), 2)
+
+    def test_components_translate_at_setup_time(self):
+        with mock.patch("adw_ui.pages.extra._", side_effect=lambda s: f"TR:{s}"):
+            page = BackupPage(FakeDBusHandler())
+        self.assertEqual(page.switches["config"].get_title(), "TR:General & Typing")
+        self.assertEqual(
+            page.switches["config"].get_tooltip_text(),
+            "TR:Main input method, typing rules, shortcuts, and appearance",
+        )
 
 
 class AboutPageTests(unittest.TestCase):
@@ -899,6 +1000,19 @@ class AboutPageTests(unittest.TestCase):
         self.assertTrue(page.has_css_class("about-page"))
         issue_group = page._children[1]
         self.assertEqual(len(issue_group._children), 3)
+
+        licenses_group = page._children[3]
+        license_rows = [
+            (row.get_title(), row._children[0].get_label()) for row in licenses_group._children
+        ]
+        self.assertEqual(
+            license_rows,
+            [
+                ("Fcitx5 Lotus", "GPL-3.0-or-later"),
+                ("Bamboo Core Engine", "MIT"),
+                ("fcitx5-bamboo", "LGPL-2.1-or-later"),
+            ],
+        )
 
         parent = mock.MagicMock(dbus_handler=dbus)
         dlg = show_about_dialog(parent)
@@ -1004,7 +1118,113 @@ class LotusPreferencesWindowTests(unittest.TestCase):
         self.assertFalse(win.action_revealer.get_visible())
         self.assertFalse(win.btn_apply.get_sensitive())
         self.assertEqual(fake_dbus.values["InputMethod"], "Telex")
+        self.assertEqual(fake_dbus.values["Mode"], "Preedit")
+        self.assertEqual(fake_dbus.values["UseLotusIcons"], "False")
+        self.assertEqual(fake_dbus.values["ModernStyle"], "True")
+        self.assertEqual(fake_dbus.values["ModeMenuKey"], {"0": "grave"})
+        self.assertEqual(fake_dbus.values["EnableDictionary"], "False")
         self.assertEqual(fake_dbus.values["SpellCheck"], "True")
+
+    def test_fallback_defaults_match_cpp_config(self):
+        self.assertEqual(FALLBACK_DEFAULTS["Mode"], "Preedit")
+        self.assertEqual(FALLBACK_DEFAULTS["UseLotusIcons"], "False")
+        self.assertEqual(FALLBACK_DEFAULTS["ModernStyle"], "True")
+
+    def test_listbox_sidebar_navigation_switches_pages(self):
+        fake_dbus = FakeDBusHandler()
+        with (
+            mock.patch("adw_ui.window.LotusDBusHandler", return_value=fake_dbus),
+            mock.patch.object(ModeManagerPage, "_scan_desktop_files"),
+        ):
+            win = LotusPreferencesWindow()
+
+        self.assertTrue(win.sidebar.has_css_class("navigation-sidebar"))
+        self.assertEqual(len(win.sidebar._children), 8)
+        selected = win.sidebar.get_selected_row()
+        self.assertIsNotNone(selected)
+        self.assertEqual(selected._page_id, "general")
+        self.assertEqual(win.content_title.get_title(), "General")
+
+        for row in win.sidebar._children:
+            win.sidebar.select_row(row)
+            vis_page = win.view_stack.get_page(win.view_stack.get_visible_child())
+            self.assertEqual(vis_page.get_name(), row._page_id)
+            self.assertEqual(win.content_title.get_title(), row._page_title)
+
+    def test_offline_banner_visibility_and_retry(self):
+        offline_dbus = FakeDBusHandler(iface=None)
+        online_dbus = FakeDBusHandler(values={"InputMethod": "VNI"})
+        with (
+            mock.patch("adw_ui.window.LotusDBusHandler", side_effect=[offline_dbus, online_dbus]),
+            mock.patch.object(ModeManagerPage, "_scan_desktop_files"),
+        ):
+            win = LotusPreferencesWindow()
+            self.assertTrue(win.offline_banner.get_revealed())
+
+            win.offline_banner.emit("button-clicked")
+            self.assertIs(win.dbus_handler, online_dbus)
+            for page in win.subpages:
+                self.assertIs(page.dbus, online_dbus)
+            self.assertFalse(win.offline_banner.get_revealed())
+            method_row, option_keys, _label_map, _default = win.registered_combos["InputMethod"]
+            self.assertEqual(option_keys[method_row.get_selected()], "VNI")
+
+    def test_close_request_prompts_when_unsaved_and_respects_choice(self):
+        fake_dbus = FakeDBusHandler(values={"SpellCheck": "True"})
+        with (
+            mock.patch("adw_ui.window.LotusDBusHandler", return_value=fake_dbus),
+            mock.patch.object(ModeManagerPage, "_scan_desktop_files"),
+        ):
+            win = LotusPreferencesWindow()
+
+        # Clean window closes immediately without prompting
+        self.assertFalse(win._on_close_request())
+        self.assertIsNone(win._close_dialog)
+
+        # Validation error disables "apply" response
+        spell_row, _ = win.registered_switches["SpellCheck"]
+        spell_row.set_active(False)
+        win.set_page_modified("macros", True, has_error=True, error_msg="Invalid")
+        self.assertTrue(win._on_close_request())
+        self.assertIsNotNone(win._close_dialog)
+        self.assertTrue(win._close_dialog.get_mapped())
+        self.assertFalse(win._close_dialog.get_response_enabled("apply"))
+
+        # Cancel keeps window open
+        win._close_dialog.emit("response", "cancel")
+        self.assertFalse(win._closed)
+        self.assertFalse(win._force_close)
+
+        # Clearing error enables "apply"; failed save keeps window open
+        win.set_page_modified("macros", False, has_error=False)
+        fake_dbus.fail_save = True
+        self.assertTrue(win._on_close_request())
+        self.assertTrue(win._close_dialog.get_response_enabled("apply"))
+        win._close_dialog.emit("response", "apply")
+        self.assertFalse(win._closed)
+        self.assertFalse(win._force_close)
+
+        # Successful apply saves and closes
+        fake_dbus.fail_save = False
+        self.assertTrue(win._on_close_request())
+        win._close_dialog.emit("response", "apply")
+        self.assertTrue(win._force_close)
+        self.assertTrue(win._closed)
+        self.assertEqual(fake_dbus.values["SpellCheck"], "False")
+        self.assertFalse(win._on_close_request())
+
+        # Discard closes without saving
+        with (
+            mock.patch("adw_ui.window.LotusDBusHandler", return_value=fake_dbus),
+            mock.patch.object(ModeManagerPage, "_scan_desktop_files"),
+        ):
+            win2 = LotusPreferencesWindow()
+        win2.registered_switches["SpellCheck"][0].set_active(True)
+        self.assertTrue(win2._on_close_request())
+        win2._close_dialog.emit("response", "discard")
+        self.assertTrue(win2._force_close)
+        self.assertTrue(win2._closed)
+        self.assertEqual(fake_dbus.values["SpellCheck"], "False")
 
 
 class SharedUtilsTests(unittest.TestCase):

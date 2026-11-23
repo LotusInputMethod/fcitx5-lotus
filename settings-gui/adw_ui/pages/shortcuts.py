@@ -43,7 +43,7 @@ MODE_DEFS = [
 DEFAULT_MODE_ORDER = "Smooth,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default"
 
 _MAIN_SHORTCUT_DEFAULTS = {
-    "ModeMenuKey": "Control+grave",
+    "ModeMenuKey": "grave",
     "CycleModeKey": "",
 }
 _WARNING_ICON_SIZE = 14

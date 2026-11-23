@@ -101,17 +101,17 @@ FALLBACK_ICON_THEMES = [
 
 FALLBACK_DEFAULTS = {
     "InputMethod": "Telex",
-    "Mode": "Uinput (Smooth)",
+    "Mode": "Preedit",
     "OutputCharset": "Unicode",
     "W2U": "Non-Start",
     "BracketTransform": "Disabled",
-    "UseLotusIcons": "True",
+    "UseLotusIcons": "False",
     "IconTheme": "Auto",
     "PreferVirtualKeyboard": "True",
     "SpellCheck": "True",
     "AutoNonVnRestore": "True",
     "DdFreeStyle": "True",
-    "ModernStyle": "False",
+    "ModernStyle": "True",
     "FreeMarking": "True",
     "AutoCapitalizeAfterPunctuation": "False",
     "DoubleSpaceToPeriod": "False",
@@ -132,18 +132,7 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         self.config_data = self.dbus_handler.get_config() or {}
 
         self.metadata_map: dict[str, dict] = {}
-        raw_meta = self.config_data.get("metadata", [])
-        if isinstance(raw_meta, list):
-            for section in raw_meta:
-                if len(section) >= 2 and isinstance(section[1], list):
-                    for item in section[1]:
-                        if len(item) >= 5:
-                            self.metadata_map[item[0]] = {
-                                "type": item[1],
-                                "title": item[2],
-                                "default": item[3],
-                                "extra": item[4] if isinstance(item[4], dict) else {},
-                            }
+        self._parse_metadata()
 
         self.initial_values = dict(self.config_data.get("values", {}))
         self.current_values = dict(self.initial_values)
@@ -156,14 +145,33 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         self._page_cancel_callbacks: dict[str, Callable] = {}
         self._page_errors: dict[str, str] = {}
         self.subpages: list = []
+        self._sidebar_rows: dict[str, Gtk.ListBoxRow] = {}
         self.section_reset_entries: list[tuple[str, list[str], Gtk.Button]] = []
         self._active_toast = None
         self._save_toast = None
         self._visible_toasts: set = set()
         self._loading_settings = False
+        self._force_close = False
+        self._close_dialog = None
 
         self._setup_ui()
+        self.connect("close-request", self._on_close_request)
         self.on_changed()
+
+    def _parse_metadata(self) -> None:
+        self.metadata_map.clear()
+        raw_meta = self.config_data.get("metadata", [])
+        if isinstance(raw_meta, list):
+            for section in raw_meta:
+                if len(section) >= 2 and isinstance(section[1], list):
+                    for item in section[1]:
+                        if len(item) >= 5:
+                            self.metadata_map[item[0]] = {
+                                "type": item[1],
+                                "title": item[2],
+                                "default": item[3],
+                                "extra": item[4] if isinstance(item[4], dict) else {},
+                            }
 
     def add_toast(self, toast: Adw.Toast, is_save_toast: bool = False) -> None:
         """Displays a toast notification centered over the content pane."""
@@ -455,9 +463,66 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         self.add_toast(Adw.Toast.new(_("Restored defaults for {}").format(section_title)))
         return True
 
+    def _update_offline_banner(self) -> None:
+        if hasattr(self, "offline_banner"):
+            self.offline_banner.set_revealed(getattr(self.dbus_handler, "iface", None) is None)
+
+    def _on_retry_dbus(self, _banner=None) -> None:
+        self.dbus_handler = LotusDBusHandler()
+        for page in self.subpages:
+            if hasattr(page, "dbus"):
+                page.dbus = self.dbus_handler
+        self.reload_all()
+
+    def _on_close_request(self, _window=None) -> bool:
+        if self._force_close or not (self.pending_window_values or self.modified_pages):
+            return False
+        self._present_close_dialog()
+        return True
+
+    def _present_close_dialog(self) -> None:
+        if self._close_dialog is not None:
+            return
+        heading = _("Unsaved Changes")
+        body = _("You have unsaved settings. Save before closing?")
+        has_errors = bool(self._page_errors)
+
+        if hasattr(Adw, "AlertDialog"):
+            dialog = Adw.AlertDialog(heading=heading, body=body)
+        else:
+            dialog = Adw.MessageDialog(transient_for=self, heading=heading, body=body)
+
+        dialog.add_response("cancel", _("Cancel"))
+        dialog.add_response("discard", _("Discard"))
+        dialog.add_response("apply", _("Apply & Close"))
+        dialog.set_response_appearance("discard", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_response_appearance("apply", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_response_enabled("apply", not has_errors)
+        dialog.set_default_response("cancel" if has_errors else "apply")
+        dialog.set_close_response("cancel")
+
+        def on_response(_dlg, response):
+            self._close_dialog = None
+            if response == "discard":
+                self._force_close = True
+                self.close()
+            elif response == "apply":
+                self._on_apply_clicked()
+                if not self.pending_window_values and not self.modified_pages:
+                    self._force_close = True
+                    self.close()
+
+        dialog.connect("response", on_response)
+        self._close_dialog = dialog
+        if hasattr(Adw, "AlertDialog"):
+            dialog.present(self)
+        else:
+            dialog.present()
+
     def reload_all(self) -> None:
         """Reloads configuration from D-Bus across the window and all subpages."""
         self.config_data = self.dbus_handler.get_config() or {}
+        self._parse_metadata()
         self.initial_values = dict(self.config_data.get("values", {}))
         self.current_values = dict(self.initial_values)
         self.pending_window_values.clear()
@@ -473,6 +538,7 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
                     load_fn()
                 except Exception as e:
                     print(f"Error reloading page {page}: {e}")
+        self._update_offline_banner()
         self.on_changed()
 
     def _on_apply_clicked(self, _button=None, show_toast: bool = True) -> bool:
@@ -638,10 +704,16 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         sidebar_header.set_title_widget(Adw.WindowTitle(title=_("Lotus Settings")))
         sidebar_toolbar.add_top_bar(sidebar_header)
 
-        self.sidebar = Adw.ViewSwitcherSidebar()
-        self.sidebar.set_stack(self.view_stack)
-        self.sidebar.set_vexpand(True)
-        sidebar_toolbar.set_content(self.sidebar)
+        sidebar_scroll = Gtk.ScrolledWindow()
+        sidebar_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sidebar_scroll.set_vexpand(True)
+
+        self.sidebar = Gtk.ListBox()
+        self.sidebar.add_css_class("navigation-sidebar")
+        self.sidebar.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.sidebar.connect("row-selected", self._on_sidebar_row_selected)
+        sidebar_scroll.set_child(self.sidebar)
+        sidebar_toolbar.set_content(sidebar_scroll)
 
         about_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         about_box.set_margin_start(10)
@@ -673,6 +745,14 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         content_header.set_title_widget(self.content_title)
         content_toolbar.add_top_bar(content_header)
 
+        self.offline_banner = Adw.Banner(
+            title=_("Fcitx5 is not running. Settings cannot be loaded or saved."),
+            button_label=_("Retry"),
+        )
+        self.offline_banner.set_revealed(getattr(self.dbus_handler, "iface", None) is None)
+        self.offline_banner.connect("button-clicked", self._on_retry_dbus)
+        content_toolbar.add_top_bar(self.offline_banner)
+
         content_overlay = Gtk.Overlay()
         content_overlay.set_vexpand(True)
         content_overlay.set_hexpand(True)
@@ -693,6 +773,52 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         self._setup_general_page()
         self._setup_typing_page()
         self._setup_subpages()
+
+        first_row = self._sidebar_rows.get("general") or self.sidebar.get_row_at_index(0)
+        if first_row is not None:
+            self.sidebar.select_row(first_row)
+
+    def _add_sidebar_page(
+        self, page_widget: Gtk.Widget, page_id: str, title: str, icon_name: str
+    ) -> None:
+        if hasattr(self.view_stack, "add_titled_with_icon"):
+            self.view_stack.add_titled_with_icon(page_widget, page_id, title, icon_name)
+        else:
+            self.view_stack.add_titled(page_widget, page_id, title)
+
+        row = Gtk.ListBoxRow()
+        row._page_id = page_id
+        row._page_title = title
+
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        box.set_margin_top(8)
+        box.set_margin_bottom(8)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+
+        icon = Gtk.Image.new_from_icon_name(icon_name)
+        icon.set_valign(Gtk.Align.CENTER)
+        label = Gtk.Label(label=title, xalign=0.0)
+        label.set_valign(Gtk.Align.CENTER)
+        label.set_hexpand(True)
+
+        box.append(icon)
+        box.append(label)
+        row.set_child(box)
+
+        self.sidebar.append(row)
+        self._sidebar_rows[page_id] = row
+
+    def _on_sidebar_row_selected(self, _listbox, row) -> None:
+        if row is None:
+            return
+        page_id = getattr(row, "_page_id", None)
+        if not page_id:
+            return
+        self.view_stack.set_visible_child_name(page_id)
+        title = getattr(row, "_page_title", None)
+        if title:
+            self.content_title.set_title(title)
 
     def _setup_subpages(self):
         from adw_ui.pages.dictionary import DictEditorPage
@@ -736,7 +862,7 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
                 else page_cls(self.dbus_handler)
             )
             self.subpages.append(page)
-            self.view_stack.add_titled_with_icon(page, page_id, title, icon_name)
+            self._add_sidebar_page(page, page_id, title, icon_name)
 
         self.sc_page = self.subpages[0]
 
@@ -749,6 +875,9 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
             page = stack.get_page(child)
             if page:
                 self.content_title.set_title(page.get_title())
+                row = self._sidebar_rows.get(page.get_name())
+                if row is not None and self.sidebar.get_selected_row() is not row:
+                    self.sidebar.select_row(row)
 
     def _add_combo_row(
         self,
@@ -903,9 +1032,7 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         self._attach_section_reset(group_backend, _("Backend"), ["PreferVirtualKeyboard"])
         page.add(group_backend)
 
-        self.view_stack.add_titled_with_icon(
-            page, "general", _("General"), "preferences-system-symbolic"
-        )
+        self._add_sidebar_page(page, "general", _("General"), "preferences-system-symbolic")
 
     def _setup_typing_page(self):
         page = Adw.PreferencesPage()
@@ -984,9 +1111,7 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         )
         page.add(group_tone)
 
-        self.view_stack.add_titled_with_icon(
-            page, "typing", _("Typing"), "accessories-character-map-symbolic"
-        )
+        self._add_sidebar_page(page, "typing", _("Typing"), "accessories-character-map-symbolic")
 
 
 LotusSettingsWindow = LotusPreferencesWindow

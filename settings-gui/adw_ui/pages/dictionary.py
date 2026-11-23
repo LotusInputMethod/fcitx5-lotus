@@ -35,6 +35,7 @@ _PAGE_SIZE = 180
 _FLOWBOX_MIN_COLS = 3
 _FLOWBOX_MAX_COLS = 6
 _CHIP_TOOLTIP_LEN_THRESHOLD = 12
+_DEFAULT_ENABLE_DICT = False
 
 _DICT_CSS = """
 .dict-chip-card {
@@ -104,8 +105,8 @@ class DictEditorPage(StagedPage):
         self.words = []
         self._initial_words = []
         self._global_words = []
-        self._enable_dict = True
-        self._initial_enable_dict = True
+        self._enable_dict = _DEFAULT_ENABLE_DICT
+        self._initial_enable_dict = _DEFAULT_ENABLE_DICT
 
         self._word_rows = []
         self._group_children = []
@@ -175,7 +176,10 @@ class DictEditorPage(StagedPage):
         with self._updating_guard():
             config = self.dbus.get_config()
             values = config.get("values", {}) if config else {}
-            enabled = as_bool(values.get("EnableDictionary", "True"), default=True)
+            enabled = as_bool(
+                values.get("EnableDictionary", bool_to_str(_DEFAULT_ENABLE_DICT)),
+                default=_DEFAULT_ENABLE_DICT,
+            )
             self._enable_dict = enabled
             self._initial_enable_dict = enabled
             self.row_enable.set_active(enabled)
@@ -209,7 +213,7 @@ class DictEditorPage(StagedPage):
 
     def is_modified_from_default(self) -> bool:
         """Returns True if dictionary toggle or local words differ from defaults."""
-        return not self._enable_dict or self._words_differ_from_default()
+        return self._enable_dict != _DEFAULT_ENABLE_DICT or self._words_differ_from_default()
 
     def has_validation_errors(self) -> bool:
         """Returns True if loading failed or any word contains spaces."""
@@ -267,10 +271,11 @@ class DictEditorPage(StagedPage):
         self._notify_modified()
 
     def restore_defaults(self):
-        """Resets dictionary toggle to enabled and reloads built-in words in staged memory."""
+        """Resets dictionary toggle to factory default (disabled) and reloads built-in words in staged memory."""
         with self._updating_guard():
-            self._enable_dict = True
-            self.row_enable.set_active(True)
+            self._load_failed = False
+            self._enable_dict = _DEFAULT_ENABLE_DICT
+            self.row_enable.set_active(_DEFAULT_ENABLE_DICT)
             self._global_words = self._load_global_words()
             self.words = list(self._global_words)
             self._display_limit = _PAGE_SIZE
@@ -278,9 +283,15 @@ class DictEditorPage(StagedPage):
         self._notify_modified()
 
     def _config_reset_changes(self) -> list[tuple[str, str, str]]:
-        if self._enable_dict:
+        if self._enable_dict == _DEFAULT_ENABLE_DICT:
             return []
-        return [(_("Enable Dictionary"), _("Off"), _("On"))]
+        return [
+            (
+                _("Enable Dictionary"),
+                _("On") if self._enable_dict else _("Off"),
+                _("On") if _DEFAULT_ENABLE_DICT else _("Off"),
+            )
+        ]
 
     def _words_reset_changes(self) -> list[tuple[str, str, str]]:
         if not self._words_differ_from_default():
@@ -308,14 +319,16 @@ class DictEditorPage(StagedPage):
         changes = self._config_reset_changes()
 
         def apply_reset() -> bool:
-            if not save_dbus_values(self.dbus, {"EnableDictionary": "True"}):
+            if not save_dbus_values(
+                self.dbus, {"EnableDictionary": bool_to_str(_DEFAULT_ENABLE_DICT)}
+            ):
                 self._show_toast(_("Failed to save settings. Please check if Fcitx5 is running."))
                 return False
 
             with self._updating_guard():
-                self._enable_dict = True
-                self.row_enable.set_active(True)
-            self._initial_enable_dict = True
+                self._enable_dict = _DEFAULT_ENABLE_DICT
+                self.row_enable.set_active(_DEFAULT_ENABLE_DICT)
+            self._initial_enable_dict = _DEFAULT_ENABLE_DICT
             return True
 
         self._prompt_section_reset(_("Custom Dictionary"), changes, apply_reset)
@@ -335,6 +348,7 @@ class DictEditorPage(StagedPage):
                     return False
 
             with self._updating_guard():
+                self._load_failed = False
                 self.words = list(self._global_words)
                 self._display_limit = _PAGE_SIZE
                 self._refresh_words()
@@ -345,7 +359,7 @@ class DictEditorPage(StagedPage):
         self._prompt_section_reset(_("Words"), changes, apply_reset)
 
     def _update_section_reset_buttons(self):
-        self.btn_reset_config.set_visible(not self.row_enable.get_active())
+        self.btn_reset_config.set_visible(self.row_enable.get_active() != _DEFAULT_ENABLE_DICT)
         self.btn_reset_words.set_visible(self._words_differ_from_default())
 
     def _on_enable_toggled(self, row, _pspec):
