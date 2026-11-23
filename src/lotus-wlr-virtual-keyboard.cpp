@@ -159,7 +159,7 @@ namespace fcitx {
         keymapSet_          = false;
         keymapIsCompositor_ = false;
         compositorKeymap_.clear();
-        closeKeymapFds();
+        resetKeymapFds();
         manager_.reset();
         seat_.reset();
         registry_.reset();
@@ -237,27 +237,21 @@ namespace fcitx {
             keymapFdSlot_ = 0;
         }
         if (keymapFdSlot_ < keymapFds_.size()) {
-            return keymapFds_[keymapFdSlot_++];
+            return keymapFds_[keymapFdSlot_++].get();
         }
-        const int fd = createMemfd("lotus-wlr-virtual-keyboard-keymap");
-        if (fd < 0) {
+        FdGuard fd(createMemfd("lotus-wlr-virtual-keyboard-keymap"));
+        if (!fd.isValid()) {
             return -1;
         }
-        keymapFds_.push_back(fd);
+        keymapFds_.push_back(std::move(fd));
         ++keymapFdSlot_;
-        return fd;
+        return keymapFds_.back().get();
     }
 
-    void LotusWlrVirtualKeyboard::closeKeymapFds() {
-        for (const int fd : keymapFds_) {
-            close(fd);
-        }
+    void LotusWlrVirtualKeyboard::resetKeymapFds() {
         keymapFds_.clear();
-        keymapFdSlot_ = 0;
-        if (compositorKeymapFd_ >= 0) {
-            close(compositorKeymapFd_);
-            compositorKeymapFd_ = -1;
-        }
+        compositorKeymapFd_.reset();
+        keymapFdSlot_           = 0;
         compositorKeymapCached_ = false;
     }
 
@@ -391,22 +385,22 @@ namespace fcitx {
         // The compositor keymap is much larger than our text keymap. Keep its
         // bytes in a dedicated memfd so an unload only re-sends the fd instead
         // of copying the whole keymap again.
-        if (compositorKeymapFd_ < 0) {
-            compositorKeymapFd_ = createMemfd("lotus-wlr-virtual-keyboard-compositor");
-            if (compositorKeymapFd_ < 0) {
+        if (!compositorKeymapFd_.isValid()) {
+            compositorKeymapFd_.reset(createMemfd("lotus-wlr-virtual-keyboard-compositor"));
+            if (!compositorKeymapFd_.isValid()) {
                 LOTUS_ERROR("wlr-virtual-keyboard: compositor keymap memfd_create failed");
                 return false;
             }
             compositorKeymapCached_ = false;
         }
         if (!compositorKeymapCached_) {
-            if (!writeKeymapToFd(compositorKeymapFd_, compositorKeymap_)) {
+            if (!writeKeymapToFd(compositorKeymapFd_.get(), compositorKeymap_)) {
                 return false;
             }
             compositorKeymapCached_ = true;
         }
-        lseek(compositorKeymapFd_, 0, SEEK_SET);
-        zwp_virtual_keyboard_v1_keymap(keyboard_.get(), WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, compositorKeymapFd_, static_cast<uint32_t>(compositorKeymap_.size() + 1));
+        lseek(compositorKeymapFd_.get(), 0, SEEK_SET);
+        zwp_virtual_keyboard_v1_keymap(keyboard_.get(), WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, compositorKeymapFd_.get(), static_cast<uint32_t>(compositorKeymap_.size() + 1));
         keymapSet_          = true;
         keymapIsCompositor_ = true;
         return true;

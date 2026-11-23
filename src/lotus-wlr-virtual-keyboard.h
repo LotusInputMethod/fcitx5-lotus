@@ -13,6 +13,7 @@
 #ifndef _LOTUS_WLR_VIRTUAL_KEYBOARD_H_
 #define _LOTUS_WLR_VIRTUAL_KEYBOARD_H_
 
+#include "common-fd-guard.h"
 #include "lotus-delayed-task-runner.h"
 
 #include <atomic>
@@ -186,7 +187,7 @@ namespace fcitx {
         bool                                      restoreCompositorKeymap();
         static bool                               writeKeymapToFd(int fd, std::string_view keymap);
         int                                       keymapFdForUpload();
-        void                                      closeKeymapFds();
+        void                                      resetKeymapFds();
         void                                      watchCompositorKeymap();
         void                                      storeCompositorKeymap(uint32_t format, int fd, uint32_t size);
         static void                               compositorKeymap(void* data, wl_keyboard* keyboard, uint32_t format, int32_t fd, uint32_t size);
@@ -202,9 +203,9 @@ namespace fcitx {
         ZwpVirtualKeyboardManagerPtr              manager_;          ///< Manager global of the compositor
         ZwpVirtualKeyboardPtr                     keyboard_;         ///< Virtual keyboard device, created on the first emit
         std::string                               compositorKeymap_; ///< Exact XKB_V1 keymap the compositor uses for the seat
-        std::vector<int>                          keymapFds_;        ///< Reusable memfds, one per in-flight custom upload
-        size_t                                    keymapFdSlot_           = 0;
-        int                                       compositorKeymapFd_     = -1;    ///< Memfd holding the cached compositor keymap
+        std::vector<FdGuard>                      keymapFds_;        ///< Reusable memfds, one per in-flight custom upload
+        size_t                                    keymapFdSlot_ = 0;
+        FdGuard                                   compositorKeymapFd_;             ///< Memfd holding the cached compositor keymap
         bool                                      compositorKeymapCached_ = false; ///< Whole compositorKeymap_ already written to the fd
         uint32_t                                  time_                   = 1;
         std::atomic<bool>                         injecting_              = false;
@@ -214,7 +215,7 @@ namespace fcitx {
         bool                                      supported_              = false;
         std::atomic<bool>                         userShift_              = false;
         std::deque<std::pair<uint32_t, uint32_t>> echo_;
-        std::mutex                                deviceMutex_; ///< Serialises the Wayland device between the main and worker threads
+        std::mutex                                deviceMutex_; ///< Serialises the Wayland device: all device, keymap and fd state below requires it
 
         LotusDelayedTaskRunner                    runner_; ///< Delivers the replacement pre/post delay off the main thread
     };
