@@ -3,50 +3,26 @@
 // Smooth targets clients with autocomplete: the addon commits the anchor U+00B7 right before the
 // burst and deletes one extra character. Super Smooth targets clients without autocomplete and uses
 // the plain backspace burst.
+#include "engine-fixture.h"
 #include "kb-socket-listener.h"
 #include "lotus-engine.h"
 #include "test-input-context.h"
-#include "utf8.h"
 
-#include <array>
+#include <cstddef>
 #include <cstdio>
 #include <memory>
 #include <string>
-#include <string_view>
-
-#include <fcitx-utils/keysym.h>
+#include <vector>
 
 namespace {
 
-    constexpr std::u32string_view kAnchor       = U"\u00B7";
-    constexpr std::u32string_view kExpectedWord = U"\u00E1"; // á
-
-    int                           failures = 0;
-
-    void                          check(const char* name, bool condition, std::string_view detail) {
-        if (condition) {
-            return;
+    bool receiveReplacementRequest(KbSocketListener& listener, KbMsg& msg, size_t expectedCount, const char* meaning) {
+        if (!listener.receive(msg, meaning)) {
+            return false;
         }
-        std::printf("FAIL %s: %s\n", name, std::string(detail).c_str());
-        ++failures;
-    }
-
-    std::string hexText(std::u32string_view text) {
-        std::string          out;
-        std::array<char, 16> buffer = {};
-        for (const char32_t codePoint : text) {
-            std::snprintf(buffer.data(), buffer.size(), "U+%04X ", static_cast<unsigned int>(codePoint));
-            out += buffer.data();
-        }
-        return out.empty() ? "<empty>" : out;
-    }
-
-    bool send(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted) {
-        fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
-        engine.keyEvent(entry, event);
-        if (event.accepted() != requireAccepted) {
-            std::printf("FAIL process key %u: accepted=%d expected=%d\n", static_cast<unsigned int>(symbol), static_cast<int>(event.accepted()), static_cast<int>(requireAccepted));
-            ++failures;
+        if (msg.op != KbOp::Backspace || msg.count != expectedCount) {
+            reportFailure("receive replacement request", "op=backspace, count=" + std::to_string(expectedCount),
+                          "op=" + std::to_string(static_cast<int>(msg.op)) + ", count=" + std::to_string(msg.count), meaning);
             return false;
         }
         return true;
@@ -66,64 +42,67 @@ int main() {
 
     // "a" then "s" in Telex composes "á", so the engine replaces the single character.
     const auto runMode = [&](const char* mode, bool expectAnchor) {
-        fcitx::RawConfig config;
+        const std::string modeName = expectAnchor ? "Smooth" : "SuperSmooth";
+        fcitx::RawConfig  config;
         config.setValueByPath("Mode", mode);
         config.setValueByPath("InputMethod", "Telex");
         engine.setConfig(config);
+        if (engine.config().mode.value() != (expectAnchor ? fcitx::LotusMode::Smooth : fcitx::LotusMode::SuperSmooth) ||
+            engine.config().inputMethod.value() != fcitx::InputMethodId::Telex) {
+            reportFailure("configure " + modeName + "/Telex", "mode=" + modeName + ", input method=Telex", "configured mode or input method differs",
+                          "the test cannot exercise " + modeName + " Telex behavior");
+            return false;
+        }
 
         auto context = std::make_unique<TestInputContext>(&testInstance.instance);
         context->focusIn();
         fcitx::InputMethodEntry  entry("lotus", "Lotus", "vi", "lotus");
         fcitx::InputContextEvent focus(context.get(), fcitx::EventType::InputContextFocusIn);
         engine.activate(entry, focus);
+        context->resetPreeditUpdateCount();
 
-        if (!send(engine, entry, *context, FcitxKey_a, false) || !send(engine, entry, *context, FcitxKey_s, true)) {
-            return;
+        if (!sendKey(engine, entry, *context, FcitxKey_a, false, "plain letters before the trigger must echo to the app") ||
+            !sendKey(engine, entry, *context, FcitxKey_s, true, "the trigger key must be swallowed to start the replacement")) {
+            return false;
         }
 
         KbMsg msg{};
-        if (!listener.receive(msg, "the Telex replacement request did not arrive")) {
-            ++failures;
-            return;
+        if (!receiveReplacementRequest(listener, msg, expectAnchor ? 2U : 1U, "the Telex replacement request did not arrive")) {
+            return false;
         }
-        const size_t expectedCount = expectAnchor ? 2U : 1U;
-        check("replacement request op", msg.op == KbOp::Backspace, "op=" + std::to_string(static_cast<int>(msg.op)));
-        check("replacement request count", msg.count == expectedCount, "count=" + std::to_string(msg.count) + " expected=" + std::to_string(expectedCount));
 
-        size_t anchorCommits = 0;
-        for (const auto& commit : context->commits()) {
-            if (lotus::utf8::decode(commit) == kAnchor) {
-                ++anchorCommits;
-            }
+        const std::vector<std::string>  anchorOnly{"\u00B7"};
+        const std::vector<std::string>  noCommits{};
+        const std::vector<std::string>& expectedStart = expectAnchor ? anchorOnly : noCommits;
+        if (context->commits() != expectedStart) {
+            reportFailure("anchor commit", expectAnchor ? "commits=['·']" : "no commit before the burst", commitList(*context),
+                          "Smooth mode commits the dot anchor before the burst and Super Smooth must not");
+            return false;
         }
-        check("anchor commit", anchorCommits == (expectAnchor ? 1U : 0U), "anchor commits=" + std::to_string(anchorCommits));
 
         for (size_t i = 0; i < msg.count; ++i) {
-            if (!send(engine, entry, *context, FcitxKey_BackSpace, false)) {
-                return;
+            if (!sendKey(engine, entry, *context, FcitxKey_BackSpace, false, "the burst backspace must echo to the app so it deletes the old word")) {
+                return false;
             }
         }
-        if (!send(engine, entry, *context, FcitxKey_Pause, true)) {
-            return;
+        if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement")) {
+            return false;
         }
 
-        std::u32string replaced;
-        for (const auto& commit : context->commits()) {
-            const std::u32string text = lotus::utf8::decode(commit);
-            if (text != kAnchor) {
-                replaced += text;
-            }
+        const std::vector<std::string>  smoothFinal{"\u00B7", "á"};
+        const std::vector<std::string>  superFinal{"á"};
+        const std::vector<std::string>& expectedFinal = expectAnchor ? smoothFinal : superFinal;
+        if (context->commits() != expectedFinal) {
+            reportFailure("commit on the anchor", expectAnchor ? "commits=['·']['á']" : "commits=['á']", commitList(*context),
+                          "the anchor echo must finish the replacement with the composed word");
+            return false;
         }
-        check("replacement text", replaced == kExpectedWord, "text=[" + hexText(replaced) + "]");
+        return true;
     };
 
-    runMode("Uinput (Smooth)", true);
-    runMode("Uinput (Super Smooth)", false);
-
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
+    if (!runMode("Uinput (Smooth)", true) || !runMode("Uinput (Super Smooth)", false)) {
         return 1;
     }
-    std::printf("mode dot anchor: all checks passed\n");
+    std::printf("lotus mode dot anchor: all checks passed\n");
     return 0;
 }
