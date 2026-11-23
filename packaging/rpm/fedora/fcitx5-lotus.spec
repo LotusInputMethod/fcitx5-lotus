@@ -1,7 +1,7 @@
 %bcond_without tests
 
 Name:           fcitx5-lotus
-Version:        7.0.0
+Version:        7.0.1
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -126,9 +126,6 @@ fi
 %systemd_postun_with_restart fcitx5-lotus-server@.service
 
 %changelog
-* Sun Nov 22 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 7.0.0-1
-- Restore non-VN word before digit in macro mode
-- Preserve repeated a/e elongation after horn vowels
-- Fix bug in "Unicode tổ hợp"
-- Remove Select mode
-- Add support autocomplete for all app using Uinput Smooth mode
+* Tue Nov 24 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 7.0.1-1
+- Fix the issue of an extra anchor text remaining after replacement
+- Fix keymap stuck in Wayland
