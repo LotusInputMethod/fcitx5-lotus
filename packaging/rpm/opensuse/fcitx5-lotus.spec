@@ -32,8 +32,9 @@ BuildRequires:  xvfb-run
 
 %{?systemd_ordering}
 Requires:       fcitx5
-Requires:       python3-QtPy
-Requires:       (python3-PyQt6 or python3-pyside6)
+Requires:       python3-gobject
+Requires:       typelib-1_0-Gtk-4_0
+Requires:       typelib-1_0-Adw-1
 Requires:       python3-dbus-python
 Requires:       acl
 

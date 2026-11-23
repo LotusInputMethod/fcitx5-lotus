@@ -7,8 +7,11 @@
   fcitx5,
   fetchFromGitHub,
   gettext,
+  gobject-introspection,
+  gtk4,
   hicolor-icon-theme,
   kdePackages,
+  libadwaita,
   libevdev,
   libinput,
   libnotify,
@@ -16,8 +19,8 @@
   nix-update-script,
   pkg-config,
   python3,
-  qt6,
   udev,
+  wrapGAppsHook4,
   xvfb-run,
 }:
 
@@ -25,8 +28,7 @@ let
   pythonEnv = python3.withPackages (
     ps: with ps; [
       dbus-python
-      pyqt6
-      qtpy
+      pygobject3
     ]
   );
 in
@@ -48,10 +50,11 @@ stdenv.mkDerivation (finalAttrs: {
   nativeBuildInputs = [
     cmake
     gettext
+    gobject-introspection
     hicolor-icon-theme
     kdePackages.extra-cmake-modules
     pkg-config
-    qt6.wrapQtAppsHook
+    wrapGAppsHook4
   ];
 
   nativeCheckInputs = [
@@ -63,14 +66,14 @@ stdenv.mkDerivation (finalAttrs: {
     acl
     dbus
     fcitx5
+    gtk4
     kdePackages.extra-cmake-modules
+    libadwaita
     libevdev
     libinput
     libnotify
     libxcb
     pythonEnv
-    qt6.qtbase
-    qt6.qtsvg
     udev
   ];
 
@@ -78,9 +81,9 @@ stdenv.mkDerivation (finalAttrs: {
 
   __structuredAttrs = true;
 
-  dontWrapQtApps = true;
+  dontWrapGApps = true;
 
- doCheck = true;
+  doCheck = true;
 
   cmakeFlags = [
     "-DLOTUS_ALT_EXECUTABLE_PREFIX=/nix/store/"
@@ -90,7 +93,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   postFixup = ''
     patchShebangs $out/share/fcitx5-lotus/settings-gui
-    wrapQtApp $out/bin/fcitx5-lotus-settings \
+    wrapGApp $out/bin/fcitx5-lotus-settings \
       --prefix XDG_DATA_DIRS : "${hicolor-icon-theme}/share"
   '';
 

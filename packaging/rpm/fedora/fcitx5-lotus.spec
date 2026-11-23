@@ -30,8 +30,9 @@ BuildRequires:  xorg-x11-server-Xvfb
 
 %{?systemd_ordering}
 Requires:       fcitx5
-Requires:       python3-QtPy
-Requires:       (python3-pyqt6 or python3-pyside6)
+Requires:       python3-gobject
+Requires:       gtk4
+Requires:       libadwaita
 Requires:       python3-dbus
 Requires:       acl
 

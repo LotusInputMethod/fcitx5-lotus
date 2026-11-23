@@ -17,9 +17,9 @@ configure_file(
     @ONLY
 )
 
-install(DIRECTORY core adw_ui ui
+install(DIRECTORY core adw_ui
         DESTINATION "${SETTINGS_GUI_INSTALL_DIR}"
-        FILES_MATCHING PATTERN "*.py" PATTERN "*.qss" PATTERN "*.svg")
+        FILES_MATCHING PATTERN "*.py" PATTERN "*.svg")
 
 install(FILES i18n.py "${CMAKE_CURRENT_BINARY_DIR}/version.py" "${CMAKE_CURRENT_BINARY_DIR}/paths.py"
         DESTINATION "${SETTINGS_GUI_INSTALL_DIR}")
