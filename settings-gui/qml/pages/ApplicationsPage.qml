@@ -451,9 +451,9 @@ Item {
 
                                                     Repeater {
                                                         model: [
-                                                            { field: "commit", label: I18n.tr("Commit Interval"), value: ruleCard.commitVal },
-                                                            { field: "backspace", label: I18n.tr("Backspace Interval"), value: ruleCard.backspaceVal },
-                                                            { field: "post", label: I18n.tr("Post Delay"), value: ruleCard.postVal }
+                                                            { field: "commit", label: I18n.tr("Commit Interval") },
+                                                            { field: "backspace", label: I18n.tr("Backspace Interval") },
+                                                            { field: "post", label: I18n.tr("Post Delay") }
                                                         ]
 
                                                         RowLayout {
@@ -469,7 +469,9 @@ Item {
                                                             }
 
                                                             LC.TimingStepper {
-                                                                value: modelData.value
+                                                                value: modelData.field === "commit"
+                                                                    ? ruleCard.commitVal
+                                                                    : (modelData.field === "backspace" ? ruleCard.backspaceVal : ruleCard.postVal)
                                                                 zeroLabel: I18n.tr("Default")
                                                                 onValueEdited: function(newVal) {
                                                                     Backend.updateAppRule(
