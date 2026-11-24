@@ -194,7 +194,6 @@ Item {
                         Layout.fillWidth: true
                         title: I18n.tr("Export…")
                         subtitle: I18n.tr("Save selected components to a JSON backup file")
-                        tooltipText: I18n.tr("Save selected components to a JSON backup file")
                         interactive: true
                         showSeparator: true
                         onClicked: {
@@ -216,7 +215,6 @@ Item {
                         Layout.fillWidth: true
                         title: I18n.tr("Import…")
                         subtitle: I18n.tr("Restore selected components from a JSON backup file")
-                        tooltipText: I18n.tr("Restore selected components from a JSON backup file")
                         interactive: true
                         showSeparator: false
                         onClicked: {

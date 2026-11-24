@@ -139,7 +139,7 @@ Item {
 
                     LC.SettingRow {
                         Layout.fillWidth: true
-                        title: I18n.tr("Match Case")
+                        title: I18n.tr("Capitalize Macro")
                         tooltipText: I18n.tr("Automatically match expansion case to trigger key case.\n\nExample if 'kg' is 'Khô gà':\n- kg -> khô gà\n- Kg -> Khô gà\n- KG -> KHÔ GÀ")
                         showSeparator: true
 
@@ -153,7 +153,7 @@ Item {
 
                     LC.SettingRow {
                         Layout.fillWidth: true
-                        title: I18n.tr("Off-Mode Macros")
+                        title: I18n.tr("Allow Macro in Off Mode")
                         tooltipText: I18n.tr("Allow macros to work when the input mode is OFF.\nWhen disabled, macros are only available in active typing modes.")
                         showSeparator: true
 
@@ -167,7 +167,7 @@ Item {
 
                     LC.SettingRow {
                         Layout.fillWidth: true
-                        title: I18n.tr("Skip Modifier")
+                        title: I18n.tr("Modifier to Skip Macro for Next Word")
                         tooltipText: I18n.tr("Press and release the selected modifier key before typing to skip macro expansion for the next word.\nIf another key is pressed between the modifier's press and release, the skip is cancelled.")
                         showSeparator: true
 

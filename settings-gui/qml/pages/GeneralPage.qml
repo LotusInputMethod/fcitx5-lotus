@@ -158,6 +158,38 @@ SettingsPage {
         }
     }
 
+    // Backend
+    ColumnLayout {
+        Layout.fillWidth: true
+        spacing: Style.spacingS
+
+        SectionHeader {
+            title: I18n.tr("Backend")
+            sectionId: "backend"
+        }
+
+        DCard {
+            Layout.fillWidth: true
+            pad: Style.spacingXS
+
+            ColumnLayout {
+                width: parent.width
+                spacing: Style.spacingXXS
+
+                SettingRow {
+                    title: I18n.tr("System Keyboard Injection")
+                    tooltipText: I18n.tr("Prefer injecting keys through the system instead of the uinput service: the wlroots virtual keyboard on Wayland and Xtest on X11.\nTurn this off to always use the uinput service; when neither backend is available the uinput service is used anyway.")
+
+                    DToggle {
+                        hideText: true
+                        checked: root.boolVal("PreferVirtualKeyboard", true)
+                        onToggled: val => Backend.setValue("PreferVirtualKeyboard", val)
+                    }
+                }
+            }
+        }
+    }
+
     // Tray Icon
     ColumnLayout {
         Layout.fillWidth: true
@@ -199,38 +231,6 @@ SettingsPage {
                             value: root.strVal("IconTheme", "Auto")
                         }
                         onValueChanged: val => Backend.setValue("IconTheme", val)
-                    }
-                }
-            }
-        }
-    }
-
-    // Backend
-    ColumnLayout {
-        Layout.fillWidth: true
-        spacing: Style.spacingS
-
-        SectionHeader {
-            title: I18n.tr("Backend")
-            sectionId: "backend"
-        }
-
-        DCard {
-            Layout.fillWidth: true
-            pad: Style.spacingXS
-
-            ColumnLayout {
-                width: parent.width
-                spacing: Style.spacingXXS
-
-                SettingRow {
-                    title: I18n.tr("System Keyboard Injection")
-                    tooltipText: I18n.tr("Prefer injecting keys through the system instead of the uinput service: the wlroots virtual keyboard on Wayland and Xtest on X11.\nTurn this off to always use the uinput service; when neither backend is available the uinput service is used anyway.")
-
-                    DToggle {
-                        hideText: true
-                        checked: root.boolVal("PreferVirtualKeyboard", true)
-                        onToggled: val => Backend.setValue("PreferVirtualKeyboard", val)
                     }
                 }
             }

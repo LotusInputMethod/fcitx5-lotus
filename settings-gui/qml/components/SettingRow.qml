@@ -94,8 +94,7 @@ Rectangle {
                 font.pixelSize: Style.fontSizeMedium
                 font.weight: Style.fontWeightMedium
                 color: root.isError ? Style.error : (root.enabled ? Style.surfaceText : Style.onSurface_38)
-                elide: Text.ElideRight
-                wrapMode: Text.NoWrap
+                wrapMode: Text.WordWrap
             }
 
             StyledText {

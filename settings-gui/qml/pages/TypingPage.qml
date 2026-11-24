@@ -50,7 +50,7 @@ SettingsPage {
                 }
 
                 SettingRow {
-                    title: I18n.tr("Auto Restore")
+                    title: I18n.tr("Auto Restore Invalid Words")
                     tooltipText: I18n.tr("Automatically revert the typed sequence if the resulting word is not in the dictionary.\nThis helps prevent accidental Vietnamese transformations on English words or mixed text.")
                     showSeparator: true
 
@@ -118,7 +118,7 @@ SettingsPage {
                 }
 
                 SettingRow {
-                    title: I18n.tr("Auto Capitalize")
+                    title: I18n.tr("Auto Capitalize After Punctuation")
                     tooltipText: I18n.tr("Capitalize the next word after sentence-ending punctuation (. ! ? Enter).")
                     showSeparator: true
 
@@ -130,7 +130,7 @@ SettingsPage {
                 }
 
                 SettingRow {
-                    title: I18n.tr("Double Space Period")
+                    title: I18n.tr("Double Space to Period")
                     tooltipText: I18n.tr("Insert a period followed by a space when pressing Space twice.")
                     showSeparator: true
 
@@ -142,7 +142,7 @@ SettingsPage {
                 }
 
                 SettingRow {
-                    title: I18n.tr("Double Hyphen Dash")
+                    title: I18n.tr("Double Hyphen to Em-Dash (--)")
                     tooltipText: I18n.tr("Transform -- into an em-dash (—).")
 
                     DToggle {

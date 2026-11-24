@@ -175,6 +175,10 @@ msgstr "Tự động"
 msgid "Auto Capitalize"
 msgstr "Tự động viết hoa"
 
+#: settings-gui/qml/pages/TypingPage.qml:121
+msgid "Auto Capitalize After Punctuation"
+msgstr "Tự động viết hoa sau dấu câu"
+
 #: src/lotus-engine.cpp:206 src/lotus-engine.cpp:370
 msgid "Auto Non-VN Restore"
 msgstr "Tự động khôi phục với từ không phải tiếng Việt"
