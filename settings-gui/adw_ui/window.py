@@ -18,9 +18,8 @@ _DEFAULT_WINDOW_WIDTH = 960
 _DEFAULT_WINDOW_HEIGHT = 680
 _MIN_WINDOW_WIDTH = 640
 _MIN_WINDOW_HEIGHT = 460
-_MIN_SIDEBAR_WIDTH = 240
-_MAX_SIDEBAR_WIDTH = 300
-_SIDEBAR_WIDTH_FRACTION = 0.27
+_MIN_SIDEBAR_WIDTH = 210
+_MAX_SIDEBAR_WIDTH = 260
 _FLOATING_BAR_DEFAULT_MARGIN = 18
 _FLOATING_BAR_TOAST_MARGIN = 76
 _REVEAL_ANIMATION_MS = 200
@@ -690,7 +689,6 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         self.split_view = Adw.NavigationSplitView()
         self.split_view.set_min_sidebar_width(_MIN_SIDEBAR_WIDTH)
         self.split_view.set_max_sidebar_width(_MAX_SIDEBAR_WIDTH)
-        self.split_view.set_sidebar_width_fraction(_SIDEBAR_WIDTH_FRACTION)
 
         self.view_stack = Adw.ViewStack()
         self.view_stack.add_css_class("settings-view-stack")
@@ -815,12 +813,13 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         row._page_title = title
 
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        box.set_margin_top(10)
-        box.set_margin_bottom(10)
-        box.set_margin_start(12)
-        box.set_margin_end(12)
+        box.set_margin_top(12)
+        box.set_margin_bottom(12)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
 
         icon = Gtk.Image.new_from_icon_name(resolved_icon)
+        icon.set_pixel_size(18)
         icon.set_valign(Gtk.Align.CENTER)
         label = Gtk.Label(label=title, xalign=0.0)
         label.set_valign(Gtk.Align.CENTER)
