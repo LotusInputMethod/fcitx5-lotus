@@ -393,4 +393,33 @@ ApplicationWindow {
             }
         }
     }
+
+    Repeater {
+        model: [
+            { edges: Qt.LeftEdge, cursor: Qt.SizeHorCursor, sideH: -1, sideV: 0 },
+            { edges: Qt.RightEdge, cursor: Qt.SizeHorCursor, sideH: 1, sideV: 0 },
+            { edges: Qt.TopEdge, cursor: Qt.SizeVerCursor, sideH: 0, sideV: -1 },
+            { edges: Qt.BottomEdge, cursor: Qt.SizeVerCursor, sideH: 0, sideV: 1 },
+            { edges: Qt.TopEdge | Qt.LeftEdge, cursor: Qt.SizeFDiagCursor, sideH: -1, sideV: -1 },
+            { edges: Qt.TopEdge | Qt.RightEdge, cursor: Qt.SizeBDiagCursor, sideH: 1, sideV: -1 },
+            { edges: Qt.BottomEdge | Qt.LeftEdge, cursor: Qt.SizeBDiagCursor, sideH: -1, sideV: 1 },
+            { edges: Qt.BottomEdge | Qt.RightEdge, cursor: Qt.SizeFDiagCursor, sideH: 1, sideV: 1 }
+        ]
+
+        MouseArea {
+            required property var modelData
+            readonly property bool isCorner: modelData.sideH !== 0 && modelData.sideV !== 0
+            readonly property int thickness: isCorner ? 10 : 5
+
+            x: modelData.sideH === -1 ? 0 : (modelData.sideH === 1 ? mainWindow.width - thickness : 10)
+            y: modelData.sideV === -1 ? 0 : (modelData.sideV === 1 ? mainWindow.height - thickness : 10)
+            width: modelData.sideH === 0 ? Math.max(0, mainWindow.width - 20) : thickness
+            height: modelData.sideV === 0 ? Math.max(0, mainWindow.height - 20) : thickness
+            z: 999
+            visible: mainWindow.visibility === Window.Windowed
+            cursorShape: modelData.cursor
+            acceptedButtons: Qt.LeftButton
+            onPressed: mainWindow.startSystemResize(modelData.edges)
+        }
+    }
 }
