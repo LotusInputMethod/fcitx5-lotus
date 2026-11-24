@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-24 15:19+0700\n"
+"POT-Creation-Date: 2026-11-24 23:28+0700\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,23 +17,23 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: settings-gui/cpp/settings_backend.cpp:1775
+#: settings-gui/cpp/settings_backend.cpp:1573
 msgid "%1 bindings"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1742
+#: settings-gui/cpp/settings_backend.cpp:1540
 msgid "%1 macros"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1728
+#: settings-gui/cpp/settings_backend.cpp:1526
 msgid "%1 rules (%2)"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1765
+#: settings-gui/cpp/settings_backend.cpp:1563
 msgid "%1 words"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1762
+#: settings-gui/cpp/settings_backend.cpp:1560
 msgid "%1 words (+%2 / -%3)"
 msgstr ""
 
@@ -57,15 +57,15 @@ msgstr ""
 #: settings-gui/qml/dialogs/AddKeymapDialog.qml:110
 #: settings-gui/qml/dialogs/AddWordDialog.qml:64
 #: settings-gui/qml/dialogs/MacroEditDialog.qml:156
-#: settings-gui/qml/pages/ApplicationsPage.qml:217
-#: settings-gui/qml/pages/ApplicationsPage.qml:574
+#: settings-gui/qml/pages/ApplicationsPage.qml:209
+#: settings-gui/qml/pages/ApplicationsPage.qml:566
 #: settings-gui/qml/pages/DictionaryPage.qml:148
 #: settings-gui/qml/pages/KeymapPage.qml:209
 #: settings-gui/qml/pages/MacrosPage.qml:273
 msgid "Add"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:532
+#: settings-gui/qml/pages/ApplicationsPage.qml:524
 msgid "Add Application"
 msgstr ""
 
@@ -79,7 +79,7 @@ msgstr ""
 msgid "Add Macro"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:219
+#: settings-gui/qml/pages/ApplicationsPage.qml:211
 msgid "Add Rule"
 msgstr ""
 
@@ -88,7 +88,7 @@ msgstr ""
 msgid "Add Word"
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:115
+#: settings-gui/qml/pages/AboutPage.qml:114
 #: settings-gui/qml/pages/BackupPage.qml:83
 #: settings-gui/qml/pages/BackupPage.qml:97
 msgid "All Files (*)"
@@ -116,7 +116,7 @@ msgid ""
 "When disabled, macros are only available in active typing modes."
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1349 src/lotus-config.h:56
+#: src/lotus-config.h:56
 msgid "Alt"
 msgstr ""
 
@@ -132,9 +132,10 @@ msgstr ""
 msgid "App: "
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1567
-#: settings-gui/cpp/settings_backend.cpp:1735
-#: settings-gui/cpp/settings_backend.cpp:2539
+#: settings-gui/cpp/settings_backend.cpp:1190
+#: settings-gui/cpp/settings_backend.cpp:1369
+#: settings-gui/cpp/settings_backend.cpp:1533
+#: settings-gui/cpp/settings_backend.cpp:2273
 msgid "Application Rules"
 msgstr ""
 
@@ -156,20 +157,12 @@ msgstr ""
 msgid "Apply Preset?"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1339 src/lotus-config.h:67
+#: src/lotus-config.h:67
 msgid "Auto"
-msgstr ""
-
-#: settings-gui/qml/pages/TypingPage.qml:121
-msgid "Auto Capitalize"
 msgstr ""
 
 #: src/lotus-engine.cpp:206 src/lotus-engine.cpp:370
 msgid "Auto Non-VN Restore"
-msgstr ""
-
-#: settings-gui/qml/pages/TypingPage.qml:53
-msgid "Auto Restore"
 msgstr ""
 
 #: src/lotus-config.h:191 src/lotus-engine.cpp:206
@@ -198,7 +191,7 @@ msgid ""
 "mixed text."
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1555
+#: settings-gui/cpp/settings_backend.cpp:1357
 msgid "Backend"
 msgstr ""
 
@@ -206,43 +199,35 @@ msgstr ""
 msgid "Backspace Interval"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:151
-msgid "Backspace Interval (ms)"
-msgstr ""
-
 #: settings-gui/qml/Main.qml:34
 msgid "Backup"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2400
+#: settings-gui/cpp/settings_backend.cpp:2158
 msgid "Backup exported"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2571
+#: settings-gui/cpp/settings_backend.cpp:2329
 msgid "Backup restored"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1569
+#: settings-gui/cpp/settings_backend.cpp:1371
 msgid "Behavior"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1579
+#: settings-gui/cpp/settings_backend.cpp:1381
 msgid "Bindings"
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:252
+#: settings-gui/qml/pages/AboutPage.qml:251
 msgid "Blank Issue / Question"
 msgstr ""
 
-#: settings-gui/qml/pages/GeneralPage.qml:143
-msgid "Bracket Keys"
-msgstr ""
-
-#: settings-gui/qml/pages/AboutPage.qml:250
+#: settings-gui/qml/pages/AboutPage.qml:249
 msgid "Bug Report"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1763
+#: settings-gui/cpp/settings_backend.cpp:1561
 msgid "Built-in dictionary (%1 words)"
 msgstr ""
 
@@ -257,13 +242,13 @@ msgstr ""
 #: settings-gui/qml/dialogs/AddKeymapDialog.qml:105
 #: settings-gui/qml/dialogs/AddWordDialog.qml:59
 #: settings-gui/qml/dialogs/MacroEditDialog.qml:151
-#: settings-gui/qml/pages/ApplicationsPage.qml:569
-#: settings-gui/qml/pages/BackupPage.qml:288
+#: settings-gui/qml/pages/ApplicationsPage.qml:561
+#: settings-gui/qml/pages/BackupPage.qml:286
 #: settings-gui/qml/pages/KeymapPage.qml:344
 msgid "Cancel"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1195
+#: settings-gui/cpp/settings_backend.cpp:1015
 msgid ""
 "Cannot save dictionary because loading failed earlier. Please fix the file "
 "format first."
@@ -282,7 +267,7 @@ msgstr ""
 msgid "Charset"
 msgstr ""
 
-#: settings-gui/qml/DCommon/Widgets/DTextField.qml:598
+#: settings-gui/qml/DCommon/Widgets/DTextField.qml:596
 msgid "Clear"
 msgstr ""
 
@@ -294,15 +279,11 @@ msgstr ""
 msgid "Commit Interval"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:145
-msgid "Commit Interval (ms)"
-msgstr ""
-
 #: settings-gui/qml/pages/BackupPage.qml:135
 msgid "Components"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1577
+#: settings-gui/cpp/settings_backend.cpp:1379
 msgid "Configuration"
 msgstr ""
 
@@ -310,38 +291,35 @@ msgstr ""
 msgid "Configure Fcitx5 Lotus Input Method"
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:213
+#: settings-gui/qml/pages/AboutPage.qml:212
 msgid "Contributors"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:146
-msgid "Cooldown between committed replacements when an app rule uses 0"
-msgstr ""
-
-#: settings-gui/cpp/settings_backend.cpp:1348 src/lotus-config.h:56
+#: src/lotus-config.h:56
 msgid "Ctrl"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1697
+#: settings-gui/cpp/settings_backend.cpp:1495
 msgid "Custom"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1573
-#: settings-gui/cpp/settings_backend.cpp:2523 src/lotus-config.h:197
+#: settings-gui/cpp/settings_backend.cpp:1375
+#: settings-gui/cpp/settings_backend.cpp:2311 src/lotus-config.h:197
 #: src/lotus-engine.cpp:208 src/lotus-engine.cpp:371
 msgid "Custom Dictionary"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2553 src/lotus-config.h:158
+#: settings-gui/cpp/settings_backend.cpp:1230
+#: settings-gui/cpp/settings_backend.cpp:2287 src/lotus-config.h:158
 #: src/lotus-config.h:198 src/lotus-config.h:222
 msgid "Custom Keymap"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:106
+#: settings-gui/qml/pages/ApplicationsPage.qml:100
 msgid "Custom Timing"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1768
+#: settings-gui/cpp/settings_backend.cpp:1566
 msgid "Custom Words"
 msgstr ""
 
@@ -357,23 +335,19 @@ msgstr ""
 msgid "Cycle Mode Hotkey"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1341 src/lotus-config.h:67
+#: src/lotus-config.h:67
 msgid "Dark"
-msgstr ""
-
-#: settings-gui/qml/pages/MacrosPage.qml:218
-msgid "Date Format"
 msgstr ""
 
 #: src/lotus-config.h:219
 msgid "Date Format ($DATE in macro)"
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:115
+#: settings-gui/qml/pages/AboutPage.qml:114
 msgid "Debug Log (*.log *.txt)"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2603
+#: settings-gui/cpp/settings_backend.cpp:2362
 msgid "Debug info exported"
 msgstr ""
 
@@ -381,7 +355,7 @@ msgstr ""
 msgid "Decrease"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1697
+#: settings-gui/cpp/settings_backend.cpp:1495
 msgid "Default"
 msgstr ""
 
@@ -397,7 +371,7 @@ msgstr ""
 msgid "Default Post Delay"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1565
+#: settings-gui/cpp/settings_backend.cpp:1367
 msgid "Default Timing"
 msgstr ""
 
@@ -405,15 +379,7 @@ msgstr ""
 msgid "Default Typing"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:158
-msgid "Delay before replaying the final trigger key when an app rule uses 0"
-msgstr ""
-
-#: settings-gui/qml/pages/ApplicationsPage.qml:152
-msgid "Delay between simulated backspaces when an app rule uses 0"
-msgstr ""
-
-#: settings-gui/qml/pages/AboutPage.qml:276
+#: settings-gui/qml/pages/AboutPage.qml:275
 msgid "Diagnostics"
 msgstr ""
 
@@ -425,7 +391,7 @@ msgstr ""
 msgid "Dictionary Empty"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1197
+#: settings-gui/cpp/settings_backend.cpp:1017
 msgid "Dictionary words should not contain spaces."
 msgstr ""
 
@@ -433,9 +399,7 @@ msgstr ""
 msgid "Disable"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1332
-#: settings-gui/cpp/settings_backend.cpp:1346
-#: settings-gui/cpp/settings_backend.cpp:1658 src/lotus-config.h:37
+#: settings-gui/cpp/settings_backend.cpp:1453 src/lotus-config.h:37
 #: src/lotus-config.h:44 src/lotus-config.h:56
 msgid "Disabled"
 msgstr ""
@@ -444,20 +408,12 @@ msgstr ""
 msgid "Discard"
 msgstr ""
 
-#: settings-gui/qml/components/ToastBanner.qml:109
+#: settings-gui/qml/components/ToastBanner.qml:111
 msgid "Dismiss"
-msgstr ""
-
-#: settings-gui/qml/pages/TypingPage.qml:145
-msgid "Double Hyphen Dash"
 msgstr ""
 
 #: src/lotus-config.h:190
 msgid "Double Hyphen to Em-Dash (--)"
-msgstr ""
-
-#: settings-gui/qml/pages/TypingPage.qml:133
-msgid "Double Space Period"
 msgstr ""
 
 #: src/lotus-config.h:189
@@ -473,7 +429,7 @@ msgstr ""
 msgid "Duplicate key '{}'"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1182
+#: settings-gui/cpp/settings_backend.cpp:1001
 #, c++-format
 msgid "Duplicate shortcut '{}' used for multiple enabled modes."
 msgstr ""
@@ -482,32 +438,24 @@ msgstr ""
 msgid "Edit Macro"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1301 src/lotus-config.h:31
+#: src/lotus-config.h:31
 msgid "Emoji Picker"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1775
+#: settings-gui/cpp/settings_backend.cpp:1573
 msgid "Empty (0 bindings)"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1748
+#: settings-gui/cpp/settings_backend.cpp:1546
 msgid "Empty (0 macros)"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1766
+#: settings-gui/cpp/settings_backend.cpp:1564
 msgid "Empty (0 words)"
-msgstr ""
-
-#: settings-gui/qml/pages/DictionaryPage.qml:93
-msgid "Enable Dictionary"
 msgstr ""
 
 #: src/lotus-config.h:184
 msgid "Enable Macro"
-msgstr ""
-
-#: settings-gui/qml/pages/MacrosPage.qml:128
-msgid "Enable Macros"
 msgstr ""
 
 #: src/lotus-config.h:184
@@ -522,7 +470,7 @@ msgstr ""
 msgid "Enter a word without spaces:"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:533
+#: settings-gui/qml/pages/ApplicationsPage.qml:525
 msgid "Enter binary name or window class (e.g. discord, code):"
 msgstr ""
 
@@ -530,8 +478,7 @@ msgstr ""
 msgid "Escape to cancel · Backspace to disable"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1334 src/lotus-config.h:37
-#: src/lotus-config.h:44
+#: src/lotus-config.h:37 src/lotus-config.h:44
 msgid "Everywhere"
 msgstr ""
 
@@ -551,8 +498,8 @@ msgstr ""
 msgid "Export Backup"
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:112
-#: settings-gui/qml/pages/AboutPage.qml:290
+#: settings-gui/qml/pages/AboutPage.qml:111
+#: settings-gui/qml/pages/AboutPage.qml:289
 msgid "Export Debug Information"
 msgstr ""
 
@@ -560,69 +507,75 @@ msgstr ""
 msgid "Export failed"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2376
+#: settings-gui/cpp/settings_backend.cpp:2134
 msgid "Export failed: cannot read custom dictionary."
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:119
+#: settings-gui/qml/pages/AboutPage.qml:118
 msgid "Exporting debug information..."
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:294
+#: settings-gui/qml/pages/AboutPage.qml:293
 #: settings-gui/qml/pages/BackupPage.qml:195
 msgid "Export…"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2396
+#: settings-gui/cpp/settings_backend.cpp:2154
 msgid "Failed to export backup."
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2578
-#: settings-gui/cpp/settings_backend.cpp:2603
+#: settings-gui/cpp/settings_backend.cpp:2336
+#: settings-gui/cpp/settings_backend.cpp:2337
+#: settings-gui/cpp/settings_backend.cpp:2362
 msgid "Failed to export debug info"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2420
-#: settings-gui/cpp/settings_backend.cpp:2476
+#: settings-gui/cpp/settings_backend.cpp:2178
+#: settings-gui/cpp/settings_backend.cpp:2234
 msgid "Failed to read backup: %1"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1843
-msgid "Failed to reset custom dictionary file."
+#: settings-gui/cpp/settings_backend.cpp:1630
+msgid "Failed to reset custom dictionary. Please check if Fcitx5 is running."
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2565
+#: settings-gui/cpp/settings_backend.cpp:2323
 msgid "Failed to restore: %1"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1371
-#: settings-gui/cpp/settings_backend.cpp:1376
-msgid "Failed to save dictionary."
+#: settings-gui/cpp/settings_backend.cpp:1187
+msgid "Failed to save Application Rules. Saved: %1"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1362
-#: settings-gui/cpp/settings_backend.cpp:1394
-#: settings-gui/cpp/settings_backend.cpp:1401
-#: settings-gui/cpp/settings_backend.cpp:1828
-#: settings-gui/cpp/settings_backend.cpp:1835
-#: settings-gui/cpp/settings_backend.cpp:1856
-#: settings-gui/cpp/settings_backend.cpp:1871
-#: settings-gui/cpp/settings_backend.cpp:2495
+#: settings-gui/cpp/settings_backend.cpp:1259
+#: settings-gui/cpp/settings_backend.cpp:1264
+msgid "Failed to save Custom Dictionary. Saved: %1"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1227
+msgid "Failed to save Custom Keymap. Saved: %1"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1240
+#: settings-gui/cpp/settings_backend.cpp:1248
+msgid "Failed to save General & Typing. Saved: %1"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1207
+msgid "Failed to save Macros. Saved: %1"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1155
+#: settings-gui/cpp/settings_backend.cpp:2253
 msgid "Failed to save settings. Please check if Fcitx5 is running."
-msgstr ""
-
-#: settings-gui/cpp/settings_backend.cpp:1423
-#: settings-gui/cpp/settings_backend.cpp:1442
-#: settings-gui/cpp/settings_backend.cpp:1461
-msgid "Failed to save some settings. Please check if Fcitx5 is running."
 msgstr ""
 
 #: settings-gui/org.fcitx.Fcitx5.Addon.Lotus.Settings.desktop.in:2
 msgid "Fcitx5 Lotus Settings"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2336
-#: settings-gui/cpp/settings_backend.cpp:2352
+#: settings-gui/cpp/settings_backend.cpp:2094
+#: settings-gui/cpp/settings_backend.cpp:2110
 msgid "Fcitx5 is not running. Cannot export settings."
 msgstr ""
 
@@ -630,7 +583,7 @@ msgstr ""
 msgid "Fcitx5 is not running. Settings cannot be loaded or saved."
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:251
+#: settings-gui/qml/pages/AboutPage.qml:250
 msgid "Feature Request"
 msgstr ""
 
@@ -642,31 +595,23 @@ msgstr ""
 msgid "Format used for the $TIME dynamic placeholder"
 msgstr ""
 
-#: settings-gui/qml/pages/TypingPage.qml:109
-msgid "Free Tone Marking"
-msgstr ""
-
-#: settings-gui/qml/pages/TypingPage.qml:65
-msgid "Free dd to đ"
-msgstr ""
-
 #: settings-gui/qml/Main.qml:27
 msgid "General"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2532
+#: settings-gui/cpp/settings_backend.cpp:2266
 msgid "General & Typing"
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:212
+#: settings-gui/qml/pages/AboutPage.qml:211
 msgid "GitHub Repository"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1706
+#: settings-gui/cpp/settings_backend.cpp:1504
 msgid "Hidden"
 msgstr ""
 
-#: settings-gui/qml/DCommon/Widgets/DTextField.qml:583
+#: settings-gui/qml/DCommon/Widgets/DTextField.qml:582
 msgid "Hide password"
 msgstr ""
 
@@ -674,19 +619,15 @@ msgstr ""
 msgid "Icon Color"
 msgstr ""
 
-#: settings-gui/qml/pages/GeneralPage.qml:191
-msgid "Icon Theme"
-msgstr ""
-
 #: settings-gui/qml/pages/BackupPage.qml:95
 msgid "Import Backup"
 msgstr ""
 
-#: settings-gui/qml/pages/BackupPage.qml:282
+#: settings-gui/qml/pages/BackupPage.qml:280
 msgid "Import failed"
 msgstr ""
 
-#: settings-gui/qml/pages/BackupPage.qml:217
+#: settings-gui/qml/pages/BackupPage.qml:216
 msgid "Import…"
 msgstr ""
 
@@ -694,7 +635,7 @@ msgstr ""
 msgid "Increase"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1549
+#: settings-gui/cpp/settings_backend.cpp:1351
 msgid "Input"
 msgstr ""
 
@@ -702,8 +643,7 @@ msgstr ""
 msgid "Input Method"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:412
-#: settings-gui/qml/pages/GeneralPage.qml:75
+#: settings-gui/qml/pages/ApplicationsPage.qml:404
 msgid "Input Mode"
 msgstr ""
 
@@ -719,10 +659,10 @@ msgstr ""
 msgid "Insert a period followed by a space when pressing Space twice."
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2414
-#: settings-gui/cpp/settings_backend.cpp:2427
-#: settings-gui/cpp/settings_backend.cpp:2470
-#: settings-gui/cpp/settings_backend.cpp:2483
+#: settings-gui/cpp/settings_backend.cpp:2172
+#: settings-gui/cpp/settings_backend.cpp:2185
+#: settings-gui/cpp/settings_backend.cpp:2228
+#: settings-gui/cpp/settings_backend.cpp:2241
 msgid "Invalid backup file"
 msgstr ""
 
@@ -739,7 +679,7 @@ msgstr ""
 msgid "Key (e.g. s)"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1775
+#: settings-gui/cpp/settings_backend.cpp:1573
 msgid "Key Bindings"
 msgstr ""
 
@@ -747,11 +687,11 @@ msgstr ""
 msgid "Keymap"
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:322
+#: settings-gui/qml/pages/AboutPage.qml:321
 msgid "Licenses"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1340 src/lotus-config.h:67
+#: src/lotus-config.h:67
 msgid "Light"
 msgstr ""
 
@@ -789,7 +729,7 @@ msgstr ""
 msgid "Macro"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1748
+#: settings-gui/cpp/settings_backend.cpp:1546
 msgid "Macro Entries"
 msgstr ""
 
@@ -797,25 +737,22 @@ msgstr ""
 msgid "Macro behavior and shorthand expansions"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1191
+#: settings-gui/cpp/settings_backend.cpp:1010
 msgid "Macro keys cannot contain spaces or special characters."
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1571
-#: settings-gui/cpp/settings_backend.cpp:2546
+#: settings-gui/cpp/settings_backend.cpp:1210
+#: settings-gui/cpp/settings_backend.cpp:1373
+#: settings-gui/cpp/settings_backend.cpp:2280
 msgid "Macros"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1561
+#: settings-gui/cpp/settings_backend.cpp:1363
 msgid "Main Shortcuts"
 msgstr ""
 
 #: settings-gui/qml/pages/BackupPage.qml:27
 msgid "Main input method, typing rules, shortcuts, and appearance"
-msgstr ""
-
-#: settings-gui/qml/pages/MacrosPage.qml:142
-msgid "Match Case"
 msgstr ""
 
 #: settings-gui/qml/DCommon/Widgets/DWindowHeader.qml:110
@@ -838,7 +775,7 @@ msgstr ""
 msgid "Mode Menu Hotkey"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1563
+#: settings-gui/cpp/settings_backend.cpp:1365
 msgid "Mode Menu Switching"
 msgstr ""
 
@@ -846,11 +783,7 @@ msgstr ""
 msgid "Mode Order"
 msgstr ""
 
-#: settings-gui/qml/pages/TypingPage.qml:97
-msgid "Modern Tone Style"
-msgstr ""
-
-#: settings-gui/qml/pages/AboutPage.qml:186
+#: settings-gui/qml/pages/AboutPage.qml:185
 msgid "Modern Vietnamese Input Method for Linux"
 msgstr ""
 
@@ -858,7 +791,7 @@ msgstr ""
 msgid "Modifier to Skip Macro for Next Word"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:239
+#: settings-gui/qml/pages/ApplicationsPage.qml:231
 msgid "No Application Rules"
 msgstr ""
 
@@ -870,7 +803,7 @@ msgstr ""
 msgid "No Macros Defined"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:238
+#: settings-gui/qml/pages/ApplicationsPage.qml:230
 msgid "No Matching Apps"
 msgstr ""
 
@@ -886,46 +819,48 @@ msgstr ""
 msgid "No Matching Words"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2342
+#: settings-gui/cpp/settings_backend.cpp:2100
 msgid "No custom dictionary file to export."
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2462
+#: settings-gui/cpp/settings_backend.cpp:2220
 msgid "No matching components found in backup"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1333 src/lotus-config.h:37
-#: src/lotus-config.h:44
+#: src/lotus-config.h:37 src/lotus-config.h:44
 msgid "Non-Start"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1229
-#: settings-gui/cpp/settings_backend.cpp:1236
-#: settings-gui/cpp/settings_backend.cpp:1682
+#: settings-gui/cpp/settings_backend.cpp:1088
+#: settings-gui/cpp/settings_backend.cpp:1095
+#: settings-gui/cpp/settings_backend.cpp:1187
+#: settings-gui/cpp/settings_backend.cpp:1207
+#: settings-gui/cpp/settings_backend.cpp:1227
+#: settings-gui/cpp/settings_backend.cpp:1240
+#: settings-gui/cpp/settings_backend.cpp:1248
+#: settings-gui/cpp/settings_backend.cpp:1259
+#: settings-gui/cpp/settings_backend.cpp:1264
+#: settings-gui/cpp/settings_backend.cpp:1480
 msgid "None"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1735
+#: settings-gui/cpp/settings_backend.cpp:1533
 msgid "None (0 rules)"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1296 src/lotus-config.h:31
+#: src/lotus-config.h:31
 msgid "OFF"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1666
+#: settings-gui/cpp/settings_backend.cpp:1463
 msgid "Off"
 msgstr ""
 
-#: settings-gui/qml/pages/MacrosPage.qml:156
-msgid "Off-Mode Macros"
-msgstr ""
-
-#: settings-gui/cpp/settings_backend.cpp:1666
+#: settings-gui/cpp/settings_backend.cpp:1463
 msgid "On"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1697
+#: settings-gui/cpp/settings_backend.cpp:1495
 msgid "Order"
 msgstr ""
 
@@ -933,7 +868,7 @@ msgstr ""
 msgid "Output Charset"
 msgstr ""
 
-#: settings-gui/qml/pages/BackupPage.qml:275
+#: settings-gui/qml/pages/BackupPage.qml:273
 msgid "Overwrite selected components: %1?"
 msgstr ""
 
@@ -953,15 +888,11 @@ msgstr ""
 msgid "Post Delay"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:157
-msgid "Post Delay (ms)"
-msgstr ""
-
-#: settings-gui/cpp/settings_backend.cpp:1300 src/lotus-config.h:31
+#: src/lotus-config.h:31
 msgid "Preedit"
 msgstr ""
 
-#: settings-gui/qml/pages/GeneralPage.qml:228
+#: settings-gui/qml/pages/GeneralPage.qml:181
 msgid ""
 "Prefer injecting keys through the system instead of the uinput service: the "
 "wlroots virtual keyboard on Wayland and Xtest on X11.\n"
@@ -993,21 +924,22 @@ msgstr ""
 msgid "Press shortcut…"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1551
+#: settings-gui/cpp/settings_backend.cpp:1353
 msgid "Quick Keys"
 msgstr ""
 
 #: settings-gui/qml/dialogs/MacroEditDialog.qml:138
-#: settings-gui/qml/pages/DictionaryPage.qml:216
+#: settings-gui/qml/pages/DictionaryPage.qml:196
+#: settings-gui/qml/pages/DictionaryPage.qml:224
 #: settings-gui/qml/pages/KeymapPage.qml:302
 msgid "Remove"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:494
+#: settings-gui/qml/pages/ApplicationsPage.qml:486
 msgid "Remove Rule"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:498
+#: settings-gui/qml/pages/ApplicationsPage.qml:490
 msgid "Remove application rule"
 msgstr ""
 
@@ -1015,7 +947,7 @@ msgstr ""
 msgid "Replace bindings with the selected preset"
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:236
+#: settings-gui/qml/pages/AboutPage.qml:235
 msgid "Report an Issue"
 msgstr ""
 
@@ -1024,7 +956,7 @@ msgid "Reset"
 msgstr ""
 
 #: settings-gui/qml/DCommon/Widgets/DWindowHeader.qml:110
-#: settings-gui/qml/pages/BackupPage.qml:293
+#: settings-gui/qml/pages/BackupPage.qml:291
 msgid "Restore"
 msgstr ""
 
@@ -1032,7 +964,7 @@ msgstr ""
 msgid "Restore All Defaults"
 msgstr ""
 
-#: settings-gui/qml/pages/BackupPage.qml:274
+#: settings-gui/qml/pages/BackupPage.qml:272
 msgid "Restore Backup?"
 msgstr ""
 
@@ -1044,16 +976,15 @@ msgstr ""
 msgid "Restore all modified settings to their factory defaults?"
 msgstr ""
 
-#: settings-gui/qml/components/SectionHeader.qml:75
+#: settings-gui/qml/components/SectionHeader.qml:67
 msgid "Restore section defaults"
 msgstr ""
 
-#: settings-gui/qml/pages/BackupPage.qml:218
-#: settings-gui/qml/pages/BackupPage.qml:219
+#: settings-gui/qml/pages/BackupPage.qml:217
 msgid "Restore selected components from a JSON backup file"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1886
+#: settings-gui/cpp/settings_backend.cpp:1653
 msgid "Restored defaults for %1"
 msgstr ""
 
@@ -1061,7 +992,7 @@ msgstr ""
 msgid "Retry"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:563
+#: settings-gui/qml/pages/ApplicationsPage.qml:555
 msgid "Rule already exists"
 msgstr ""
 
@@ -1074,16 +1005,15 @@ msgid "Save"
 msgstr ""
 
 #: settings-gui/qml/pages/BackupPage.qml:196
-#: settings-gui/qml/pages/BackupPage.qml:197
 msgid "Save selected components to a JSON backup file"
 msgstr ""
 
-#: settings-gui/qml/pages/AboutPage.qml:291
+#: settings-gui/qml/pages/AboutPage.qml:290
 msgid ""
 "Save system details, Lotus config, uinput logs, and fcitx5-diagnose output"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:212
+#: settings-gui/qml/pages/ApplicationsPage.qml:204
 msgid "Search applications..."
 msgstr ""
 
@@ -1103,11 +1033,11 @@ msgstr ""
 msgid "Search..."
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:2330
+#: settings-gui/cpp/settings_backend.cpp:2088
 msgid "Select at least one component to export"
 msgstr ""
 
-#: settings-gui/qml/pages/BackupPage.qml:224
+#: settings-gui/qml/pages/BackupPage.qml:222
 msgid "Select at least one component to import"
 msgstr ""
 
@@ -1115,11 +1045,11 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1470
+#: settings-gui/cpp/settings_backend.cpp:1272
 msgid "Settings saved"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1347 src/lotus-config.h:56
+#: src/lotus-config.h:56
 msgid "Shift"
 msgstr ""
 
@@ -1163,7 +1093,7 @@ msgstr ""
 msgid "Show Emoji Picker"
 msgstr ""
 
-#: settings-gui/qml/pages/DictionaryPage.qml:229
+#: settings-gui/qml/pages/DictionaryPage.qml:235
 msgid "Show More (%1)"
 msgstr ""
 
@@ -1187,28 +1117,20 @@ msgstr ""
 msgid "Show Uinput (Super Smooth)"
 msgstr ""
 
-#: settings-gui/qml/DCommon/Widgets/DTextField.qml:583
+#: settings-gui/qml/DCommon/Widgets/DTextField.qml:582
 msgid "Show password"
-msgstr ""
-
-#: settings-gui/qml/pages/MacrosPage.qml:170
-msgid "Skip Modifier"
 msgstr ""
 
 #: src/lotus-engine.cpp:202 src/lotus-engine.cpp:367
 msgid "Spell Check"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1557
+#: settings-gui/cpp/settings_backend.cpp:1359
 msgid "Spelling"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1299 src/lotus-config.h:31
+#: src/lotus-config.h:31
 msgid "Surrounding Text"
-msgstr ""
-
-#: settings-gui/qml/pages/GeneralPage.qml:227
-msgid "System Keyboard Injection"
 msgstr ""
 
 #: settings-gui/qml/components/SectionResetDialog.qml:22
@@ -1219,19 +1141,15 @@ msgstr ""
 msgid "This operation will replace all existing keys with %1. Are you sure?"
 msgstr ""
 
-#: settings-gui/qml/pages/MacrosPage.qml:194
-msgid "Time Format"
-msgstr ""
-
 #: src/lotus-config.h:218
 msgid "Time Format ($TIME in macro)"
 msgstr ""
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:447
+#: settings-gui/qml/pages/ApplicationsPage.qml:439
 msgid "Timing Overrides (0 = inherit default)"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1559
+#: settings-gui/cpp/settings_backend.cpp:1361
 msgid "Tone & Punctuation"
 msgstr ""
 
@@ -1247,7 +1165,7 @@ msgstr ""
 msgid "Transform [ to ơ, ] to ư, { to Ơ, and } to Ư."
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1553
+#: settings-gui/cpp/settings_backend.cpp:1355
 msgid "Tray Icon"
 msgstr ""
 
@@ -1263,10 +1181,6 @@ msgstr ""
 msgid "Type [ -> ơ, ] -> ư, { -> Ơ, } -> Ư"
 msgstr ""
 
-#: settings-gui/qml/pages/GeneralPage.qml:127
-msgid "Type w as ư"
-msgstr ""
-
 #: src/lotus-config.h:180
 msgid "Type w to Produce ư"
 msgstr ""
@@ -1275,11 +1189,11 @@ msgstr ""
 msgid "Typing"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1297 src/lotus-config.h:31
+#: src/lotus-config.h:31
 msgid "Uinput (Smooth)"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1298 src/lotus-config.h:31
+#: src/lotus-config.h:31
 msgid "Uinput (Super Smooth)"
 msgstr ""
 
@@ -1291,10 +1205,6 @@ msgstr ""
 
 #: settings-gui/qml/components/UnsavedCloseDialog.qml:23
 msgid "Unsaved Changes"
-msgstr ""
-
-#: settings-gui/qml/pages/GeneralPage.qml:180
-msgid "Use Lotus Icons"
 msgstr ""
 
 #: src/lotus-config.h:195
@@ -1317,7 +1227,7 @@ msgstr ""
 msgid "Vietnamese input method (Lotus)"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1706
+#: settings-gui/cpp/settings_backend.cpp:1504
 msgid "Visible"
 msgstr ""
 
@@ -1325,7 +1235,7 @@ msgstr ""
 msgid "Word already exists"
 msgstr ""
 
-#: settings-gui/cpp/settings_backend.cpp:1575
+#: settings-gui/cpp/settings_backend.cpp:1377
 msgid "Words"
 msgstr ""
 
@@ -1346,6 +1256,10 @@ msgstr ""
 
 #: settings-gui/qml/components/UnsavedCloseDialog.qml:24
 msgid "You have unsaved settings. Save before closing?"
+msgstr ""
+
+#: settings-gui/qml/pages/ApplicationsPage.qml:553
+msgid "e.g. app-name"
 msgstr ""
 
 #: settings-gui/qml/dialogs/AddWordDialog.qml:51
