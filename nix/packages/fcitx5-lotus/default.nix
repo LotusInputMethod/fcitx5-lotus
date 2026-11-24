@@ -20,6 +20,7 @@
   pkg-config,
   python3,
   udev,
+  wayland-scanner,
   wrapGAppsHook4,
   xvfb-run,
 }:
@@ -54,6 +55,7 @@ stdenv.mkDerivation (finalAttrs: {
     hicolor-icon-theme
     kdePackages.extra-cmake-modules
     pkg-config
+    wayland-scanner
     wrapGAppsHook4
   ];
 

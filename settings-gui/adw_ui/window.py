@@ -6,7 +6,7 @@
 from collections.abc import Callable
 
 from core.dbus_handler import LotusDBusHandler
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, Gdk, GLib, Gtk
 from i18n import N_, _
 
 from adw_ui.pages.extra import show_about_dialog
@@ -18,8 +18,9 @@ _DEFAULT_WINDOW_WIDTH = 960
 _DEFAULT_WINDOW_HEIGHT = 680
 _MIN_WINDOW_WIDTH = 640
 _MIN_WINDOW_HEIGHT = 460
-_MIN_SIDEBAR_WIDTH = 210
-_MAX_SIDEBAR_WIDTH = 260
+_MIN_SIDEBAR_WIDTH = 240
+_MAX_SIDEBAR_WIDTH = 300
+_SIDEBAR_WIDTH_FRACTION = 0.27
 _FLOATING_BAR_DEFAULT_MARGIN = 18
 _FLOATING_BAR_TOAST_MARGIN = 76
 _REVEAL_ANIMATION_MS = 200
@@ -689,6 +690,7 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         self.split_view = Adw.NavigationSplitView()
         self.split_view.set_min_sidebar_width(_MIN_SIDEBAR_WIDTH)
         self.split_view.set_max_sidebar_width(_MAX_SIDEBAR_WIDTH)
+        self.split_view.set_sidebar_width_fraction(_SIDEBAR_WIDTH_FRACTION)
 
         self.view_stack = Adw.ViewStack()
         self.view_stack.add_css_class("settings-view-stack")
@@ -713,7 +715,6 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         self.sidebar.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.sidebar.connect("row-selected", self._on_sidebar_row_selected)
         sidebar_scroll.set_child(self.sidebar)
-        sidebar_toolbar.set_content(sidebar_scroll)
 
         about_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         about_box.set_margin_start(10)
@@ -731,7 +732,12 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         self.btn_about.set_child(about_content)
         self.btn_about.connect("clicked", self._on_about_clicked)
         about_box.append(self.btn_about)
-        sidebar_toolbar.add_bottom_bar(about_box)
+
+        sidebar_content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        sidebar_content.set_vexpand(True)
+        sidebar_content.append(sidebar_scroll)
+        sidebar_content.append(about_box)
+        sidebar_toolbar.set_content(sidebar_content)
 
         sidebar_page = Adw.NavigationPage(child=sidebar_toolbar, title=_("Lotus Settings"))
         self.split_view.set_sidebar(sidebar_page)
@@ -778,11 +784,29 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         if first_row is not None:
             self.sidebar.select_row(first_row)
 
+    @staticmethod
+    def _resolve_icon_name(icon_names: str | tuple[str, ...]) -> str:
+        """Picks the first icon name available in the active icon theme."""
+        if isinstance(icon_names, str):
+            return icon_names
+        display = Gdk.Display.get_default()
+        if display is not None:
+            icon_theme = Gtk.IconTheme.get_for_display(display)
+            for name in icon_names:
+                if icon_theme.has_icon(name):
+                    return name
+        return icon_names[0]
+
     def _add_sidebar_page(
-        self, page_widget: Gtk.Widget, page_id: str, title: str, icon_name: str
+        self,
+        page_widget: Gtk.Widget,
+        page_id: str,
+        title: str,
+        icon_name: str | tuple[str, ...],
     ) -> None:
+        resolved_icon = self._resolve_icon_name(icon_name)
         if hasattr(self.view_stack, "add_titled_with_icon"):
-            self.view_stack.add_titled_with_icon(page_widget, page_id, title, icon_name)
+            self.view_stack.add_titled_with_icon(page_widget, page_id, title, resolved_icon)
         else:
             self.view_stack.add_titled(page_widget, page_id, title)
 
@@ -790,13 +814,13 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         row._page_id = page_id
         row._page_title = title
 
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        box.set_margin_top(8)
-        box.set_margin_bottom(8)
-        box.set_margin_start(10)
-        box.set_margin_end(10)
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        box.set_margin_top(10)
+        box.set_margin_bottom(10)
+        box.set_margin_start(12)
+        box.set_margin_end(12)
 
-        icon = Gtk.Image.new_from_icon_name(icon_name)
+        icon = Gtk.Image.new_from_icon_name(resolved_icon)
         icon.set_valign(Gtk.Align.CENTER)
         label = Gtk.Label(label=title, xalign=0.0)
         label.set_valign(Gtk.Align.CENTER)
@@ -832,7 +856,11 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
             (
                 "shortcuts",
                 _("Shortcuts"),
-                "preferences-desktop-keyboard-shortcuts-symbolic",
+                (
+                    "configure-shortcuts-symbolic",
+                    "preferences-desktop-keyboard-shortcuts-symbolic",
+                    "input-keyboard-symbolic",
+                ),
                 ShortcutsPage,
                 True,
             ),
