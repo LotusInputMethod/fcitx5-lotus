@@ -627,16 +627,17 @@ class MacroEditorPageTests(unittest.TestCase):
         self.assertTrue(key_col.has_css_class("macro-key-col"))
         self.assertTrue(key_badge.has_css_class("macro-key-badge"))
 
-        # Suffix contains only Delete (clicking the row itself opens Edit)
+        # Suffix contains only a chevron (Edit and Remove live inside the Edit Macro dialog)
         self.assertEqual(len(branch_row._children), 2)
-        suffix_btn = branch_row._children[1]
-        self.assertTrue(suffix_btn.has_css_class("destructive-action"))
-        self.assertEqual(suffix_btn.get_tooltip_text(), "Remove")
+        suffix_chevron = branch_row._children[1]
+        self.assertTrue(suffix_chevron.has_css_class("dim-label"))
 
-        # Spacious Edit Macro Adw.Dialog supports multi-line text, $TIME/$DATE chips, validation & sorting
+        # Spacious Edit Macro Adw.Dialog supports multi-line text, $TIME/$DATE chips, validation, sorting & delete
         page._open_macro_dialog(1)
         dlg = page._macro_dialog
         self.assertTrue(dlg.get_mapped())
+        self.assertIsNotNone(dlg._btn_delete)
+        self.assertTrue(dlg._btn_delete.has_css_class("destructive-action"))
         self.assertEqual(dlg._entry_key.get_text(), "branch")
         dlg._entry_key.set_text("bad key!")
         self.assertTrue(dlg._err_label.get_visible())
@@ -650,6 +651,13 @@ class MacroEditorPageTests(unittest.TestCase):
         self.assertFalse(dlg.get_mapped())
         self.assertEqual([m["Key"] for m in page.macros], ["aa", "Alpha", "kg"])
         self.assertTrue(page.macros[0]["Value"].endswith("$TIME"))
+
+        # Delete from inside Edit Macro dialog
+        page._open_macro_dialog(0)
+        del_dlg = page._macro_dialog
+        del_dlg._btn_delete.emit("clicked")
+        self.assertFalse(del_dlg.get_mapped())
+        self.assertEqual([m["Key"] for m in page.macros], ["Alpha", "kg"])
 
     def test_section_reset_factory_defaults_persist_and_confirm(self):
         dbus = FakeDBusHandler(

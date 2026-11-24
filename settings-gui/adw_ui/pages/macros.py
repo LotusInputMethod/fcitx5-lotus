@@ -13,7 +13,6 @@ from adw_ui.pages.base import StagedPage
 from adw_ui.utils import (
     as_bool,
     bool_to_str,
-    make_delete_button,
     make_empty_row,
     register_css,
     remove_rows_from_group,
@@ -526,7 +525,10 @@ class MacroEditorPage(StagedPage):
         prefix_box.append(arrow)
 
         row.add_prefix(prefix_box)
-        row.add_suffix(make_delete_button(lambda _b, idx=orig_idx: self._remove_macro(idx)))
+        chevron = Gtk.Image.new_from_icon_name("go-next-symbolic")
+        chevron.add_css_class("dim-label")
+        chevron.set_valign(Gtk.Align.CENTER)
+        row.add_suffix(chevron)
         return row
 
     def _remove_macro(self, index: int):
@@ -547,7 +549,7 @@ class MacroEditorPage(StagedPage):
         dialog = Adw.Dialog()
         dialog.set_title(title)
         dialog.set_content_width(_MACRO_DIALOG_WIDTH)
-        dialog.set_content_height(_MACRO_DIALOG_HEIGHT)
+        dialog.set_content_height(_MACRO_DIALOG_HEIGHT + (44 if is_edit else 0))
 
         toolbar_view = Adw.ToolbarView()
 
@@ -627,6 +629,17 @@ class MacroEditorPage(StagedPage):
         exp_section.append(scrolled)
         body.append(exp_section)
 
+        btn_delete = None
+        if is_edit:
+            btn_delete = Gtk.Button()
+            btn_delete.add_css_class("destructive-action")
+            btn_delete.set_halign(Gtk.Align.END)
+            del_content = Adw.ButtonContent()
+            del_content.set_icon_name("user-trash-symbolic")
+            del_content.set_label(_("Remove"))
+            btn_delete.set_child(del_content)
+            body.append(btn_delete)
+
         toolbar_view.set_content(body)
         dialog.set_child(toolbar_view)
 
@@ -634,6 +647,7 @@ class MacroEditorPage(StagedPage):
         dialog._text_view = text_view
         dialog._btn_save = btn_save
         dialog._btn_cancel = btn_cancel
+        dialog._btn_delete = btn_delete
         dialog._btn_time = btn_time
         dialog._btn_date = btn_date
         dialog._err_label = err_label
@@ -705,6 +719,13 @@ class MacroEditorPage(StagedPage):
             lambda _e: commit_save() if btn_save.get_sensitive() else text_view.grab_focus(),
         )
         btn_save.connect("clicked", commit_save)
+        if is_edit and dialog._btn_delete is not None:
+
+            def on_delete(*_args):
+                self._remove_macro(edit_index)
+                dialog.close()
+
+            dialog._btn_delete.connect("clicked", on_delete)
 
         def on_key_pressed(_ctrl, keyval, _kc, _state):
             if keyval == Gdk.KEY_Escape:
