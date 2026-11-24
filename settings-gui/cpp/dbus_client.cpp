@@ -17,10 +17,11 @@
 #include <algorithm>
 
 namespace {
-    const QString kService     = QStringLiteral("org.fcitx.Fcitx5");
-    const QString kObjectPath  = QStringLiteral("/controller");
-    const QString kInterface   = QStringLiteral("org.fcitx.Fcitx.Controller1");
-    const QString kAddonConfig = QStringLiteral("fcitx://config/addon/lotus");
+    const QString kService        = QStringLiteral("org.fcitx.Fcitx5");
+    const QString kObjectPath     = QStringLiteral("/controller");
+    const QString kInterface      = QStringLiteral("org.fcitx.Fcitx.Controller1");
+    const QString kAddonConfig    = QStringLiteral("fcitx://config/addon/lotus");
+    constexpr int kIfaceTimeoutMs = 2000;
 
     QVariant      unwrapDbusValue(const QVariant& value);
 
@@ -165,6 +166,7 @@ bool LotusDBusClient::reconnect() {
     if (!iface->isValid()) {
         return false;
     }
+    iface->setTimeout(kIfaceTimeoutMs);
     iface_     = std::move(iface);
     connected_ = true;
     return true;
@@ -176,6 +178,8 @@ void LotusDBusClient::markDisconnectedIfServiceLost(const QDBusError& err) {
         case QDBusError::Disconnected:
         case QDBusError::UnknownObject:
         case QDBusError::UnknownInterface:
+        case QDBusError::NoReply:
+        case QDBusError::Timeout:
             connected_ = false;
             iface_.reset();
             break;

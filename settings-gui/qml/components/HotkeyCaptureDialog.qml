@@ -200,7 +200,7 @@ OverlayDialog {
             iconName: "delete"
             variant: "tonal"
             danger: true
-            focusPolicy: Qt.NoFocus
+            takesFocus: false
             onClicked: {
                 root.captured("");
                 root.close();
@@ -212,7 +212,7 @@ OverlayDialog {
         DButton {
             text: I18n.tr("Cancel")
             variant: "text"
-            focusPolicy: Qt.NoFocus
+            takesFocus: false
             onClicked: root.close()
         }
     ]

@@ -81,7 +81,12 @@ Item {
                 enabled: root.canApply
                 tooltipText: (!root.canApply && root.validationMessage !== "") ? root.validationMessage : null
                 tooltipSide: "top"
-                onClicked: Backend.applyAll()
+                onClicked: {
+                    const win = root.Window.window;
+                    if (win && win.activeFocusItem)
+                        win.activeFocusItem.focus = false;
+                    Backend.applyAll();
+                }
             }
         }
     }

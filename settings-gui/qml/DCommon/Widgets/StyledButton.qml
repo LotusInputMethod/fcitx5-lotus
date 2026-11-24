@@ -8,8 +8,11 @@ T.CheckBox {
     property alias color: surface.color
     property alias radius: surface.radius
     property alias border: surface.border
+    // Qt 6.2 compatibility: Item.focusPolicy is Qt 6.7+. tabFocus + FocusOnTap reproduce
+    // the StrongFocus behaviour (tab and click) on older Qt.
+    property bool takesFocus: true
 
-    focusPolicy: Qt.StrongFocus
+    activeFocusOnTab: takesFocus
     hoverEnabled: true
     checkable: false
     nextCheckState: () => checkState
@@ -18,6 +21,11 @@ T.CheckBox {
     Accessible.onToggleAction: {
         if (checkable)
             click();
+    }
+
+    FocusOnTap {
+        target: root
+        enabled: root.takesFocus
     }
 
     HoverHandler {

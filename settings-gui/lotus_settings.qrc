@@ -37,6 +37,7 @@
         <file>qml/DCommon/Widgets/DDropdown.qml</file>
         <file>qml/DCommon/Widgets/DEdgeFade.qml</file>
         <file>qml/DCommon/Widgets/DFlickable.qml</file>
+        <file>qml/DCommon/Widgets/FocusOnTap.qml</file>
         <file>qml/DCommon/Widgets/DHorizontalScrollbar.qml</file>
         <file>qml/DCommon/Widgets/DIcon.qml</file>
         <file>qml/DCommon/Widgets/DIconButton.qml</file>

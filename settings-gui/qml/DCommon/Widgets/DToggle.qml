@@ -46,7 +46,6 @@ FocusScope {
     StyledButton {
         id: input
         focus: true
-        focusPolicy: Qt.ClickFocus
         Accessible.ignored: toggle.Accessible.ignored
         anchors.fill: parent
         enabled: toggle.enabled && !toggle.toggling

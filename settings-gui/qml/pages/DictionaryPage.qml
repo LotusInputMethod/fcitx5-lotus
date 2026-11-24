@@ -90,7 +90,7 @@ Item {
 
                     LC.SettingRow {
                         Layout.fillWidth: true
-                        title: I18n.tr("Enable Dictionary")
+                        title: Backend.optionTitle("EnableDictionary")
                         tooltipText: I18n.tr("Words in the custom dictionary are excluded from 'Auto Restore Invalid Words'. Use this for names, technical terms, or words missing from the built-in list.")
 
                         DW.DToggle {

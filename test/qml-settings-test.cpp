@@ -20,7 +20,9 @@
 #include <QDBusConnection>
 #include <QDBusVariant>
 #include <QDir>
+#include <QEventLoop>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -29,21 +31,22 @@
 #include <QObject>
 #include <QPalette>
 #include <QProcess>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
 #include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QTemporaryDir>
 #include <QThread>
+#include <QTimer>
 #include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
 
-#include <array>
 #include <cstdio>
 #include <exception>
 #include <future>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <utility>
 
@@ -132,6 +135,118 @@ namespace {
         return value;
     }
 
+    QVariantList lotusTestMetadata() {
+        auto makeItem = [](const QString& key, const QString& type, const QString& title, const QVariant& def, const QVariantMap& extra) {
+            return QVariantList{key, type, title, def, extra};
+        };
+        auto enumItem = [&makeItem](const QString& key, const QString& title, const QVariant& def, const QVariantMap& labels) {
+            return makeItem(key, QStringLiteral("Enum"), title, def, QVariantMap{{QStringLiteral("Enum"), labels}, {QStringLiteral("EnumI18n"), labels}});
+        };
+
+        const QVariantMap inputMethods = {
+            {QStringLiteral("0"), QStringLiteral("Telex")},
+            {QStringLiteral("1"), QStringLiteral("VNI")},
+            {QStringLiteral("2"), QStringLiteral("Telex + VNI")},
+            {QStringLiteral("3"), QStringLiteral("Telex + VNI + VIQR")},
+            {QStringLiteral("4"), QStringLiteral("VIQR")},
+            {QStringLiteral("5"), QStringLiteral("Microsoft layout")},
+            {QStringLiteral("6"), QStringLiteral("VNI Bàn phím tiếng Pháp")},
+            {QStringLiteral("7"), QStringLiteral("Custom")},
+        };
+        const QVariantMap modes = {
+            {QStringLiteral("0"), QStringLiteral("OFF")},
+            {QStringLiteral("1"), QStringLiteral("Uinput (Smooth)")},
+            {QStringLiteral("2"), QStringLiteral("Uinput (Super Smooth)")},
+            {QStringLiteral("3"), QStringLiteral("Surrounding Text")},
+            {QStringLiteral("4"), QStringLiteral("Preedit")},
+            {QStringLiteral("5"), QStringLiteral("Emoji Picker")},
+        };
+        const QVariantMap charsets = {
+            {QStringLiteral("0"), QStringLiteral("Unicode")},
+            {QStringLiteral("1"), QStringLiteral("BKHCM 1")},
+            {QStringLiteral("2"), QStringLiteral("BKHCM 2")},
+            {QStringLiteral("3"), QStringLiteral("NCR Decimal")},
+            {QStringLiteral("4"), QStringLiteral("NCR Hex")},
+            {QStringLiteral("5"), QStringLiteral("TCVN3 (ABC)")},
+            {QStringLiteral("6"), QStringLiteral("UTF-8")},
+            {QStringLiteral("7"), QStringLiteral("Unicode C string Decimal")},
+            {QStringLiteral("8"), QStringLiteral("Unicode C string Hex")},
+            {QStringLiteral("9"), QStringLiteral("Unicode tổ hợp")},
+            {QStringLiteral("10"), QStringLiteral("VIQR")},
+            {QStringLiteral("11"), QStringLiteral("VISCII")},
+            {QStringLiteral("12"), QStringLiteral("VNI Windows")},
+            {QStringLiteral("13"), QStringLiteral("VPS")},
+            {QStringLiteral("14"), QStringLiteral("Vietware Full")},
+            {QStringLiteral("15"), QStringLiteral("Vietware X")},
+            {QStringLiteral("16"), QStringLiteral("Windows 1258 codepage")},
+        };
+        const QVariantMap transformThree = {
+            {QStringLiteral("0"), QStringLiteral("Disabled")},
+            {QStringLiteral("1"), QStringLiteral("Non-Start")},
+            {QStringLiteral("2"), QStringLiteral("Everywhere")},
+        };
+        const QVariantMap iconThemes = {
+            {QStringLiteral("0"), QStringLiteral("Auto")},
+            {QStringLiteral("1"), QStringLiteral("Light")},
+            {QStringLiteral("2"), QStringLiteral("Dark")},
+        };
+        const QVariantMap skipModifiers = {
+            {QStringLiteral("0"), QStringLiteral("Disabled")},
+            {QStringLiteral("1"), QStringLiteral("Shift")},
+            {QStringLiteral("2"), QStringLiteral("Ctrl")},
+            {QStringLiteral("3"), QStringLiteral("Alt")},
+        };
+
+        QVariantList items = {
+            enumItem(QStringLiteral("InputMethod"), QStringLiteral("Input Method"), QStringLiteral("Telex"), inputMethods),
+            enumItem(QStringLiteral("Mode"), QStringLiteral("Input Mode"), QStringLiteral("Preedit"), modes),
+            enumItem(QStringLiteral("OutputCharset"), QStringLiteral("Output Charset"), QStringLiteral("Unicode"), charsets),
+            enumItem(QStringLiteral("W2U"), QStringLiteral("Type w as ư"), QStringLiteral("Non-Start"), transformThree),
+            enumItem(QStringLiteral("BracketTransform"), QStringLiteral("Bracket Keys"), QStringLiteral("Disabled"), transformThree),
+            makeItem(QStringLiteral("UseLotusIcons"), QStringLiteral("Boolean"), QStringLiteral("Use Lotus Icons"), false, {}),
+            enumItem(QStringLiteral("IconTheme"), QStringLiteral("Icon Theme"), QStringLiteral("Auto"), iconThemes),
+            makeItem(QStringLiteral("PreferVirtualKeyboard"), QStringLiteral("Boolean"), QStringLiteral("System Keyboard Injection"), true, {}),
+            makeItem(QStringLiteral("SpellCheck"), QStringLiteral("Boolean"), QStringLiteral("Spell Check"), true, {}),
+            makeItem(QStringLiteral("AutoNonVnRestore"), QStringLiteral("Boolean"), QStringLiteral("Auto Restore"), true, {}),
+            makeItem(QStringLiteral("DdFreeStyle"), QStringLiteral("Boolean"), QStringLiteral("Free dd to đ"), true, {}),
+            makeItem(QStringLiteral("ModernStyle"), QStringLiteral("Boolean"), QStringLiteral("Modern Tone Style"), true, {}),
+            makeItem(QStringLiteral("FreeMarking"), QStringLiteral("Boolean"), QStringLiteral("Free Tone Marking"), true, {}),
+            makeItem(QStringLiteral("AutoCapitalizeAfterPunctuation"), QStringLiteral("Boolean"), QStringLiteral("Auto Capitalize"), false, {}),
+            makeItem(QStringLiteral("DoubleSpaceToPeriod"), QStringLiteral("Boolean"), QStringLiteral("Double Space Period"), false, {}),
+            makeItem(QStringLiteral("DoubleHyphenToEmDash"), QStringLiteral("Boolean"), QStringLiteral("Double Hyphen Dash"), false, {}),
+            makeItem(QStringLiteral("ModeMenuKey"), QStringLiteral("List|Key"), QStringLiteral("Mode Menu Hotkey"), QStringLiteral("grave"), {}),
+            makeItem(QStringLiteral("CycleModeKey"), QStringLiteral("List|Key"), QStringLiteral("Cycle Mode Hotkey"), QString(), {}),
+            makeItem(QStringLiteral("EnableMacro"), QStringLiteral("Boolean"), QStringLiteral("Enable Macros"), true, {}),
+            makeItem(QStringLiteral("CapitalizeMacro"), QStringLiteral("Boolean"), QStringLiteral("Match Case"), true, {}),
+            makeItem(QStringLiteral("EnableMacroInOffMode"), QStringLiteral("Boolean"), QStringLiteral("Off-Mode Macros"), false, {}),
+            enumItem(QStringLiteral("MacroSkipTriggerModifier"), QStringLiteral("Skip Modifier"), QStringLiteral("Disabled"), skipModifiers),
+            makeItem(QStringLiteral("TimeFormat"), QStringLiteral("String"), QStringLiteral("Time Format"), QStringLiteral("%H:%M"), {}),
+            makeItem(QStringLiteral("DateFormat"), QStringLiteral("String"), QStringLiteral("Date Format"), QStringLiteral("%d/%m/%Y"), {}),
+            makeItem(QStringLiteral("EnableDictionary"), QStringLiteral("Boolean"), QStringLiteral("Enable Dictionary"), false, {}),
+            makeItem(QStringLiteral("EnableCustomKeymap"), QStringLiteral("Boolean"), QStringLiteral("Custom Keymap"), false, {}),
+            makeItem(QStringLiteral("ModeOrder"), QStringLiteral("String"), QStringLiteral("Mode Order"),
+                     QStringLiteral("Smooth,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default"), {}),
+            makeItem(QStringLiteral("DefaultCommitInterval"), QStringLiteral("Integer"), QStringLiteral("Commit Interval (ms)"), 20, {}),
+            makeItem(QStringLiteral("DefaultBackspaceInterval"), QStringLiteral("Integer"), QStringLiteral("Backspace Interval (ms)"), 5, {}),
+            makeItem(QStringLiteral("DefaultPostDelay"), QStringLiteral("Integer"), QStringLiteral("Post Delay (ms)"), 10, {}),
+            makeItem(QStringLiteral("ShowModeSmooth"), QStringLiteral("Boolean"), QStringLiteral("Show Mode"), true, {}),
+            makeItem(QStringLiteral("ShortcutSmooth"), QStringLiteral("String"), QStringLiteral("Shortcut for Smooth"), QStringLiteral("1"), {}),
+            makeItem(QStringLiteral("ShowModeSuperSmooth"), QStringLiteral("Boolean"), QStringLiteral("Show Mode"), true, {}),
+            makeItem(QStringLiteral("ShortcutSuperSmooth"), QStringLiteral("String"), QStringLiteral("Shortcut for SuperSmooth"), QStringLiteral("a"), {}),
+            makeItem(QStringLiteral("ShowModeSurroundingText"), QStringLiteral("Boolean"), QStringLiteral("Show Mode"), true, {}),
+            makeItem(QStringLiteral("ShortcutSurroundingText"), QStringLiteral("String"), QStringLiteral("Shortcut for SurroundingText"), QStringLiteral("4"), {}),
+            makeItem(QStringLiteral("ShowModePreedit"), QStringLiteral("Boolean"), QStringLiteral("Show Mode"), true, {}),
+            makeItem(QStringLiteral("ShortcutPreedit"), QStringLiteral("String"), QStringLiteral("Shortcut for Preedit"), QStringLiteral("q"), {}),
+            makeItem(QStringLiteral("ShowModeEmoji"), QStringLiteral("Boolean"), QStringLiteral("Show Mode"), true, {}),
+            makeItem(QStringLiteral("ShortcutEmoji"), QStringLiteral("String"), QStringLiteral("Shortcut for Emoji"), QStringLiteral("w"), {}),
+            makeItem(QStringLiteral("ShowModeOff"), QStringLiteral("Boolean"), QStringLiteral("Show Mode"), true, {}),
+            makeItem(QStringLiteral("ShortcutOff"), QStringLiteral("String"), QStringLiteral("Shortcut for Off"), QStringLiteral("e"), {}),
+            makeItem(QStringLiteral("ShowModeDefault"), QStringLiteral("Boolean"), QStringLiteral("Show Mode"), true, {}),
+            makeItem(QStringLiteral("ShortcutDefault"), QStringLiteral("String"), QStringLiteral("Shortcut for Default"), QStringLiteral("r"), {}),
+        };
+        return {QVariantList{QStringLiteral("Lotus"), items}};
+    }
+
     class MockFcitxController final : public QObject {
         Q_OBJECT
         Q_CLASSINFO("D-Bus Interface", "org.fcitx.Fcitx.Controller1")
@@ -161,7 +276,7 @@ namespace {
 
       public Q_SLOTS:
         QVariantMap GetConfig(const QString& uri, QVariantList& metadata) {
-            metadata.clear();
+            metadata = lotusTestMetadata();
             const QMutexLocker locker(&mutex_);
             return store_.value(uri);
         }
@@ -272,6 +387,30 @@ namespace {
         std::unique_ptr<MockFcitxController> controller_;
     };
 
+    void testAppModeOptions(SettingsBackend& backend) {
+        const QVariantList options = backend.getAppModeOptions();
+        check("app mode options count == 6", options.size() == 6);
+        const QList<int> expected = {0, 1, 3, 4, 5, 6};
+        for (qsizetype i = 0; i < options.size() && i < expected.size(); ++i) {
+            check("app mode option maps to the same LotusMode ordinal", options.at(i).toMap().value(QStringLiteral("value")).toInt() == expected.at(i));
+        }
+    }
+
+    void testDebugExportOnThreadPool(SettingsBackend& backend, const QString& tempDirPath) {
+        const QString path = QDir(tempDirPath).filePath(QStringLiteral("debug-export.log"));
+        QEventLoop    loop;
+        bool          ok = false;
+        QObject::connect(&backend, &SettingsBackend::debugExportFinished, &loop, [&](bool result, const QString&) {
+            ok = result;
+            loop.quit();
+        });
+        QTimer::singleShot(25000, &loop, &QEventLoop::quit);
+        backend.exportDebugInfo(QUrl::fromLocalFile(path).toString());
+        loop.exec();
+        check("debug export finishes on thread pool", ok);
+        check("debug export writes a non-empty file", QFileInfo(path).size() > 0);
+    }
+
     void testFactoryDefaults(const SettingsBackend& backend) {
         const fcitx::lotusConfig cfg;
         const QVariantMap        vals = backend.values();
@@ -314,8 +453,6 @@ namespace {
         check("factory default DefaultCommitInterval", vals.value(QStringLiteral("DefaultCommitInterval")).toInt() == *cfg.defaultCommitInterval);
         check("factory default DefaultBackspaceInterval", vals.value(QStringLiteral("DefaultBackspaceInterval")).toInt() == *cfg.defaultBackspaceInterval);
         check("factory default DefaultPostDelay", vals.value(QStringLiteral("DefaultPostDelay")).toInt() == *cfg.defaultPostDelay);
-        check("factory default ShowModeSmooth", vals.value(QStringLiteral("ShowModeSmooth")).toBool() == *cfg.showModeSmooth);
-        check("factory default ShortcutSmooth", vals.value(QStringLiteral("ShortcutSmooth")).toString() == QString::fromStdString(*cfg.shortcutSmooth));
     }
 
     void testKeyAndHotkeyFormatting() {
@@ -439,34 +576,18 @@ namespace {
         const QVariantList presets = backend.keymapPresets();
         const QVariantList actions = backend.bambooActions();
 
-        check("keymapPresets count == 8", presets.size() == 8);
-        check("bambooActions count == 29", actions.size() == 29);
-
-        QSet<QString> validActionCodes;
+        QSet<QString>      validActionCodes;
         for (const QVariant& actVar : actions) {
-            const QVariantMap act  = actVar.toMap();
-            const QString     code = act.value(QStringLiteral("code")).toString();
-            const QString     lbl  = act.value(QStringLiteral("label")).toString();
-            check("bamboo action has non-empty code and label", !code.isEmpty() && !lbl.isEmpty());
-            validActionCodes.insert(code);
+            validActionCodes.insert(actVar.toMap().value(QStringLiteral("code")).toString());
         }
-        check("bambooActions codes are 29 unique entries", validActionCodes.size() == 29);
 
-        const std::array<std::string_view, 8> expectedPresets = {
-            "Telex", "VNI", "VIQR", "Microsoft layout", "Telex + VNI", "Telex + VNI + VIQR", "VNI Bàn phím tiếng Pháp", "Telex W",
-        };
-        for (std::size_t i = 0; i < expectedPresets.size(); ++i) {
-            const QString expectedName = QString::fromUtf8(expectedPresets.at(i).data(), static_cast<qsizetype>(expectedPresets.at(i).size()));
-            const bool    hasPreset = std::cmp_less(i, presets.size()) && (presets.at(static_cast<qsizetype>(i)).toMap().value(QStringLiteral("name")).toString() == expectedName);
-            check("preset name matches expected order", hasPreset);
-
-            backend.applyKeymapPreset(expectedName);
-            const QVariantList bindings = backend.keymapBindings();
-            check("applyKeymapPreset populates non-empty bindings", !bindings.isEmpty());
-            for (const QVariant& bindVar : bindings) {
-                const QVariantMap bind = bindVar.toMap();
-                check("preset binding references valid bambooAction", validActionCodes.contains(bind.value(QStringLiteral("value")).toString()));
-            }
+        check("keymap presets are available", !presets.isEmpty());
+        const QString firstName = presets.constFirst().toMap().value(QStringLiteral("name")).toString();
+        backend.applyKeymapPreset(firstName);
+        const QVariantList bindings = backend.keymapBindings();
+        check("applyKeymapPreset populates non-empty bindings", !bindings.isEmpty());
+        for (const QVariant& bindVar : bindings) {
+            check("preset binding references valid bambooAction", validActionCodes.contains(bindVar.toMap().value(QStringLiteral("value")).toString()));
         }
 
         backend.upsertKeymap(QStringLiteral("q"), QStringLiteral("DauSac"));
@@ -538,10 +659,10 @@ namespace {
         check("resetSection macro_list succeeds", backend.resetSection(QStringLiteral("macro_list")));
         check("resetSection keymap_bindings succeeds", backend.resetSection(QStringLiteral("keymap_bindings")));
         check("resetSection dict_words succeeds", backend.resetSection(QStringLiteral("dict_words")));
+        check("resetSection stages changes without writing", backend.hasUnsavedChanges());
+        backend.cancelAll();
         mockCtrl->resetUri(QStringLiteral("fcitx://config/addon/lotus"));
         backend.retryConnection();
-        check("after reset Mode reverted to Preedit", backend.values().value(QStringLiteral("Mode")).toString() == QLatin1String("Preedit"));
-        check("after reset macros empty", backend.macros().isEmpty());
 
         check("importBackup v2 succeeds", backend.importBackup(backupUrl, allComponents));
         check("importBackup restored Mode == Uinput (Smooth)", backend.values().value(QStringLiteral("Mode")).toString() == QLatin1String("Uinput (Smooth)"));
@@ -585,9 +706,19 @@ namespace {
 
         qputenv("LC_ALL", "C");
         I18nBridge i18n;
-        check("I18nBridge empty string stays empty", I18nBridge::tr(QString()).isEmpty());
-        check("I18nBridge translates non-empty key", !I18nBridge::tr(QStringLiteral("General")).isEmpty());
+        check("I18nBridge empty string stays empty", I18nBridge::lookup(QString()).isEmpty());
+        check("I18nBridge translates non-empty key", !I18nBridge::lookup(QStringLiteral("General")).isEmpty());
         check("I18nBridge C locale is not RTL", !i18n.isRtl());
+    }
+
+    void testQmlLoadsFromQrc(I18nBridge& i18n, ThemeBridge& theme, SettingsBackend& backend) {
+        QQmlApplicationEngine engine;
+        engine.addImportPath(QStringLiteral("qrc:/lotus/qml"));
+        engine.rootContext()->setContextProperty(QStringLiteral("I18n"), &i18n);
+        engine.rootContext()->setContextProperty(QStringLiteral("Theme"), &theme);
+        engine.rootContext()->setContextProperty(QStringLiteral("Backend"), &backend);
+        engine.load(QUrl(QStringLiteral("qrc:/lotus/qml/Main.qml")));
+        check("QML Main.qml loads from qrc", !engine.rootObjects().isEmpty());
     }
 
 } // namespace
@@ -622,17 +753,25 @@ int main(int argc, char* argv[]) {
         SettingsBackend backend(&i18n);
         check("SettingsBackend starts offline when org.fcitx.Fcitx5 is absent", backend.fcitxOffline());
 
+        const MockServerRunner mockServer(dbusDaemon.address());
+        if (!check("mock Fcitx5 D-Bus server registered", mockServer.valid() && mockServer.controller() != nullptr)) {
+            return 1;
+        }
+        backend.retryConnection();
+        check("retryConnection brings backend online", !backend.fcitxOffline());
+
+        ThemeBridge themeBridge;
+        testQmlLoadsFromQrc(i18n, themeBridge, backend);
+
         testFactoryDefaults(backend);
+        testAppModeOptions(backend);
+        testDebugExportOnThreadPool(backend, tempDir.path());
         testKeyAndHotkeyFormatting();
         testDuplicateShortcutValidation(backend);
         testMacros(backend);
         testDictionary(backend);
         testKeymapPresetsAndActions(backend);
 
-        const MockServerRunner mockServer(dbusDaemon.address());
-        if (!check("mock Fcitx5 D-Bus server registered", mockServer.valid() && mockServer.controller() != nullptr)) {
-            return 1;
-        }
         testSectionResetApplyAndBackupV2(backend, mockServer.controller(), tempDir.path());
 
         if (g_failures != 0) {

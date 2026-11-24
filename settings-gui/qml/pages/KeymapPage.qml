@@ -124,7 +124,7 @@ Item {
 
                     LC.SettingRow {
                         Layout.fillWidth: true
-                        title: I18n.tr("Custom Keymap")
+                        title: Backend.optionTitle("EnableCustomKeymap")
                         tooltipText: I18n.tr("Use custom key-to-action bindings when Input Method is Custom")
                         showSeparator: true
 

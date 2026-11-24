@@ -85,7 +85,6 @@ FocusScope {
     StyledButton {
         id: input
         focus: true
-        focusPolicy: Qt.ClickFocus
         anchors.fill: parent
         enabled: card.acceptsInput
         visible: card.clickable

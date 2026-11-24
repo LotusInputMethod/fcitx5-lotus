@@ -39,14 +39,6 @@ Item {
         function onStateChanged() { root._rev++; }
         function onValuesChanged() { root._rev++; }
         function onModeListChanged() { root._rev++; }
-        function onHasUnsavedChangesChanged() { root._rev++; }
-        function onRulesChanged() { root._rev++; }
-        function onMacrosChanged() { root._rev++; }
-        function onDictWordsChanged() { root._rev++; }
-        function onKeymapChanged() { root._rev++; }
-        function onCustomKeymapChanged() { root._rev++; }
-        function onAppRulesChanged() { root._rev++; }
-        function onConfigReloaded() { root._rev++; }
     }
 
     implicitHeight: Math.max(32, headerRow.implicitHeight)

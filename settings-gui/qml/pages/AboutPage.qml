@@ -97,12 +97,11 @@ Item {
     Connections {
         target: typeof Backend !== "undefined" ? Backend : null
         ignoreUnknownSignals: true
-        function onToastRequested(message) {
+        function onDebugExportFinished(ok, message) {
             if (!pageRoot.debugExportPending)
                 return
             pageRoot.debugExportPending = false
-            var lower = String(message || "").toLowerCase()
-            pageRoot.debugStatusError = lower.indexOf("fail") !== -1
+            pageRoot.debugStatusError = !ok
             pageRoot.debugStatusText = String(message || "")
         }
     }

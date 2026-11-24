@@ -340,7 +340,7 @@ FocusScope {
     StyledButton {
         id: dropdown
         focus: true
-        focusPolicy: root.triggerFocusPolicy
+        takesFocus: root.triggerFocusPolicy !== Qt.NoFocus
         Accessible.ignored: root.Accessible.ignored
 
         Accessible.role: Accessible.ComboBox
@@ -664,7 +664,7 @@ FocusScope {
                     delegate: StyledButton {
                         id: delegateRoot
 
-                        focusPolicy: Qt.NoFocus
+                        takesFocus: false
                         Accessible.role: Accessible.ListItem
                         Accessible.name: root.labelOf(modelData)
                         Accessible.selected: isCurrentValue

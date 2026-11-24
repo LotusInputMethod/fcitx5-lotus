@@ -56,7 +56,7 @@ SettingsPage {
                 spacing: Style.spacingXXS
 
                 SettingRow {
-                    title: I18n.tr("Input Method")
+                    title: Backend.optionTitle("InputMethod")
                     showSeparator: true
 
                     DDropdown {
@@ -65,14 +65,14 @@ SettingsPage {
                         options: root.enumLabels("InputMethod")
                         optionValues: root.enumValues("InputMethod")
                         Binding on currentValue {
-                            value: root.strVal("InputMethod", "Telex")
+                            value: root.strVal("InputMethod", "")
                         }
                         onValueChanged: val => Backend.setValue("InputMethod", val)
                     }
                 }
 
                 SettingRow {
-                    title: I18n.tr("Input Mode")
+                    title: Backend.optionTitle("Mode")
                     showSeparator: true
 
                     DDropdown {
@@ -81,14 +81,14 @@ SettingsPage {
                         options: root.enumLabels("Mode")
                         optionValues: root.enumValues("Mode")
                         Binding on currentValue {
-                            value: root.strVal("Mode", "Preedit")
+                            value: root.strVal("Mode", "")
                         }
                         onValueChanged: val => Backend.setValue("Mode", val)
                     }
                 }
 
                 SettingRow {
-                    title: I18n.tr("Output Charset")
+                    title: Backend.optionTitle("OutputCharset")
 
                     DDropdown {
                         compactMode: true
@@ -96,7 +96,7 @@ SettingsPage {
                         options: root.enumLabels("OutputCharset")
                         optionValues: root.enumValues("OutputCharset")
                         Binding on currentValue {
-                            value: root.strVal("OutputCharset", "Unicode")
+                            value: root.strVal("OutputCharset", "")
                         }
                         onValueChanged: val => Backend.setValue("OutputCharset", val)
                     }
@@ -124,7 +124,7 @@ SettingsPage {
                 spacing: Style.spacingXXS
 
                 SettingRow {
-                    title: I18n.tr("Type w as ư")
+                    title: Backend.optionTitle("W2U")
                     showSeparator: true
 
                     DDropdown {
@@ -133,14 +133,14 @@ SettingsPage {
                         options: root.enumLabels("W2U")
                         optionValues: root.enumValues("W2U")
                         Binding on currentValue {
-                            value: root.strVal("W2U", "Non-Start")
+                            value: root.strVal("W2U", String(Backend.optionDefault("W2U")))
                         }
                         onValueChanged: val => Backend.setValue("W2U", val)
                     }
                 }
 
                 SettingRow {
-                    title: I18n.tr("Bracket Keys")
+                    title: Backend.optionTitle("BracketTransform")
                     tooltipText: I18n.tr("Transform [ to ơ, ] to ư, { to Ơ, and } to Ư.")
 
                     DDropdown {
@@ -149,7 +149,7 @@ SettingsPage {
                         options: root.enumLabels("BracketTransform")
                         optionValues: root.enumValues("BracketTransform")
                         Binding on currentValue {
-                            value: root.strVal("BracketTransform", "Disabled")
+                            value: root.strVal("BracketTransform", String(Backend.optionDefault("BracketTransform")))
                         }
                         onValueChanged: val => Backend.setValue("BracketTransform", val)
                     }
@@ -177,12 +177,12 @@ SettingsPage {
                 spacing: Style.spacingXXS
 
                 SettingRow {
-                    title: I18n.tr("System Keyboard Injection")
+                    title: Backend.optionTitle("PreferVirtualKeyboard")
                     tooltipText: I18n.tr("Prefer injecting keys through the system instead of the uinput service: the wlroots virtual keyboard on Wayland and Xtest on X11.\nTurn this off to always use the uinput service; when neither backend is available the uinput service is used anyway.")
 
                     DToggle {
                         hideText: true
-                        checked: root.boolVal("PreferVirtualKeyboard", true)
+                        checked: root.boolVal("PreferVirtualKeyboard", Boolean(Backend.optionDefault("PreferVirtualKeyboard")))
                         onToggled: val => Backend.setValue("PreferVirtualKeyboard", val)
                     }
                 }
@@ -209,18 +209,18 @@ SettingsPage {
                 spacing: Style.spacingXXS
 
                 SettingRow {
-                    title: I18n.tr("Use Lotus Icons")
+                    title: Backend.optionTitle("UseLotusIcons")
                     showSeparator: true
 
                     DToggle {
                         hideText: true
-                        checked: root.boolVal("UseLotusIcons", false)
+                        checked: root.boolVal("UseLotusIcons", Boolean(Backend.optionDefault("UseLotusIcons")))
                         onToggled: val => Backend.setValue("UseLotusIcons", val)
                     }
                 }
 
                 SettingRow {
-                    title: I18n.tr("Icon Theme")
+                    title: Backend.optionTitle("IconTheme")
 
                     DDropdown {
                         compactMode: true
@@ -228,7 +228,7 @@ SettingsPage {
                         options: root.enumLabels("IconTheme")
                         optionValues: root.enumValues("IconTheme")
                         Binding on currentValue {
-                            value: root.strVal("IconTheme", "Auto")
+                            value: root.strVal("IconTheme", String(Backend.optionDefault("IconTheme")))
                         }
                         onValueChanged: val => Backend.setValue("IconTheme", val)
                     }

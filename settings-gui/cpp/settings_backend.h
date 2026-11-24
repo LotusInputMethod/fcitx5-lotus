@@ -64,6 +64,10 @@ class SettingsBackend : public QObject {
     Q_INVOKABLE void                             retryConnection();
     Q_INVOKABLE void                             setValue(const QString& key, const QVariant& val);
     Q_INVOKABLE [[nodiscard]] QVariantList       getEnumOptions(const QString& key) const;
+    Q_INVOKABLE [[nodiscard]] QVariantList       getAppModeOptions() const;
+    Q_INVOKABLE [[nodiscard]] QString            optionTitle(const QString& key) const;
+    Q_INVOKABLE [[nodiscard]] QString            optionDescription(const QString& key) const;
+    Q_INVOKABLE [[nodiscard]] QVariant           optionDefault(const QString& key) const;
     Q_INVOKABLE bool                             applyAll();
     Q_INVOKABLE void                             cancelAll();
 
@@ -104,6 +108,7 @@ class SettingsBackend : public QObject {
   signals:
     void stateChanged();
     void toastRequested(const QString& message);
+    void debugExportFinished(bool ok, const QString& message);
 
   private:
     struct MetadataItem {
@@ -118,74 +123,78 @@ class SettingsBackend : public QObject {
         QString icon;
     };
 
-    QString                          translate(const char* text) const;
-    [[nodiscard]] QString            translate(const QString& text) const;
+    QString                      translate(const char* text) const;
+    [[nodiscard]] QString        translate(const QString& text) const;
 
-    void                             loadAll();
-    void                             parseMetadata(const QVariantList& rawMetadata);
-    void                             populateValuesFromConfig(const QVariantMap& rawValues);
-    void                             loadAppRules();
-    void                             loadMacros();
-    void                             loadDictionary();
-    void                             loadKeymaps();
+    void                         loadAll();
+    void                         applyLoadedConfig(const LotusDBusClient::ConfigData& cfg);
+    void                         parseMetadata(const QVariantList& rawMetadata);
+    void                         populateValuesFromConfig(const QVariantMap& rawValues);
+    void                         loadAppRules();
+    void                         loadMacros();
+    void                         loadDictionary();
+    void                         loadKeymaps();
 
-    void                             scanDesktopEntries();
-    [[nodiscard]] QString            resolveAppDisplayName(const QString& appId) const;
-    [[nodiscard]] QString            resolveAppIconName(const QString& appId) const;
+    void                         scanDesktopEntries();
+    [[nodiscard]] QString        resolveAppDisplayName(const QString& appId) const;
+    [[nodiscard]] QString        resolveAppIconName(const QString& appId) const;
 
-    void                             rebuildCachedDictionaryWords();
-    void                             rebuildModeList();
-    void                             recomputeDerivedState();
+    void                         rebuildCachedDictionaryWords();
+    void                         rebuildModeList();
+    [[nodiscard]] QStringList    modeNames() const;
+    [[nodiscard]] QString        modeTitle(const QString& suffix) const;
+    void                         rebuildKeymapCatalog();
+    void                         recomputeDerivedState();
 
-    [[nodiscard]] QVariant           defaultTypedValue(const QString& key) const;
-    [[nodiscard]] static QVariant    normalizeConfigValue(const QString& key, const QVariant& raw);
-    [[nodiscard]] static QVariant    toWireValue(const QString& key, const QVariant& typedVal);
-    [[nodiscard]] QVariantMap        buildWireConfigPayload(const QVariantMap& baseValues, const QStringList& keysToUpdate) const;
+    [[nodiscard]] QVariant       defaultTypedValue(const QString& key) const;
+    [[nodiscard]] QVariant       normalizeConfigValue(const QString& key, const QVariant& raw) const;
+    [[nodiscard]] QVariant       toWireValue(const QString& key, const QVariant& typedVal) const;
+    [[nodiscard]] QVariantMap    buildWireConfigPayload(const QVariantMap& baseValues, const QStringList& keysToUpdate) const;
 
-    [[nodiscard]] QString            formatDisplayValue(const QString& key, const QVariant& val) const;
-    [[nodiscard]] QString            formatShortcutDisplay(const QString& shortcut) const;
-    [[nodiscard]] QString            sectionDisplayTitle(const QString& sectionId) const;
-    [[nodiscard]] static QStringList sectionConfigKeys(const QString& sectionId);
+    [[nodiscard]] QString        formatDisplayValue(const QString& key, const QVariant& val) const;
+    [[nodiscard]] QString        formatShortcutDisplay(const QString& shortcut) const;
+    [[nodiscard]] QString        sectionDisplayTitle(const QString& sectionId) const;
+    [[nodiscard]] QStringList    sectionConfigKeys(const QString& sectionId) const;
 
-    [[nodiscard]] bool               isConfigKeyModifiedFromDefault(const QString& key) const;
-    [[nodiscard]] bool               isModeOrderModifiedFromDefault() const;
-    [[nodiscard]] bool               isModeMenuModifiedFromDefault() const;
-    [[nodiscard]] bool               isDictionaryModifiedFromDefault() const;
-    [[nodiscard]] bool               isDictionaryModifiedFromInitial() const;
+    [[nodiscard]] bool           isConfigKeyModifiedFromDefault(const QString& key) const;
+    [[nodiscard]] bool           isModeOrderModifiedFromDefault() const;
+    [[nodiscard]] bool           isModeMenuModifiedFromDefault() const;
+    [[nodiscard]] bool           isDictionaryModifiedFromDefault() const;
+    [[nodiscard]] bool           isDictionaryModifiedFromInitial() const;
 
-    I18nBridge*                      i18n_ = nullptr;
-    LotusDBusClient                  dbusClient_;
+    I18nBridge*                  i18n_ = nullptr;
+    LotusDBusClient              dbusClient_;
 
-    bool                             fcitxOffline_        = true;
-    bool                             hasUnsavedChanges_   = false;
-    bool                             hasValidationErrors_ = false;
-    bool                             dictLoadFailed_      = false;
-    bool                             dictDirtyInitial_    = false;
-    bool                             dictDirtyDefault_    = false;
-    bool                             dictHasInvalidWord_  = false;
-    QString                          validationMessage_;
+    bool                         fcitxOffline_        = true;
+    bool                         hasUnsavedChanges_   = false;
+    bool                         hasValidationErrors_ = false;
+    bool                         dictLoadFailed_      = false;
+    bool                         dictDirtyInitial_    = false;
+    bool                         dictDirtyDefault_    = false;
+    bool                         dictHasInvalidWord_  = false;
+    QString                      validationMessage_;
 
-    QHash<QString, MetadataItem>     metadata_;
+    QHash<QString, MetadataItem> metadata_;
 
-    QVariantMap                      values_;
-    QVariantMap                      initialValues_;
+    QVariantMap                  values_;
+    QVariantMap                  initialValues_;
 
-    QVariantList                     modeList_;
-    QVariantList                     appRules_;
-    QVariantList                     initialAppRules_;
-    QVariantList                     macros_;
-    QVariantList                     initialMacros_;
+    QVariantList                 modeList_;
+    QVariantList                 appRules_;
+    QVariantList                 initialAppRules_;
+    QVariantList                 macros_;
+    QVariantList                 initialMacros_;
 
-    QStringList                      dictionaryWords_;
-    QStringList                      initialDictionaryWords_;
-    QStringList                      globalDictionaryWords_;
-    QVariantList                     cachedDictionaryWords_;
+    QStringList                  dictionaryWords_;
+    QStringList                  initialDictionaryWords_;
+    QStringList                  globalDictionaryWords_;
+    QVariantList                 cachedDictionaryWords_;
 
-    QVariantList                     keymapBindings_;
-    QVariantList                     initialKeymapBindings_;
+    QVariantList                 keymapBindings_;
+    QVariantList                 initialKeymapBindings_;
 
-    QVariantList                     keymapPresets_;
-    QVariantList                     bambooActions_;
+    QVariantList                 keymapPresets_;
+    QVariantList                 bambooActions_;
 
     struct AliveGuard {
         std::mutex mutex;

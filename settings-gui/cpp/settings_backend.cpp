@@ -7,6 +7,9 @@
 #include "settings_backend.h"
 
 #include "i18n_bridge.h"
+#include "lotus-mode.h"
+
+#include <data/input_method_data.h>
 
 #include <QDateTime>
 #include <QDir>
@@ -19,335 +22,71 @@
 #include <QKeySequence>
 #include <QMetaObject>
 #include <QProcess>
+#include <QRunnable>
 #include <QSaveFile>
 #include <QSet>
 #include <QStringDecoder>
 #include <QSysInfo>
 #include <QTextStream>
+#include <QThreadPool>
 #include <QUrl>
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <libintl.h>
 #include <pwd.h>
-#include <thread>
 #include <unistd.h>
 #include <utility>
-
-#ifndef LOTUS_VERSION
-#define LOTUS_VERSION "dev"
-#endif
 
 #ifndef DICTIONARY_PATH
 #define DICTIONARY_PATH "/usr/share/fcitx5/lotus/vietnamese.cm.dict"
 #endif
 
 namespace {
-    constexpr int         kMaxDelayMs        = 1000;
-    constexpr int         kResetPreviewCount = 4;
-    constexpr int         kLogTailLines      = 200;
-    constexpr int         kCmdTimeoutMs      = 5000;
-    constexpr int         kDiagnoseTimeoutMs = 10000;
-    constexpr const char* kTextDomain        = "fcitx5-lotus";
-
-    enum class AppModeId : std::int8_t {
-        ModeDefault     = -1,
-        ModeOff         = 0,
-        ModeSmooth      = 1,
-        ModeSuperSmooth = 3,
-        ModeSurrounding = 4,
-        ModePreedit     = 5,
-        ModeEmoji       = 6,
-    };
-
-    struct ModeDef {
-        const char* name;
-        const char* shortcutKey;
-        const char* showKey;
-        const char* title;
-        const char* defaultKey;
-    };
-
-    constexpr std::array<ModeDef, 7> kModeDefs = {
-        {
-            {.name = "Smooth", .shortcutKey = "ShortcutSmooth", .showKey = "ShowModeSmooth", .title = "Uinput (Smooth)", .defaultKey = "1"},
-            {.name = "SuperSmooth", .shortcutKey = "ShortcutSuperSmooth", .showKey = "ShowModeSuperSmooth", .title = "Uinput (Super Smooth)", .defaultKey = "a"},
-            {.name = "SurroundingText", .shortcutKey = "ShortcutSurroundingText", .showKey = "ShowModeSurroundingText", .title = "Surrounding Text", .defaultKey = "4"},
-            {.name = "Preedit", .shortcutKey = "ShortcutPreedit", .showKey = "ShowModePreedit", .title = "Preedit", .defaultKey = "q"},
-            {.name = "Emoji", .shortcutKey = "ShortcutEmoji", .showKey = "ShowModeEmoji", .title = "Emoji Picker", .defaultKey = "w"},
-            {.name = "Off", .shortcutKey = "ShortcutOff", .showKey = "ShowModeOff", .title = "OFF", .defaultKey = "e"},
-            {.name = "Default", .shortcutKey = "ShortcutDefault", .showKey = "ShowModeDefault", .title = "Default Typing", .defaultKey = "r"},
-        },
-    };
-
-    constexpr const char* kDefaultModeOrder = "Smooth,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default";
+    constexpr int kMaxDelayMs        = 1000;
+    constexpr int kResetPreviewCount = 4;
+    constexpr int kLogTailLines      = 200;
+    constexpr int kCmdTimeoutMs      = 5000;
+    constexpr int kDiagnoseTimeoutMs = 10000;
 
     struct KeyValuePair {
         const char* key;
         const char* value;
     };
 
-    constexpr std::array<KeyValuePair, 29> kBambooActions = {
-        {
-            {.key = "XoaDauThanh", .value = "Xóa dấu thanh"},
-            {.key = "DauSac", .value = "Dấu sắc"},
-            {.key = "DauHuyen", .value = "Dấu huyền"},
-            {.key = "DauHoi", .value = "Dấu hỏi"},
-            {.key = "DauNga", .value = "Dấu ngã"},
-            {.key = "DauNang", .value = "Dấu nặng"},
-            {.key = "A_Â", .value = "a -> â"},
-            {.key = "E_Ê", .value = "e -> ê"},
-            {.key = "O_Ô", .value = "o -> ô"},
-            {.key = "AEO_ÂÊÔ", .value = "a/e/o -> â/ê/ô"},
-            {.key = "UOA_ƯƠĂ", .value = "u/o/a -> ư/ơ/ă"},
-            {.key = "D_Đ", .value = "d -> đ"},
-            {.key = "UO_ƯƠ", .value = "u/o -> ư/ơ"},
-            {.key = "A_Ă", .value = "a -> ă"},
-            {.key = "__ă", .value = "ă"},
-            {.key = "_Ă", .value = "Ă"},
-            {.key = "__â", .value = "â"},
-            {.key = "_Â", .value = "Â"},
-            {.key = "__ê", .value = "ê"},
-            {.key = "_Ê", .value = "Ê"},
-            {.key = "__ô", .value = "ô"},
-            {.key = "_Ô", .value = "Ô"},
-            {.key = "__ư", .value = "ư"},
-            {.key = "_Ư", .value = "Ư"},
-            {.key = "__ơ", .value = "ơ"},
-            {.key = "_Ơ", .value = "Ơ"},
-            {.key = "__đ", .value = "đ"},
-            {.key = "_Đ", .value = "Đ"},
-            {.key = "UOA_ƯƠĂ__Ư", .value = "u/o/a -> ư/ơ/ă, ư"},
-        },
-    };
+    constexpr auto kBambooActions = std::to_array<KeyValuePair>({
+        {.key = "XoaDauThanh", .value = "Xóa dấu thanh"},
+        {.key = "DauSac", .value = "Dấu sắc"},
+        {.key = "DauHuyen", .value = "Dấu huyền"},
+        {.key = "DauHoi", .value = "Dấu hỏi"},
+        {.key = "DauNga", .value = "Dấu ngã"},
+        {.key = "DauNang", .value = "Dấu nặng"},
+        {.key = "A_Â", .value = "a -> â"},
+        {.key = "E_Ê", .value = "e -> ê"},
+        {.key = "O_Ô", .value = "o -> ô"},
+        {.key = "AEO_ÂÊÔ", .value = "a/e/o -> â/ê/ô"},
+        {.key = "UOA_ƯƠĂ", .value = "u/o/a -> ư/ơ/ă"},
+        {.key = "D_Đ", .value = "d -> đ"},
+        {.key = "UO_ƯƠ", .value = "u/o -> ư/ơ"},
+        {.key = "A_Ă", .value = "a -> ă"},
+        {.key = "__ă", .value = "ă"},
+        {.key = "_Ă", .value = "Ă"},
+        {.key = "__â", .value = "â"},
+        {.key = "_Â", .value = "Â"},
+        {.key = "__ê", .value = "ê"},
+        {.key = "_Ê", .value = "Ê"},
+        {.key = "__ô", .value = "ô"},
+        {.key = "_Ô", .value = "Ô"},
+        {.key = "__ư", .value = "ư"},
+        {.key = "_Ư", .value = "Ư"},
+        {.key = "__ơ", .value = "ơ"},
+        {.key = "_Ơ", .value = "Ơ"},
+        {.key = "__đ", .value = "đ"},
+        {.key = "_Đ", .value = "Đ"},
+        {.key = "UOA_ƯƠĂ__Ư", .value = "u/o/a -> ư/ơ/ă, ư"},
+    });
 
-    struct PresetDef {
-        const char*               name;
-        std::vector<KeyValuePair> rules;
-    };
-
-    const std::vector<PresetDef>& presetDefinitions() {
-        static const std::vector<PresetDef> kPresets = {
-            {
-                .name = "Telex",
-                .rules =
-                    {
-                        {.key = "z", .value = "XoaDauThanh"},
-                        {.key = "s", .value = "DauSac"},
-                        {.key = "f", .value = "DauHuyen"},
-                        {.key = "r", .value = "DauHoi"},
-                        {.key = "x", .value = "DauNga"},
-                        {.key = "j", .value = "DauNang"},
-                        {.key = "a", .value = "A_Â"},
-                        {.key = "e", .value = "E_Ê"},
-                        {.key = "o", .value = "O_Ô"},
-                        {.key = "w", .value = "UOA_ƯƠĂ"},
-                        {.key = "d", .value = "D_Đ"},
-                    },
-            },
-            {
-                .name = "VNI",
-                .rules =
-                    {
-                        {.key = "0", .value = "XoaDauThanh"},
-                        {.key = "1", .value = "DauSac"},
-                        {.key = "2", .value = "DauHuyen"},
-                        {.key = "3", .value = "DauHoi"},
-                        {.key = "4", .value = "DauNga"},
-                        {.key = "5", .value = "DauNang"},
-                        {.key = "6", .value = "AEO_ÂÊÔ"},
-                        {.key = "7", .value = "UO_ƯƠ"},
-                        {.key = "8", .value = "A_Ă"},
-                        {.key = "9", .value = "D_Đ"},
-                    },
-            },
-            {
-                .name = "VIQR",
-                .rules =
-                    {
-                        {.key = "0", .value = "XoaDauThanh"},
-                        {.key = "'", .value = "DauSac"},
-                        {.key = "`", .value = "DauHuyen"},
-                        {.key = "?", .value = "DauHoi"},
-                        {.key = "~", .value = "DauNga"},
-                        {.key = ".", .value = "DauNang"},
-                        {.key = "^", .value = "AEO_ÂÊÔ"},
-                        {.key = "+", .value = "UO_ƯƠ"},
-                        {.key = "*", .value = "UO_ƯƠ"},
-                        {.key = "(", .value = "A_Ă"},
-                        {.key = "d", .value = "D_Đ"},
-                    },
-            },
-            {
-                .name = "Microsoft layout",
-                .rules =
-                    {
-                        {.key = "8", .value = "DauSac"},
-                        {.key = "5", .value = "DauHuyen"},
-                        {.key = "6", .value = "DauHoi"},
-                        {.key = "7", .value = "DauNga"},
-                        {.key = "9", .value = "DauNang"},
-                        {.key = "1", .value = "__ă"},
-                        {.key = "!", .value = "_Ă"},
-                        {.key = "2", .value = "__â"},
-                        {.key = "@", .value = "_Â"},
-                        {.key = "3", .value = "__ê"},
-                        {.key = "#", .value = "_Ê"},
-                        {.key = "4", .value = "__ô"},
-                        {.key = "$", .value = "_Ô"},
-                        {.key = "0", .value = "__đ"},
-                        {.key = ")", .value = "_Đ"},
-                    },
-            },
-            {
-                .name = "Telex + VNI",
-                .rules =
-                    {
-                        {.key = "z", .value = "XoaDauThanh"}, {.key = "s", .value = "DauSac"},   {.key = "f", .value = "DauHuyen"}, {.key = "r", .value = "DauHoi"},
-                        {.key = "x", .value = "DauNga"},      {.key = "j", .value = "DauNang"},  {.key = "a", .value = "A_Â"},      {.key = "e", .value = "E_Ê"},
-                        {.key = "o", .value = "O_Ô"},         {.key = "w", .value = "UOA_ƯƠĂ"},  {.key = "d", .value = "D_Đ"},      {.key = "0", .value = "XoaDauThanh"},
-                        {.key = "1", .value = "DauSac"},      {.key = "2", .value = "DauHuyen"}, {.key = "3", .value = "DauHoi"},   {.key = "4", .value = "DauNga"},
-                        {.key = "5", .value = "DauNang"},     {.key = "6", .value = "AEO_ÂÊÔ"},  {.key = "7", .value = "UO_ƯƠ"},    {.key = "8", .value = "A_Ă"},
-                        {.key = "9", .value = "D_Đ"},
-                    },
-            },
-            {
-                .name = "Telex + VNI + VIQR",
-                .rules =
-                    {
-                        {.key = "z", .value = "XoaDauThanh"}, {.key = "s", .value = "DauSac"},   {.key = "f", .value = "DauHuyen"}, {.key = "r", .value = "DauHoi"},
-                        {.key = "x", .value = "DauNga"},      {.key = "j", .value = "DauNang"},  {.key = "a", .value = "A_Â"},      {.key = "e", .value = "E_Ê"},
-                        {.key = "o", .value = "O_Ô"},         {.key = "w", .value = "UOA_ƯƠĂ"},  {.key = "d", .value = "D_Đ"},      {.key = "0", .value = "XoaDauThanh"},
-                        {.key = "1", .value = "DauSac"},      {.key = "2", .value = "DauHuyen"}, {.key = "3", .value = "DauHoi"},   {.key = "4", .value = "DauNga"},
-                        {.key = "5", .value = "DauNang"},     {.key = "6", .value = "AEO_ÂÊÔ"},  {.key = "7", .value = "UO_ƯƠ"},    {.key = "8", .value = "A_Ă"},
-                        {.key = "9", .value = "D_Đ"},         {.key = "'", .value = "DauSac"},   {.key = "`", .value = "DauHuyen"}, {.key = "?", .value = "DauHoi"},
-                        {.key = "~", .value = "DauNga"},      {.key = ".", .value = "DauNang"},  {.key = "^", .value = "AEO_ÂÊÔ"},  {.key = "+", .value = "UO_ƯƠ"},
-                        {.key = "*", .value = "UO_ƯƠ"},       {.key = "(", .value = "A_Ă"},      {.key = "\\", .value = "D_Đ"},
-                    },
-            },
-            {
-                .name = "VNI Bàn phím tiếng Pháp",
-                .rules =
-                    {
-                        {.key = "&", .value = "XoaDauThanh"},
-                        {.key = "é", .value = "DauSac"},
-                        {.key = "\"", .value = "DauHuyen"},
-                        {.key = "'", .value = "DauHoi"},
-                        {.key = "(", .value = "DauNga"},
-                        {.key = "-", .value = "DauNang"},
-                        {.key = "è", .value = "AEO_ÂÊÔ"},
-                        {.key = "_", .value = "UO_ƯƠ"},
-                        {.key = "ç", .value = "A_Ă"},
-                        {.key = "à", .value = "D_Đ"},
-                    },
-            },
-            {
-                .name = "Telex W",
-                .rules =
-                    {
-                        {.key = "z", .value = "XoaDauThanh"},
-                        {.key = "s", .value = "DauSac"},
-                        {.key = "f", .value = "DauHuyen"},
-                        {.key = "r", .value = "DauHoi"},
-                        {.key = "x", .value = "DauNga"},
-                        {.key = "j", .value = "DauNang"},
-                        {.key = "a", .value = "A_Â"},
-                        {.key = "e", .value = "E_Ê"},
-                        {.key = "o", .value = "O_Ô"},
-                        {.key = "w", .value = "UOA_ƯƠĂ__Ư"},
-                        {.key = "d", .value = "D_Đ"},
-                    },
-            },
-        };
-        return kPresets;
-    }
-
-    const QHash<QString, QVariant>& fallbackDefaults() {
-        static const QHash<QString, QVariant> kDefaults = {
-            {QStringLiteral("InputMethod"), QStringLiteral("Telex")},
-            {QStringLiteral("Mode"), QStringLiteral("Preedit")},
-            {QStringLiteral("OutputCharset"), QStringLiteral("Unicode")},
-            {QStringLiteral("W2U"), QStringLiteral("Non-Start")},
-            {QStringLiteral("BracketTransform"), QStringLiteral("Disabled")},
-            {QStringLiteral("UseLotusIcons"), false},
-            {QStringLiteral("IconTheme"), QStringLiteral("Auto")},
-            {QStringLiteral("PreferVirtualKeyboard"), true},
-            {QStringLiteral("SpellCheck"), true},
-            {QStringLiteral("AutoNonVnRestore"), true},
-            {QStringLiteral("DdFreeStyle"), true},
-            {QStringLiteral("ModernStyle"), true},
-            {QStringLiteral("FreeMarking"), true},
-            {QStringLiteral("AutoCapitalizeAfterPunctuation"), false},
-            {QStringLiteral("DoubleSpaceToPeriod"), false},
-            {QStringLiteral("DoubleHyphenToEmDash"), false},
-            {QStringLiteral("ModeMenuKey"), QStringLiteral("grave")},
-            {QStringLiteral("CycleModeKey"), QString()},
-            {QStringLiteral("EnableMacro"), true},
-            {QStringLiteral("CapitalizeMacro"), true},
-            {QStringLiteral("EnableMacroInOffMode"), false},
-            {QStringLiteral("MacroSkipTriggerModifier"), QStringLiteral("Disabled")},
-            {QStringLiteral("TimeFormat"), QStringLiteral("%H:%M")},
-            {QStringLiteral("DateFormat"), QStringLiteral("%d/%m/%Y")},
-            {QStringLiteral("EnableDictionary"), false},
-            {QStringLiteral("EnableCustomKeymap"), false},
-            {QStringLiteral("ModeOrder"), QString::fromLatin1(kDefaultModeOrder)},
-            {QStringLiteral("ShowModeSmooth"), true},
-            {QStringLiteral("ShortcutSmooth"), QStringLiteral("1")},
-            {QStringLiteral("ShowModeSuperSmooth"), true},
-            {QStringLiteral("ShortcutSuperSmooth"), QStringLiteral("a")},
-            {QStringLiteral("ShowModeSurroundingText"), true},
-            {QStringLiteral("ShortcutSurroundingText"), QStringLiteral("4")},
-            {QStringLiteral("ShowModePreedit"), true},
-            {QStringLiteral("ShortcutPreedit"), QStringLiteral("q")},
-            {QStringLiteral("ShowModeEmoji"), true},
-            {QStringLiteral("ShortcutEmoji"), QStringLiteral("w")},
-            {QStringLiteral("ShowModeOff"), true},
-            {QStringLiteral("ShortcutOff"), QStringLiteral("e")},
-            {QStringLiteral("ShowModeDefault"), true},
-            {QStringLiteral("ShortcutDefault"), QStringLiteral("r")},
-            {QStringLiteral("DefaultCommitInterval"), 20},
-            {QStringLiteral("DefaultBackspaceInterval"), 5},
-            {QStringLiteral("DefaultPostDelay"), 10},
-        };
-        return kDefaults;
-    }
-
-    const QSet<QString>& booleanKeys() {
-        static const QSet<QString> kBoolKeys = {
-            QStringLiteral("UseLotusIcons"),        QStringLiteral("PreferVirtualKeyboard"),
-            QStringLiteral("SpellCheck"),           QStringLiteral("AutoNonVnRestore"),
-            QStringLiteral("DdFreeStyle"),          QStringLiteral("ModernStyle"),
-            QStringLiteral("FreeMarking"),          QStringLiteral("AutoCapitalizeAfterPunctuation"),
-            QStringLiteral("DoubleSpaceToPeriod"),  QStringLiteral("DoubleHyphenToEmDash"),
-            QStringLiteral("EnableMacro"),          QStringLiteral("CapitalizeMacro"),
-            QStringLiteral("EnableMacroInOffMode"), QStringLiteral("EnableDictionary"),
-            QStringLiteral("EnableCustomKeymap"),   QStringLiteral("ShowModeSmooth"),
-            QStringLiteral("ShowModeSuperSmooth"),  QStringLiteral("ShowModeSurroundingText"),
-            QStringLiteral("ShowModePreedit"),      QStringLiteral("ShowModeEmoji"),
-            QStringLiteral("ShowModeOff"),          QStringLiteral("ShowModeDefault"),
-        };
-        return kBoolKeys;
-    }
-
-    const QSet<QString>& integerKeys() {
-        static const QSet<QString> kIntKeys = {
-            QStringLiteral("DefaultCommitInterval"),
-            QStringLiteral("DefaultBackspaceInterval"),
-            QStringLiteral("DefaultPostDelay"),
-        };
-        return kIntKeys;
-    }
-
-    const QSet<QString>& hotkeyKeys() {
-        static const QSet<QString> kHotkeyKeys = {
-            QStringLiteral("ModeMenuKey"),
-            QStringLiteral("CycleModeKey"),
-        };
-        return kHotkeyKeys;
-    }
-
-    bool asBool(const QVariant& val, bool fallback = false) {
+    bool           asBool(const QVariant& val, bool fallback = false) {
         if (!val.isValid() || val.isNull()) {
             return fallback;
         }
@@ -398,18 +137,7 @@ namespace {
     }
 
     int normalizeAppMode(int mode) {
-        if (mode == 2 || mode == 7) {
-            return static_cast<int>(AppModeId::ModeSmooth);
-        }
-        switch (static_cast<AppModeId>(mode)) {
-            case AppModeId::ModeOff:
-            case AppModeId::ModeSmooth:
-            case AppModeId::ModeSuperSmooth:
-            case AppModeId::ModeSurrounding:
-            case AppModeId::ModePreedit:
-            case AppModeId::ModeEmoji: return mode;
-            default: return static_cast<int>(AppModeId::ModeOff);
-        }
+        return fcitx::modeToInt(fcitx::intToMode(mode));
     }
 
     QString resolveLocalFilePath(const QString& fileUrlOrPath) {
@@ -595,7 +323,7 @@ namespace {
     }
 
     QString capitalizeKeyName(const QString& key) {
-        if (key.isEmpty()) {
+        if (key.size() <= 1) {
             return key;
         }
         return key.at(0).toUpper() + key.mid(1).toLower();
@@ -721,16 +449,21 @@ namespace {
         }
         QString out = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
         QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+        QString result;
         if (!out.isEmpty() && !err.isEmpty()) {
-            return out + QLatin1Char('\n') + err;
+            result = out + QLatin1Char('\n') + err;
+        } else if (!out.isEmpty()) {
+            result = std::move(out);
+        } else if (!err.isEmpty()) {
+            result = std::move(err);
+        } else {
+            result = QStringLiteral("(exit %1, no output)").arg(proc.exitCode());
         }
-        if (!out.isEmpty()) {
-            return out;
+        constexpr qsizetype kMaxCommandOutput = qsizetype{2} * 1024 * 1024;
+        if (result.size() > kMaxCommandOutput) {
+            result = QStringLiteral("(output truncated)\n") + result.right(kMaxCommandOutput);
         }
-        if (!err.isEmpty()) {
-            return err;
-        }
-        return QStringLiteral("(exit %1, no output)").arg(proc.exitCode());
+        return result;
     }
 
     QString currentUserName() {
@@ -791,28 +524,10 @@ namespace {
         }
         sections.append(QStringLiteral("=== Lotus Configuration ===\n") + configText);
 
-        const QString journalTag = runCommandOutput(
-            QStringLiteral("journalctl"),
-            {QStringLiteral("-t"), QStringLiteral("fcitx5-lotus-server"), QStringLiteral("--no-pager"), QStringLiteral("-n"), QString::number(kLogTailLines)}, kCmdTimeoutMs);
-        sections.append(QStringLiteral("=== Uinput Server Journal (journalctl -t fcitx5-lotus-server) ===\n") + journalTag);
-
         const QString unitName    = QStringLiteral("fcitx5-lotus-server@%1.service").arg(user);
         const QString journalUnit = runCommandOutput(
-            QStringLiteral("journalctl"), {QStringLiteral("-u"), unitName, QStringLiteral("--no-pager"), QStringLiteral("-n"), QString::number(kLogTailLines)}, kCmdTimeoutMs);
+            QStringLiteral("journalctl"), {QStringLiteral("-xeu"), unitName, QStringLiteral("--no-pager"), QStringLiteral("-n"), QString::number(kLogTailLines)}, kCmdTimeoutMs);
         sections.append(QStringLiteral("=== Uinput Server Unit Journal (%1) ===\n%2").arg(unitName, journalUnit));
-
-        const QString fallbackLog = QStringLiteral("/tmp/fcitx5-lotus-server.log");
-        QFile         logFile(fallbackLog);
-        if (logFile.exists()) {
-            if (logFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                const QStringList allLines = QString::fromUtf8(logFile.readAll()).split(QLatin1Char('\n'));
-                const qsizetype   start    = std::max<qsizetype>(0, allLines.size() - kLogTailLines);
-                const QStringList tail     = allLines.mid(start);
-                sections.append(QStringLiteral("=== %1 (last %2 lines) ===\n%3").arg(fallbackLog).arg(tail.size()).arg(tail.join(QLatin1Char('\n'))));
-            } else {
-                sections.append(QStringLiteral("=== %1 ===\n(error reading file: %2)").arg(fallbackLog, logFile.errorString()));
-            }
-        }
 
         const QString diagnoseOut = runCommandOutput(QStringLiteral("fcitx5-diagnose"), {}, kDiagnoseTimeoutMs);
         sections.append(QStringLiteral("=== fcitx5-diagnose ===\n") + diagnoseOut);
@@ -822,27 +537,6 @@ namespace {
 } // namespace
 
 SettingsBackend::SettingsBackend(I18nBridge* i18n, QObject* parent) : QObject(parent), i18n_(i18n) {
-    for (const KeyValuePair& act : kBambooActions) {
-        bambooActions_.append(QVariantMap{
-            {QStringLiteral("code"), QString::fromUtf8(act.key)},
-            {QStringLiteral("label"), QString::fromUtf8(act.value)},
-        });
-    }
-
-    for (const PresetDef& preset : presetDefinitions()) {
-        QVariantList rulesList;
-        for (const KeyValuePair& rule : preset.rules) {
-            rulesList.append(QVariantMap{
-                {QStringLiteral("key"), QString::fromUtf8(rule.key)},
-                {QStringLiteral("value"), QString::fromUtf8(rule.value)},
-            });
-        }
-        keymapPresets_.append(QVariantMap{
-            {QStringLiteral("name"), QString::fromUtf8(preset.name)},
-            {QStringLiteral("rules"), rulesList},
-        });
-    }
-
     scanDesktopEntries();
     loadAll();
 }
@@ -857,9 +551,9 @@ QString SettingsBackend::translate(const char* text) const {
         return {};
     }
     if (i18n_ != nullptr) {
-        return I18nBridge::tr(QString::fromUtf8(text));
+        return i18n_->tr(QString::fromUtf8(text));
     }
-    return QString::fromUtf8(dgettext(kTextDomain, text));
+    return I18nBridge::lookup(QString::fromUtf8(text));
 }
 
 QString SettingsBackend::translate(const QString& text) const {
@@ -867,10 +561,9 @@ QString SettingsBackend::translate(const QString& text) const {
         return text;
     }
     if (i18n_ != nullptr) {
-        return I18nBridge::tr(text);
+        return i18n_->tr(text);
     }
-    const QByteArray utf8 = text.toUtf8();
-    return QString::fromUtf8(dgettext(kTextDomain, utf8.constData()));
+    return I18nBridge::lookup(text);
 }
 
 bool SettingsBackend::fcitxOffline() const {
@@ -931,15 +624,43 @@ QVariantList SettingsBackend::bambooActions() const {
 
 void SettingsBackend::retryConnection() {
     dbusClient_.reconnect();
-    loadAll();
+    const LotusDBusClient::ConfigData cfg = dbusClient_.getConfig();
+    if (!dbusClient_.isConnected() || !cfg.ok) {
+        fcitxOffline_ = true;
+        emit stateChanged();
+        return;
+    }
+
+    if (!hasUnsavedChanges_) {
+        applyLoadedConfig(cfg);
+        emit stateChanged();
+        return;
+    }
+
+    const QVariantMap  stagedValues     = values_;
+    const QVariantList stagedAppRules   = appRules_;
+    const QVariantList stagedMacros     = macros_;
+    const QVariantList stagedKeymaps    = keymapBindings_;
+    const QStringList  stagedDictionary = dictionaryWords_;
+
+    applyLoadedConfig(cfg);
+
+    values_          = stagedValues;
+    appRules_        = stagedAppRules;
+    macros_          = stagedMacros;
+    keymapBindings_  = stagedKeymaps;
+    dictionaryWords_ = stagedDictionary;
+    rebuildCachedDictionaryWords();
+    rebuildModeList();
+    recomputeDerivedState();
     emit stateChanged();
 }
 
-void SettingsBackend::loadAll() {
-    const LotusDBusClient::ConfigData cfg = dbusClient_.getConfig();
-    fcitxOffline_                         = !dbusClient_.isConnected() || !cfg.ok;
+void SettingsBackend::applyLoadedConfig(const LotusDBusClient::ConfigData& cfg) {
+    fcitxOffline_ = !dbusClient_.isConnected() || !cfg.ok;
     parseMetadata(cfg.metadata);
     populateValuesFromConfig(cfg.values);
+    rebuildKeymapCatalog();
 
     loadAppRules();
     loadMacros();
@@ -948,6 +669,10 @@ void SettingsBackend::loadAll() {
 
     rebuildModeList();
     recomputeDerivedState();
+}
+
+void SettingsBackend::loadAll() {
+    applyLoadedConfig(dbusClient_.getConfig());
 }
 
 void SettingsBackend::parseMetadata(const QVariantList& rawMetadata) {
@@ -975,40 +700,41 @@ void SettingsBackend::parseMetadata(const QVariantList& rawMetadata) {
 
 QVariant SettingsBackend::defaultTypedValue(const QString& key) const {
     const auto metaIt = metadata_.constFind(key);
-    if (metaIt != metadata_.cend() && metaIt->defaultValue.isValid() && !metaIt->defaultValue.isNull()) {
-        return normalizeConfigValue(key, metaIt->defaultValue);
+    if (metaIt == metadata_.cend()) {
+        return {};
     }
-    const auto& defaults = fallbackDefaults();
-    const auto  defIt    = defaults.constFind(key);
-    if (defIt != defaults.cend()) {
-        return normalizeConfigValue(key, defIt.value());
-    }
-    return QString();
+    return normalizeConfigValue(key, metaIt->defaultValue);
 }
 
-QVariant SettingsBackend::normalizeConfigValue(const QString& key, const QVariant& raw) {
-    if (booleanKeys().contains(key)) {
-        const bool fallback = fallbackDefaults().value(key, false).toBool();
-        return asBool(raw, fallback);
+QVariant SettingsBackend::normalizeConfigValue(const QString& key, const QVariant& raw) const {
+    const auto metaIt = metadata_.constFind(key);
+    if (metaIt == metadata_.cend()) {
+        return raw.toString();
     }
-    if (integerKeys().contains(key)) {
-        const int fallback = fallbackDefaults().value(key, 0).toInt();
-        return std::clamp(asInt(raw, fallback), 0, kMaxDelayMs);
+    if (metaIt->type == QLatin1String("Boolean")) {
+        return asBool(raw, false);
     }
-    if (hotkeyKeys().contains(key)) {
+    if (metaIt->type == QLatin1String("Integer")) {
+        return std::clamp(asInt(raw, asInt(metaIt->defaultValue)), 0, kMaxDelayMs);
+    }
+    if (metaIt->type == QLatin1String("Key") || metaIt->type.startsWith(QLatin1String("List|Key"))) {
         return extractHotkeyString(raw);
     }
     return raw.toString();
 }
 
-QVariant SettingsBackend::toWireValue(const QString& key, const QVariant& typedVal) {
-    if (booleanKeys().contains(key)) {
+QVariant SettingsBackend::toWireValue(const QString& key, const QVariant& typedVal) const {
+    const auto metaIt = metadata_.constFind(key);
+    if (metaIt == metadata_.cend()) {
+        return typedVal.toString();
+    }
+    if (metaIt->type == QLatin1String("Boolean")) {
         return asBool(typedVal) ? QStringLiteral("True") : QStringLiteral("False");
     }
-    if (integerKeys().contains(key)) {
+    if (metaIt->type == QLatin1String("Integer")) {
         return QString::number(std::clamp(asInt(typedVal), 0, kMaxDelayMs));
     }
-    if (hotkeyKeys().contains(key)) {
+    if (metaIt->type == QLatin1String("Key") || metaIt->type.startsWith(QLatin1String("List|Key"))) {
         const QString hk = typedVal.toString().trimmed();
         if (hk.isEmpty()) {
             return QVariantMap();
@@ -1028,23 +754,12 @@ QVariantMap SettingsBackend::buildWireConfigPayload(const QVariantMap& baseValue
 
 void SettingsBackend::populateValuesFromConfig(const QVariantMap& rawValues) {
     values_.clear();
-    const auto& defaults = fallbackDefaults();
-    for (auto it = defaults.cbegin(); it != defaults.cend(); ++it) {
+    for (auto it = metadata_.cbegin(); it != metadata_.cend(); ++it) {
         const QString& key = it.key();
         if (rawValues.contains(key)) {
             values_.insert(key, normalizeConfigValue(key, rawValues.value(key)));
         } else {
             values_.insert(key, defaultTypedValue(key));
-        }
-    }
-    for (auto it = metadata_.cbegin(); it != metadata_.cend(); ++it) {
-        const QString& key = it.key();
-        if (!values_.contains(key)) {
-            if (rawValues.contains(key)) {
-                values_.insert(key, normalizeConfigValue(key, rawValues.value(key)));
-            } else {
-                values_.insert(key, defaultTypedValue(key));
-            }
         }
     }
     initialValues_ = values_;
@@ -1059,7 +774,7 @@ void SettingsBackend::loadAppRules() {
         if (app.isEmpty()) {
             continue;
         }
-        const int mode      = normalizeAppMode(asInt(item.value(QStringLiteral("Mode")), static_cast<int>(AppModeId::ModeSmooth)));
+        const int mode      = normalizeAppMode(asInt(item.value(QStringLiteral("Mode")), fcitx::modeToInt(fcitx::LotusMode::Smooth)));
         const int commit    = std::clamp(asInt(item.value(QStringLiteral("CommitInterval")), 0), 0, kMaxDelayMs);
         const int backspace = std::clamp(asInt(item.value(QStringLiteral("BackspaceInterval")), 0), 0, kMaxDelayMs);
         const int post      = std::clamp(asInt(item.value(QStringLiteral("PostDelay")), 0), 0, kMaxDelayMs);
@@ -1136,26 +851,98 @@ void SettingsBackend::loadKeymaps() {
     initialKeymapBindings_ = keymapBindings_;
 }
 
-void SettingsBackend::rebuildModeList() {
-    const QString                  orderStr = values_.value(QStringLiteral("ModeOrder"), QString::fromLatin1(kDefaultModeOrder)).toString();
-    const QStringList              rawOrder = orderStr.split(QLatin1Char(','), Qt::SkipEmptyParts);
+void SettingsBackend::rebuildKeymapCatalog() {
+    keymapPresets_.clear();
+    bambooActions_.clear();
 
-    QHash<QString, const ModeDef*> defByName;
-    QStringList                    allNames;
-    for (const ModeDef& def : kModeDefs) {
-        const QString name = QString::fromLatin1(def.name);
-        defByName.insert(name, &def);
-        allNames.append(name);
+    const auto        imIt   = metadata_.constFind(QStringLiteral("InputMethod"));
+    const QVariantMap labels = imIt != metadata_.cend() ? imIt->extra.value(QStringLiteral("EnumI18n")).toMap() : QVariantMap{};
+    QSet<QString>     actionCodes;
+
+    for (std::size_t i = 0; i < lotus::data::kInputMethodCount; ++i) {
+        const auto& definition = lotus::data::kInputMethodDefinitions.at(i);
+        if (i == static_cast<std::size_t>(lotus::data::InputMethodId::Custom)) {
+            continue;
+        }
+        std::vector<std::string> keys;
+        keys.reserve(definition.size());
+        for (const auto& [key, value] : definition) {
+            keys.push_back(key);
+            actionCodes.insert(QString::fromStdString(value));
+        }
+        std::ranges::sort(keys);
+
+        QVariantList rules;
+        rules.reserve(static_cast<qsizetype>(keys.size()));
+        for (const std::string& key : keys) {
+            rules.append(QVariantMap{
+                {QStringLiteral("key"), QString::fromStdString(key)},
+                {QStringLiteral("value"), QString::fromStdString(definition.at(key))},
+            });
+        }
+
+        const QString label = labels.value(QString::number(i)).toString();
+        keymapPresets_.append(QVariantMap{
+            {QStringLiteral("name"), label.isEmpty() ? QString::number(i) : label},
+            {QStringLiteral("rules"), rules},
+        });
     }
 
-    QStringList orderedNames;
+    QStringList sortedCodes(actionCodes.cbegin(), actionCodes.cend());
+    sortedCodes.sort();
+    for (const QString& code : std::as_const(sortedCodes)) {
+        QString label = code;
+        for (const KeyValuePair& action : kBambooActions) {
+            if (code == QString::fromUtf8(action.key)) {
+                label = QString::fromUtf8(action.value);
+                break;
+            }
+        }
+        bambooActions_.append(QVariantMap{
+            {QStringLiteral("code"), code},
+            {QStringLiteral("label"), label},
+        });
+    }
+}
+
+QStringList SettingsBackend::modeNames() const {
+    QStringList names;
+    for (auto it = metadata_.cbegin(); it != metadata_.cend(); ++it) {
+        const QString& key = it.key();
+        if (key.startsWith(QLatin1String("Shortcut")) && key.size() > 8) {
+            names.append(key.mid(8));
+        }
+    }
+    names.sort();
+    return names;
+}
+
+QString SettingsBackend::modeTitle(const QString& suffix) const {
+    const auto metaIt = metadata_.constFind(QStringLiteral("Shortcut") + suffix);
+    if (metaIt == metadata_.cend()) {
+        return suffix;
+    }
+    QString              title   = metaIt->title;
+    static const QString kPrefix = QStringLiteral("Shortcut for ");
+    if (title.startsWith(kPrefix)) {
+        title.remove(0, kPrefix.size());
+    }
+    return translate(title);
+}
+
+void SettingsBackend::rebuildModeList() {
+    const QStringList allNames = modeNames();
+    const QString     orderStr = values_.value(QStringLiteral("ModeOrder")).toString();
+    const QStringList rawOrder = orderStr.split(QLatin1Char(','), Qt::SkipEmptyParts);
+
+    QStringList       orderedNames;
     for (const QString& raw : rawOrder) {
         const QString trimmed = raw.trimmed();
-        if (defByName.contains(trimmed) && !orderedNames.contains(trimmed)) {
+        if (allNames.contains(trimmed) && !orderedNames.contains(trimmed)) {
             orderedNames.append(trimmed);
         }
     }
-    for (const QString& name : std::as_const(allNames)) {
+    for (const QString& name : allNames) {
         if (!orderedNames.contains(name)) {
             orderedNames.append(name);
         }
@@ -1163,11 +950,10 @@ void SettingsBackend::rebuildModeList() {
 
     QHash<QString, int> visibleShortcutCounts;
     for (const QString& name : std::as_const(orderedNames)) {
-        const ModeDef* def     = defByName.value(name);
-        const QString  showKey = QString::fromLatin1(def->showKey);
-        const QString  scKey   = QString::fromLatin1(def->shortcutKey);
-        const bool     vis     = asBool(values_.value(showKey, true), true);
-        const QString  sc      = values_.value(scKey, QString::fromLatin1(def->defaultKey)).toString();
+        const QString showKey = QStringLiteral("ShowMode") + name;
+        const QString scKey   = QStringLiteral("Shortcut") + name;
+        const bool    vis     = asBool(values_.value(showKey, asBool(defaultTypedValue(showKey), true)), true);
+        const QString sc      = values_.value(scKey, defaultTypedValue(scKey)).toString();
         if (vis && !sc.isEmpty()) {
             visibleShortcutCounts[sc] += 1;
         }
@@ -1176,17 +962,16 @@ void SettingsBackend::rebuildModeList() {
     modeList_.clear();
     modeList_.reserve(orderedNames.size());
     for (const QString& name : std::as_const(orderedNames)) {
-        const ModeDef* def        = defByName.value(name);
-        const QString  showKey    = QString::fromLatin1(def->showKey);
-        const QString  scKey      = QString::fromLatin1(def->shortcutKey);
-        const QString  defaultKey = metadata_.contains(scKey) ? metadata_.value(scKey).defaultValue.toString() : QString::fromLatin1(def->defaultKey);
-        const bool     vis        = asBool(values_.value(showKey, true), true);
-        const QString  sc         = values_.value(scKey, defaultKey).toString();
-        const bool     conflict   = vis && !sc.isEmpty() && visibleShortcutCounts.value(sc) > 1;
+        const QString showKey    = QStringLiteral("ShowMode") + name;
+        const QString scKey      = QStringLiteral("Shortcut") + name;
+        const QString defaultKey = defaultTypedValue(scKey).toString();
+        const bool    vis        = asBool(values_.value(showKey, asBool(defaultTypedValue(showKey), true)), true);
+        const QString sc         = values_.value(scKey, defaultKey).toString();
+        const bool    conflict   = vis && !sc.isEmpty() && visibleShortcutCounts.value(sc) > 1;
 
         modeList_.append(QVariantMap{
             {QStringLiteral("name"), name},
-            {QStringLiteral("title"), translate(def->title)},
+            {QStringLiteral("title"), modeTitle(name)},
             {QStringLiteral("shortcutKey"), scKey},
             {QStringLiteral("showKey"), showKey},
             {QStringLiteral("shortcut"), sc},
@@ -1221,14 +1006,16 @@ void SettingsBackend::recomputeDerivedState() {
     }
 
     const bool hasInvalidMacro = std::ranges::any_of(macros_, [](const QVariant& itemVar) { return itemVar.toMap().value(QStringLiteral("invalid")).toBool(); });
-    if (hasInvalidMacro) {
+    if (hasInvalidMacro && macros_ != initialMacros_) {
         errors.append(translate("Macro keys cannot contain spaces or special characters."));
     }
 
-    if (dictLoadFailed_) {
-        errors.append(translate("Cannot save dictionary because loading failed earlier. Please fix the file format first."));
-    } else if (dictHasInvalidWord_) {
-        errors.append(translate("Dictionary words should not contain spaces."));
+    if (dictDirtyInitial_ || dictDirtyDefault_) {
+        if (dictLoadFailed_) {
+            errors.append(translate("Cannot save dictionary because loading failed earlier. Please fix the file format first."));
+        } else if (dictHasInvalidWord_) {
+            errors.append(translate("Dictionary words should not contain spaces."));
+        }
     }
 
     hasValidationErrors_ = !errors.isEmpty();
@@ -1251,6 +1038,44 @@ void SettingsBackend::setValue(const QString& key, const QVariant& val) {
     emit stateChanged();
 }
 
+QVariantList SettingsBackend::getAppModeOptions() const {
+    QVariantList out;
+    const auto   metaIt = metadata_.constFind(QStringLiteral("Mode"));
+    if (metaIt == metadata_.cend()) {
+        return out;
+    }
+    const QVariantMap enumMap  = metaIt->extra.value(QStringLiteral("Enum")).toMap();
+    const QVariantMap enumI18n = metaIt->extra.value(QStringLiteral("EnumI18n")).toMap();
+    QStringList       idxKeys  = enumMap.keys();
+    std::ranges::sort(idxKeys, [](const QString& a, const QString& b) { return a.toInt() < b.toInt(); });
+    for (const QString& idxKey : std::as_const(idxKeys)) {
+        const auto mode = static_cast<fcitx::LotusMode>(idxKey.toInt());
+        out.append(QVariantMap{
+            {QStringLiteral("value"), fcitx::modeToInt(mode)},
+            {QStringLiteral("label"), enumI18n.value(idxKey, enumMap.value(idxKey)).toString()},
+        });
+    }
+    return out;
+}
+
+QString SettingsBackend::optionTitle(const QString& key) const {
+    const auto metaIt = metadata_.constFind(key);
+    return metaIt == metadata_.cend() ? key : translate(metaIt->title);
+}
+
+QString SettingsBackend::optionDescription(const QString& key) const {
+    const auto metaIt = metadata_.constFind(key);
+    if (metaIt == metadata_.cend()) {
+        return key;
+    }
+    const QString tooltip = metaIt->extra.value(QStringLiteral("Tooltip")).toString();
+    return translate(tooltip.isEmpty() ? metaIt->title : tooltip);
+}
+
+QVariant SettingsBackend::optionDefault(const QString& key) const {
+    return defaultTypedValue(key);
+}
+
 QVariantList SettingsBackend::getEnumOptions(const QString& key) const {
     auto makeOption = [](const QString& val, const QString& label) { return QVariantMap{{QStringLiteral("value"), val}, {QStringLiteral("label"), label}}; };
 
@@ -1271,8 +1096,7 @@ QVariantList SettingsBackend::getEnumOptions(const QString& key) const {
         };
     }
 
-    const bool translateLabels = (key != QLatin1String("InputMethod") && key != QLatin1String("OutputCharset"));
-    const auto metaIt          = metadata_.constFind(key);
+    const auto metaIt = metadata_.constFind(key);
     if (metaIt != metadata_.cend()) {
         const QVariantMap& extra    = metaIt->extra;
         const QVariant     enumVar  = extra.value(QStringLiteral("Enum"));
@@ -1299,7 +1123,7 @@ QVariantList SettingsBackend::getEnumOptions(const QString& key) const {
                     if (enumI18n.contains(idxKey)) {
                         label = enumI18n.value(idxKey).toString();
                     } else {
-                        label = translateLabels ? translate(raw) : raw;
+                        label = translate(raw);
                     }
                     out.append(makeOption(raw, label));
                 }
@@ -1311,83 +1135,13 @@ QVariantList SettingsBackend::getEnumOptions(const QString& key) const {
                 QVariantList out;
                 for (const QVariant& item : enumList) {
                     const QString raw = item.toString();
-                    out.append(makeOption(raw, translateLabels ? translate(raw) : raw));
+                    out.append(makeOption(raw, translate(raw)));
                 }
                 return out;
             }
         }
     }
 
-    if (key == QLatin1String("InputMethod")) {
-        return {
-            makeOption(QStringLiteral("Telex"), QStringLiteral("Telex")),
-            makeOption(QStringLiteral("VNI"), QStringLiteral("VNI")),
-            makeOption(QStringLiteral("Telex + VNI"), QStringLiteral("Telex + VNI")),
-            makeOption(QStringLiteral("Telex + VNI + VIQR"), QStringLiteral("Telex + VNI + VIQR")),
-            makeOption(QStringLiteral("VIQR"), QStringLiteral("VIQR")),
-            makeOption(QStringLiteral("Microsoft layout"), QStringLiteral("Microsoft layout")),
-            makeOption(QStringLiteral("VNI Bàn phím tiếng Pháp"), QStringLiteral("VNI Bàn phím tiếng Pháp")),
-            makeOption(QStringLiteral("Custom"), QStringLiteral("Custom")),
-        };
-    }
-    if (key == QLatin1String("Mode")) {
-        return {
-            makeOption(QStringLiteral("OFF"), translate("OFF")),
-            makeOption(QStringLiteral("Uinput (Smooth)"), translate("Uinput (Smooth)")),
-            makeOption(QStringLiteral("Uinput (Super Smooth)"), translate("Uinput (Super Smooth)")),
-            makeOption(QStringLiteral("Surrounding Text"), translate("Surrounding Text")),
-            makeOption(QStringLiteral("Preedit"), translate("Preedit")),
-            makeOption(QStringLiteral("Emoji Picker"), translate("Emoji Picker")),
-        };
-    }
-    if (key == QLatin1String("OutputCharset")) {
-        const QStringList charsets = {
-            QStringLiteral("Unicode"),
-            QStringLiteral("BKHCM 1"),
-            QStringLiteral("BKHCM 2"),
-            QStringLiteral("NCR Decimal"),
-            QStringLiteral("NCR Hex"),
-            QStringLiteral("TCVN3 (ABC)"),
-            QStringLiteral("UTF-8"),
-            QStringLiteral("Unicode C string Decimal"),
-            QStringLiteral("Unicode C string Hex"),
-            QStringLiteral("Unicode tổ hợp"),
-            QStringLiteral("VIQR"),
-            QStringLiteral("VISCII"),
-            QStringLiteral("VNI Windows"),
-            QStringLiteral("VPS"),
-            QStringLiteral("Vietware Full"),
-            QStringLiteral("Vietware X"),
-            QStringLiteral("Windows 1258 codepage"),
-        };
-        QVariantList out;
-        for (const QString& cs : charsets) {
-            out.append(makeOption(cs, cs));
-        }
-        return out;
-    }
-    if (key == QLatin1String("W2U") || key == QLatin1String("BracketTransform")) {
-        return {
-            makeOption(QStringLiteral("Disabled"), translate("Disabled")),
-            makeOption(QStringLiteral("Non-Start"), translate("Non-Start")),
-            makeOption(QStringLiteral("Everywhere"), translate("Everywhere")),
-        };
-    }
-    if (key == QLatin1String("IconTheme")) {
-        return {
-            makeOption(QStringLiteral("Auto"), translate("Auto")),
-            makeOption(QStringLiteral("Light"), translate("Light")),
-            makeOption(QStringLiteral("Dark"), translate("Dark")),
-        };
-    }
-    if (key == QLatin1String("MacroSkipTriggerModifier")) {
-        return {
-            makeOption(QStringLiteral("Disabled"), translate("Disabled")),
-            makeOption(QStringLiteral("Shift"), translate("Shift")),
-            makeOption(QStringLiteral("Ctrl"), translate("Ctrl")),
-            makeOption(QStringLiteral("Alt"), translate("Alt")),
-        };
-    }
     return {};
 }
 
@@ -1402,21 +1156,7 @@ bool SettingsBackend::applyAll() {
         return false;
     }
 
-    const bool dictChanged = isDictionaryModifiedFromInitial();
-    if (dictChanged) {
-        const QString lPath = localDictPath();
-        if (sortedWordCopy(dictionaryWords_) == sortedWordCopy(globalDictionaryWords_)) {
-            if (QFileInfo::exists(lPath) && !QFile::remove(lPath)) {
-                emit toastRequested(translate("Failed to save dictionary."));
-                return false;
-            }
-        } else {
-            if (!writeDictFileAtomic(lPath, dictionaryWords_)) {
-                emit toastRequested(translate("Failed to save dictionary."));
-                return false;
-            }
-        }
-    }
+    const bool  dictChanged = isDictionaryModifiedFromInitial();
 
     QStringList changedConfigKeys;
     for (auto it = values_.cbegin(); it != values_.cend(); ++it) {
@@ -1425,23 +1165,7 @@ bool SettingsBackend::applyAll() {
         }
     }
 
-    if (!changedConfigKeys.isEmpty() || dictChanged) {
-        const LotusDBusClient::ConfigData currentCfg = dbusClient_.getConfig();
-        if (!currentCfg.ok) {
-            fcitxOffline_ = true;
-            emit stateChanged();
-            emit toastRequested(translate("Failed to save settings. Please check if Fcitx5 is running."));
-            return false;
-        }
-        const QVariantMap wirePayload = buildWireConfigPayload(currentCfg.values, changedConfigKeys);
-        if (!dbusClient_.setConfig(wirePayload)) {
-            fcitxOffline_ = !dbusClient_.isConnected();
-            emit stateChanged();
-            emit toastRequested(translate("Failed to save settings. Please check if Fcitx5 is running."));
-            return false;
-        }
-        initialValues_ = values_;
-    }
+    QStringList savedSections;
 
     if (appRules_ != initialAppRules_) {
         QVariantList payload;
@@ -1459,9 +1183,11 @@ bool SettingsBackend::applyAll() {
         if (!dbusClient_.setSubConfigList(QStringLiteral("app_rules"), QStringLiteral("Rules"), payload)) {
             fcitxOffline_ = !dbusClient_.isConnected();
             emit stateChanged();
-            emit toastRequested(translate("Failed to save some settings. Please check if Fcitx5 is running."));
+            emit toastRequested(
+                translate("Failed to save Application Rules. Saved: %1").arg(savedSections.isEmpty() ? translate("None") : savedSections.join(QStringLiteral(", "))));
             return false;
         }
+        savedSections.append(translate("Application Rules"));
         initialAppRules_ = appRules_;
     }
 
@@ -1478,9 +1204,10 @@ bool SettingsBackend::applyAll() {
         if (!dbusClient_.setSubConfigList(QStringLiteral("lotus-macro"), QStringLiteral("Macro"), payload)) {
             fcitxOffline_ = !dbusClient_.isConnected();
             emit stateChanged();
-            emit toastRequested(translate("Failed to save some settings. Please check if Fcitx5 is running."));
+            emit toastRequested(translate("Failed to save Macros. Saved: %1").arg(savedSections.isEmpty() ? translate("None") : savedSections.join(QStringLiteral(", "))));
             return false;
         }
+        savedSections.append(translate("Macros"));
         initialMacros_ = macros_;
     }
 
@@ -1497,10 +1224,46 @@ bool SettingsBackend::applyAll() {
         if (!dbusClient_.setSubConfigList(QStringLiteral("custom_keymap"), QStringLiteral("CustomKeymap"), payload)) {
             fcitxOffline_ = !dbusClient_.isConnected();
             emit stateChanged();
-            emit toastRequested(translate("Failed to save some settings. Please check if Fcitx5 is running."));
+            emit toastRequested(translate("Failed to save Custom Keymap. Saved: %1").arg(savedSections.isEmpty() ? translate("None") : savedSections.join(QStringLiteral(", "))));
             return false;
         }
+        savedSections.append(translate("Custom Keymap"));
         initialKeymapBindings_ = keymapBindings_;
+    }
+
+    if (!changedConfigKeys.isEmpty() || dictChanged) {
+        const LotusDBusClient::ConfigData currentCfg = dbusClient_.getConfig();
+        if (!currentCfg.ok) {
+            fcitxOffline_ = true;
+            emit stateChanged();
+            emit toastRequested(
+                translate("Failed to save General & Typing. Saved: %1").arg(savedSections.isEmpty() ? translate("None") : savedSections.join(QStringLiteral(", "))));
+            return false;
+        }
+        const QVariantMap wirePayload = buildWireConfigPayload(currentCfg.values, changedConfigKeys);
+        if (!dbusClient_.setConfig(wirePayload)) {
+            fcitxOffline_ = !dbusClient_.isConnected();
+            emit stateChanged();
+            emit toastRequested(
+                translate("Failed to save General & Typing. Saved: %1").arg(savedSections.isEmpty() ? translate("None") : savedSections.join(QStringLiteral(", "))));
+            return false;
+        }
+        initialValues_ = values_;
+    }
+
+    if (dictChanged) {
+        const QString lPath = localDictPath();
+        if (sortedWordCopy(dictionaryWords_) == sortedWordCopy(globalDictionaryWords_)) {
+            if (QFileInfo::exists(lPath) && !QFile::remove(lPath)) {
+                emit toastRequested(
+                    translate("Failed to save Custom Dictionary. Saved: %1").arg(savedSections.isEmpty() ? translate("None") : savedSections.join(QStringLiteral(", "))));
+                return false;
+            }
+        } else if (!writeDictFileAtomic(lPath, dictionaryWords_)) {
+            emit toastRequested(
+                translate("Failed to save Custom Dictionary. Saved: %1").arg(savedSections.isEmpty() ? translate("None") : savedSections.join(QStringLiteral(", "))));
+            return false;
+        }
     }
 
     initialDictionaryWords_ = dictionaryWords_;
@@ -1532,7 +1295,7 @@ void SettingsBackend::cancelAll() {
     emit stateChanged();
 }
 
-QStringList SettingsBackend::sectionConfigKeys(const QString& sectionId) {
+QStringList SettingsBackend::sectionConfigKeys(const QString& sectionId) const {
     if (sectionId == QLatin1String("input")) {
         return {QStringLiteral("InputMethod"), QStringLiteral("Mode"), QStringLiteral("OutputCharset")};
     }
@@ -1558,12 +1321,12 @@ QStringList SettingsBackend::sectionConfigKeys(const QString& sectionId) {
         return {QStringLiteral("ModeMenuKey"), QStringLiteral("CycleModeKey")};
     }
     if (sectionId == QLatin1String("mode_menu")) {
-        return {
-            QStringLiteral("ModeOrder"),           QStringLiteral("ShowModeSmooth"),          QStringLiteral("ShortcutSmooth"),          QStringLiteral("ShowModeSuperSmooth"),
-            QStringLiteral("ShortcutSuperSmooth"), QStringLiteral("ShowModeSurroundingText"), QStringLiteral("ShortcutSurroundingText"), QStringLiteral("ShowModePreedit"),
-            QStringLiteral("ShortcutPreedit"),     QStringLiteral("ShowModeEmoji"),           QStringLiteral("ShortcutEmoji"),           QStringLiteral("ShowModeOff"),
-            QStringLiteral("ShortcutOff"),         QStringLiteral("ShowModeDefault"),         QStringLiteral("ShortcutDefault"),
-        };
+        QStringList keys = {QStringLiteral("ModeOrder")};
+        for (const QString& name : modeNames()) {
+            keys.append(QStringLiteral("ShowMode") + name);
+            keys.append(QStringLiteral("Shortcut") + name);
+        }
+        return keys;
     }
     if (sectionId == QLatin1String("default_timing")) {
         return {QStringLiteral("DefaultCommitInterval"), QStringLiteral("DefaultBackspaceInterval"), QStringLiteral("DefaultPostDelay")};
@@ -1633,8 +1396,7 @@ bool SettingsBackend::isModeOrderModifiedFromDefault() const {
             defOrder.append(t);
         }
     }
-    for (const ModeDef& def : kModeDefs) {
-        const QString name = QString::fromLatin1(def.name);
+    for (const QString& name : modeNames()) {
         if (!defOrder.contains(name)) {
             defOrder.append(name);
         }
@@ -1653,8 +1415,8 @@ bool SettingsBackend::isModeMenuModifiedFromDefault() const {
         return true;
     }
 
-    return std::ranges::any_of(kModeDefs, [this](const ModeDef& def) {
-        return isConfigKeyModifiedFromDefault(QString::fromLatin1(def.showKey)) || isConfigKeyModifiedFromDefault(QString::fromLatin1(def.shortcutKey));
+    return std::ranges::any_of(modeNames(), [this](const QString& name) {
+        return isConfigKeyModifiedFromDefault(QStringLiteral("ShowMode") + name) || isConfigKeyModifiedFromDefault(QStringLiteral("Shortcut") + name);
     });
 }
 
@@ -1695,14 +1457,17 @@ QString SettingsBackend::formatShortcutDisplay(const QString& shortcut) const {
 }
 
 QString SettingsBackend::formatDisplayValue(const QString& key, const QVariant& val) const {
-    if (booleanKeys().contains(key)) {
-        return asBool(val) ? translate("On") : translate("Off");
-    }
-    if (integerKeys().contains(key)) {
-        return QStringLiteral("%1 ms").arg(asInt(val));
-    }
-    if (hotkeyKeys().contains(key)) {
-        return formatShortcutDisplay(val.toString());
+    const auto metaIt = metadata_.constFind(key);
+    if (metaIt != metadata_.cend()) {
+        if (metaIt->type == QLatin1String("Boolean")) {
+            return asBool(val) ? translate("On") : translate("Off");
+        }
+        if (metaIt->type == QLatin1String("Integer")) {
+            return QStringLiteral("%1 ms").arg(asInt(val));
+        }
+        if (metaIt->type == QLatin1String("Key") || metaIt->type.startsWith(QLatin1String("List|Key"))) {
+            return formatShortcutDisplay(val.toString());
+        }
     }
     const QVariantList options = getEnumOptions(key);
     const QString      raw     = val.toString();
@@ -1729,10 +1494,10 @@ QVariantList SettingsBackend::getSectionResetChanges(const QString& sectionId) c
         if (isModeOrderModifiedFromDefault()) {
             appendChange(translate("Order"), translate("Custom"), translate("Default"));
         }
-        for (const ModeDef& def : kModeDefs) {
-            const QString title   = translate(def.title);
-            const QString showKey = QString::fromLatin1(def.showKey);
-            const QString scKey   = QString::fromLatin1(def.shortcutKey);
+        for (const QString& name : modeNames()) {
+            const QString title   = modeTitle(name);
+            const QString showKey = QStringLiteral("ShowMode") + name;
+            const QString scKey   = QStringLiteral("Shortcut") + name;
             const bool    curVis  = asBool(values_.value(showKey, true), true);
             const bool    defVis  = asBool(defaultTypedValue(showKey), true);
             if (curVis != defVis) {
@@ -1857,57 +1622,26 @@ QVariantList SettingsBackend::getSectionResetChanges(const QString& sectionId) c
 
 bool SettingsBackend::resetSection(const QString& sectionId) {
     if (sectionId == QLatin1String("app_rules")) {
-        if (!dbusClient_.setSubConfigList(QStringLiteral("app_rules"), QStringLiteral("Rules"), {})) {
-            emit toastRequested(translate("Failed to save settings. Please check if Fcitx5 is running."));
-            return false;
-        }
         appRules_.clear();
-        initialAppRules_.clear();
     } else if (sectionId == QLatin1String("macro_list")) {
-        if (!dbusClient_.setSubConfigList(QStringLiteral("lotus-macro"), QStringLiteral("Macro"), {})) {
-            emit toastRequested(translate("Failed to save settings. Please check if Fcitx5 is running."));
-            return false;
-        }
         macros_.clear();
-        initialMacros_.clear();
     } else if (sectionId == QLatin1String("dict_words")) {
-        const QString lPath = localDictPath();
-        if (QFileInfo::exists(lPath) && !QFile::remove(lPath)) {
-            emit toastRequested(translate("Failed to reset custom dictionary file."));
+        if (fcitxOffline_) {
+            emit toastRequested(translate("Failed to reset custom dictionary. Please check if Fcitx5 is running."));
             return false;
         }
-        dictLoadFailed_         = false;
-        dictionaryWords_        = globalDictionaryWords_;
-        initialDictionaryWords_ = globalDictionaryWords_;
+        dictLoadFailed_  = false;
+        dictionaryWords_ = globalDictionaryWords_;
         rebuildCachedDictionaryWords();
-        const LotusDBusClient::ConfigData cfg = dbusClient_.getConfig();
-        if (cfg.ok) {
-            dbusClient_.setConfig(cfg.values);
-        }
     } else if (sectionId == QLatin1String("keymap_bindings")) {
-        if (!dbusClient_.setSubConfigList(QStringLiteral("custom_keymap"), QStringLiteral("CustomKeymap"), {})) {
-            emit toastRequested(translate("Failed to save settings. Please check if Fcitx5 is running."));
-            return false;
-        }
         keymapBindings_.clear();
-        initialKeymapBindings_.clear();
     } else {
         const QStringList keys = sectionConfigKeys(sectionId);
         if (keys.isEmpty()) {
             return false;
         }
-        QVariantMap wireUpdates;
         for (const QString& key : keys) {
-            wireUpdates.insert(key, toWireValue(key, defaultTypedValue(key)));
-        }
-        if (!dbusClient_.saveValues(wireUpdates)) {
-            emit toastRequested(translate("Failed to save settings. Please check if Fcitx5 is running."));
-            return false;
-        }
-        for (const QString& key : keys) {
-            const QVariant defVal = defaultTypedValue(key);
-            values_.insert(key, defVal);
-            initialValues_.insert(key, defVal);
+            values_.insert(key, defaultTypedValue(key));
         }
         if (sectionId == QLatin1String("mode_menu")) {
             rebuildModeList();
@@ -1937,21 +1671,17 @@ void SettingsBackend::reorderModes(int fromIdx, int toIdx) {
 }
 
 void SettingsBackend::setModeVisible(const QString& name, bool vis) {
-    for (const ModeDef& def : kModeDefs) {
-        if (name == QLatin1String(def.name)) {
-            setValue(QString::fromLatin1(def.showKey), vis);
-            return;
-        }
+    if (!modeNames().contains(name)) {
+        return;
     }
+    setValue(QStringLiteral("ShowMode") + name, vis);
 }
 
 void SettingsBackend::setModeShortcut(const QString& name, const QString& key) {
-    for (const ModeDef& def : kModeDefs) {
-        if (name == QLatin1String(def.name)) {
-            setValue(QString::fromLatin1(def.shortcutKey), key);
-            return;
-        }
+    if (!modeNames().contains(name)) {
+        return;
     }
+    setValue(QStringLiteral("Shortcut") + name, key);
 }
 
 void SettingsBackend::scanDesktopEntries() {
@@ -2151,7 +1881,7 @@ void SettingsBackend::addAppRule(const QString& appId) {
         {QStringLiteral("app"), cleaned},
         {QStringLiteral("displayName"), resolveAppDisplayName(cleaned)},
         {QStringLiteral("iconName"), resolveAppIconName(cleaned)},
-        {QStringLiteral("mode"), static_cast<int>(AppModeId::ModeSmooth)},
+        {QStringLiteral("mode"), fcitx::modeToInt(fcitx::LotusMode::Smooth)},
         {QStringLiteral("commit"), 0},
         {QStringLiteral("backspace"), 0},
         {QStringLiteral("post"), 0},
@@ -2297,15 +2027,10 @@ int SettingsBackend::countMatchingWords(const QString& query) const {
 }
 
 void SettingsBackend::applyKeymapPreset(const QString& presetName) {
-    for (const PresetDef& preset : presetDefinitions()) {
-        if (presetName == QString::fromUtf8(preset.name)) {
-            keymapBindings_.clear();
-            for (const KeyValuePair& rule : preset.rules) {
-                keymapBindings_.append(QVariantMap{
-                    {QStringLiteral("key"), QString::fromUtf8(rule.key)},
-                    {QStringLiteral("value"), QString::fromUtf8(rule.value)},
-                });
-            }
+    for (const QVariant& presetVar : std::as_const(keymapPresets_)) {
+        const QVariantMap preset = presetVar.toMap();
+        if (presetName == preset.value(QStringLiteral("name")).toString()) {
+            keymapBindings_ = preset.value(QStringLiteral("rules")).toList();
             recomputeDerivedState();
             emit stateChanged();
             return;
@@ -2533,30 +2258,6 @@ bool SettingsBackend::importBackup(const QString& fileUrl, const QVariantMap& co
     bool        dictRestored   = false;
     bool        configReloaded = false;
 
-    if (components.value(QStringLiteral("dictionary"), false).toBool() && obj.contains(QStringLiteral("dictionary"))) {
-        const QJsonValue dictVal = obj.value(QStringLiteral("dictionary"));
-        bool             ok      = false;
-        if (dictVal.isArray()) {
-            QStringList      words;
-            const QJsonArray arr = dictVal.toArray();
-            words.reserve(arr.size());
-            for (const auto& v : arr) {
-                const QString w = v.toString().trimmed();
-                if (!w.isEmpty() && isValidWord(w)) {
-                    words.append(w);
-                }
-            }
-            ok = writeDictFileAtomic(localDictPath(), words);
-        } else if (dictVal.isString()) {
-            ok = writeRawTextAtomic(localDictPath(), dictVal.toString().toUtf8());
-        }
-        if (ok) {
-            dictRestored = true;
-        } else {
-            failed.append(translate("Custom Dictionary"));
-        }
-    }
-
     if (components.value(QStringLiteral("config"), false).toBool() && obj.value(QStringLiteral("config")).isObject()) {
         const QVariantMap cfgMap = obj.value(QStringLiteral("config")).toObject().toVariantMap();
         if (dbusClient_.setConfig(cfgMap)) {
@@ -2587,6 +2288,30 @@ bool SettingsBackend::importBackup(const QString& fileUrl, const QVariantMap& co
         }
     }
 
+    if (components.value(QStringLiteral("dictionary"), false).toBool() && obj.contains(QStringLiteral("dictionary"))) {
+        const QJsonValue dictVal = obj.value(QStringLiteral("dictionary"));
+        bool             ok      = false;
+        if (dictVal.isArray()) {
+            QStringList      words;
+            const QJsonArray arr = dictVal.toArray();
+            words.reserve(arr.size());
+            for (const auto& v : arr) {
+                const QString w = v.toString().trimmed();
+                if (!w.isEmpty()) {
+                    words.append(w);
+                }
+            }
+            ok = writeDictFileAtomic(localDictPath(), words);
+        } else if (dictVal.isString()) {
+            ok = writeRawTextAtomic(localDictPath(), dictVal.toString().toUtf8());
+        }
+        if (ok) {
+            dictRestored = true;
+        } else {
+            failed.append(translate("Custom Dictionary"));
+        }
+    }
+
     if (dictRestored && !configReloaded) {
         const LotusDBusClient::ConfigData cfg = dbusClient_.getConfig();
         if (cfg.ok) {
@@ -2609,6 +2334,7 @@ void SettingsBackend::exportDebugInfo(const QString& fileUrl) {
     const QString path = resolveLocalFilePath(fileUrl);
     if (path.isEmpty()) {
         emit toastRequested(translate("Failed to export debug info"));
+        emit debugExportFinished(false, translate("Failed to export debug info"));
         return;
     }
 
@@ -2623,7 +2349,7 @@ void SettingsBackend::exportDebugInfo(const QString& fileUrl) {
     const QString                     version = appVersion();
     const std::shared_ptr<AliveGuard> guard   = aliveGuard_;
 
-    std::thread([this, guard, path, version, configSnapshot, hasConfig, offline] {
+    QThreadPool::globalInstance()->start(QRunnable::create([this, guard, path, version, configSnapshot, hasConfig, offline] {
         const QString          report = collectDebugReport(version, configSnapshot, hasConfig, offline);
         const bool             ok     = writeRawTextAtomic(path, report.toUtf8());
         const std::scoped_lock lock(guard->mutex);
@@ -2633,12 +2359,14 @@ void SettingsBackend::exportDebugInfo(const QString& fileUrl) {
                 [this, guard, ok] {
                     const std::scoped_lock innerLock(guard->mutex);
                     if (guard->alive) {
-                        emit toastRequested(ok ? translate("Debug info exported") : translate("Failed to export debug info"));
+                        const QString message = ok ? translate("Debug info exported") : translate("Failed to export debug info");
+                        emit          toastRequested(message);
+                        emit          debugExportFinished(ok, message);
                     }
                 },
                 Qt::QueuedConnection);
         }
-    }).detach();
+    }));
 }
 
 QString SettingsBackend::formatKeyEvent(int qtKey, int qtModifiers, const QString& text, bool allowSingleKey, bool singleKeyOnly) {

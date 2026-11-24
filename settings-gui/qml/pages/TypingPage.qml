@@ -39,35 +39,35 @@ SettingsPage {
                 spacing: Style.spacingXXS
 
                 SettingRow {
-                    title: I18n.tr("Spell Check")
+                    title: Backend.optionTitle("SpellCheck")
                     showSeparator: true
 
                     DToggle {
                         hideText: true
-                        checked: root.boolVal("SpellCheck", true)
+                        checked: root.boolVal("SpellCheck", Boolean(Backend.optionDefault("SpellCheck")))
                         onToggled: val => Backend.setValue("SpellCheck", val)
                     }
                 }
 
                 SettingRow {
-                    title: I18n.tr("Auto Restore Invalid Words")
+                    title: Backend.optionTitle("AutoNonVnRestore")
                     tooltipText: I18n.tr("Automatically revert the typed sequence if the resulting word is not in the dictionary.\nThis helps prevent accidental Vietnamese transformations on English words or mixed text.")
                     showSeparator: true
 
                     DToggle {
                         hideText: true
-                        checked: root.boolVal("AutoNonVnRestore", true)
+                        checked: root.boolVal("AutoNonVnRestore", Boolean(Backend.optionDefault("AutoNonVnRestore")))
                         onToggled: val => Backend.setValue("AutoNonVnRestore", val)
                     }
                 }
 
                 SettingRow {
-                    title: I18n.tr("Free dd to đ")
+                    title: Backend.optionTitle("DdFreeStyle")
                     tooltipText: I18n.tr("Allow dd to produce đ when Auto Restore Invalid Words is enabled.")
 
                     DToggle {
                         hideText: true
-                        checked: root.boolVal("DdFreeStyle", true)
+                        checked: root.boolVal("DdFreeStyle", Boolean(Backend.optionDefault("DdFreeStyle")))
                         onToggled: val => Backend.setValue("DdFreeStyle", val)
                     }
                 }
@@ -94,60 +94,60 @@ SettingsPage {
                 spacing: Style.spacingXXS
 
                 SettingRow {
-                    title: I18n.tr("Modern Tone Style")
+                    title: Backend.optionTitle("ModernStyle")
                     tooltipText: I18n.tr("Place tone marks on newer vowel positions (oà, uý instead of òa, úy).")
                     showSeparator: true
 
                     DToggle {
                         hideText: true
-                        checked: root.boolVal("ModernStyle", true)
+                        checked: root.boolVal("ModernStyle", Boolean(Backend.optionDefault("ModernStyle")))
                         onToggled: val => Backend.setValue("ModernStyle", val)
                     }
                 }
 
                 SettingRow {
-                    title: I18n.tr("Free Tone Marking")
+                    title: Backend.optionTitle("FreeMarking")
                     tooltipText: I18n.tr("You can type tone marks at the end of the word or anywhere inside.")
                     showSeparator: true
 
                     DToggle {
                         hideText: true
-                        checked: root.boolVal("FreeMarking", true)
+                        checked: root.boolVal("FreeMarking", Boolean(Backend.optionDefault("FreeMarking")))
                         onToggled: val => Backend.setValue("FreeMarking", val)
                     }
                 }
 
                 SettingRow {
-                    title: I18n.tr("Auto Capitalize After Punctuation")
+                    title: Backend.optionTitle("AutoCapitalizeAfterPunctuation")
                     tooltipText: I18n.tr("Capitalize the next word after sentence-ending punctuation (. ! ? Enter).")
                     showSeparator: true
 
                     DToggle {
                         hideText: true
-                        checked: root.boolVal("AutoCapitalizeAfterPunctuation", false)
+                        checked: root.boolVal("AutoCapitalizeAfterPunctuation", Boolean(Backend.optionDefault("AutoCapitalizeAfterPunctuation")))
                         onToggled: val => Backend.setValue("AutoCapitalizeAfterPunctuation", val)
                     }
                 }
 
                 SettingRow {
-                    title: I18n.tr("Double Space to Period")
+                    title: Backend.optionTitle("DoubleSpaceToPeriod")
                     tooltipText: I18n.tr("Insert a period followed by a space when pressing Space twice.")
                     showSeparator: true
 
                     DToggle {
                         hideText: true
-                        checked: root.boolVal("DoubleSpaceToPeriod", false)
+                        checked: root.boolVal("DoubleSpaceToPeriod", Boolean(Backend.optionDefault("DoubleSpaceToPeriod")))
                         onToggled: val => Backend.setValue("DoubleSpaceToPeriod", val)
                     }
                 }
 
                 SettingRow {
-                    title: I18n.tr("Double Hyphen to Em-Dash (--)")
+                    title: Backend.optionTitle("DoubleHyphenToEmDash")
                     tooltipText: I18n.tr("Transform -- into an em-dash (—).")
 
                     DToggle {
                         hideText: true
-                        checked: root.boolVal("DoubleHyphenToEmDash", false)
+                        checked: root.boolVal("DoubleHyphenToEmDash", Boolean(Backend.optionDefault("DoubleHyphenToEmDash")))
                         onToggled: val => Backend.setValue("DoubleHyphenToEmDash", val)
                     }
                 }

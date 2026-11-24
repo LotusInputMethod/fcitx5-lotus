@@ -14,6 +14,8 @@
 #include <QObject>
 #include <QPalette>
 
+#include <memory>
+
 /**
  * @brief Exposes reactive QPalette-derived theme tokens to QML.
  */
@@ -83,43 +85,43 @@ class ThemeBridge : public QObject {
     bool eventFilter(QObject* watched, QEvent* event) override;
 
   private:
-    Q_SLOT void         onPortalSettingChanged(const QString& ns, const QString& key, const QDBusVariant& value);
-    Q_SLOT void         onQt6ctFileChanged(const QString& path);
+    Q_SLOT void                         onPortalSettingChanged(const QString& ns, const QString& key, const QDBusVariant& value);
+    Q_SLOT void                         onQt6ctFileChanged(const QString& path);
 
-    void                queryPortalColorScheme();
-    void                setupQt6ctWatcher();
-    void                reloadFromQt6ct();
-    void                updateFromPalette(const QPalette& pal);
+    void                                queryPortalColorScheme();
+    void                                setupQt6ctWatcher();
+    void                                reloadFromQt6ct();
+    void                                updateFromPalette(const QPalette& pal);
 
-    QFileSystemWatcher* qt6ctWatcher_ = nullptr;
-    QString             qt6ctConfigPath_;
-    QString             qt6ctSchemePath_;
-    int                 portalColorScheme_ = -1; // -1: follow palette, 1: prefer dark, 2: prefer light
-    bool                isDark_            = false;
-    QColor              surface_;
-    QColor              surfaceText_;
-    QColor              surfaceVariant_;
-    QColor              surfaceVariantText_;
-    QColor              surfaceContainer_;
-    QColor              surfaceContainerLow_;
-    QColor              surfaceContainerHigh_;
-    QColor              surfaceContainerHighest_;
-    QColor              primary_;
-    QColor              primaryText_;
-    QColor              primaryContainer_;
-    QColor              onPrimary_;
-    QColor              onPrimaryContainer_;
-    QColor              secondary_;
-    QColor              secondaryContainer_;
-    QColor              onSecondaryContainer_;
-    QColor              outline_;
-    QColor              outlineVariant_;
-    QColor              error_;
-    QColor              errorContainer_;
-    QColor              onError_;
-    QColor              onErrorContainer_;
-    QColor              warning_;
-    QColor              accent_;
+    std::unique_ptr<QFileSystemWatcher> qt6ctWatcher_;
+    QString                             qt6ctConfigPath_;
+    QString                             qt6ctSchemePath_;
+    int                                 portalColorScheme_ = -1; // -1: follow palette, 1: prefer dark, 2: prefer light
+    bool                                isDark_            = false;
+    QColor                              surface_;
+    QColor                              surfaceText_;
+    QColor                              surfaceVariant_;
+    QColor                              surfaceVariantText_;
+    QColor                              surfaceContainer_;
+    QColor                              surfaceContainerLow_;
+    QColor                              surfaceContainerHigh_;
+    QColor                              surfaceContainerHighest_;
+    QColor                              primary_;
+    QColor                              primaryText_;
+    QColor                              primaryContainer_;
+    QColor                              onPrimary_;
+    QColor                              onPrimaryContainer_;
+    QColor                              secondary_;
+    QColor                              secondaryContainer_;
+    QColor                              onSecondaryContainer_;
+    QColor                              outline_;
+    QColor                              outlineVariant_;
+    QColor                              error_;
+    QColor                              errorContainer_;
+    QColor                              onError_;
+    QColor                              onErrorContainer_;
+    QColor                              warning_;
+    QColor                              accent_;
 };
 
 #endif // LOTUS_SETTINGS_THEME_BRIDGE_H

@@ -169,15 +169,15 @@ void ThemeBridge::setupQt6ctWatcher() {
     if (!QFileInfo::exists(qt6ctConfigPath_)) {
         return;
     }
-    qt6ctWatcher_ = new QFileSystemWatcher(this); // NOLINT(cppcoreguidelines-owning-memory)
+    qt6ctWatcher_ = std::make_unique<QFileSystemWatcher>();
     qt6ctWatcher_->addPath(qt6ctConfigPath_);
-    connect(qt6ctWatcher_, &QFileSystemWatcher::fileChanged, this, &ThemeBridge::onQt6ctFileChanged);
+    connect(qt6ctWatcher_.get(), &QFileSystemWatcher::fileChanged, this, &ThemeBridge::onQt6ctFileChanged);
     reloadFromQt6ct();
 }
 
 void ThemeBridge::onQt6ctFileChanged(const QString& path) {
     QTimer::singleShot(50, this, [this, path] {
-        if (qt6ctWatcher_ != nullptr && QFileInfo::exists(path) && !qt6ctWatcher_->files().contains(path)) {
+        if (qt6ctWatcher_ && QFileInfo::exists(path) && !qt6ctWatcher_->files().contains(path)) {
             qt6ctWatcher_->addPath(path);
         }
         reloadFromQt6ct();
@@ -191,14 +191,14 @@ void ThemeBridge::reloadFromQt6ct() {
     const QSettings settings(qt6ctConfigPath_, QSettings::IniFormat);
     const QString   schemePath = settings.value(QStringLiteral("Appearance/color_scheme_path")).toString();
     if (schemePath.isEmpty() || !QFileInfo::exists(schemePath)) {
-        if (qt6ctWatcher_ != nullptr && !qt6ctSchemePath_.isEmpty()) {
+        if (qt6ctWatcher_ && !qt6ctSchemePath_.isEmpty()) {
             qt6ctWatcher_->removePath(qt6ctSchemePath_);
         }
         qt6ctSchemePath_.clear();
         updateFromPalette(QApplication::palette());
         return;
     }
-    if (qt6ctWatcher_ != nullptr) {
+    if (qt6ctWatcher_) {
         if (!qt6ctSchemePath_.isEmpty() && qt6ctSchemePath_ != schemePath) {
             qt6ctWatcher_->removePath(qt6ctSchemePath_);
         }
@@ -218,7 +218,8 @@ void ThemeBridge::queryPortalColorScheme() {
     QDBusMessage msg = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.portal.Desktop"), QStringLiteral("/org/freedesktop/portal/desktop"),
                                                       QStringLiteral("org.freedesktop.portal.Settings"), QStringLiteral("ReadOne"));
     msg << QStringLiteral("org.freedesktop.appearance") << QStringLiteral("color-scheme");
-    auto* watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(msg), this);
+    auto* watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(msg),
+                                                this); // NOLINT(cppcoreguidelines-owning-memory): parent owns it; finished handler calls deleteLater()
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher* w) {
         w->deleteLater();
         QDBusPendingReply<QVariant> reply = *w;

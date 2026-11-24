@@ -72,6 +72,9 @@ OverlayDialog {
             variant: "filled"
             enabled: !root.hasValidationErrors
             onClicked: {
+                const win = root.Window.window;
+                if (win && win.activeFocusItem)
+                    win.activeFocusItem.focus = false;
                 root.close();
                 root.applyAndCloseRequested();
             }

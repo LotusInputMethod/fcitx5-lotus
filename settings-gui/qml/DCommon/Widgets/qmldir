@@ -7,6 +7,7 @@ StyledTextMetrics 1.0 StyledTextMetrics.qml
 StyledButton 1.0 StyledButton.qml
 NumericText 1.0 NumericText.qml
 FocusRing 1.0 FocusRing.qml
+FocusOnTap 1.0 FocusOnTap.qml
 DRipple 1.0 DRipple.qml
 StateLayer 1.0 StateLayer.qml
 DIcon 1.0 DIcon.qml

@@ -15,15 +15,9 @@ Item {
     property string searchQuery: ""
     property string expandedAppId: ""
 
-    readonly property var modeLabels: [
-        I18n.tr("Uinput (Smooth)"),
-        I18n.tr("Uinput (Super Smooth)"),
-        I18n.tr("Surrounding Text"),
-        I18n.tr("Preedit"),
-        I18n.tr("Emoji Picker"),
-        I18n.tr("OFF")
-    ]
-    readonly property var modeCodes: ["1", "3", "4", "5", "6", "0"]
+    readonly property var modeOptions: Backend.getAppModeOptions()
+    readonly property var modeLabels: modeOptions.map(function(option) { return String(option.label) })
+    readonly property var modeCodes: modeOptions.map(function(option) { return String(option.value) })
 
     readonly property var filteredAppRules: {
         var rules = Backend.appRules || []
@@ -141,21 +135,18 @@ Item {
                         model: [
                             {
                                 key: "DefaultCommitInterval",
-                                fallback: 20,
-                                title: I18n.tr("Commit Interval (ms)"),
-                                tooltip: I18n.tr("Cooldown between committed replacements when an app rule uses 0")
+                                title: Backend.optionTitle("DefaultCommitInterval"),
+                                tooltip: Backend.optionDescription("DefaultCommitInterval")
                             },
                             {
                                 key: "DefaultBackspaceInterval",
-                                fallback: 5,
-                                title: I18n.tr("Backspace Interval (ms)"),
-                                tooltip: I18n.tr("Delay between simulated backspaces when an app rule uses 0")
+                                title: Backend.optionTitle("DefaultBackspaceInterval"),
+                                tooltip: Backend.optionDescription("DefaultBackspaceInterval")
                             },
                             {
                                 key: "DefaultPostDelay",
-                                fallback: 10,
-                                title: I18n.tr("Post Delay (ms)"),
-                                tooltip: I18n.tr("Delay before replaying the final trigger key when an app rule uses 0")
+                                title: Backend.optionTitle("DefaultPostDelay"),
+                                tooltip: Backend.optionDescription("DefaultPostDelay")
                             }
                         ]
 
@@ -163,7 +154,7 @@ Item {
                             id: timingRow
                             required property var modelData
                             required property int index
-                            readonly property int currentVal: pageRoot.intSetting(modelData.key, modelData.fallback)
+                            readonly property int currentVal: pageRoot.intSetting(modelData.key, Number(Backend.optionDefault(modelData.key)))
 
                             Layout.fillWidth: true
                             title: modelData.title
@@ -171,6 +162,7 @@ Item {
                             showSeparator: index < 2
 
                             LC.TimingStepper {
+                                minValue: 1
                                 value: timingRow.currentVal
                                 onValueEdited: function(newVal) {
                                     Backend.setValue(timingRow.modelData.key, newVal)
@@ -558,7 +550,7 @@ Item {
             id: appNameField
             width: parent.width
             outlined: true
-            placeholderText: "app-name"
+            placeholderText: I18n.tr("e.g. app-name")
             isError: addAppDialog.alreadyExists
             supportingText: addAppDialog.alreadyExists ? I18n.tr("Rule already exists") : ""
             onAccepted: addAppDialog.submit()

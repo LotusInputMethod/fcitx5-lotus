@@ -16,7 +16,21 @@ set(LOTUS_SETTINGS_SOURCES
 
 add_executable(fcitx5-lotus-settings ${LOTUS_SETTINGS_SOURCES})
 
+file(GLOB_RECURSE LOTUS_QML_FILES CONFIGURE_DEPENDS
+    RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/qml/*.qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/qml/*.js"
+)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/lotus_settings.qrc" LOTUS_QRC_CONTENT)
+foreach(LOTUS_QML_FILE IN LISTS LOTUS_QML_FILES)
+    if(NOT LOTUS_QRC_CONTENT MATCHES "<file>${LOTUS_QML_FILE}</file>")
+        message(FATAL_ERROR "QML file missing from lotus_settings.qrc: ${LOTUS_QML_FILE}")
+    endif()
+endforeach()
+
 target_compile_features(fcitx5-lotus-settings PRIVATE cxx_std_20)
+
+target_include_directories(fcitx5-lotus-settings PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 target_compile_definitions(fcitx5-lotus-settings PRIVATE
     LOTUS_VERSION="${PROJECT_VERSION}"
@@ -25,10 +39,12 @@ target_compile_definitions(fcitx5-lotus-settings PRIVATE
 )
 
 target_link_libraries(fcitx5-lotus-settings PRIVATE
+    Lotus::Engine
     Qt6::Quick
     Qt6::QuickControls2
     Qt6::DBus
     Qt6::Widgets
+    Threads::Threads
     $<$<BOOL:${Intl_FOUND}>:Intl::Intl>
 )
 

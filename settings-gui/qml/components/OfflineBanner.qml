@@ -15,9 +15,9 @@ Item {
     readonly property real targetHeight: offline ? Math.max(48, bannerRow.implicitHeight + Style.spacingS * 2) : 0
 
     implicitHeight: targetHeight
-    height: targetHeight
+    Layout.preferredHeight: targetHeight
     clip: true
-    visible: height > 0
+    visible: targetHeight > 0
 
     Behavior on implicitHeight {
         enabled: !Style.reduceMotion

@@ -19,9 +19,7 @@
 #include <QQuickStyle>
 #include <QUrl>
 
-#ifndef LOTUS_VERSION
-#define LOTUS_VERSION "dev"
-#endif
+#include <memory>
 
 namespace {
     class ThemeIconProvider final : public QQuickImageProvider {
@@ -67,14 +65,15 @@ int main(int argc, char* argv[]) {
     SettingsBackend settingsBackend(&i18nBridge);
 
     QApplication::setApplicationName(QStringLiteral("fcitx5-lotus-settings"));
-    QApplication::setApplicationDisplayName(I18nBridge::tr(QStringLiteral("Lotus Settings")));
+    QApplication::setApplicationDisplayName(I18nBridge::lookup(QStringLiteral("Lotus Settings")));
     QApplication::setApplicationVersion(QStringLiteral(LOTUS_VERSION));
     QApplication::setOrganizationDomain(QStringLiteral("fcitx.org"));
     QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("fcitx-lotus")));
     QGuiApplication::setDesktopFileName(QStringLiteral("org.fcitx.Fcitx5.Addon.Lotus.Settings"));
 
     QQmlApplicationEngine engine;
-    engine.addImageProvider(QStringLiteral("theme"), new ThemeIconProvider()); // NOLINT(cppcoreguidelines-owning-memory)
+    auto                  iconProvider = std::make_unique<ThemeIconProvider>();
+    engine.addImageProvider(QStringLiteral("theme"), iconProvider.release());
 
     QUrl             mainUrl(QStringLiteral("qrc:/lotus/qml/Main.qml"));
 

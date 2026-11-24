@@ -577,7 +577,6 @@ StyledRect {
             active: root.showPasswordToggle
             visible: active && (!root.expressive || root.text.length > 0 || root.passwordVisible)
             sourceComponent: DActionButton {
-                focusPolicy: Qt.TabFocus
                 checkable: true
                 checked: root.passwordVisible
                 Accessible.name: root.passwordVisible ? I18n.tr("Hide password") : I18n.tr("Show password")
@@ -593,7 +592,6 @@ StyledRect {
             active: root.showClearButton && !root.readOnly
             visible: active && root.text.length > 0
             sourceComponent: DActionButton {
-                focusPolicy: Qt.TabFocus
                 objectName: "clearButton"
                 Accessible.name: I18n.tr("Clear")
                 buttonSize: root.accessorySize
@@ -634,7 +632,6 @@ StyledRect {
             active: root.showAcceptButton
             visible: active && !root.busy
             sourceComponent: DActionButton {
-                focusPolicy: Qt.TabFocus
                 Accessible.name: root.acceptButtonName
                 buttonSize: root.accessorySize
                 iconName: "keyboard_return"

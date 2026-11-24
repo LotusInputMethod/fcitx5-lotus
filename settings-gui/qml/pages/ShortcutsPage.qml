@@ -93,11 +93,11 @@ SettingsPage {
                 spacing: Style.spacingXXS
 
                 SettingRow {
-                    title: I18n.tr("Mode Menu Hotkey")
+                    title: Backend.optionTitle("ModeMenuKey")
                     showSeparator: true
 
                     HotkeyButton {
-                        hotkey: root.strVal("ModeMenuKey", "grave")
+                        hotkey: root.strVal("ModeMenuKey", String(Backend.optionDefault("ModeMenuKey")))
                         allowSingleKey: true
                         singleKeyOnly: false
                         dialogTitle: I18n.tr("Mode Menu Hotkey")
@@ -106,10 +106,10 @@ SettingsPage {
                 }
 
                 SettingRow {
-                    title: I18n.tr("Cycle Mode Hotkey")
+                    title: Backend.optionTitle("CycleModeKey")
 
                     HotkeyButton {
-                        hotkey: root.strVal("CycleModeKey", "")
+                        hotkey: root.strVal("CycleModeKey", String(Backend.optionDefault("CycleModeKey")))
                         allowSingleKey: false
                         singleKeyOnly: false
                         dialogTitle: I18n.tr("Cycle Mode Hotkey")

@@ -125,7 +125,7 @@ Item {
 
                     LC.SettingRow {
                         Layout.fillWidth: true
-                        title: I18n.tr("Enable Macros")
+                        title: Backend.optionTitle("EnableMacro")
                         tooltipText: I18n.tr("Expand shorthand abbreviations while typing")
                         showSeparator: true
 
@@ -139,7 +139,7 @@ Item {
 
                     LC.SettingRow {
                         Layout.fillWidth: true
-                        title: I18n.tr("Capitalize Macro")
+                        title: Backend.optionTitle("CapitalizeMacro")
                         tooltipText: I18n.tr("Automatically match expansion case to trigger key case.\n\nExample if 'kg' is 'Khô gà':\n- kg -> khô gà\n- Kg -> Khô gà\n- KG -> KHÔ GÀ")
                         showSeparator: true
 
@@ -153,7 +153,7 @@ Item {
 
                     LC.SettingRow {
                         Layout.fillWidth: true
-                        title: I18n.tr("Allow Macro in Off Mode")
+                        title: Backend.optionTitle("EnableMacroInOffMode")
                         tooltipText: I18n.tr("Allow macros to work when the input mode is OFF.\nWhen disabled, macros are only available in active typing modes.")
                         showSeparator: true
 
@@ -167,7 +167,7 @@ Item {
 
                     LC.SettingRow {
                         Layout.fillWidth: true
-                        title: I18n.tr("Modifier to Skip Macro for Next Word")
+                        title: Backend.optionTitle("MacroSkipTriggerModifier")
                         tooltipText: I18n.tr("Press and release the selected modifier key before typing to skip macro expansion for the next word.\nIf another key is pressed between the modifier's press and release, the skip is cancelled.")
                         showSeparator: true
 
@@ -184,14 +184,14 @@ Item {
                             Binding {
                                 target: skipDropdown
                                 property: "currentValue"
-                                value: pageRoot.stringSetting("MacroSkipTriggerModifier", "Disabled")
+                                value: pageRoot.stringSetting("MacroSkipTriggerModifier", String(Backend.optionDefault("MacroSkipTriggerModifier")))
                             }
                         }
                     }
 
                     LC.SettingRow {
                         Layout.fillWidth: true
-                        title: I18n.tr("Time Format")
+                        title: Backend.optionTitle("TimeFormat")
                         tooltipText: I18n.tr("Format used for the $TIME dynamic placeholder")
                         showSeparator: true
 
@@ -208,14 +208,14 @@ Item {
                             Binding {
                                 target: timeDropdown
                                 property: "currentValue"
-                                value: pageRoot.stringSetting("TimeFormat", "%H:%M")
+                                value: pageRoot.stringSetting("TimeFormat", String(Backend.optionDefault("TimeFormat")))
                             }
                         }
                     }
 
                     LC.SettingRow {
                         Layout.fillWidth: true
-                        title: I18n.tr("Date Format")
+                        title: Backend.optionTitle("DateFormat")
                         tooltipText: I18n.tr("Format used for the $DATE dynamic placeholder")
 
                         DW.DDropdown {
@@ -231,7 +231,7 @@ Item {
                             Binding {
                                 target: dateDropdown
                                 property: "currentValue"
-                                value: pageRoot.stringSetting("DateFormat", "%d/%m/%Y")
+                                value: pageRoot.stringSetting("DateFormat", String(Backend.optionDefault("DateFormat")))
                             }
                         }
                     }

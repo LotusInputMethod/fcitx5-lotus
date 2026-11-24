@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: fcitx5-lotus\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-24 10:48+0700\n"
+"POT-Creation-Date: 2026-11-24 15:19+0700\n"
 "PO-Revision-Date: 2026-11-11 19:47+0700\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -18,23 +18,23 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "X-Generator: Poedit 3.10\n"
 
-#: settings-gui/cpp/settings_backend.cpp:1900
+#: settings-gui/cpp/settings_backend.cpp:1775
 msgid "%1 bindings"
 msgstr "%1 ánh xạ phím"
 
-#: settings-gui/cpp/settings_backend.cpp:1867
+#: settings-gui/cpp/settings_backend.cpp:1742
 msgid "%1 macros"
 msgstr "%1 gõ tắt"
 
-#: settings-gui/cpp/settings_backend.cpp:1853
+#: settings-gui/cpp/settings_backend.cpp:1728
 msgid "%1 rules (%2)"
 msgstr "%1 quy tắc (%2)"
 
-#: settings-gui/cpp/settings_backend.cpp:1890
+#: settings-gui/cpp/settings_backend.cpp:1765
 msgid "%1 words"
 msgstr "%1 từ"
 
-#: settings-gui/cpp/settings_backend.cpp:1887
+#: settings-gui/cpp/settings_backend.cpp:1762
 msgid "%1 words (+%2 / -%3)"
 msgstr "%1 từ (+%2 / -%3)"
 
@@ -42,64 +42,56 @@ msgstr "%1 từ (+%2 / -%3)"
 msgid "(ms, 0 = default)"
 msgstr "(ms, 0 = mặc định)"
 
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:79
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:61
 msgid "Abbreviation"
 msgstr "Từ viết tắt"
 
-#: settings-gui/qml/Main.qml:197 settings-gui/qml/Main.qml:211
-#: settings-gui/qml/Main.qml:230
+#: settings-gui/qml/Main.qml:35 settings-gui/qml/Main.qml:220
+#: settings-gui/qml/Main.qml:251
 msgid "About"
 msgstr "Giới thiệu"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:25
-msgid "About Fcitx5 Lotus"
-msgstr "Giới thiệu Fcitx5 Lotus"
-
-#: settings-gui/qml/dialogs/AddKeymapDialog.qml:99
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:83
 msgid "Action"
 msgstr "Hành động"
 
-#: settings-gui/qml/dialogs/AddKeymapDialog.qml:126
-#: settings-gui/qml/dialogs/AddWordDialog.qml:81
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:171
-#: settings-gui/qml/pages/ApplicationsPage.qml:219
-#: settings-gui/qml/pages/ApplicationsPage.qml:661
-#: settings-gui/qml/pages/DictionaryPage.qml:144
-#: settings-gui/qml/pages/KeymapPage.qml:200
-#: settings-gui/qml/pages/MacrosPage.qml:260
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:110
+#: settings-gui/qml/dialogs/AddWordDialog.qml:64
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:156
+#: settings-gui/qml/pages/ApplicationsPage.qml:217
+#: settings-gui/qml/pages/ApplicationsPage.qml:574
+#: settings-gui/qml/pages/DictionaryPage.qml:148
+#: settings-gui/qml/pages/KeymapPage.qml:209
+#: settings-gui/qml/pages/MacrosPage.qml:273
 msgid "Add"
 msgstr "Thêm"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:609
+#: settings-gui/qml/pages/ApplicationsPage.qml:532
 msgid "Add Application"
 msgstr "Thêm ứng dụng"
 
-#: settings-gui/qml/dialogs/AddKeymapDialog.qml:22
-#: settings-gui/qml/pages/KeymapPage.qml:202
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:15
+#: settings-gui/qml/pages/KeymapPage.qml:211
 msgid "Add Binding"
 msgstr "Thêm ánh xạ phím"
 
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:24
-#: settings-gui/qml/pages/MacrosPage.qml:262
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:17
+#: settings-gui/qml/pages/MacrosPage.qml:275
 msgid "Add Macro"
 msgstr "Thêm gõ tắt"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:221
+#: settings-gui/qml/pages/ApplicationsPage.qml:219
 msgid "Add Rule"
 msgstr "Thêm quy tắc"
 
-#: settings-gui/qml/dialogs/AddWordDialog.qml:20
-#: settings-gui/qml/pages/DictionaryPage.qml:146
+#: settings-gui/qml/dialogs/AddWordDialog.qml:13
+#: settings-gui/qml/pages/DictionaryPage.qml:150
 msgid "Add Word"
 msgstr "Thêm từ"
 
-#: settings-gui/qml/dialogs/DetectAppDialog.qml:199
-msgid "Added"
-msgstr "Đã thêm"
-
-#: settings-gui/qml/dialogs/AboutDialog.qml:74
-#: settings-gui/qml/pages/BackupPage.qml:84
-#: settings-gui/qml/pages/BackupPage.qml:98
+#: settings-gui/qml/pages/AboutPage.qml:115
+#: settings-gui/qml/pages/BackupPage.qml:83
+#: settings-gui/qml/pages/BackupPage.qml:97
 msgid "All Files (*)"
 msgstr "Tất cả tệp (*)"
 
@@ -115,11 +107,11 @@ msgstr "Cho phép gõ dấu tự do"
 msgid "Allow dd To Produce đ When Auto Restore Invalid Words Is On"
 msgstr "Cho phép gõ dd thành đ khi bật Tự động khôi phục với từ sai"
 
-#: settings-gui/qml/pages/TypingPage.qml:74
+#: settings-gui/qml/pages/TypingPage.qml:66
 msgid "Allow dd to produce đ when Auto Restore Invalid Words is enabled."
 msgstr "Cho phép gõ dd thành đ khi bật Tự động khôi phục với từ sai."
 
-#: settings-gui/qml/pages/MacrosPage.qml:146
+#: settings-gui/qml/pages/MacrosPage.qml:157
 msgid ""
 "Allow macros to work when the input mode is OFF.\n"
 "When disabled, macros are only available in active typing modes."
@@ -127,7 +119,7 @@ msgstr ""
 "Cho phép gõ tắt hoạt động khi chế độ gõ đang là \"Tắt\"\n"
 "Khi vô hiệu hoá, gõ tắt chỉ khả dụng trong các chế độ gõ được kích hoạt."
 
-#: settings-gui/cpp/settings_backend.cpp:1469 src/lotus-config.h:56
+#: settings-gui/cpp/settings_backend.cpp:1349 src/lotus-config.h:56
 msgid "Alt"
 msgstr "Alt"
 
@@ -143,35 +135,35 @@ msgstr "Quy tắc ứng dụng"
 msgid "App: "
 msgstr "App: "
 
-#: settings-gui/cpp/settings_backend.cpp:1678
-#: settings-gui/cpp/settings_backend.cpp:1860
-#: settings-gui/cpp/settings_backend.cpp:2862
+#: settings-gui/cpp/settings_backend.cpp:1567
+#: settings-gui/cpp/settings_backend.cpp:1735
+#: settings-gui/cpp/settings_backend.cpp:2539
 msgid "Application Rules"
 msgstr "Quy tắc ứng dụng"
 
-#: settings-gui/qml/Main.qml:26
+#: settings-gui/qml/Main.qml:30
 msgid "Applications"
 msgstr "Ứng dụng"
 
-#: settings-gui/qml/components/FloatingActionBar.qml:74
-#: settings-gui/qml/pages/KeymapPage.qml:150
-#: settings-gui/qml/pages/KeymapPage.qml:339
+#: settings-gui/qml/components/FloatingActionBar.qml:78
+#: settings-gui/qml/pages/KeymapPage.qml:160
+#: settings-gui/qml/pages/KeymapPage.qml:349
 msgid "Apply"
 msgstr "Áp dụng"
 
-#: settings-gui/qml/components/UnsavedCloseDialog.qml:129
+#: settings-gui/qml/components/UnsavedCloseDialog.qml:71
 msgid "Apply & Close"
 msgstr "Áp dụng & Đóng"
 
-#: settings-gui/qml/pages/KeymapPage.qml:309
+#: settings-gui/qml/pages/KeymapPage.qml:334
 msgid "Apply Preset?"
 msgstr "Áp dụng cài đặt sẵn?"
 
-#: settings-gui/cpp/settings_backend.cpp:1459 src/lotus-config.h:67
+#: settings-gui/cpp/settings_backend.cpp:1339 src/lotus-config.h:67
 msgid "Auto"
 msgstr "Tự động"
 
-#: settings-gui/qml/pages/TypingPage.qml:127
+#: settings-gui/qml/pages/TypingPage.qml:121
 msgid "Auto Capitalize"
 msgstr "Tự động viết hoa"
 
@@ -183,7 +175,7 @@ msgstr "Tự động viết hoa sau dấu câu"
 msgid "Auto Non-VN Restore"
 msgstr "Tự động khôi phục với từ không phải tiếng Việt"
 
-#: settings-gui/qml/pages/TypingPage.qml:62
+#: settings-gui/qml/pages/TypingPage.qml:53
 msgid "Auto Restore"
 msgstr "Tự động khôi phục"
 
@@ -195,7 +187,7 @@ msgstr "Tự động khôi phục phím với từ sai"
 msgid "Auto capitalize after sentence-ending punctuation (. ! ? Enter)"
 msgstr "Tự động ghi hoa sau dấu câu (. ! ? Enter) (thử nghiệm)"
 
-#: settings-gui/qml/pages/MacrosPage.qml:133
+#: settings-gui/qml/pages/MacrosPage.qml:143
 msgid ""
 "Automatically match expansion case to trigger key case.\n"
 "\n"
@@ -211,7 +203,7 @@ msgstr ""
 "- Kg -> Khô gà\n"
 "- KG -> KHÔ GÀ"
 
-#: settings-gui/qml/pages/TypingPage.qml:63
+#: settings-gui/qml/pages/TypingPage.qml:54
 msgid ""
 "Automatically revert the typed sequence if the resulting word is not in the "
 "dictionary.\n"
@@ -222,7 +214,7 @@ msgstr ""
 "Nó giúp tránh các trường hợp gõ các từ tiếng Anh mà bị chuyển đổi qua Tiếng "
 "việt hoặc gõ song ngữ."
 
-#: settings-gui/cpp/settings_backend.cpp:1666
+#: settings-gui/cpp/settings_backend.cpp:1555
 msgid "Backend"
 msgstr "Backend"
 
@@ -230,65 +222,64 @@ msgstr "Backend"
 msgid "Backspace Interval"
 msgstr "Khoảng cách giữa 2 dấu xoá"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:138
+#: settings-gui/qml/pages/ApplicationsPage.qml:151
 msgid "Backspace Interval (ms)"
 msgstr "Khoảng cách xoá (ms)"
 
-#: settings-gui/qml/Main.qml:30
+#: settings-gui/qml/Main.qml:34
 msgid "Backup"
 msgstr "Sao lưu"
 
-#: settings-gui/cpp/settings_backend.cpp:2734
+#: settings-gui/cpp/settings_backend.cpp:2400
 msgid "Backup exported"
 msgstr "Đã xuất sao lưu"
 
-#: settings-gui/cpp/settings_backend.cpp:2894
+#: settings-gui/cpp/settings_backend.cpp:2571
 msgid "Backup restored"
 msgstr "Đã khôi phục sao lưu"
 
-#: settings-gui/cpp/settings_backend.cpp:1680
+#: settings-gui/cpp/settings_backend.cpp:1569
 msgid "Behavior"
 msgstr "Hành vi"
 
-#: settings-gui/cpp/settings_backend.cpp:1690
+#: settings-gui/cpp/settings_backend.cpp:1579
 msgid "Bindings"
 msgstr "Ánh xạ phím"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:235
+#: settings-gui/qml/pages/AboutPage.qml:252
 msgid "Blank Issue / Question"
 msgstr "Issue trống / Đặt câu hỏi"
 
-#: settings-gui/qml/pages/GeneralPage.qml:150
+#: settings-gui/qml/pages/GeneralPage.qml:143
 msgid "Bracket Keys"
 msgstr "Phím ngoặc vuông"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:223
+#: settings-gui/qml/pages/AboutPage.qml:250
 msgid "Bug Report"
 msgstr "Báo cáo lỗi"
 
-#: settings-gui/cpp/settings_backend.cpp:1888
+#: settings-gui/cpp/settings_backend.cpp:1763
 msgid "Built-in dictionary (%1 words)"
 msgstr "Từ điển tích hợp (%1 từ)"
 
-#: settings-gui/qml/pages/BackupPage.qml:193
+#: settings-gui/qml/pages/BackupPage.qml:180
 msgid "Bundle"
 msgstr "Gói cấu hình"
 
-#: settings-gui/qml/components/FloatingActionBar.qml:67
-#: settings-gui/qml/components/HotkeyCaptureDialog.qml:177
-#: settings-gui/qml/components/SectionResetDialog.qml:155
-#: settings-gui/qml/components/UnsavedCloseDialog.qml:111
-#: settings-gui/qml/DCommon/Widgets/DConfirmDialogContent.qml:10
-#: settings-gui/qml/dialogs/AddKeymapDialog.qml:121
-#: settings-gui/qml/dialogs/AddWordDialog.qml:76
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:166
-#: settings-gui/qml/pages/ApplicationsPage.qml:656
-#: settings-gui/qml/pages/BackupPage.qml:379
-#: settings-gui/qml/pages/KeymapPage.qml:334
+#: settings-gui/qml/components/FloatingActionBar.qml:71
+#: settings-gui/qml/components/HotkeyCaptureDialog.qml:213
+#: settings-gui/qml/components/SectionResetDialog.qml:104
+#: settings-gui/qml/components/UnsavedCloseDialog.qml:54
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:105
+#: settings-gui/qml/dialogs/AddWordDialog.qml:59
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:151
+#: settings-gui/qml/pages/ApplicationsPage.qml:569
+#: settings-gui/qml/pages/BackupPage.qml:288
+#: settings-gui/qml/pages/KeymapPage.qml:344
 msgid "Cancel"
 msgstr "Huỷ"
 
-#: settings-gui/cpp/settings_backend.cpp:1315
+#: settings-gui/cpp/settings_backend.cpp:1195
 msgid ""
 "Cannot save dictionary because loading failed earlier. Please fix the file "
 "format first."
@@ -299,7 +290,7 @@ msgstr ""
 msgid "Capitalize Macro"
 msgstr "Gõ tắt chữ hoa"
 
-#: settings-gui/qml/pages/TypingPage.qml:128
+#: settings-gui/qml/pages/TypingPage.qml:122
 msgid ""
 "Capitalize the next word after sentence-ending punctuation (. ! ? Enter)."
 msgstr "Tự động viết hoa từ tiếp theo sau dấu kết thúc câu (. ! ? Enter)."
@@ -313,8 +304,6 @@ msgid "Clear"
 msgstr "Xoá"
 
 #: settings-gui/qml/DCommon/Widgets/DWindowHeader.qml:120
-#: settings-gui/qml/dialogs/AboutDialog.qml:421
-#: settings-gui/qml/dialogs/DetectAppDialog.qml:220
 msgid "Close"
 msgstr "Đóng"
 
@@ -322,15 +311,15 @@ msgstr "Đóng"
 msgid "Commit Interval"
 msgstr "Khoảng cách giữa 2 commit"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:132
+#: settings-gui/qml/pages/ApplicationsPage.qml:145
 msgid "Commit Interval (ms)"
 msgstr "Khoảng cách commit (ms)"
 
-#: settings-gui/qml/pages/BackupPage.qml:149
+#: settings-gui/qml/pages/BackupPage.qml:135
 msgid "Components"
 msgstr "Thành phần"
 
-#: settings-gui/cpp/settings_backend.cpp:1688
+#: settings-gui/cpp/settings_backend.cpp:1577
 msgid "Configuration"
 msgstr "Cấu hình"
 
@@ -338,51 +327,47 @@ msgstr "Cấu hình"
 msgid "Configure Fcitx5 Lotus Input Method"
 msgstr "Tuỳ chỉnh bộ gõ Fcitx5 Lotus"
 
-#: settings-gui/qml/DCommon/Widgets/DConfirmDialogContent.qml:9
-msgid "Confirm"
-msgstr "Xác nhận"
-
-#: settings-gui/qml/dialogs/AboutDialog.qml:158
+#: settings-gui/qml/pages/AboutPage.qml:213
 msgid "Contributors"
 msgstr "Những người đóng góp"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:133
+#: settings-gui/qml/pages/ApplicationsPage.qml:146
 msgid "Cooldown between committed replacements when an app rule uses 0"
 msgstr ""
 "Thời gian chờ giữa các lần thay thế đã commit khi quy tắc ứng dụng đặt 0"
 
-#: settings-gui/cpp/settings_backend.cpp:1468 src/lotus-config.h:56
+#: settings-gui/cpp/settings_backend.cpp:1348 src/lotus-config.h:56
 msgid "Ctrl"
 msgstr "Ctrl"
 
-#: settings-gui/cpp/settings_backend.cpp:1822
+#: settings-gui/cpp/settings_backend.cpp:1697
 msgid "Custom"
 msgstr "Tuỳ chỉnh"
 
-#: settings-gui/cpp/settings_backend.cpp:1684
-#: settings-gui/cpp/settings_backend.cpp:2846 src/lotus-config.h:197
+#: settings-gui/cpp/settings_backend.cpp:1573
+#: settings-gui/cpp/settings_backend.cpp:2523 src/lotus-config.h:197
 #: src/lotus-engine.cpp:208 src/lotus-engine.cpp:371
 msgid "Custom Dictionary"
 msgstr "Từ điển tuỳ chỉnh"
 
-#: settings-gui/cpp/settings_backend.cpp:2876 src/lotus-config.h:158
+#: settings-gui/cpp/settings_backend.cpp:2553 src/lotus-config.h:158
 #: src/lotus-config.h:198 src/lotus-config.h:222
 msgid "Custom Keymap"
 msgstr "Keymap tuỳ chỉnh"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:79
+#: settings-gui/qml/pages/ApplicationsPage.qml:106
 msgid "Custom Timing"
 msgstr "Độ trễ tuỳ chỉnh"
 
-#: settings-gui/cpp/settings_backend.cpp:1893
+#: settings-gui/cpp/settings_backend.cpp:1768
 msgid "Custom Words"
 msgstr "Từ tuỳ chỉnh"
 
-#: settings-gui/qml/pages/BackupPage.qml:48
+#: settings-gui/qml/pages/BackupPage.qml:47
 msgid "Custom excluded dictionary words"
 msgstr "Các từ loại trừ trong từ điển tuỳ chỉnh"
 
-#: settings-gui/qml/pages/BackupPage.qml:43
+#: settings-gui/qml/pages/BackupPage.qml:42
 msgid "Custom key-to-action mappings"
 msgstr "Các ánh xạ phím tuỳ chỉnh"
 
@@ -390,11 +375,11 @@ msgstr "Các ánh xạ phím tuỳ chỉnh"
 msgid "Cycle Mode Hotkey"
 msgstr "Phím tắt chuyển nhanh chế độ"
 
-#: settings-gui/cpp/settings_backend.cpp:1461 src/lotus-config.h:67
+#: settings-gui/cpp/settings_backend.cpp:1341 src/lotus-config.h:67
 msgid "Dark"
 msgstr "Tối"
 
-#: settings-gui/qml/pages/MacrosPage.qml:204
+#: settings-gui/qml/pages/MacrosPage.qml:218
 msgid "Date Format"
 msgstr "Định dạng ngày"
 
@@ -402,20 +387,19 @@ msgstr "Định dạng ngày"
 msgid "Date Format ($DATE in macro)"
 msgstr "Định dạng ngày ($DATE trong macro)"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:74
+#: settings-gui/qml/pages/AboutPage.qml:115
 msgid "Debug Log (*.log *.txt)"
 msgstr "Nhật ký gỡ lỗi (*.log *.txt)"
 
-#: settings-gui/cpp/settings_backend.cpp:2924
+#: settings-gui/cpp/settings_backend.cpp:2603
 msgid "Debug info exported"
 msgstr "Đã xuất thông tin gỡ lỗi"
 
-#: settings-gui/qml/DCommon/Widgets/DNumberStepper.qml:55
-#: settings-gui/qml/pages/ApplicationsPage.qml:162
+#: settings-gui/qml/components/TimingStepper.qml:76
 msgid "Decrease"
 msgstr "Giảm"
 
-#: settings-gui/cpp/settings_backend.cpp:1822
+#: settings-gui/cpp/settings_backend.cpp:1697
 msgid "Default"
 msgstr "Mặc định"
 
@@ -431,7 +415,7 @@ msgstr "Khoảng cách giữa 2 commit mặc định"
 msgid "Default Post Delay"
 msgstr "Độ trễ sau commit mặc định"
 
-#: settings-gui/cpp/settings_backend.cpp:1676
+#: settings-gui/cpp/settings_backend.cpp:1565
 msgid "Default Timing"
 msgstr "Độ trễ mặc định"
 
@@ -439,58 +423,50 @@ msgstr "Độ trễ mặc định"
 msgid "Default Typing"
 msgstr "Chế độ gõ mặc định"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:145
+#: settings-gui/qml/pages/ApplicationsPage.qml:158
 msgid "Delay before replaying the final trigger key when an app rule uses 0"
 msgstr "Độ trễ trước khi gõ lại phím kích hoạt cuối khi quy tắc ứng dụng đặt 0"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:139
+#: settings-gui/qml/pages/ApplicationsPage.qml:152
 msgid "Delay between simulated backspaces when an app rule uses 0"
 msgstr "Độ trễ giữa các phím xoá giả lập khi quy tắc ứng dụng đặt 0"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:211
-msgid "Detect App"
-msgstr "Phát hiện ứng dụng"
-
-#: settings-gui/qml/pages/ApplicationsPage.qml:214
-msgid "Detect Running App"
-msgstr "Phát hiện ứng dụng đang chạy"
-
-#: settings-gui/qml/dialogs/AboutDialog.qml:306
+#: settings-gui/qml/pages/AboutPage.qml:276
 msgid "Diagnostics"
 msgstr "Chẩn đoán"
 
-#: settings-gui/qml/Main.qml:28
+#: settings-gui/qml/Main.qml:32
 msgid "Dictionary"
 msgstr "Từ điển"
 
-#: settings-gui/qml/pages/DictionaryPage.qml:160
+#: settings-gui/qml/pages/DictionaryPage.qml:170
 msgid "Dictionary Empty"
 msgstr "Từ điển trống"
 
-#: settings-gui/cpp/settings_backend.cpp:1317
+#: settings-gui/cpp/settings_backend.cpp:1197
 msgid "Dictionary words should not contain spaces."
 msgstr "Từ trong từ điển không được chứa dấu cách."
 
-#: settings-gui/qml/components/HotkeyCaptureDialog.qml:194
+#: settings-gui/qml/components/HotkeyCaptureDialog.qml:199
 msgid "Disable"
 msgstr "Tắt"
 
-#: settings-gui/cpp/settings_backend.cpp:1452
-#: settings-gui/cpp/settings_backend.cpp:1466
-#: settings-gui/cpp/settings_backend.cpp:1764 src/lotus-config.h:37
+#: settings-gui/cpp/settings_backend.cpp:1332
+#: settings-gui/cpp/settings_backend.cpp:1346
+#: settings-gui/cpp/settings_backend.cpp:1658 src/lotus-config.h:37
 #: src/lotus-config.h:44 src/lotus-config.h:56
 msgid "Disabled"
 msgstr "Tắt"
 
-#: settings-gui/qml/components/UnsavedCloseDialog.qml:119
+#: settings-gui/qml/components/UnsavedCloseDialog.qml:62
 msgid "Discard"
 msgstr "Bỏ qua"
 
-#: settings-gui/qml/components/ToastBanner.qml:105
+#: settings-gui/qml/components/ToastBanner.qml:109
 msgid "Dismiss"
 msgstr "Đóng"
 
-#: settings-gui/qml/pages/TypingPage.qml:149
+#: settings-gui/qml/pages/TypingPage.qml:145
 msgid "Double Hyphen Dash"
 msgstr "Hai dấu gạch nối thành gạch dài"
 
@@ -498,7 +474,7 @@ msgstr "Hai dấu gạch nối thành gạch dài"
 msgid "Double Hyphen to Em-Dash (--)"
 msgstr "Dấu gạch ngang 2 lần để thành dấu gạch dài"
 
-#: settings-gui/qml/pages/TypingPage.qml:138
+#: settings-gui/qml/pages/TypingPage.qml:133
 msgid "Double Space Period"
 msgstr "Hai dấu cách thành dấu chấm"
 
@@ -511,36 +487,36 @@ msgstr "Phím cách 2 lần để chấm câu (thử nghiệm)"
 msgid "Drag to reorder"
 msgstr "Kéo để sắp xếp lại"
 
-#: settings-gui/qml/pages/ShortcutsPage.qml:221
+#: settings-gui/qml/pages/ShortcutsPage.qml:252
 msgid "Duplicate key '{}'"
 msgstr "Trùng phím '{}'"
 
-#: settings-gui/cpp/settings_backend.cpp:1302
+#: settings-gui/cpp/settings_backend.cpp:1182
 #, c++-format
 msgid "Duplicate shortcut '{}' used for multiple enabled modes."
 msgstr "Phím tắt '{}' được sử dụng bởi một chế độ gõ khác đang được bật."
 
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:24
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:17
 msgid "Edit Macro"
 msgstr "Sửa gõ tắt"
 
-#: settings-gui/cpp/settings_backend.cpp:1421 src/lotus-config.h:31
+#: settings-gui/cpp/settings_backend.cpp:1301 src/lotus-config.h:31
 msgid "Emoji Picker"
 msgstr "Chọn Emoji"
 
-#: settings-gui/cpp/settings_backend.cpp:1900
+#: settings-gui/cpp/settings_backend.cpp:1775
 msgid "Empty (0 bindings)"
 msgstr "Trống (0 ánh xạ phím)"
 
-#: settings-gui/cpp/settings_backend.cpp:1873
+#: settings-gui/cpp/settings_backend.cpp:1748
 msgid "Empty (0 macros)"
 msgstr "Trống (0 gõ tắt)"
 
-#: settings-gui/cpp/settings_backend.cpp:1891
+#: settings-gui/cpp/settings_backend.cpp:1766
 msgid "Empty (0 words)"
 msgstr "Trống (0 từ)"
 
-#: settings-gui/qml/pages/DictionaryPage.qml:87
+#: settings-gui/qml/pages/DictionaryPage.qml:93
 msgid "Enable Dictionary"
 msgstr "Bật từ điển"
 
@@ -548,7 +524,7 @@ msgstr "Bật từ điển"
 msgid "Enable Macro"
 msgstr "Bật gõ tắt"
 
-#: settings-gui/qml/pages/MacrosPage.qml:119
+#: settings-gui/qml/pages/MacrosPage.qml:128
 msgid "Enable Macros"
 msgstr "Bật gõ tắt"
 
@@ -556,105 +532,106 @@ msgstr "Bật gõ tắt"
 msgid "Enable Spell Check Using Dictionary"
 msgstr "Bật kiểm tra chính tả bằng từ điển"
 
-#: settings-gui/qml/dialogs/AddKeymapDialog.qml:23
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:16
 msgid "Enter a trigger key and select its action:"
 msgstr "Nhập phím kích hoạt và chọn hành động:"
 
-#: settings-gui/qml/dialogs/AddWordDialog.qml:21
+#: settings-gui/qml/dialogs/AddWordDialog.qml:14
 msgid "Enter a word without spaces:"
 msgstr "Nhập một từ không chứa dấu cách:"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:610
+#: settings-gui/qml/pages/ApplicationsPage.qml:533
 msgid "Enter binary name or window class (e.g. discord, code):"
 msgstr "Nhập tên tệp thực thi hoặc window class (ví dụ: discord, code):"
 
-#: settings-gui/qml/components/HotkeyCaptureDialog.qml:265
+#: settings-gui/qml/components/HotkeyCaptureDialog.qml:190
 msgid "Escape to cancel · Backspace to disable"
 msgstr "Nhấn Escape để huỷ · Backspace để tắt"
 
-#: settings-gui/cpp/settings_backend.cpp:1454 src/lotus-config.h:37
+#: settings-gui/cpp/settings_backend.cpp:1334 src/lotus-config.h:37
 #: src/lotus-config.h:44
 msgid "Everywhere"
 msgstr "Mọi nơi"
 
-#: settings-gui/qml/pages/MacrosPage.qml:120
+#: settings-gui/qml/pages/MacrosPage.qml:129
 msgid "Expand shorthand abbreviations while typing"
 msgstr "Mở rộng từ viết tắt khi đang gõ"
 
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:149
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:131
 msgid "Expanded text..."
 msgstr "Văn bản đầy đủ..."
 
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:114
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:96
 msgid "Expansion"
 msgstr "Nội dung mở rộng"
 
-#: settings-gui/qml/pages/BackupPage.qml:81
+#: settings-gui/qml/pages/BackupPage.qml:80
 msgid "Export Backup"
 msgstr "Xuất sao lưu"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:71
-#: settings-gui/qml/dialogs/AboutDialog.qml:332
+#: settings-gui/qml/pages/AboutPage.qml:112
+#: settings-gui/qml/pages/AboutPage.qml:290
 msgid "Export Debug Information"
 msgstr "Xuất thông tin gỡ lỗi"
 
-#: settings-gui/qml/pages/BackupPage.qml:90
+#: settings-gui/qml/pages/BackupPage.qml:89
 msgid "Export failed"
 msgstr "Xuất sao lưu thất bại"
 
-#: settings-gui/cpp/settings_backend.cpp:2710
+#: settings-gui/cpp/settings_backend.cpp:2376
 msgid "Export failed: cannot read custom dictionary."
 msgstr "Xuất thất bại: không thể đọc từ điển tuỳ chỉnh."
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:78
+#: settings-gui/qml/pages/AboutPage.qml:119
 msgid "Exporting debug information..."
 msgstr "Đang xuất thông tin gỡ lỗi..."
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:347
-#: settings-gui/qml/pages/BackupPage.qml:234
+#: settings-gui/qml/pages/AboutPage.qml:294
+#: settings-gui/qml/pages/BackupPage.qml:195
 msgid "Export…"
 msgstr "Xuất…"
 
-#: settings-gui/cpp/settings_backend.cpp:2730
+#: settings-gui/cpp/settings_backend.cpp:2396
 msgid "Failed to export backup."
 msgstr "Xuất sao lưu thất bại."
 
-#: settings-gui/cpp/settings_backend.cpp:2901
-#: settings-gui/cpp/settings_backend.cpp:2924
+#: settings-gui/cpp/settings_backend.cpp:2578
+#: settings-gui/cpp/settings_backend.cpp:2603
 msgid "Failed to export debug info"
 msgstr "Xuất thông tin gỡ lỗi thất bại"
 
-#: settings-gui/cpp/settings_backend.cpp:2754
-#: settings-gui/cpp/settings_backend.cpp:2810
+#: settings-gui/cpp/settings_backend.cpp:2420
+#: settings-gui/cpp/settings_backend.cpp:2476
 msgid "Failed to read backup: %1"
 msgstr "Đọc tệp sao lưu thất bại: %1"
 
-#: settings-gui/cpp/settings_backend.cpp:1969
+#: settings-gui/cpp/settings_backend.cpp:1843
 msgid "Failed to reset custom dictionary file."
 msgstr "Đặt lại tệp từ điển tuỳ chỉnh thất bại."
 
-#: settings-gui/cpp/settings_backend.cpp:2888
+#: settings-gui/cpp/settings_backend.cpp:2565
 msgid "Failed to restore: %1"
 msgstr "Khôi phục thất bại: %1"
 
-#: settings-gui/cpp/settings_backend.cpp:1491
-#: settings-gui/cpp/settings_backend.cpp:1496
+#: settings-gui/cpp/settings_backend.cpp:1371
+#: settings-gui/cpp/settings_backend.cpp:1376
 msgid "Failed to save dictionary."
 msgstr "Lưu từ điển thất bại."
 
-#: settings-gui/cpp/settings_backend.cpp:1482
-#: settings-gui/cpp/settings_backend.cpp:1514
-#: settings-gui/cpp/settings_backend.cpp:1521
-#: settings-gui/cpp/settings_backend.cpp:1953
-#: settings-gui/cpp/settings_backend.cpp:1961
-#: settings-gui/cpp/settings_backend.cpp:1986
-#: settings-gui/cpp/settings_backend.cpp:2001
+#: settings-gui/cpp/settings_backend.cpp:1362
+#: settings-gui/cpp/settings_backend.cpp:1394
+#: settings-gui/cpp/settings_backend.cpp:1401
+#: settings-gui/cpp/settings_backend.cpp:1828
+#: settings-gui/cpp/settings_backend.cpp:1835
+#: settings-gui/cpp/settings_backend.cpp:1856
+#: settings-gui/cpp/settings_backend.cpp:1871
+#: settings-gui/cpp/settings_backend.cpp:2495
 msgid "Failed to save settings. Please check if Fcitx5 is running."
 msgstr "Lưu cài đặt thất bại. Hãy kiểm tra xem Fcitx5 có đang chạy hay không."
 
-#: settings-gui/cpp/settings_backend.cpp:1540
-#: settings-gui/cpp/settings_backend.cpp:1556
-#: settings-gui/cpp/settings_backend.cpp:1572
+#: settings-gui/cpp/settings_backend.cpp:1423
+#: settings-gui/cpp/settings_backend.cpp:1442
+#: settings-gui/cpp/settings_backend.cpp:1461
 msgid "Failed to save some settings. Please check if Fcitx5 is running."
 msgstr ""
 "Lưu một số cài đặt thất bại. Hãy kiểm tra xem Fcitx5 có đang chạy hay không."
@@ -663,48 +640,48 @@ msgstr ""
 msgid "Fcitx5 Lotus Settings"
 msgstr "Cài đặt Fcitx5 Lotus"
 
-#: settings-gui/cpp/settings_backend.cpp:2670
-#: settings-gui/cpp/settings_backend.cpp:2686
+#: settings-gui/cpp/settings_backend.cpp:2336
+#: settings-gui/cpp/settings_backend.cpp:2352
 msgid "Fcitx5 is not running. Cannot export settings."
 msgstr "Fcitx5 đang không chạy. Không thể xuất cài đặt."
 
-#: settings-gui/qml/components/OfflineBanner.qml:54
+#: settings-gui/qml/components/OfflineBanner.qml:58
 msgid "Fcitx5 is not running. Settings cannot be loaded or saved."
 msgstr "Fcitx5 đang không chạy. Không thể tải hoặc lưu cài đặt."
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:229
+#: settings-gui/qml/pages/AboutPage.qml:251
 msgid "Feature Request"
 msgstr "Đề xuất tính năng"
 
-#: settings-gui/qml/pages/MacrosPage.qml:205
+#: settings-gui/qml/pages/MacrosPage.qml:219
 msgid "Format used for the $DATE dynamic placeholder"
 msgstr "Định dạng cho biến động $DATE"
 
-#: settings-gui/qml/pages/MacrosPage.qml:182
+#: settings-gui/qml/pages/MacrosPage.qml:195
 msgid "Format used for the $TIME dynamic placeholder"
 msgstr "Định dạng cho biến động $TIME"
 
-#: settings-gui/qml/pages/TypingPage.qml:116
+#: settings-gui/qml/pages/TypingPage.qml:109
 msgid "Free Tone Marking"
 msgstr "Đặt dấu tự do"
 
-#: settings-gui/qml/pages/TypingPage.qml:73
+#: settings-gui/qml/pages/TypingPage.qml:65
 msgid "Free dd to đ"
 msgstr "Gõ dd thành đ tự do"
 
-#: settings-gui/qml/Main.qml:23
+#: settings-gui/qml/Main.qml:27
 msgid "General"
 msgstr "Tổng quan"
 
-#: settings-gui/cpp/settings_backend.cpp:2855
+#: settings-gui/cpp/settings_backend.cpp:2532
 msgid "General & Typing"
 msgstr "Tổng quan & Nhập liệu"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:157
+#: settings-gui/qml/pages/AboutPage.qml:212
 msgid "GitHub Repository"
 msgstr "Kho mã nguồn GitHub"
 
-#: settings-gui/cpp/settings_backend.cpp:1831
+#: settings-gui/cpp/settings_backend.cpp:1706
 msgid "Hidden"
 msgstr "Ẩn"
 
@@ -716,28 +693,27 @@ msgstr "Ẩn mật khẩu"
 msgid "Icon Color"
 msgstr "Màu biểu tượng"
 
-#: settings-gui/qml/pages/GeneralPage.qml:197
+#: settings-gui/qml/pages/GeneralPage.qml:191
 msgid "Icon Theme"
 msgstr "Chủ đề biểu tượng"
 
-#: settings-gui/qml/pages/BackupPage.qml:96
+#: settings-gui/qml/pages/BackupPage.qml:95
 msgid "Import Backup"
 msgstr "Nhập sao lưu"
 
-#: settings-gui/qml/pages/BackupPage.qml:372
+#: settings-gui/qml/pages/BackupPage.qml:282
 msgid "Import failed"
 msgstr "Nhập sao lưu thất bại"
 
-#: settings-gui/qml/pages/BackupPage.qml:283
+#: settings-gui/qml/pages/BackupPage.qml:217
 msgid "Import…"
 msgstr "Nhập…"
 
-#: settings-gui/qml/DCommon/Widgets/DNumberStepper.qml:34
-#: settings-gui/qml/pages/ApplicationsPage.qml:161
+#: settings-gui/qml/components/TimingStepper.qml:169
 msgid "Increase"
 msgstr "Tăng"
 
-#: settings-gui/cpp/settings_backend.cpp:1660
+#: settings-gui/cpp/settings_backend.cpp:1549
 msgid "Input"
 msgstr "Nhập liệu"
 
@@ -745,32 +721,32 @@ msgstr "Nhập liệu"
 msgid "Input Method"
 msgstr "Kiểu gõ"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:396
-#: settings-gui/qml/pages/GeneralPage.qml:84
+#: settings-gui/qml/pages/ApplicationsPage.qml:412
+#: settings-gui/qml/pages/GeneralPage.qml:75
 msgid "Input Mode"
 msgstr "Chế độ gõ"
 
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:137
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:119
 msgid "Insert $DATE dynamic placeholder"
 msgstr "Chèn biến động $DATE"
 
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:125
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:107
 msgid "Insert $TIME dynamic placeholder"
 msgstr "Chèn biến động $TIME"
 
-#: settings-gui/qml/pages/TypingPage.qml:139
+#: settings-gui/qml/pages/TypingPage.qml:134
 msgid "Insert a period followed by a space when pressing Space twice."
 msgstr "Chèn dấu chấm theo sau bởi dấu cách khi nhấn phím Space hai lần."
 
-#: settings-gui/cpp/settings_backend.cpp:2748
-#: settings-gui/cpp/settings_backend.cpp:2761
-#: settings-gui/cpp/settings_backend.cpp:2804
-#: settings-gui/cpp/settings_backend.cpp:2817
+#: settings-gui/cpp/settings_backend.cpp:2414
+#: settings-gui/cpp/settings_backend.cpp:2427
+#: settings-gui/cpp/settings_backend.cpp:2470
+#: settings-gui/cpp/settings_backend.cpp:2483
 msgid "Invalid backup file"
 msgstr "Tệp sao lưu không hợp lệ"
 
-#: settings-gui/qml/pages/BackupPage.qml:84
-#: settings-gui/qml/pages/BackupPage.qml:98
+#: settings-gui/qml/pages/BackupPage.qml:83
+#: settings-gui/qml/pages/BackupPage.qml:97
 msgid "JSON Backup (*.json)"
 msgstr "Sao lưu JSON (*.json)"
 
@@ -778,27 +754,27 @@ msgstr "Sao lưu JSON (*.json)"
 msgid "Key"
 msgstr "Phím"
 
-#: settings-gui/qml/dialogs/AddKeymapDialog.qml:87
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:71
 msgid "Key (e.g. s)"
 msgstr "Phím (ví dụ: s)"
 
-#: settings-gui/cpp/settings_backend.cpp:1900
+#: settings-gui/cpp/settings_backend.cpp:1775
 msgid "Key Bindings"
 msgstr "Ánh xạ phím"
 
-#: settings-gui/qml/Main.qml:29
+#: settings-gui/qml/Main.qml:33
 msgid "Keymap"
 msgstr "Keymap"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:372
+#: settings-gui/qml/pages/AboutPage.qml:322
 msgid "Licenses"
 msgstr "Giấy phép"
 
-#: settings-gui/cpp/settings_backend.cpp:1460 src/lotus-config.h:67
+#: settings-gui/cpp/settings_backend.cpp:1340 src/lotus-config.h:67
 msgid "Light"
 msgstr "Sáng"
 
-#: settings-gui/qml/pages/KeymapPage.qml:132
+#: settings-gui/qml/pages/KeymapPage.qml:142
 msgid "Load bindings from a built-in layout"
 msgstr "Tải ánh xạ phím từ bố cục có sẵn"
 
@@ -810,7 +786,7 @@ msgstr "Lotus"
 msgid "Lotus - Off"
 msgstr "Lotus - Tắt"
 
-#: settings-gui/qml/Main.qml:35 settings-gui/qml/Main.qml:95
+#: settings-gui/qml/Main.qml:40 settings-gui/qml/Main.qml:116
 msgid "Lotus Settings"
 msgstr "Cài đặt Lotus"
 
@@ -832,32 +808,32 @@ msgstr "Lotus: máy chủ uinput đang không chạy"
 msgid "Macro"
 msgstr "Gõ tắt"
 
-#: settings-gui/cpp/settings_backend.cpp:1873
+#: settings-gui/cpp/settings_backend.cpp:1748
 msgid "Macro Entries"
 msgstr "Mục gõ tắt"
 
-#: settings-gui/qml/pages/BackupPage.qml:38
+#: settings-gui/qml/pages/BackupPage.qml:37
 msgid "Macro behavior and shorthand expansions"
 msgstr "Hành vi gõ tắt và danh sách từ viết tắt"
 
-#: settings-gui/cpp/settings_backend.cpp:1311
+#: settings-gui/cpp/settings_backend.cpp:1191
 msgid "Macro keys cannot contain spaces or special characters."
 msgstr "Cảnh báo: từ gõ tắt không được chứa phím cách hoặc ký tự đặc biệt."
 
-#: settings-gui/cpp/settings_backend.cpp:1682
-#: settings-gui/cpp/settings_backend.cpp:2869
+#: settings-gui/cpp/settings_backend.cpp:1571
+#: settings-gui/cpp/settings_backend.cpp:2546
 msgid "Macros"
 msgstr "Gõ tắt"
 
-#: settings-gui/cpp/settings_backend.cpp:1672
+#: settings-gui/cpp/settings_backend.cpp:1561
 msgid "Main Shortcuts"
 msgstr "Phím tắt chính"
 
-#: settings-gui/qml/pages/BackupPage.qml:28
+#: settings-gui/qml/pages/BackupPage.qml:27
 msgid "Main input method, typing rules, shortcuts, and appearance"
 msgstr "Kiểu gõ chính, quy tắc gõ, phím tắt và giao diện"
 
-#: settings-gui/qml/pages/MacrosPage.qml:132
+#: settings-gui/qml/pages/MacrosPage.qml:142
 msgid "Match Case"
 msgstr "Khớp chữ hoa/thường"
 
@@ -873,7 +849,7 @@ msgstr "Thu nhỏ"
 msgid "Mode"
 msgstr "Chế độ"
 
-#: settings-gui/qml/pages/ShortcutsPage.qml:109
+#: settings-gui/qml/pages/ShortcutsPage.qml:129
 msgid "Mode Menu"
 msgstr "Menu chế độ"
 
@@ -881,7 +857,7 @@ msgstr "Menu chế độ"
 msgid "Mode Menu Hotkey"
 msgstr "Phím tắt menu chế độ gõ"
 
-#: settings-gui/cpp/settings_backend.cpp:1674
+#: settings-gui/cpp/settings_backend.cpp:1563
 msgid "Mode Menu Switching"
 msgstr "Chuyển đổi qua Menu chế độ"
 
@@ -889,11 +865,11 @@ msgstr "Chuyển đổi qua Menu chế độ"
 msgid "Mode Order"
 msgstr "Thứ tự chế độ"
 
-#: settings-gui/qml/pages/TypingPage.qml:105
+#: settings-gui/qml/pages/TypingPage.qml:97
 msgid "Modern Tone Style"
 msgstr "Kiểu bỏ dấu hiện đại"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:143
+#: settings-gui/qml/pages/AboutPage.qml:186
 msgid "Modern Vietnamese Input Method for Linux"
 msgstr "Bộ gõ tiếng Việt hiện đại cho Linux"
 
@@ -901,83 +877,74 @@ msgstr "Bộ gõ tiếng Việt hiện đại cho Linux"
 msgid "Modifier to Skip Macro for Next Word"
 msgstr "Phím để bỏ qua gõ tắt cho từ hiện tại"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:235
+#: settings-gui/qml/pages/ApplicationsPage.qml:239
 msgid "No Application Rules"
 msgstr "Chưa có quy tắc ứng dụng"
 
-#: settings-gui/qml/dialogs/DetectAppDialog.qml:106
-msgid "No Apps Found"
-msgstr "Không tìm thấy ứng dụng nào"
-
-#: settings-gui/qml/pages/KeymapPage.qml:216
+#: settings-gui/qml/pages/KeymapPage.qml:231
 msgid "No Bindings"
 msgstr "Chưa có ánh xạ phím"
 
-#: settings-gui/qml/pages/MacrosPage.qml:276
+#: settings-gui/qml/pages/MacrosPage.qml:295
 msgid "No Macros Defined"
 msgstr "Chưa có từ gõ tắt"
 
-#: settings-gui/qml/dialogs/DetectAppDialog.qml:105
-#: settings-gui/qml/pages/ApplicationsPage.qml:234
+#: settings-gui/qml/pages/ApplicationsPage.qml:238
 msgid "No Matching Apps"
 msgstr "Không có ứng dụng khớp"
 
-#: settings-gui/qml/pages/KeymapPage.qml:215
+#: settings-gui/qml/pages/KeymapPage.qml:230
 msgid "No Matching Bindings"
 msgstr "Không có ánh xạ phím khớp"
 
-#: settings-gui/qml/pages/MacrosPage.qml:275
+#: settings-gui/qml/pages/MacrosPage.qml:294
 msgid "No Matching Macros"
 msgstr "Không có từ gõ tắt khớp"
 
-#: settings-gui/qml/pages/DictionaryPage.qml:159
+#: settings-gui/qml/pages/DictionaryPage.qml:169
 msgid "No Matching Words"
 msgstr "Không có từ khớp"
 
-#: settings-gui/cpp/settings_backend.cpp:2676
+#: settings-gui/cpp/settings_backend.cpp:2342
 msgid "No custom dictionary file to export."
 msgstr "Không có tệp từ điển tuỳ chỉnh để xuất."
 
-#: settings-gui/cpp/settings_backend.cpp:2796
+#: settings-gui/cpp/settings_backend.cpp:2462
 msgid "No matching components found in backup"
 msgstr "Không tìm thấy thành phần phù hợp trong tệp sao lưu"
 
-#: settings-gui/cpp/settings_backend.cpp:1453 src/lotus-config.h:37
+#: settings-gui/cpp/settings_backend.cpp:1333 src/lotus-config.h:37
 #: src/lotus-config.h:44
 msgid "Non-Start"
 msgstr "Không phải đầu từ"
 
-#: settings-gui/cpp/settings_backend.cpp:1349
-#: settings-gui/cpp/settings_backend.cpp:1356
-#: settings-gui/cpp/settings_backend.cpp:1788
+#: settings-gui/cpp/settings_backend.cpp:1229
+#: settings-gui/cpp/settings_backend.cpp:1236
+#: settings-gui/cpp/settings_backend.cpp:1682
 msgid "None"
 msgstr "Rỗng"
 
-#: settings-gui/cpp/settings_backend.cpp:1860
+#: settings-gui/cpp/settings_backend.cpp:1735
 msgid "None (0 rules)"
 msgstr "Không có (0 quy tắc)"
 
-#: settings-gui/cpp/settings_backend.cpp:1416 src/lotus-config.h:31
+#: settings-gui/cpp/settings_backend.cpp:1296 src/lotus-config.h:31
 msgid "OFF"
 msgstr "Tắt"
 
-#: settings-gui/cpp/settings_backend.cpp:1772
+#: settings-gui/cpp/settings_backend.cpp:1666
 msgid "Off"
 msgstr "Tắt"
 
-#: settings-gui/qml/pages/MacrosPage.qml:145
+#: settings-gui/qml/pages/MacrosPage.qml:156
 msgid "Off-Mode Macros"
 msgstr "Gõ tắt ở chế độ Tắt"
 
-#: settings-gui/cpp/settings_backend.cpp:1772
+#: settings-gui/cpp/settings_backend.cpp:1666
 msgid "On"
 msgstr "Bật"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:236
-msgid "Open a blank issue or ask a question"
-msgstr "Mở issue trống hoặc đặt câu hỏi"
-
-#: settings-gui/cpp/settings_backend.cpp:1822
+#: settings-gui/cpp/settings_backend.cpp:1697
 msgid "Order"
 msgstr "Thứ tự"
 
@@ -985,7 +952,7 @@ msgstr "Thứ tự"
 msgid "Output Charset"
 msgstr "Bảng mã"
 
-#: settings-gui/qml/pages/BackupPage.qml:351
+#: settings-gui/qml/pages/BackupPage.qml:275
 msgid "Overwrite selected components: %1?"
 msgstr "Ghi đè các thành phần đã chọn: %1?"
 
@@ -993,11 +960,11 @@ msgstr "Ghi đè các thành phần đã chọn: %1?"
 msgid "Page "
 msgstr "Trang "
 
-#: settings-gui/qml/pages/BackupPage.qml:33
+#: settings-gui/qml/pages/BackupPage.qml:32
 msgid "Per-application input modes and timing overrides"
 msgstr "Chế độ gõ và độ trễ riêng cho từng ứng dụng"
 
-#: settings-gui/qml/pages/TypingPage.qml:106
+#: settings-gui/qml/pages/TypingPage.qml:98
 msgid "Place tone marks on newer vowel positions (oà, uý instead of òa, úy)."
 msgstr "Đặt dấu thanh theo kiểu mới (oà, uý thay vì òa, úy)."
 
@@ -1005,15 +972,15 @@ msgstr "Đặt dấu thanh theo kiểu mới (oà, uý thay vì òa, úy)."
 msgid "Post Delay"
 msgstr "Độ trễ sau commit"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:144
+#: settings-gui/qml/pages/ApplicationsPage.qml:157
 msgid "Post Delay (ms)"
 msgstr "Độ trễ sau commit (ms)"
 
-#: settings-gui/cpp/settings_backend.cpp:1420 src/lotus-config.h:31
+#: settings-gui/cpp/settings_backend.cpp:1300 src/lotus-config.h:31
 msgid "Preedit"
 msgstr "Gạch chân"
 
-#: settings-gui/qml/pages/GeneralPage.qml:234
+#: settings-gui/qml/pages/GeneralPage.qml:228
 msgid ""
 "Prefer injecting keys through the system instead of the uinput service: the "
 "wlroots virtual keyboard on Wayland and Xtest on X11.\n"
@@ -1029,15 +996,15 @@ msgstr ""
 msgid "Prefer system keyboard injection when available"
 msgstr "Ưu tiên bơm phím qua hệ thống khi khả dụng"
 
-#: settings-gui/qml/pages/KeymapPage.qml:131
+#: settings-gui/qml/pages/KeymapPage.qml:141
 msgid "Preset"
 msgstr "Cài đặt sẵn"
 
-#: settings-gui/qml/components/HotkeyCaptureDialog.qml:220
+#: settings-gui/qml/components/HotkeyCaptureDialog.qml:144
 msgid "Press a single key…"
 msgstr "Nhấn một phím đơn…"
 
-#: settings-gui/qml/pages/MacrosPage.qml:159
+#: settings-gui/qml/pages/MacrosPage.qml:171
 msgid ""
 "Press and release the selected modifier key before typing to skip macro "
 "expansion for the next word.\n"
@@ -1048,91 +1015,79 @@ msgstr ""
 "Nếu có phím được nhấn cùng phím này trước khi nhả phím, việc bỏ qua sẽ bị "
 "huỷ."
 
-#: settings-gui/qml/components/HotkeyCaptureDialog.qml:220
+#: settings-gui/qml/components/HotkeyCaptureDialog.qml:144
 msgid "Press shortcut…"
 msgstr "Nhấn tổ hợp phím…"
 
-#: settings-gui/cpp/settings_backend.cpp:1662
+#: settings-gui/cpp/settings_backend.cpp:1551
 msgid "Quick Keys"
 msgstr "Phím nhanh"
 
-#: settings-gui/qml/dialogs/DetectAppDialog.qml:81
-msgid "Refresh"
-msgstr "Làm mới"
-
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:156
-#: settings-gui/qml/pages/DictionaryPage.qml:207
-#: settings-gui/qml/pages/KeymapPage.qml:278
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:138
+#: settings-gui/qml/pages/DictionaryPage.qml:216
+#: settings-gui/qml/pages/KeymapPage.qml:302
 msgid "Remove"
 msgstr "Xoá"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:567
+#: settings-gui/qml/pages/ApplicationsPage.qml:494
 msgid "Remove Rule"
 msgstr "Xoá quy tắc"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:571
+#: settings-gui/qml/pages/ApplicationsPage.qml:498
 msgid "Remove application rule"
 msgstr "Xoá quy tắc ứng dụng"
 
-#: settings-gui/qml/pages/KeymapPage.qml:153
+#: settings-gui/qml/pages/KeymapPage.qml:163
 msgid "Replace bindings with the selected preset"
 msgstr "Thay thế các ánh xạ phím bằng cài đặt sẵn đã chọn"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:224
-msgid "Report a bug (bug_report.yml)"
-msgstr "Báo cáo lỗi (bug_report.yml)"
-
-#: settings-gui/qml/dialogs/AboutDialog.qml:204
+#: settings-gui/qml/pages/AboutPage.qml:236
 msgid "Report an Issue"
 msgstr "Báo cáo vấn đề"
 
-#: settings-gui/qml/components/SectionResetDialog.qml:161
+#: settings-gui/qml/components/SectionResetDialog.qml:109
 msgid "Reset"
 msgstr "Đặt lại"
 
 #: settings-gui/qml/DCommon/Widgets/DWindowHeader.qml:110
-#: settings-gui/qml/pages/BackupPage.qml:384
+#: settings-gui/qml/pages/BackupPage.qml:293
 msgid "Restore"
 msgstr "Khôi phục"
 
-#: settings-gui/qml/components/SectionResetDialog.qml:73
+#: settings-gui/qml/components/SectionResetDialog.qml:20
 msgid "Restore All Defaults"
 msgstr "Khôi phục tất cả mặc định"
 
-#: settings-gui/qml/pages/BackupPage.qml:350
+#: settings-gui/qml/pages/BackupPage.qml:274
 msgid "Restore Backup?"
 msgstr "Khôi phục sao lưu?"
 
-#: settings-gui/qml/components/SectionResetDialog.qml:72
+#: settings-gui/qml/components/SectionResetDialog.qml:19
 msgid "Restore Defaults — {}"
 msgstr "Khôi phục mặc định — {}"
 
-#: settings-gui/qml/components/SectionResetDialog.qml:84
+#: settings-gui/qml/components/SectionResetDialog.qml:23
 msgid "Restore all modified settings to their factory defaults?"
 msgstr "Khôi phục tất cả cài đặt đã thay đổi về mặc định ban đầu?"
 
-#: settings-gui/qml/components/SectionHeader.qml:72
+#: settings-gui/qml/components/SectionHeader.qml:75
 msgid "Restore section defaults"
 msgstr "Khôi phục mặc định mục này"
 
-#: settings-gui/qml/pages/BackupPage.qml:261
-#: settings-gui/qml/pages/BackupPage.qml:291
+#: settings-gui/qml/pages/BackupPage.qml:218
+#: settings-gui/qml/pages/BackupPage.qml:219
 msgid "Restore selected components from a JSON backup file"
 msgstr "Khôi phục các thành phần đã chọn từ tệp sao lưu JSON"
 
-#: settings-gui/cpp/settings_backend.cpp:2016
+#: settings-gui/cpp/settings_backend.cpp:1886
 msgid "Restored defaults for %1"
 msgstr "Đã khôi phục mặc định cho %1"
 
-#: settings-gui/qml/components/OfflineBanner.qml:62
+#: settings-gui/qml/components/OfflineBanner.qml:66
 msgid "Retry"
 msgstr "Thử lại"
 
-#: settings-gui/qml/DCommon/Widgets/DConfirmDialogContent.qml:90
-msgid "Review changes"
-msgstr "Xem lại thay đổi"
-
-#: settings-gui/qml/pages/ApplicationsPage.qml:650
+#: settings-gui/qml/pages/ApplicationsPage.qml:563
 msgid "Rule already exists"
 msgstr "Quy tắc đã tồn tại"
 
@@ -1140,55 +1095,47 @@ msgstr "Quy tắc đã tồn tại"
 msgid "Rules"
 msgstr "Quy tắc"
 
-#: settings-gui/qml/dialogs/DetectAppDialog.qml:24
-msgid "Running Apps"
-msgstr "Ứng dụng đang chạy"
-
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:171
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:156
 msgid "Save"
 msgstr "Lưu"
 
-#: settings-gui/qml/pages/BackupPage.qml:212
-#: settings-gui/qml/pages/BackupPage.qml:242
+#: settings-gui/qml/pages/BackupPage.qml:196
+#: settings-gui/qml/pages/BackupPage.qml:197
 msgid "Save selected components to a JSON backup file"
 msgstr "Lưu các thành phần đã chọn vào tệp sao lưu JSON"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:340
+#: settings-gui/qml/pages/AboutPage.qml:291
 msgid ""
 "Save system details, Lotus config, uinput logs, and fcitx5-diagnose output"
 msgstr ""
 "Lưu thông tin hệ thống, cấu hình Lotus, nhật ký uinput và đầu ra fcitx5-"
 "diagnose"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:206
+#: settings-gui/qml/pages/ApplicationsPage.qml:212
 msgid "Search applications..."
 msgstr "Tìm ứng dụng..."
 
-#: settings-gui/qml/pages/KeymapPage.qml:195
+#: settings-gui/qml/pages/KeymapPage.qml:204
 msgid "Search keys..."
 msgstr "Tìm phím..."
 
-#: settings-gui/qml/pages/MacrosPage.qml:255
+#: settings-gui/qml/pages/MacrosPage.qml:268
 msgid "Search macros..."
 msgstr "Tìm từ gõ tắt..."
 
-#: settings-gui/qml/dialogs/DetectAppDialog.qml:89
-msgid "Search running apps..."
-msgstr "Tìm ứng dụng đang chạy..."
-
-#: settings-gui/qml/pages/DictionaryPage.qml:136
+#: settings-gui/qml/pages/DictionaryPage.qml:140
 msgid "Search words..."
 msgstr "Tìm từ..."
 
-#: settings-gui/qml/DCommon/Widgets/DDropdown.qml:545
+#: settings-gui/qml/DCommon/Widgets/DDropdown.qml:588
 msgid "Search..."
 msgstr "Tìm kiếm..."
 
-#: settings-gui/cpp/settings_backend.cpp:2664
+#: settings-gui/cpp/settings_backend.cpp:2330
 msgid "Select at least one component to export"
 msgstr "Chọn ít nhất một thành phần để xuất"
 
-#: settings-gui/qml/pages/BackupPage.qml:264
+#: settings-gui/qml/pages/BackupPage.qml:224
 msgid "Select at least one component to import"
 msgstr "Chọn ít nhất một thành phần để nhập"
 
@@ -1196,11 +1143,11 @@ msgstr "Chọn ít nhất một thành phần để nhập"
 msgid "Settings"
 msgstr "Cài đặt"
 
-#: settings-gui/cpp/settings_backend.cpp:1584
+#: settings-gui/cpp/settings_backend.cpp:1470
 msgid "Settings saved"
 msgstr "Đã lưu cài đặt"
 
-#: settings-gui/cpp/settings_backend.cpp:1467 src/lotus-config.h:56
+#: settings-gui/cpp/settings_backend.cpp:1347 src/lotus-config.h:56
 msgid "Shift"
 msgstr "Shift"
 
@@ -1232,7 +1179,7 @@ msgstr "Phím tắt cho Uinput (Mượt)"
 msgid "Shortcut for Uinput (Super Smooth)"
 msgstr "Phím tắt cho Uinput (Siêu mượt)"
 
-#: settings-gui/qml/Main.qml:25
+#: settings-gui/qml/Main.qml:29
 msgid "Shortcuts"
 msgstr "Phím tắt"
 
@@ -1244,7 +1191,7 @@ msgstr "Hiển thị chế độ gõ mặc định"
 msgid "Show Emoji Picker"
 msgstr "Hiển thị chế độ Chọn Emoji"
 
-#: settings-gui/qml/pages/DictionaryPage.qml:220
+#: settings-gui/qml/pages/DictionaryPage.qml:229
 msgid "Show More (%1)"
 msgstr "Xem thêm (%1)"
 
@@ -1272,7 +1219,7 @@ msgstr "Hiển thị chế độ Uinput (Siêu mượt)"
 msgid "Show password"
 msgstr "Hiện mật khẩu"
 
-#: settings-gui/qml/pages/MacrosPage.qml:158
+#: settings-gui/qml/pages/MacrosPage.qml:170
 msgid "Skip Modifier"
 msgstr "Phím bỏ qua gõ tắt"
 
@@ -1280,33 +1227,29 @@ msgstr "Phím bỏ qua gõ tắt"
 msgid "Spell Check"
 msgstr "Kiểm tra chính tả"
 
-#: settings-gui/cpp/settings_backend.cpp:1668
+#: settings-gui/cpp/settings_backend.cpp:1557
 msgid "Spelling"
 msgstr "Chính tả"
 
-#: settings-gui/qml/dialogs/AboutDialog.qml:230
-msgid "Suggest an enhancement (feature_request.yml)"
-msgstr "Đề xuất cải tiến (feature_request.yml)"
-
-#: settings-gui/cpp/settings_backend.cpp:1419 src/lotus-config.h:31
+#: settings-gui/cpp/settings_backend.cpp:1299 src/lotus-config.h:31
 msgid "Surrounding Text"
 msgstr "Văn bản xung quanh"
 
-#: settings-gui/qml/pages/GeneralPage.qml:233
+#: settings-gui/qml/pages/GeneralPage.qml:227
 msgid "System Keyboard Injection"
 msgstr "Chèn phím qua hệ thống"
 
-#: settings-gui/qml/components/SectionResetDialog.qml:83
+#: settings-gui/qml/components/SectionResetDialog.qml:22
 msgid "The following settings will be reset to their factory defaults:"
 msgstr "Các cài đặt sau sẽ được đặt lại về giá trị mặc định:"
 
-#: settings-gui/qml/pages/KeymapPage.qml:310
+#: settings-gui/qml/pages/KeymapPage.qml:335
 msgid "This operation will replace all existing keys with %1. Are you sure?"
 msgstr ""
 "Thao tác này sẽ thay thế toàn bộ phím hiện có bằng %1. Bạn có chắc chắn "
 "không?"
 
-#: settings-gui/qml/pages/MacrosPage.qml:181
+#: settings-gui/qml/pages/MacrosPage.qml:194
 msgid "Time Format"
 msgstr "Định dạng giờ"
 
@@ -1314,31 +1257,31 @@ msgstr "Định dạng giờ"
 msgid "Time Format ($TIME in macro)"
 msgstr "Định dạng giờ ($TIME trong gõ tắt)"
 
-#: settings-gui/qml/pages/ApplicationsPage.qml:431
+#: settings-gui/qml/pages/ApplicationsPage.qml:447
 msgid "Timing Overrides (0 = inherit default)"
 msgstr "Độ trễ tuỳ chỉnh (0 = dùng mặc định)"
 
-#: settings-gui/cpp/settings_backend.cpp:1670
+#: settings-gui/cpp/settings_backend.cpp:1559
 msgid "Tone & Punctuation"
 msgstr "Dấu thanh & Dấu câu"
 
-#: settings-gui/qml/pages/DictionaryPage.qml:131
+#: settings-gui/qml/pages/DictionaryPage.qml:121
 msgid "Total words"
 msgstr "Tổng số từ"
 
-#: settings-gui/qml/pages/TypingPage.qml:150
+#: settings-gui/qml/pages/TypingPage.qml:146
 msgid "Transform -- into an em-dash (—)."
 msgstr "Chuyển -- thành dấu gạch dài (—)."
 
-#: settings-gui/qml/pages/GeneralPage.qml:151
+#: settings-gui/qml/pages/GeneralPage.qml:144
 msgid "Transform [ to ơ, ] to ư, { to Ơ, and } to Ư."
 msgstr "Chuyển [ thành ơ, ] thành ư, { thành Ơ và } thành Ư."
 
-#: settings-gui/cpp/settings_backend.cpp:1664
+#: settings-gui/cpp/settings_backend.cpp:1553
 msgid "Tray Icon"
 msgstr "Biểu tượng khay"
 
-#: settings-gui/qml/dialogs/AddKeymapDialog.qml:86
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:70
 msgid "Trigger Key"
 msgstr "Phím kích hoạt"
 
@@ -1350,7 +1293,7 @@ msgstr "Gõ"
 msgid "Type [ -> ơ, ] -> ư, { -> Ơ, } -> Ư"
 msgstr "Gõ [ -> ơ, ] -> ư, { -> Ơ, } -> Ư"
 
-#: settings-gui/qml/pages/GeneralPage.qml:135
+#: settings-gui/qml/pages/GeneralPage.qml:127
 msgid "Type w as ư"
 msgstr "Gõ w thành ư"
 
@@ -1358,15 +1301,15 @@ msgstr "Gõ w thành ư"
 msgid "Type w to Produce ư"
 msgstr "Gõ w thành ư"
 
-#: settings-gui/qml/Main.qml:24
+#: settings-gui/qml/Main.qml:28
 msgid "Typing"
 msgstr "Nhập liệu"
 
-#: settings-gui/cpp/settings_backend.cpp:1417 src/lotus-config.h:31
+#: settings-gui/cpp/settings_backend.cpp:1297 src/lotus-config.h:31
 msgid "Uinput (Smooth)"
 msgstr "Uinput (Mượt)"
 
-#: settings-gui/cpp/settings_backend.cpp:1418 src/lotus-config.h:31
+#: settings-gui/cpp/settings_backend.cpp:1298 src/lotus-config.h:31
 msgid "Uinput (Super Smooth)"
 msgstr "Uinput (Siêu mượt)"
 
@@ -1378,11 +1321,11 @@ msgstr ""
 "Chế độ uinput cần máy chủ uinput Lotus. Bật dịch vụ máy chủ cho bản phân "
 "phối và hệ thống init của bạn."
 
-#: settings-gui/qml/components/UnsavedCloseDialog.qml:70
+#: settings-gui/qml/components/UnsavedCloseDialog.qml:23
 msgid "Unsaved Changes"
 msgstr "Thay đổi chưa lưu"
 
-#: settings-gui/qml/pages/GeneralPage.qml:187
+#: settings-gui/qml/pages/GeneralPage.qml:180
 msgid "Use Lotus Icons"
 msgstr "Dùng biểu tượng Lotus"
 
@@ -1390,7 +1333,7 @@ msgstr "Dùng biểu tượng Lotus"
 msgid "Use Lotus Status Icons"
 msgstr "Sử dụng biểu tượng trạng thái Lotus"
 
-#: settings-gui/qml/pages/KeymapPage.qml:119
+#: settings-gui/qml/pages/KeymapPage.qml:128
 msgid "Use custom key-to-action bindings when Input Method is Custom"
 msgstr "Sử dụng ánh xạ phím tuỳ chỉnh khi Kiểu gõ là Custom"
 
@@ -1406,23 +1349,23 @@ msgstr "Giá trị"
 msgid "Vietnamese input method (Lotus)"
 msgstr "Bộ gõ tiếng Việt (Lotus)"
 
-#: settings-gui/cpp/settings_backend.cpp:1831
+#: settings-gui/cpp/settings_backend.cpp:1706
 msgid "Visible"
 msgstr "Hiện"
 
-#: settings-gui/qml/dialogs/AddWordDialog.qml:34
+#: settings-gui/qml/dialogs/AddWordDialog.qml:27
 msgid "Word already exists"
 msgstr "Từ đã tồn tại"
 
-#: settings-gui/cpp/settings_backend.cpp:1686
+#: settings-gui/cpp/settings_backend.cpp:1575
 msgid "Words"
 msgstr "Từ vựng"
 
-#: settings-gui/qml/dialogs/AddWordDialog.qml:33
+#: settings-gui/qml/dialogs/AddWordDialog.qml:26
 msgid "Words cannot contain spaces"
 msgstr "Từ không được chứa dấu cách"
 
-#: settings-gui/qml/pages/DictionaryPage.qml:88
+#: settings-gui/qml/pages/DictionaryPage.qml:94
 msgid ""
 "Words in the custom dictionary are excluded from 'Auto Restore Invalid "
 "Words'. Use this for names, technical terms, or words missing from the built-"
@@ -1432,18 +1375,57 @@ msgstr ""
 "với từ sai'. Dùng cho tên riêng, thuật ngữ kỹ thuật hoặc từ chưa có trong "
 "danh sách mặc định."
 
-#: settings-gui/qml/pages/TypingPage.qml:117
+#: settings-gui/qml/pages/TypingPage.qml:110
 msgid "You can type tone marks at the end of the word or anywhere inside."
 msgstr "Bạn có thể gõ dấu câu ở cuối từ hoặc bất cứ đâu."
 
-#: settings-gui/qml/components/UnsavedCloseDialog.qml:79
+#: settings-gui/qml/components/UnsavedCloseDialog.qml:24
 msgid "You have unsaved settings. Save before closing?"
 msgstr "Bạn có cài đặt chưa lưu. Lưu trước khi đóng?"
 
-#: settings-gui/qml/dialogs/AddWordDialog.qml:68
+#: settings-gui/qml/dialogs/AddWordDialog.qml:51
 msgid "e.g. khongdau"
 msgstr "ví dụ: khongdau"
 
-#: settings-gui/qml/dialogs/MacroEditDialog.qml:89
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:71
 msgid "e.g. vn, branch, cnow"
 msgstr "ví dụ: vn, branch, cnow"
+
+#~ msgid "About Fcitx5 Lotus"
+#~ msgstr "Giới thiệu Fcitx5 Lotus"
+
+#~ msgid "Added"
+#~ msgstr "Đã thêm"
+
+#~ msgid "Confirm"
+#~ msgstr "Xác nhận"
+
+#~ msgid "Detect App"
+#~ msgstr "Phát hiện ứng dụng"
+
+#~ msgid "Detect Running App"
+#~ msgstr "Phát hiện ứng dụng đang chạy"
+
+#~ msgid "No Apps Found"
+#~ msgstr "Không tìm thấy ứng dụng nào"
+
+#~ msgid "Open a blank issue or ask a question"
+#~ msgstr "Mở issue trống hoặc đặt câu hỏi"
+
+#~ msgid "Refresh"
+#~ msgstr "Làm mới"
+
+#~ msgid "Report a bug (bug_report.yml)"
+#~ msgstr "Báo cáo lỗi (bug_report.yml)"
+
+#~ msgid "Review changes"
+#~ msgstr "Xem lại thay đổi"
+
+#~ msgid "Running Apps"
+#~ msgstr "Ứng dụng đang chạy"
+
+#~ msgid "Search running apps..."
+#~ msgstr "Tìm ứng dụng đang chạy..."
+
+#~ msgid "Suggest an enhancement (feature_request.yml)"
+#~ msgstr "Đề xuất cải tiến (feature_request.yml)"

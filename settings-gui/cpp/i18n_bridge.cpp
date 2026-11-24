@@ -27,13 +27,17 @@ I18nBridge::I18nBridge(QObject* parent) : QObject(parent) {
     isRtl_ = (QLocale().textDirection() == Qt::RightToLeft);
 }
 
-QString I18nBridge::tr(const QString& text) {
+QString I18nBridge::lookup(const QString& text) {
     if (text.isEmpty()) {
         return text;
     }
     const QByteArray utf8       = text.toUtf8();
     const char*      translated = dgettext(kTextDomain, utf8.constData());
     return QString::fromUtf8(translated);
+}
+
+QString I18nBridge::tr(const QString& text) const { // NOLINT(readability-convert-member-functions-to-static) Q_INVOKABLE must stay on the instance
+    return lookup(text);
 }
 
 bool I18nBridge::isRtl() const {

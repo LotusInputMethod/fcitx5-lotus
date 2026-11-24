@@ -211,12 +211,13 @@ set_tests_properties(executable_path_match PROPERTIES
 
 add_executable(qml_settings_test
     qml-settings-test.cpp
+    ${PROJECT_SOURCE_DIR}/settings-gui/lotus_settings.qrc
     ${PROJECT_SOURCE_DIR}/settings-gui/cpp/settings_backend.cpp
     ${PROJECT_SOURCE_DIR}/settings-gui/cpp/dbus_client.cpp
     ${PROJECT_SOURCE_DIR}/settings-gui/cpp/theme_bridge.cpp
     ${PROJECT_SOURCE_DIR}/settings-gui/cpp/i18n_bridge.cpp
 )
-set_target_properties(qml_settings_test PROPERTIES AUTOMOC ON)
+set_target_properties(qml_settings_test PROPERTIES AUTOMOC ON AUTORCC ON)
 target_compile_features(qml_settings_test PRIVATE cxx_std_20)
 target_include_directories(qml_settings_test PRIVATE
     ${PROJECT_SOURCE_DIR}/settings-gui/cpp
@@ -237,6 +238,7 @@ target_link_libraries(qml_settings_test PRIVATE
     Fcitx5::Core
     Fcitx5::Config
     Lotus::Engine
+    Threads::Threads
     $<$<BOOL:${Intl_FOUND}>:Intl::Intl>
 )
 add_test(NAME qml_settings_test COMMAND qml_settings_test)
