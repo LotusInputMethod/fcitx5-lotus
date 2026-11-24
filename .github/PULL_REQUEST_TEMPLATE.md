@@ -25,7 +25,6 @@
 - [ ] PR này chỉ giải quyết **một** vấn đề duy nhất (nhiều vấn đề ⇒ tách nhiều PR)
 - [ ] Không trộn refactor/format/tài liệu ngoài phạm vi
 - [ ] Đã chạy `clang-format` (tuân thủ `.clang-format`)
-- [ ] Đã kiểm tra `ruff check` và `ruff format` (cho phần Python `settings-gui`)
 - [ ] Build C++ thành công (`cmake .. && make`)
 - [ ] Test pass (`cmake --build build && ctest --test-dir build --output-on-failure`)
 - [ ] Đã rebase với nhánh `dev` mới nhất

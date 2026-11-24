@@ -87,7 +87,7 @@ All members contributing to this project must adhere to the [Contributor Code of
 All rules live in [CODE_STYLE.en.md](CODE_STYLE.en.md) — that is the single source of truth.
 
 - **C/C++**: `.clang-format` + `.clang-tidy`, C++20.
-- **Python (`settings-gui`)**: `ruff check` and `ruff format` (configuration in `pyproject.toml`).
+- **QML (`settings-gui`)**: `qmllint`, Qt 6.2+.
 - Encouraged to create a `pre-commit` hook to automatically format code before commit by creating `.git/hooks/pre-commit` with the following content:
 
 ```bash
@@ -100,16 +100,6 @@ if [ -n "$CPP_FILES" ]; then
         git add "$file"
     done
 fi
-
-# Lint & Format Python
-PY_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^settings-gui/.*\.py$')
-if [ -n "$PY_FILES" ]; then
-    ruff check --fix settings-gui
-    ruff format settings-gui
-    for file in $PY_FILES; do
-        git add "$file"
-    done
-fi
 ```
 
 Then run the command: `chmod +x .git/hooks/pre-commit`
@@ -118,15 +108,11 @@ Then run the command: `chmod +x .git/hooks/pre-commit`
 
 **Each PR solves exactly one problem.** If you change several things, split them into several PRs.
 
-### 1. Ensure clean code with `clang-format` and `ruff`
+### 1. Ensure clean code with `clang-format`
 
 ```bash
 # C/C++
-clang-format -i src/*.cpp src/*.h
-
-# Python
-ruff check --fix settings-gui
-ruff format settings-gui
+clang-format -i src/*.cpp src/*.h settings-gui/cpp/*.cpp settings-gui/cpp/*.h
 ```
 
 ### 2. Run tests

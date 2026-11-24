@@ -87,7 +87,7 @@ Mọi thành viên tham gia đóng góp cho dự án này đều phải tuân th
 Toàn bộ quy tắc nằm ở [CODE_STYLE.md](CODE_STYLE.md) — đó là nguồn duy nhất.
 
 - **C/C++**: `.clang-format` + `.clang-tidy`, chuẩn C++20.
-- **Python (`settings-gui`)**: `ruff check` và `ruff format` (cấu hình ở `pyproject.toml`).
+- **QML (`settings-gui`)**: `qmllint`, chuẩn Qt 6.2+.
 - Khuyến khích tạo git hook `pre-commit` để tự động format code trước khi commit bằng cách tạo file `.git/hooks/pre-commit` với nội dung:
 
 ```bash
@@ -100,16 +100,6 @@ if [ -n "$CPP_FILES" ]; then
         git add "$file" 
     done
 fi
-
-# Lint & Format Python
-PY_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^settings-gui/.*\.py$')
-if [ -n "$PY_FILES" ]; then
-    ruff check --fix settings-gui
-    ruff format settings-gui
-    for file in $PY_FILES; do
-        git add "$file"
-    done
-fi
 ```
 
 Sau đó chạy lệnh: `chmod +x .git/hooks/pre-commit`
@@ -118,15 +108,11 @@ Sau đó chạy lệnh: `chmod +x .git/hooks/pre-commit`
 
 **Mỗi PR chỉ giải quyết một vấn đề.** Nếu bạn sửa nhiều vấn đề, hãy tách thành nhiều PR.
 
-### 1. Đảm bảo code sạch bằng `clang-format` và `ruff`
+### 1. Đảm bảo code sạch bằng `clang-format`
 
 ```bash
 # C/C++
-clang-format -i src/*.cpp src/*.h
-
-# Python
-ruff check --fix settings-gui
-ruff format settings-gui
+clang-format -i src/*.cpp src/*.h settings-gui/cpp/*.cpp settings-gui/cpp/*.h
 ```
 
 ### 2. Chạy test

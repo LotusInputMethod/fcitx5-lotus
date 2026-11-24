@@ -273,11 +273,15 @@ FocusScope {
         root.selectedIndex = root.filteredOptions.indexOf(root.currentValue);
     }
 
+    property double _closedAt: 0
+
     function openDropdownMenu() {
         if (dropdownPopup.visible) {
             closeDropdownMenu();
             return;
         }
+        if (Date.now() - _closedAt < 250)
+            return;
         showDropdownMenu();
     }
 
@@ -484,7 +488,7 @@ FocusScope {
         modal: false
         focus: true
         dim: false
-        closePolicy: Controls.Popup.CloseOnEscape | Controls.Popup.CloseOnPressOutsideParent
+        closePolicy: Controls.Popup.CloseOnEscape | Controls.Popup.CloseOnPressOutside
 
         onOpened: {
             root.menuOpen = true;
@@ -497,6 +501,7 @@ FocusScope {
         }
 
         onClosed: {
+            root._closedAt = Date.now();
             root.menuOpen = false;
             if (root.enabled && (root.showTrigger || root.focusReturnTarget))
                 (root.focusReturnTarget ?? dropdown).forceActiveFocus(Qt.PopupFocusReason);

@@ -63,9 +63,8 @@ ThemeBridge::ThemeBridge(QObject* parent) : QObject(parent) {
 
     QDBusConnection bus = QDBusConnection::sessionBus();
     if (bus.isConnected()) {
-        bus.connect(QStringLiteral("org.freedesktop.portal.Desktop"), QStringLiteral("/org/freedesktop/portal/desktop"),
-                    QStringLiteral("org.freedesktop.portal.Settings"), QStringLiteral("SettingChanged"), this,
-                    SLOT(onPortalSettingChanged(QString, QString, QDBusVariant)));
+        bus.connect(QStringLiteral("org.freedesktop.portal.Desktop"), QStringLiteral("/org/freedesktop/portal/desktop"), QStringLiteral("org.freedesktop.portal.Settings"),
+                    QStringLiteral("SettingChanged"), this, SLOT(onPortalSettingChanged(QString, QString, QDBusVariant)));
         queryPortalColorScheme();
     }
 }

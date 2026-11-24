@@ -85,8 +85,8 @@ class ThemeBridge : public QObject {
     void onPortalSettingChanged(const QString& ns, const QString& key, const QDBusVariant& value);
 
   private:
-    void queryPortalColorScheme();
-    void updateFromPalette(const QPalette& pal);
+    void   queryPortalColorScheme();
+    void   updateFromPalette(const QPalette& pal);
 
     int    portalColorScheme_ = -1; // -1: follow palette, 1: prefer dark, 2: prefer light
     bool   isDark_            = false;

@@ -119,8 +119,8 @@ namespace {
     }};
 
     struct PresetDef {
-        const char*                         name;
-        std::initializer_list<KeyValuePair> rules;
+        const char*               name;
+        std::vector<KeyValuePair> rules;
     };
 
     const std::vector<PresetDef>& presetDefinitions() {
