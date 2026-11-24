@@ -584,7 +584,7 @@ namespace fcitx {
             if (selectedMode != std::nullopt) {
                 LOTUS_INFO("Selected mode: " + LotusModeI18NAnnotation::toString(selectedMode.value()));
                 const bool chooseDefault = keySym == Key(*config_.shortcutDefault).sym(); // Default Typing key
-                if (selectedMode != LotusMode::Emoji) {
+                if (selectedMode != LotusMode::Emoji && !*config_.rememberModePerWindow) {
                     if (chooseDefault) {
                         clearAppRule(currentConfigureApp_);
                     } else {
@@ -598,7 +598,7 @@ namespace fcitx {
                     if (chooseDefault) {
                         state->forgetRememberedMode();
                     } else {
-                        state->rememberMode(selectedMode.value(), currentConfigureApp_);
+                        state->rememberMode(selectedMode.value(), programNameFor(ic));
                     }
                 }
                 selectionMade = true;
@@ -704,9 +704,14 @@ namespace fcitx {
 
                 LotusMode nextMode = found ? enabledModes[(currentIdx + 1) % enabledModes.size()] : enabledModes[0];
                 setMode(nextMode, ic);
-                setAppRule(appName, nextMode);
-                if (state != nullptr && *config_.rememberModePerWindow) {
-                    state->rememberMode(nextMode, appName);
+                if (*config_.rememberModePerWindow) {
+                    // Per-window memory replaces the per-app rule so other windows of the same
+                    // app keep their own mode.
+                    if (state != nullptr) {
+                        state->rememberMode(nextMode, appName);
+                    }
+                } else {
+                    setAppRule(appName, nextMode);
                 }
                 showCycleModeNotification(nextMode, ic);
             }
@@ -1023,7 +1028,7 @@ namespace fcitx {
 
         auto applyMode = [this, cleanup](LotusMode mode, bool isDefault = false) {
             return [this, mode, cleanup, isDefault](InputContext* ic) {
-                if (mode != LotusMode::Emoji) {
+                if (mode != LotusMode::Emoji && !*config_.rememberModePerWindow) {
                     if (isDefault) {
                         clearAppRule(currentConfigureApp_);
                     } else {
@@ -1039,7 +1044,7 @@ namespace fcitx {
                     if (isDefault) {
                         state->forgetRememberedMode();
                     } else {
-                        state->rememberMode(mode, currentConfigureApp_);
+                        state->rememberMode(mode, programNameFor(ic));
                     }
                 }
 
@@ -1238,13 +1243,17 @@ namespace fcitx {
             return;
         }
         auto* state = ic->propertyFor(&factory_);
-        if (!activeProgram_.empty() && activeProgram_ != program) {
-            if (activeProgram_.starts_with("ctx_") && state->hasRememberedMode()) {
+        if (state->hasRememberedMode()) {
+            const auto owner = state->rememberedProgram();
+            if (owner.starts_with("ctx_") && !program.starts_with("ctx_")) {
                 // Same context, now identified: keep the window's choice under its real name.
                 state->rememberMode(state->rememberedMode(), program);
-            } else {
+            } else if (!owner.starts_with("ctx_") && !program.starts_with("ctx_") && owner != program) {
+                // A shared context now belongs to a different app: drop the old app's memory.
                 state->forgetRememberedMode();
             }
+            // A transient focus-tracker miss (program falls back to ctx_) must not drop the
+            // window's own choice.
         }
         activeProgram_ = program;
         // A shared GNOME input context may now belong to a different app: never commit its old

@@ -2,13 +2,14 @@
 /**
  * @file per-window-mode.cpp
  * @brief Headless regression test: each window remembers the input mode last
- *        chosen in it, independently of other windows and of the per-app rule.
+ *        chosen in it, without leaking that choice to other windows.
  *
- * Two input contexts share the program name "test" so they also share the same
- * per-app rule.  Window A is cycled to Emoji, window B to Off.  Without window
- * memory, focusing A again would resolve the app rule (Off); with memory it
- * must stay on Emoji while B stays on Off.  Disabling RememberModePerWindow
- * makes both windows follow the app rule again.
+ * Two input contexts share the program name "test".  With per-window memory
+ * enabled, cycling in window A must not write the per-app rule, so window B
+ * keeps the global mode until it makes its own choice; each window then
+ * restores its own mode on focus.  The Default menu entry forgets only the
+ * choosing window's memory.  Disabling RememberModePerWindow restores the
+ * legacy behavior where cycling writes the per-app rule for every window.
  */
 
 #include "engine-fixture.h"
@@ -30,7 +31,7 @@ namespace {
             case fcitx::LotusMode::Off: return "Off";
             case fcitx::LotusMode::Preedit: return "Preedit";
             case fcitx::LotusMode::Smooth: return "Smooth";
-            case fcitx::LotusMode::SuperSmooth: return "SuperSmooth";
+            case fcitx::LotusMode::SuperSmooth: return "Smooth (Super)";
             case fcitx::LotusMode::SurroundingText: return "SurroundingText";
             case fcitx::LotusMode::Emoji: return "Emoji";
         }
@@ -58,6 +59,8 @@ int main() {
     config.setValueByPath("Mode", "Preedit");
     config.setValueByPath("InputMethod", "Telex");
     config.setValueByPath("CycleModeKey/0", "F9");
+    config.setValueByPath("ModeMenuKey/0", "grave");
+    config.setValueByPath("ShortcutDefault", "r");
     // Keep the cycle to the text modes this test needs, so no uinput backend
     // connection is attempted by the headless process.
     config.setValueByPath("ShowModeSmooth", "False");
@@ -83,20 +86,26 @@ int main() {
 
     loseFocus(engine, entry, *windowA);
     gainFocus(engine, entry, *windowB);
-    if (!expectMode("window B inherits the app rule", fcitx::LotusMode::Emoji, "a window without its own choice must follow the per-app rule")) {
+    if (!expectMode("window B keeps the global mode", fcitx::LotusMode::Preedit, "window A's choice must not leak to window B through the per-app rule")) {
         return 1;
     }
 
     if (!sendKey(engine, entry, *windowB, FcitxKey_F9, true, "the cycle hotkey must be consumed")) {
         return 1;
     }
-    if (!expectMode("window B cycles to Off", fcitx::LotusMode::Off, "cycling must update the per-app rule and window B")) {
+    if (!expectMode("window B cycles to Emoji", fcitx::LotusMode::Emoji, "cycling must switch the focused window to the next mode")) {
+        return 1;
+    }
+    if (!sendKey(engine, entry, *windowB, FcitxKey_F9, true, "the cycle hotkey must be consumed")) {
+        return 1;
+    }
+    if (!expectMode("window B cycles to Off", fcitx::LotusMode::Off, "cycling must switch the focused window to the next mode")) {
         return 1;
     }
 
     loseFocus(engine, entry, *windowB);
     gainFocus(engine, entry, *windowA);
-    if (!expectMode("window A restores its own Emoji mode", fcitx::LotusMode::Emoji, "window A must remember Emoji even though the app rule is Off")) {
+    if (!expectMode("window A restores its own Emoji mode", fcitx::LotusMode::Emoji, "window A must remember Emoji even though the global mode is Off")) {
         return 1;
     }
 
@@ -107,10 +116,36 @@ int main() {
     }
     loseFocus(engine, entry, *windowB);
 
+    gainFocus(engine, entry, *windowA);
+    if (!sendKey(engine, entry, *windowA, FcitxKey_grave, true, "the mode menu hotkey must be consumed")) {
+        return 1;
+    }
+    if (!sendKey(engine, entry, *windowA, FcitxKey_r, true, "the Default entry key must be consumed")) {
+        return 1;
+    }
+    if (!expectMode("the Default entry resets window A", fcitx::LotusMode::Preedit, "choosing Default Typing must drop only window A's memory")) {
+        return 1;
+    }
+    loseFocus(engine, entry, *windowA);
+
+    gainFocus(engine, entry, *windowB);
+    if (!expectMode("window B keeps its own Off mode", fcitx::LotusMode::Off, "window A's Default choice must not clear window B's memory")) {
+        return 1;
+    }
+    loseFocus(engine, entry, *windowB);
+
+    gainFocus(engine, entry, *windowA);
+    if (!expectMode("window A follows the global mode after Default", fcitx::LotusMode::Preedit, "window A must have no remembered mode left")) {
+        return 1;
+    }
+    loseFocus(engine, entry, *windowA);
+
     fcitx::RawConfig disabled;
     disabled.setValueByPath("Mode", "Preedit");
     disabled.setValueByPath("InputMethod", "Telex");
     disabled.setValueByPath("CycleModeKey/0", "F9");
+    disabled.setValueByPath("ModeMenuKey/0", "grave");
+    disabled.setValueByPath("ShortcutDefault", "r");
     disabled.setValueByPath("RememberModePerWindow", "False");
     disabled.setValueByPath("ShowModeSmooth", "False");
     disabled.setValueByPath("ShowModeSuperSmooth", "False");
@@ -122,25 +157,31 @@ int main() {
     }
 
     gainFocus(engine, entry, *windowA);
-    if (!expectMode("window A follows the app rule when memory is disabled", fcitx::LotusMode::Off, "disabling RememberModePerWindow must ignore window A's Emoji memory")) {
+    if (!expectMode("window A ignores its memory when disabled", fcitx::LotusMode::Preedit, "disabling RememberModePerWindow must fall back to the global mode")) {
+        return 1;
+    }
+    if (!sendKey(engine, entry, *windowA, FcitxKey_F9, true, "the cycle hotkey must be consumed")) {
+        return 1;
+    }
+    if (!expectMode("window A cycles to Emoji", fcitx::LotusMode::Emoji, "cycling without memory must still update the mode")) {
         return 1;
     }
     loseFocus(engine, entry, *windowA);
 
     gainFocus(engine, entry, *windowB);
-    if (!expectMode("window B follows the app rule when memory is disabled", fcitx::LotusMode::Off, "disabling RememberModePerWindow must ignore window B's Off memory")) {
+    if (!expectMode("window B follows the per-app rule when memory is disabled", fcitx::LotusMode::Emoji, "without window memory every window must follow the cycled app rule")) {
         return 1;
     }
     if (!sendKey(engine, entry, *windowB, FcitxKey_F9, true, "the cycle hotkey must be consumed")) {
         return 1;
     }
-    if (!expectMode("window B cycles to Preedit", fcitx::LotusMode::Preedit, "cycling without memory must still update the app rule")) {
+    if (!expectMode("window B cycles to Off", fcitx::LotusMode::Off, "cycling must update the per-app rule and the focused window")) {
         return 1;
     }
     loseFocus(engine, entry, *windowB);
 
     gainFocus(engine, entry, *windowA);
-    if (!expectMode("window A follows the updated app rule", fcitx::LotusMode::Preedit, "without window memory every window must follow the new app rule")) {
+    if (!expectMode("window A follows the updated app rule", fcitx::LotusMode::Off, "without window memory every window must follow the new app rule")) {
         return 1;
     }
 
