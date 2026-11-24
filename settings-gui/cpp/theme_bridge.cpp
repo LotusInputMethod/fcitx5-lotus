@@ -176,7 +176,7 @@ void ThemeBridge::setupQt6ctWatcher() {
 }
 
 void ThemeBridge::onQt6ctFileChanged(const QString& path) {
-    QTimer::singleShot(50, this, [this, path]() {
+    QTimer::singleShot(50, this, [this, path] {
         if (qt6ctWatcher_ != nullptr && QFileInfo::exists(path) && !qt6ctWatcher_->files().contains(path)) {
             qt6ctWatcher_->addPath(path);
         }

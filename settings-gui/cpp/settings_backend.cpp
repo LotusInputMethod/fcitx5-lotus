@@ -69,54 +69,58 @@ namespace {
         const char* defaultKey;
     };
 
-    constexpr std::array<ModeDef, 7> kModeDefs = {{
-        {.name = "Smooth", .shortcutKey = "ShortcutSmooth", .showKey = "ShowModeSmooth", .title = "Uinput (Smooth)", .defaultKey = "1"},
-        {.name = "SuperSmooth", .shortcutKey = "ShortcutSuperSmooth", .showKey = "ShowModeSuperSmooth", .title = "Uinput (Super Smooth)", .defaultKey = "a"},
-        {.name = "SurroundingText", .shortcutKey = "ShortcutSurroundingText", .showKey = "ShowModeSurroundingText", .title = "Surrounding Text", .defaultKey = "4"},
-        {.name = "Preedit", .shortcutKey = "ShortcutPreedit", .showKey = "ShowModePreedit", .title = "Preedit", .defaultKey = "q"},
-        {.name = "Emoji", .shortcutKey = "ShortcutEmoji", .showKey = "ShowModeEmoji", .title = "Emoji Picker", .defaultKey = "w"},
-        {.name = "Off", .shortcutKey = "ShortcutOff", .showKey = "ShowModeOff", .title = "OFF", .defaultKey = "e"},
-        {.name = "Default", .shortcutKey = "ShortcutDefault", .showKey = "ShowModeDefault", .title = "Default Typing", .defaultKey = "r"},
-    }};
+    constexpr std::array<ModeDef, 7> kModeDefs = {
+        {
+            {.name = "Smooth", .shortcutKey = "ShortcutSmooth", .showKey = "ShowModeSmooth", .title = "Uinput (Smooth)", .defaultKey = "1"},
+            {.name = "SuperSmooth", .shortcutKey = "ShortcutSuperSmooth", .showKey = "ShowModeSuperSmooth", .title = "Uinput (Super Smooth)", .defaultKey = "a"},
+            {.name = "SurroundingText", .shortcutKey = "ShortcutSurroundingText", .showKey = "ShowModeSurroundingText", .title = "Surrounding Text", .defaultKey = "4"},
+            {.name = "Preedit", .shortcutKey = "ShortcutPreedit", .showKey = "ShowModePreedit", .title = "Preedit", .defaultKey = "q"},
+            {.name = "Emoji", .shortcutKey = "ShortcutEmoji", .showKey = "ShowModeEmoji", .title = "Emoji Picker", .defaultKey = "w"},
+            {.name = "Off", .shortcutKey = "ShortcutOff", .showKey = "ShowModeOff", .title = "OFF", .defaultKey = "e"},
+            {.name = "Default", .shortcutKey = "ShortcutDefault", .showKey = "ShowModeDefault", .title = "Default Typing", .defaultKey = "r"},
+        },
+    };
 
-    constexpr const char*            kDefaultModeOrder = "Smooth,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default";
+    constexpr const char* kDefaultModeOrder = "Smooth,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default";
 
     struct KeyValuePair {
         const char* key;
         const char* value;
     };
 
-    constexpr std::array<KeyValuePair, 29> kBambooActions = {{
-        {.key = "XoaDauThanh", .value = "Xóa dấu thanh"},
-        {.key = "DauSac", .value = "Dấu sắc"},
-        {.key = "DauHuyen", .value = "Dấu huyền"},
-        {.key = "DauHoi", .value = "Dấu hỏi"},
-        {.key = "DauNga", .value = "Dấu ngã"},
-        {.key = "DauNang", .value = "Dấu nặng"},
-        {.key = "A_Â", .value = "a -> â"},
-        {.key = "E_Ê", .value = "e -> ê"},
-        {.key = "O_Ô", .value = "o -> ô"},
-        {.key = "AEO_ÂÊÔ", .value = "a/e/o -> â/ê/ô"},
-        {.key = "UOA_ƯƠĂ", .value = "u/o/a -> ư/ơ/ă"},
-        {.key = "D_Đ", .value = "d -> đ"},
-        {.key = "UO_ƯƠ", .value = "u/o -> ư/ơ"},
-        {.key = "A_Ă", .value = "a -> ă"},
-        {.key = "__ă", .value = "ă"},
-        {.key = "_Ă", .value = "Ă"},
-        {.key = "__â", .value = "â"},
-        {.key = "_Â", .value = "Â"},
-        {.key = "__ê", .value = "ê"},
-        {.key = "_Ê", .value = "Ê"},
-        {.key = "__ô", .value = "ô"},
-        {.key = "_Ô", .value = "Ô"},
-        {.key = "__ư", .value = "ư"},
-        {.key = "_Ư", .value = "Ư"},
-        {.key = "__ơ", .value = "ơ"},
-        {.key = "_Ơ", .value = "Ơ"},
-        {.key = "__đ", .value = "đ"},
-        {.key = "_Đ", .value = "Đ"},
-        {.key = "UOA_ƯƠĂ__Ư", .value = "u/o/a -> ư/ơ/ă, ư"},
-    }};
+    constexpr std::array<KeyValuePair, 29> kBambooActions = {
+        {
+            {.key = "XoaDauThanh", .value = "Xóa dấu thanh"},
+            {.key = "DauSac", .value = "Dấu sắc"},
+            {.key = "DauHuyen", .value = "Dấu huyền"},
+            {.key = "DauHoi", .value = "Dấu hỏi"},
+            {.key = "DauNga", .value = "Dấu ngã"},
+            {.key = "DauNang", .value = "Dấu nặng"},
+            {.key = "A_Â", .value = "a -> â"},
+            {.key = "E_Ê", .value = "e -> ê"},
+            {.key = "O_Ô", .value = "o -> ô"},
+            {.key = "AEO_ÂÊÔ", .value = "a/e/o -> â/ê/ô"},
+            {.key = "UOA_ƯƠĂ", .value = "u/o/a -> ư/ơ/ă"},
+            {.key = "D_Đ", .value = "d -> đ"},
+            {.key = "UO_ƯƠ", .value = "u/o -> ư/ơ"},
+            {.key = "A_Ă", .value = "a -> ă"},
+            {.key = "__ă", .value = "ă"},
+            {.key = "_Ă", .value = "Ă"},
+            {.key = "__â", .value = "â"},
+            {.key = "_Â", .value = "Â"},
+            {.key = "__ê", .value = "ê"},
+            {.key = "_Ê", .value = "Ê"},
+            {.key = "__ô", .value = "ô"},
+            {.key = "_Ô", .value = "Ô"},
+            {.key = "__ư", .value = "ư"},
+            {.key = "_Ư", .value = "Ư"},
+            {.key = "__ơ", .value = "ơ"},
+            {.key = "_Ơ", .value = "Ơ"},
+            {.key = "__đ", .value = "đ"},
+            {.key = "_Đ", .value = "Đ"},
+            {.key = "UOA_ƯƠĂ__Ư", .value = "u/o/a -> ư/ơ/ă, ư"},
+        },
+    };
 
     struct PresetDef {
         const char*               name;
@@ -125,120 +129,136 @@ namespace {
 
     const std::vector<PresetDef>& presetDefinitions() {
         static const std::vector<PresetDef> kPresets = {
-            {.name = "Telex",
-             .rules =
-                 {
-                     {.key = "z", .value = "XoaDauThanh"},
-                     {.key = "s", .value = "DauSac"},
-                     {.key = "f", .value = "DauHuyen"},
-                     {.key = "r", .value = "DauHoi"},
-                     {.key = "x", .value = "DauNga"},
-                     {.key = "j", .value = "DauNang"},
-                     {.key = "a", .value = "A_Â"},
-                     {.key = "e", .value = "E_Ê"},
-                     {.key = "o", .value = "O_Ô"},
-                     {.key = "w", .value = "UOA_ƯƠĂ"},
-                     {.key = "d", .value = "D_Đ"},
-                 }},
-            {.name = "VNI",
-             .rules =
-                 {
-                     {.key = "0", .value = "XoaDauThanh"},
-                     {.key = "1", .value = "DauSac"},
-                     {.key = "2", .value = "DauHuyen"},
-                     {.key = "3", .value = "DauHoi"},
-                     {.key = "4", .value = "DauNga"},
-                     {.key = "5", .value = "DauNang"},
-                     {.key = "6", .value = "AEO_ÂÊÔ"},
-                     {.key = "7", .value = "UO_ƯƠ"},
-                     {.key = "8", .value = "A_Ă"},
-                     {.key = "9", .value = "D_Đ"},
-                 }},
-            {.name = "VIQR",
-             .rules =
-                 {
-                     {.key = "0", .value = "XoaDauThanh"},
-                     {.key = "'", .value = "DauSac"},
-                     {.key = "`", .value = "DauHuyen"},
-                     {.key = "?", .value = "DauHoi"},
-                     {.key = "~", .value = "DauNga"},
-                     {.key = ".", .value = "DauNang"},
-                     {.key = "^", .value = "AEO_ÂÊÔ"},
-                     {.key = "+", .value = "UO_ƯƠ"},
-                     {.key = "*", .value = "UO_ƯƠ"},
-                     {.key = "(", .value = "A_Ă"},
-                     {.key = "d", .value = "D_Đ"},
-                 }},
-            {.name = "Microsoft layout",
-             .rules =
-                 {
-                     {.key = "8", .value = "DauSac"},
-                     {.key = "5", .value = "DauHuyen"},
-                     {.key = "6", .value = "DauHoi"},
-                     {.key = "7", .value = "DauNga"},
-                     {.key = "9", .value = "DauNang"},
-                     {.key = "1", .value = "__ă"},
-                     {.key = "!", .value = "_Ă"},
-                     {.key = "2", .value = "__â"},
-                     {.key = "@", .value = "_Â"},
-                     {.key = "3", .value = "__ê"},
-                     {.key = "#", .value = "_Ê"},
-                     {.key = "4", .value = "__ô"},
-                     {.key = "$", .value = "_Ô"},
-                     {.key = "0", .value = "__đ"},
-                     {.key = ")", .value = "_Đ"},
-                 }},
-            {.name = "Telex + VNI",
-             .rules =
-                 {
-                     {.key = "z", .value = "XoaDauThanh"}, {.key = "s", .value = "DauSac"},   {.key = "f", .value = "DauHuyen"}, {.key = "r", .value = "DauHoi"},
-                     {.key = "x", .value = "DauNga"},      {.key = "j", .value = "DauNang"},  {.key = "a", .value = "A_Â"},      {.key = "e", .value = "E_Ê"},
-                     {.key = "o", .value = "O_Ô"},         {.key = "w", .value = "UOA_ƯƠĂ"},  {.key = "d", .value = "D_Đ"},      {.key = "0", .value = "XoaDauThanh"},
-                     {.key = "1", .value = "DauSac"},      {.key = "2", .value = "DauHuyen"}, {.key = "3", .value = "DauHoi"},   {.key = "4", .value = "DauNga"},
-                     {.key = "5", .value = "DauNang"},     {.key = "6", .value = "AEO_ÂÊÔ"},  {.key = "7", .value = "UO_ƯƠ"},    {.key = "8", .value = "A_Ă"},
-                     {.key = "9", .value = "D_Đ"},
-                 }},
-            {.name = "Telex + VNI + VIQR",
-             .rules =
-                 {
-                     {.key = "z", .value = "XoaDauThanh"}, {.key = "s", .value = "DauSac"},   {.key = "f", .value = "DauHuyen"}, {.key = "r", .value = "DauHoi"},
-                     {.key = "x", .value = "DauNga"},      {.key = "j", .value = "DauNang"},  {.key = "a", .value = "A_Â"},      {.key = "e", .value = "E_Ê"},
-                     {.key = "o", .value = "O_Ô"},         {.key = "w", .value = "UOA_ƯƠĂ"},  {.key = "d", .value = "D_Đ"},      {.key = "0", .value = "XoaDauThanh"},
-                     {.key = "1", .value = "DauSac"},      {.key = "2", .value = "DauHuyen"}, {.key = "3", .value = "DauHoi"},   {.key = "4", .value = "DauNga"},
-                     {.key = "5", .value = "DauNang"},     {.key = "6", .value = "AEO_ÂÊÔ"},  {.key = "7", .value = "UO_ƯƠ"},    {.key = "8", .value = "A_Ă"},
-                     {.key = "9", .value = "D_Đ"},         {.key = "'", .value = "DauSac"},   {.key = "`", .value = "DauHuyen"}, {.key = "?", .value = "DauHoi"},
-                     {.key = "~", .value = "DauNga"},      {.key = ".", .value = "DauNang"},  {.key = "^", .value = "AEO_ÂÊÔ"},  {.key = "+", .value = "UO_ƯƠ"},
-                     {.key = "*", .value = "UO_ƯƠ"},       {.key = "(", .value = "A_Ă"},      {.key = "\\", .value = "D_Đ"},
-                 }},
-            {.name = "VNI Bàn phím tiếng Pháp",
-             .rules =
-                 {
-                     {.key = "&", .value = "XoaDauThanh"},
-                     {.key = "é", .value = "DauSac"},
-                     {.key = "\"", .value = "DauHuyen"},
-                     {.key = "'", .value = "DauHoi"},
-                     {.key = "(", .value = "DauNga"},
-                     {.key = "-", .value = "DauNang"},
-                     {.key = "è", .value = "AEO_ÂÊÔ"},
-                     {.key = "_", .value = "UO_ƯƠ"},
-                     {.key = "ç", .value = "A_Ă"},
-                     {.key = "à", .value = "D_Đ"},
-                 }},
-            {.name = "Telex W",
-             .rules =
-                 {
-                     {.key = "z", .value = "XoaDauThanh"},
-                     {.key = "s", .value = "DauSac"},
-                     {.key = "f", .value = "DauHuyen"},
-                     {.key = "r", .value = "DauHoi"},
-                     {.key = "x", .value = "DauNga"},
-                     {.key = "j", .value = "DauNang"},
-                     {.key = "a", .value = "A_Â"},
-                     {.key = "e", .value = "E_Ê"},
-                     {.key = "o", .value = "O_Ô"},
-                     {.key = "w", .value = "UOA_ƯƠĂ__Ư"},
-                     {.key = "d", .value = "D_Đ"},
-                 }},
+            {
+                .name = "Telex",
+                .rules =
+                    {
+                        {.key = "z", .value = "XoaDauThanh"},
+                        {.key = "s", .value = "DauSac"},
+                        {.key = "f", .value = "DauHuyen"},
+                        {.key = "r", .value = "DauHoi"},
+                        {.key = "x", .value = "DauNga"},
+                        {.key = "j", .value = "DauNang"},
+                        {.key = "a", .value = "A_Â"},
+                        {.key = "e", .value = "E_Ê"},
+                        {.key = "o", .value = "O_Ô"},
+                        {.key = "w", .value = "UOA_ƯƠĂ"},
+                        {.key = "d", .value = "D_Đ"},
+                    },
+            },
+            {
+                .name = "VNI",
+                .rules =
+                    {
+                        {.key = "0", .value = "XoaDauThanh"},
+                        {.key = "1", .value = "DauSac"},
+                        {.key = "2", .value = "DauHuyen"},
+                        {.key = "3", .value = "DauHoi"},
+                        {.key = "4", .value = "DauNga"},
+                        {.key = "5", .value = "DauNang"},
+                        {.key = "6", .value = "AEO_ÂÊÔ"},
+                        {.key = "7", .value = "UO_ƯƠ"},
+                        {.key = "8", .value = "A_Ă"},
+                        {.key = "9", .value = "D_Đ"},
+                    },
+            },
+            {
+                .name = "VIQR",
+                .rules =
+                    {
+                        {.key = "0", .value = "XoaDauThanh"},
+                        {.key = "'", .value = "DauSac"},
+                        {.key = "`", .value = "DauHuyen"},
+                        {.key = "?", .value = "DauHoi"},
+                        {.key = "~", .value = "DauNga"},
+                        {.key = ".", .value = "DauNang"},
+                        {.key = "^", .value = "AEO_ÂÊÔ"},
+                        {.key = "+", .value = "UO_ƯƠ"},
+                        {.key = "*", .value = "UO_ƯƠ"},
+                        {.key = "(", .value = "A_Ă"},
+                        {.key = "d", .value = "D_Đ"},
+                    },
+            },
+            {
+                .name = "Microsoft layout",
+                .rules =
+                    {
+                        {.key = "8", .value = "DauSac"},
+                        {.key = "5", .value = "DauHuyen"},
+                        {.key = "6", .value = "DauHoi"},
+                        {.key = "7", .value = "DauNga"},
+                        {.key = "9", .value = "DauNang"},
+                        {.key = "1", .value = "__ă"},
+                        {.key = "!", .value = "_Ă"},
+                        {.key = "2", .value = "__â"},
+                        {.key = "@", .value = "_Â"},
+                        {.key = "3", .value = "__ê"},
+                        {.key = "#", .value = "_Ê"},
+                        {.key = "4", .value = "__ô"},
+                        {.key = "$", .value = "_Ô"},
+                        {.key = "0", .value = "__đ"},
+                        {.key = ")", .value = "_Đ"},
+                    },
+            },
+            {
+                .name = "Telex + VNI",
+                .rules =
+                    {
+                        {.key = "z", .value = "XoaDauThanh"}, {.key = "s", .value = "DauSac"},   {.key = "f", .value = "DauHuyen"}, {.key = "r", .value = "DauHoi"},
+                        {.key = "x", .value = "DauNga"},      {.key = "j", .value = "DauNang"},  {.key = "a", .value = "A_Â"},      {.key = "e", .value = "E_Ê"},
+                        {.key = "o", .value = "O_Ô"},         {.key = "w", .value = "UOA_ƯƠĂ"},  {.key = "d", .value = "D_Đ"},      {.key = "0", .value = "XoaDauThanh"},
+                        {.key = "1", .value = "DauSac"},      {.key = "2", .value = "DauHuyen"}, {.key = "3", .value = "DauHoi"},   {.key = "4", .value = "DauNga"},
+                        {.key = "5", .value = "DauNang"},     {.key = "6", .value = "AEO_ÂÊÔ"},  {.key = "7", .value = "UO_ƯƠ"},    {.key = "8", .value = "A_Ă"},
+                        {.key = "9", .value = "D_Đ"},
+                    },
+            },
+            {
+                .name = "Telex + VNI + VIQR",
+                .rules =
+                    {
+                        {.key = "z", .value = "XoaDauThanh"}, {.key = "s", .value = "DauSac"},   {.key = "f", .value = "DauHuyen"}, {.key = "r", .value = "DauHoi"},
+                        {.key = "x", .value = "DauNga"},      {.key = "j", .value = "DauNang"},  {.key = "a", .value = "A_Â"},      {.key = "e", .value = "E_Ê"},
+                        {.key = "o", .value = "O_Ô"},         {.key = "w", .value = "UOA_ƯƠĂ"},  {.key = "d", .value = "D_Đ"},      {.key = "0", .value = "XoaDauThanh"},
+                        {.key = "1", .value = "DauSac"},      {.key = "2", .value = "DauHuyen"}, {.key = "3", .value = "DauHoi"},   {.key = "4", .value = "DauNga"},
+                        {.key = "5", .value = "DauNang"},     {.key = "6", .value = "AEO_ÂÊÔ"},  {.key = "7", .value = "UO_ƯƠ"},    {.key = "8", .value = "A_Ă"},
+                        {.key = "9", .value = "D_Đ"},         {.key = "'", .value = "DauSac"},   {.key = "`", .value = "DauHuyen"}, {.key = "?", .value = "DauHoi"},
+                        {.key = "~", .value = "DauNga"},      {.key = ".", .value = "DauNang"},  {.key = "^", .value = "AEO_ÂÊÔ"},  {.key = "+", .value = "UO_ƯƠ"},
+                        {.key = "*", .value = "UO_ƯƠ"},       {.key = "(", .value = "A_Ă"},      {.key = "\\", .value = "D_Đ"},
+                    },
+            },
+            {
+                .name = "VNI Bàn phím tiếng Pháp",
+                .rules =
+                    {
+                        {.key = "&", .value = "XoaDauThanh"},
+                        {.key = "é", .value = "DauSac"},
+                        {.key = "\"", .value = "DauHuyen"},
+                        {.key = "'", .value = "DauHoi"},
+                        {.key = "(", .value = "DauNga"},
+                        {.key = "-", .value = "DauNang"},
+                        {.key = "è", .value = "AEO_ÂÊÔ"},
+                        {.key = "_", .value = "UO_ƯƠ"},
+                        {.key = "ç", .value = "A_Ă"},
+                        {.key = "à", .value = "D_Đ"},
+                    },
+            },
+            {
+                .name = "Telex W",
+                .rules =
+                    {
+                        {.key = "z", .value = "XoaDauThanh"},
+                        {.key = "s", .value = "DauSac"},
+                        {.key = "f", .value = "DauHuyen"},
+                        {.key = "r", .value = "DauHoi"},
+                        {.key = "x", .value = "DauNga"},
+                        {.key = "j", .value = "DauNang"},
+                        {.key = "a", .value = "A_Â"},
+                        {.key = "e", .value = "E_Ê"},
+                        {.key = "o", .value = "O_Ô"},
+                        {.key = "w", .value = "UOA_ƯƠĂ__Ư"},
+                        {.key = "d", .value = "D_Đ"},
+                    },
+            },
         };
         return kPresets;
     }
@@ -540,7 +560,7 @@ namespace {
     }
 
     const QHash<QString, QString>& hotkeyUiUnshiftMap() {
-        static const QHash<QString, QString> kMap = []() {
+        static const QHash<QString, QString> kMap = [] {
             QHash<QString, QString> m = {
                 {QStringLiteral("asciitilde"), QStringLiteral("grave")},
                 {QStringLiteral("exclam"), QStringLiteral("1")},
@@ -656,7 +676,10 @@ namespace {
             return {QChar::fromLatin1(static_cast<char>('0' + (qtKey - Qt::Key_0)))};
         }
         if (qtKey >= Qt::Key_A && qtKey <= Qt::Key_Z) {
-            const bool upper = (qtModifiers & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)) != 0;
+            const auto         modFlags  = static_cast<unsigned int>(qtModifiers);
+            const unsigned int upperMask = static_cast<unsigned int>(Qt::ShiftModifier) | static_cast<unsigned int>(Qt::ControlModifier) |
+                static_cast<unsigned int>(Qt::AltModifier) | static_cast<unsigned int>(Qt::MetaModifier);
+            const bool upper = (modFlags & upperMask) != 0U;
             const char base  = static_cast<char>((upper ? 'A' : 'a') + (qtKey - Qt::Key_A));
             return {QChar::fromLatin1(base)};
         }
@@ -1086,11 +1109,9 @@ void SettingsBackend::loadDictionary() {
     dictionaryWords_.clear();
     const QString lPath      = localDictPath();
     const QString pathToRead = QFileInfo::exists(lPath) ? lPath : gPath;
-    if (QFileInfo::exists(pathToRead)) {
-        if (!readDictFile(pathToRead, dictionaryWords_)) {
-            dictLoadFailed_ = true;
-            dictionaryWords_.clear();
-        }
+    if (QFileInfo::exists(pathToRead) && !readDictFile(pathToRead, dictionaryWords_)) {
+        dictLoadFailed_ = true;
+        dictionaryWords_.clear();
     }
 
     initialDictionaryWords_ = dictionaryWords_;
@@ -2602,14 +2623,14 @@ void SettingsBackend::exportDebugInfo(const QString& fileUrl) {
     const QString                     version = appVersion();
     const std::shared_ptr<AliveGuard> guard   = aliveGuard_;
 
-    std::thread([this, guard, path, version, configSnapshot, hasConfig, offline]() {
+    std::thread([this, guard, path, version, configSnapshot, hasConfig, offline] {
         const QString          report = collectDebugReport(version, configSnapshot, hasConfig, offline);
         const bool             ok     = writeRawTextAtomic(path, report.toUtf8());
         const std::scoped_lock lock(guard->mutex);
         if (guard->alive) {
             QMetaObject::invokeMethod(
                 this,
-                [this, guard, ok]() {
+                [this, guard, ok] {
                     const std::scoped_lock innerLock(guard->mutex);
                     if (guard->alive) {
                         emit toastRequested(ok ? translate("Debug info exported") : translate("Failed to export debug info"));
@@ -2647,7 +2668,9 @@ QString SettingsBackend::formatKeyEvent(int qtKey, int qtModifiers, const QStrin
         return baseKey;
     }
 
-    const bool hasNonShiftMod = (qtModifiers & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)) != 0;
+    const auto         modFlags       = static_cast<unsigned int>(qtModifiers);
+    const unsigned int nonShiftMask   = static_cast<unsigned int>(Qt::ControlModifier) | static_cast<unsigned int>(Qt::AltModifier) | static_cast<unsigned int>(Qt::MetaModifier);
+    const bool         hasNonShiftMod = (modFlags & nonShiftMask) != 0U;
     if (!allowSingleKey && !hasNonShiftMod && !isSpecialSingleKey(baseKey)) {
         return {};
     }
@@ -2658,16 +2681,16 @@ QString SettingsBackend::formatKeyEvent(int qtKey, int qtModifiers, const QStrin
     }
 
     QStringList mods;
-    if ((qtModifiers & Qt::ControlModifier) != 0U) {
+    if ((modFlags & static_cast<unsigned int>(Qt::ControlModifier)) != 0U) {
         mods.append(QStringLiteral("Control"));
     }
-    if ((qtModifiers & Qt::AltModifier) != 0U) {
+    if ((modFlags & static_cast<unsigned int>(Qt::AltModifier)) != 0U) {
         mods.append(QStringLiteral("Alt"));
     }
-    if ((qtModifiers & Qt::MetaModifier) != 0U) {
+    if ((modFlags & static_cast<unsigned int>(Qt::MetaModifier)) != 0U) {
         mods.append(QStringLiteral("Super"));
     }
-    if (((qtModifiers & Qt::ShiftModifier) != 0U) && ((hasNonShiftMod && isAsciiAlpha) || !hotkeyUiUnshiftMap().contains(baseKey))) {
+    if (((modFlags & static_cast<unsigned int>(Qt::ShiftModifier)) != 0U) && ((hasNonShiftMod && isAsciiAlpha) || !hotkeyUiUnshiftMap().contains(baseKey))) {
         mods.append(QStringLiteral("Shift"));
     }
 
@@ -2725,7 +2748,7 @@ QStringList SettingsBackend::prettyHotkeyParts(const QString& hotkeyStr) {
     if (!baseKeyPart.isEmpty()) {
         if (baseKeyPart.size() == 1 && baseKeyPart.at(0).isUpper()) {
             explicitShiftNeeded = explicitShiftNeeded || !hasNonShiftModifier;
-            baseKeyLabel        = baseKeyPart;
+            baseKeyLabel        = std::move(baseKeyPart);
         } else if (hotkeyUiUnshiftMap().contains(baseKeyPart)) {
             explicitShiftNeeded    = true;
             const QString dispBase = hotkeyUiUnshiftMap().value(baseKeyPart);

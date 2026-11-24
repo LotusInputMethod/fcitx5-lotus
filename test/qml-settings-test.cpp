@@ -563,7 +563,7 @@ namespace {
 
         ThemeBridge theme;
         int         themeChangeCount = 0;
-        QObject::connect(&theme, &ThemeBridge::themeChanged, [&themeChangeCount]() { ++themeChangeCount; });
+        QObject::connect(&theme, &ThemeBridge::themeChanged, [&themeChangeCount] { ++themeChangeCount; });
 
         check("ThemeBridge light mode isDark == false", !theme.isDark() && theme.isLightMode());
         check("ThemeBridge surface matches Window color", theme.surface() == QColor(QStringLiteral("#f5f5f5")));
