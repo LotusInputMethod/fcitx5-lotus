@@ -13,6 +13,7 @@
 #ifndef _LOTUS_WLR_VIRTUAL_KEYBOARD_H_
 #define _LOTUS_WLR_VIRTUAL_KEYBOARD_H_
 
+#include "common-fd-guard.h"
 #include "lotus-delayed-task-runner.h"
 
 #include <atomic>
@@ -21,10 +22,14 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 struct wl_display;
+struct wl_keyboard;
 struct wl_registry;
 struct wl_seat;
 struct zwp_virtual_keyboard_manager_v1;
@@ -66,6 +71,17 @@ namespace fcitx {
     };
 
     /**
+     * @brief Releases a wl_keyboard proxy.
+     */
+    struct WlKeyboardDeleter {
+        /**
+         * @brief Destroys the keyboard proxy.
+         * @param keyboard Keyboard to release, may be null.
+         */
+        void operator()(wl_keyboard* keyboard) const noexcept;
+    };
+
+    /**
      * @brief Releases a zwp_virtual_keyboard_manager_v1 proxy.
      */
     struct ZwpVirtualKeyboardManagerDeleter {
@@ -90,6 +106,7 @@ namespace fcitx {
     using WlDisplayPtr                 = std::unique_ptr<wl_display, WlDisplayDeleter>;                                      ///< Owning display
     using WlRegistryPtr                = std::unique_ptr<wl_registry, WlRegistryDeleter>;                                    ///< Owning registry
     using WlSeatPtr                    = std::unique_ptr<wl_seat, WlSeatDeleter>;                                            ///< Owning seat
+    using WlKeyboardPtr                = std::unique_ptr<wl_keyboard, WlKeyboardDeleter>;                                    ///< Owning keymap observer
     using ZwpVirtualKeyboardManagerPtr = std::unique_ptr<zwp_virtual_keyboard_manager_v1, ZwpVirtualKeyboardManagerDeleter>; ///< Owning manager
     using ZwpVirtualKeyboardPtr        = std::unique_ptr<zwp_virtual_keyboard_v1, ZwpVirtualKeyboardDeleter>;                ///< Owning virtual keyboard
 
@@ -97,8 +114,16 @@ namespace fcitx {
      * @brief Wayland zwp_virtual_keyboard_v1 helper.
      *
      * Sends BackSpace, Shift+Left and Unicode on one virtual-keyboard channel so the compositor preserves order.
-     * Shift is set with zwp_virtual_keyboard_v1_modifiers, not a real Shift key, so it does not leak into the seat
-     * and upcase later characters. A custom XKB keymap maps spare keycodes to the needed characters.
+     * Shift is set with zwp_virtual_keyboard_v1_modifiers, not a real Shift key. The modifier state is mirrored from
+     * the physical keyboard so a held Shift keeps later forwarded keys uppercase and a release clears it again.
+     *
+     * Movements that only need BackSpace/Left/Delete run on the compositor's own keymap. A custom XKB keymap is used
+     * only while Unicode keys are being injected, then the compositor keymap is restored. A different keymap can be
+     * pushed to the focused client, recreating its xkb state and silently dropping held modifiers (Shift, NumLock).
+     *
+     * A whole burst is queued in one batch (load keymap, inject keys, restore keymap) and drained with a single
+     * roundtrip. Keymap bytes live in reusable memfds; the compositor keymap is only written once and an unload
+     * just re-sends its fd.
      *
      * available() only looks for the manager global; the virtual keyboard device itself is created on the first
      * emit, so simply probing the compositor has no visible side effect.
@@ -109,12 +134,17 @@ namespace fcitx {
 
         bool                            emit(int backspaces, std::string_view utf8, bool trackEcho = true, bool anchorDot = false);
         [[nodiscard]] bool              injecting() const {
-            return injecting_;
+            return injecting_.load(std::memory_order_acquire);
         }
         bool consumeEcho(uint32_t code, uint32_t time);
 
         /**
-         * @brief Records the user's physical Shift state.
+         * @brief Keeps the virtual keyboard's Shift in sync with the physical Shift key.
+         *
+         * Applies the state immediately and re-applies it after each keymap upload,
+         * which resets the compositor's modifiers. Without the sync, a held Shift is
+         * lost on forwarded keys, and a released Shift stays stuck and upcases later keys.
+         *
          * @param down True while the user holds Shift.
          */
         void setUserShift(bool down);
@@ -153,22 +183,39 @@ namespace fcitx {
         bool                                      probe();
         bool                                      ensureDevice();
         bool                                      uploadKeymap(const uint32_t* cps, size_t n);
+        bool                                      uploadKeymapBytes(std::string_view keymap);
+        bool                                      restoreCompositorKeymap();
+        static bool                               writeKeymapToFd(int fd, std::string_view keymap);
+        int                                       keymapFdForUpload();
+        void                                      resetKeymapFds();
+        void                                      watchCompositorKeymap();
+        void                                      storeCompositorKeymap(uint32_t format, int fd, uint32_t size);
+        static void                               compositorKeymap(void* data, wl_keyboard* keyboard, uint32_t format, int32_t fd, uint32_t size);
         void                                      tap(uint32_t evdevKey, bool track);
-        void                                      setShift(bool down);
+        void                                      setShift(bool down, bool flush = true);
         bool                                      emitImpl(int count, std::string_view utf8, bool trackEcho, bool anchorDot);
         void                                      disconnect();
 
-        WlDisplayPtr                              display_;  ///< Display opened on the first probe
-        WlRegistryPtr                             registry_; ///< Registry of that display
-        WlSeatPtr                                 seat_;     ///< Seat the virtual keyboard is bound to
-        ZwpVirtualKeyboardManagerPtr              manager_;  ///< Manager global of the compositor
-        ZwpVirtualKeyboardPtr                     keyboard_; ///< Virtual keyboard device, created on the first emit
-        uint32_t                                  time_      = 1;
-        bool                                      injecting_ = false;
-        bool                                      probed_    = false;
-        bool                                      supported_ = false;
-        std::atomic<bool>                         userShift_ = false;
+        WlDisplayPtr                              display_;          ///< Display opened on the first probe
+        WlRegistryPtr                             registry_;         ///< Registry of that display
+        WlSeatPtr                                 seat_;             ///< Seat the virtual keyboard is bound to
+        WlKeyboardPtr                             keymapObserver_;   ///< wl_keyboard used only to read the seat keymap
+        ZwpVirtualKeyboardManagerPtr              manager_;          ///< Manager global of the compositor
+        ZwpVirtualKeyboardPtr                     keyboard_;         ///< Virtual keyboard device, created on the first emit
+        std::string                               compositorKeymap_; ///< Exact XKB_V1 keymap the compositor uses for the seat
+        std::vector<FdGuard>                      keymapFds_;        ///< Reusable memfds, one per in-flight custom upload
+        size_t                                    keymapFdSlot_ = 0;
+        FdGuard                                   compositorKeymapFd_;             ///< Memfd holding the cached compositor keymap
+        bool                                      compositorKeymapCached_ = false; ///< Whole compositorKeymap_ already written to the fd
+        uint32_t                                  time_                   = 1;
+        std::atomic<bool>                         injecting_              = false;
+        bool                                      probed_                 = false;
+        bool                                      keymapSet_              = false;
+        bool                                      keymapIsCompositor_     = false;
+        bool                                      supported_              = false;
+        std::atomic<bool>                         userShift_              = false;
         std::deque<std::pair<uint32_t, uint32_t>> echo_;
+        std::mutex                                deviceMutex_; ///< Serialises the Wayland device: all device, keymap and fd state below requires it
 
         LotusDelayedTaskRunner                    runner_; ///< Delivers the replacement pre/post delay off the main thread
     };
