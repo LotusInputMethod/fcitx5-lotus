@@ -708,6 +708,8 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         sidebar_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         sidebar_scroll.set_vexpand(True)
 
+        self._sidebar_row_size_group = Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)
+
         self.sidebar = Gtk.ListBox()
         self.sidebar.add_css_class("navigation-sidebar")
         self.sidebar.set_selection_mode(Gtk.SelectionMode.SINGLE)
@@ -715,20 +717,27 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         sidebar_scroll.set_child(self.sidebar)
 
         about_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        about_box.set_margin_start(10)
-        about_box.set_margin_end(10)
+        about_box.set_margin_start(6)
+        about_box.set_margin_end(6)
         about_box.set_margin_top(6)
-        about_box.set_margin_bottom(10)
+        about_box.set_margin_bottom(8)
 
         self.btn_about = Gtk.Button()
         self.btn_about.add_css_class("flat")
         self.btn_about.set_hexpand(True)
         self.btn_about.set_tooltip_text(_("About"))
-        about_content = Adw.ButtonContent()
-        about_content.set_icon_name("help-about-symbolic")
-        about_content.set_label(_("About"))
+        about_content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        about_content.set_halign(Gtk.Align.CENTER)
+        about_icon = Gtk.Image.new_from_icon_name("help-about-symbolic")
+        about_icon.set_pixel_size(18)
+        about_icon.set_valign(Gtk.Align.CENTER)
+        about_label = Gtk.Label(label=_("About"))
+        about_label.set_valign(Gtk.Align.CENTER)
+        about_content.append(about_icon)
+        about_content.append(about_label)
         self.btn_about.set_child(about_content)
         self.btn_about.connect("clicked", self._on_about_clicked)
+        self._sidebar_row_size_group.add_widget(self.btn_about)
         about_box.append(self.btn_about)
 
         sidebar_content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -828,6 +837,7 @@ class LotusPreferencesWindow(Adw.ApplicationWindow):
         box.append(icon)
         box.append(label)
         row.set_child(box)
+        self._sidebar_row_size_group.add_widget(row)
 
         self.sidebar.append(row)
         self._sidebar_rows[page_id] = row
