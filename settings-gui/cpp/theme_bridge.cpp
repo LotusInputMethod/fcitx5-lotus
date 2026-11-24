@@ -11,6 +11,13 @@
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QTextStream>
+#include <QTimer>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
 #include <QGuiApplication>
 #include <QStyleHints>
@@ -36,6 +43,83 @@ namespace {
             return -1;
         }
         return val;
+    }
+
+    QColor parseRgbTriplet(const QString& value) {
+        const QStringList parts = value.split(QLatin1Char(','), Qt::SkipEmptyParts);
+        if (parts.size() < 3) {
+            return {};
+        }
+        bool      okR = false;
+        bool      okG = false;
+        bool      okB = false;
+        const int r   = parts.at(0).trimmed().toInt(&okR);
+        const int g   = parts.at(1).trimmed().toInt(&okG);
+        const int b   = parts.at(2).trimmed().toInt(&okB);
+        if (!okR || !okG || !okB) {
+            return {};
+        }
+        return QColor(std::clamp(r, 0, 255), std::clamp(g, 0, 255), std::clamp(b, 0, 255));
+    }
+
+    bool loadKdeColorScheme(const QString& path, QPalette& outPal) {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            return false;
+        }
+        QString     section;
+        QColor      winBg;
+        QColor      winFg;
+        QColor      viewBg;
+        QColor      selBg;
+        QColor      selFg;
+        QTextStream in(&file);
+        while (!in.atEnd()) {
+            const QString line = in.readLine().trimmed();
+            if (line.isEmpty() || line.startsWith(QLatin1Char('#')) || line.startsWith(QLatin1Char(';'))) {
+                continue;
+            }
+            if (line.startsWith(QLatin1Char('[')) && line.endsWith(QLatin1Char(']'))) {
+                section = line.mid(1, line.size() - 2);
+                continue;
+            }
+            const qsizetype eq = line.indexOf(QLatin1Char('='));
+            if (eq <= 0) {
+                continue;
+            }
+            const QString key = line.left(eq).trimmed();
+            const QString val = line.mid(eq + 1).trimmed();
+            if (section == QLatin1String("Colors:Window")) {
+                if (key == QLatin1String("BackgroundNormal")) {
+                    winBg = parseRgbTriplet(val);
+                } else if (key == QLatin1String("ForegroundNormal")) {
+                    winFg = parseRgbTriplet(val);
+                }
+            } else if (section == QLatin1String("Colors:View")) {
+                if (key == QLatin1String("BackgroundNormal")) {
+                    viewBg = parseRgbTriplet(val);
+                }
+            } else if (section == QLatin1String("Colors:Selection")) {
+                if (key == QLatin1String("BackgroundNormal")) {
+                    selBg = parseRgbTriplet(val);
+                } else if (key == QLatin1String("ForegroundNormal")) {
+                    selFg = parseRgbTriplet(val);
+                }
+            }
+        }
+        if (!winBg.isValid() || !winFg.isValid()) {
+            return false;
+        }
+        outPal.setColor(QPalette::Window, winBg);
+        outPal.setColor(QPalette::WindowText, winFg);
+        outPal.setColor(QPalette::Base, viewBg.isValid() ? viewBg : winBg);
+        if (selBg.isValid()) {
+            outPal.setColor(QPalette::Highlight, selBg);
+        }
+        if (selFg.isValid()) {
+            outPal.setColor(QPalette::HighlightedText, selFg);
+        }
+        return true;
     }
 } // namespace
 
@@ -66,6 +150,62 @@ ThemeBridge::ThemeBridge(QObject* parent) : QObject(parent) {
         bus.connect(QStringLiteral("org.freedesktop.portal.Desktop"), QStringLiteral("/org/freedesktop/portal/desktop"), QStringLiteral("org.freedesktop.portal.Settings"),
                     QStringLiteral("SettingChanged"), this, SLOT(onPortalSettingChanged(QString, QString, QDBusVariant)));
         queryPortalColorScheme();
+    }
+
+    setupQt6ctWatcher();
+}
+
+void ThemeBridge::setupQt6ctWatcher() {
+    const QString pt  = qEnvironmentVariable("QT_QPA_PLATFORMTHEME");
+    const QString pt6 = qEnvironmentVariable("QT_QPA_PLATFORMTHEME_QT6");
+    if (pt != QLatin1String("qt6ct") && pt6 != QLatin1String("qt6ct")) {
+        return;
+    }
+    const QString cfgBase = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
+    if (cfgBase.isEmpty()) {
+        return;
+    }
+    qt6ctConfigPath_ = cfgBase + QStringLiteral("/qt6ct/qt6ct.conf");
+    if (!QFileInfo::exists(qt6ctConfigPath_)) {
+        return;
+    }
+    qt6ctWatcher_ = new QFileSystemWatcher(this);
+    qt6ctWatcher_->addPath(qt6ctConfigPath_);
+    connect(qt6ctWatcher_, &QFileSystemWatcher::fileChanged, this, &ThemeBridge::onQt6ctFileChanged);
+    reloadFromQt6ct();
+}
+
+void ThemeBridge::onQt6ctFileChanged(const QString& path) {
+    QTimer::singleShot(50, this, [this, path]() {
+        if (qt6ctWatcher_ != nullptr && QFileInfo::exists(path) && !qt6ctWatcher_->files().contains(path)) {
+            qt6ctWatcher_->addPath(path);
+        }
+        reloadFromQt6ct();
+    });
+}
+
+void ThemeBridge::reloadFromQt6ct() {
+    if (qt6ctConfigPath_.isEmpty() || !QFileInfo::exists(qt6ctConfigPath_)) {
+        return;
+    }
+    const QSettings settings(qt6ctConfigPath_, QSettings::IniFormat);
+    const QString   schemePath = settings.value(QStringLiteral("Appearance/color_scheme_path")).toString();
+    if (schemePath.isEmpty() || !QFileInfo::exists(schemePath)) {
+        return;
+    }
+    if (qt6ctWatcher_ != nullptr) {
+        if (!qt6ctSchemePath_.isEmpty() && qt6ctSchemePath_ != schemePath) {
+            qt6ctWatcher_->removePath(qt6ctSchemePath_);
+        }
+        if (!qt6ctWatcher_->files().contains(schemePath)) {
+            qt6ctWatcher_->addPath(schemePath);
+        }
+    }
+    qt6ctSchemePath_ = schemePath;
+
+    QPalette pal = QApplication::palette();
+    if (loadKdeColorScheme(schemePath, pal)) {
+        updateFromPalette(pal);
     }
 }
 
