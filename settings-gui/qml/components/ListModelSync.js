@@ -6,7 +6,7 @@
 
 function syncByKey(model, items, keyFn, mapFn) {
     const list = items || [];
-    const targetKeys = {};
+    const targetKeys = Object.create(null);
     for (let i = 0; i < list.length; i++)
         targetKeys[keyFn(list[i])] = true;
 

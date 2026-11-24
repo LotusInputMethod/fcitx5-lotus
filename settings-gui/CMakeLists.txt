@@ -1,6 +1,3 @@
-find_package(Qt6 6.2 REQUIRED COMPONENTS Quick QuickControls2 DBus Widgets)
-find_package(Intl QUIET)
-
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 

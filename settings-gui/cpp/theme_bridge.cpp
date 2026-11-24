@@ -191,6 +191,11 @@ void ThemeBridge::reloadFromQt6ct() {
     const QSettings settings(qt6ctConfigPath_, QSettings::IniFormat);
     const QString   schemePath = settings.value(QStringLiteral("Appearance/color_scheme_path")).toString();
     if (schemePath.isEmpty() || !QFileInfo::exists(schemePath)) {
+        if (qt6ctWatcher_ != nullptr && !qt6ctSchemePath_.isEmpty()) {
+            qt6ctWatcher_->removePath(qt6ctSchemePath_);
+        }
+        qt6ctSchemePath_.clear();
+        updateFromPalette(QApplication::palette());
         return;
     }
     if (qt6ctWatcher_ != nullptr) {
@@ -241,7 +246,11 @@ void ThemeBridge::onPortalSettingChanged(const QString& ns, const QString& key, 
 
 bool ThemeBridge::eventFilter(QObject* watched, QEvent* event) {
     if (event != nullptr && event->type() == QEvent::ApplicationPaletteChange) {
-        updateFromPalette(QApplication::palette());
+        if (!qt6ctSchemePath_.isEmpty()) {
+            reloadFromQt6ct();
+        } else {
+            updateFromPalette(QApplication::palette());
+        }
     }
     return QObject::eventFilter(watched, event);
 }
@@ -254,7 +263,8 @@ void ThemeBridge::updateFromPalette(const QPalette& pal) {
     const QColor highText    = pal.color(QPalette::HighlightedText);
 
     const bool   paletteDark = windowColor.lightnessF() < 0.5;
-    const bool   dark        = (portalColorScheme_ == 1) ? true : ((portalColorScheme_ == 2) ? false : paletteDark);
+    const bool   hasQt6ct    = !qt6ctSchemePath_.isEmpty() && QFileInfo::exists(qt6ctSchemePath_);
+    const bool   dark        = hasQt6ct ? paletteDark : ((portalColorScheme_ == 1) ? true : ((portalColorScheme_ == 2) ? false : paletteDark));
 
     if (dark != paletteDark) {
         if (dark) {

@@ -6,6 +6,7 @@ xgettext \
 --keyword=_ \
 --keyword=N_ \
 --keyword=translate \
+--keyword=tr \
 -o /tmp/lotus-cpp.pot \
 $(find src settings-gui/cpp \( -name "*.cpp" -o -name "*.h" \) | sort)
 

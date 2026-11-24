@@ -128,12 +128,12 @@ jobs:
           fi
           if [ -z "$changed" ] || printf '%s\n' "$changed" | grep -qE '\.(h|hpp)$'; then
               echo "clang-tidy: checking the whole project"
-              run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*' -header-filter='/fcitx5-lotus/(src|server|common|lotus|test)/' '/fcitx5-lotus/(src|server|common|lotus|test)/'
+              run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*' -header-filter='/fcitx5-lotus/(src|server|common|lotus|settings-gui/cpp|test)/' '/fcitx5-lotus/(src|server|common|lotus|settings-gui/cpp|test)/'
           else
               cpp_changed="$(printf '%s\n' "$changed" | grep -E '\.cpp$' || true)"
               if [ -n "$cpp_changed" ]; then
                   echo "clang-tidy: checking the changed translation units"
-                  printf '%s\n' "$cpp_changed" | xargs run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*' -header-filter='/fcitx5-lotus/(src|server|common|lotus|test)/'
+                  printf '%s\n' "$cpp_changed" | xargs run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*' -header-filter='/fcitx5-lotus/(src|server|common|lotus|settings-gui/cpp|test)/'
               else
                   echo "clang-tidy: no translation unit changed"
               fi

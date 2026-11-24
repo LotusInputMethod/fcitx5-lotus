@@ -95,7 +95,8 @@ Item {
     }
 
     Connections {
-        target: Backend
+        target: typeof Backend !== "undefined" ? Backend : null
+        ignoreUnknownSignals: true
         function onToastRequested(message) {
             if (!pageRoot.debugExportPending)
                 return

@@ -40,7 +40,9 @@ Item {
         onTriggered: root.active = false
     }
 
-    implicitWidth: Math.min(parent ? parent.width - Style.spacingXL * 2 : 420, pill.implicitWidth)
+    readonly property real maxBannerWidth: Math.min(480, parent ? parent.width - Style.spacingXL * 2 : 420)
+
+    implicitWidth: pill.implicitWidth
     implicitHeight: pill.implicitHeight
     width: implicitWidth
     height: implicitHeight
@@ -77,7 +79,7 @@ Item {
     Rectangle {
         id: pill
         anchors.centerIn: parent
-        implicitWidth: Math.min(480, row.implicitWidth + Style.spacingL * 2)
+        implicitWidth: Math.min(root.maxBannerWidth, row.implicitWidth + Style.spacingL * 2)
         implicitHeight: Math.max(40, row.implicitHeight + Style.spacingS * 2)
         width: implicitWidth
         height: implicitHeight
@@ -87,7 +89,7 @@ Item {
         RowLayout {
             id: row
             anchors.centerIn: parent
-            width: Math.min(480 - Style.spacingL * 2, implicitWidth)
+            width: Math.min(root.maxBannerWidth - Style.spacingL * 2, implicitWidth)
             spacing: Style.spacingS
 
             StyledText {

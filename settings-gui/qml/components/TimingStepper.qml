@@ -33,6 +33,20 @@ Rectangle {
             root.valueEdited(clamped);
     }
 
+    function stepBy(delta) {
+        let base = root.value;
+        if (valueInput.activeFocus) {
+            const parsed = parseInt(valueInput.text.trim(), 10);
+            if (!isNaN(parsed))
+                base = Math.max(root.minValue, Math.min(root.maxValue, parsed));
+            valueInput.focus = false;
+        }
+        const next = Math.max(root.minValue, Math.min(root.maxValue, base + delta));
+        valueInput.text = String(next);
+        if (next !== root.value)
+            root.valueEdited(next);
+    }
+
     onValueChanged: {
         if (!valueInput.activeFocus)
             valueInput.text = String(value);
@@ -60,10 +74,7 @@ Rectangle {
             circular: false
             enabled: root.value > root.minValue
             tooltipText: I18n.tr("Decrease")
-            onClicked: {
-                valueInput.focus = false;
-                root.valueEdited(Math.max(root.minValue, root.value - root.step));
-            }
+            onClicked: root.stepBy(-root.step)
         }
 
         Item {
@@ -156,10 +167,7 @@ Rectangle {
             circular: false
             enabled: root.value < root.maxValue
             tooltipText: I18n.tr("Increase")
-            onClicked: {
-                valueInput.focus = false;
-                root.valueEdited(Math.min(root.maxValue, root.value + root.step));
-            }
+            onClicked: root.stepBy(root.step)
         }
     }
 }

@@ -18,7 +18,6 @@
 #include <QJsonObject>
 #include <QKeySequence>
 #include <QMetaObject>
-#include <QPointer>
 #include <QProcess>
 #include <QSaveFile>
 #include <QSet>
@@ -811,6 +810,11 @@ SettingsBackend::SettingsBackend(I18nBridge* i18n, QObject* parent) : QObject(pa
     loadAll();
 }
 
+SettingsBackend::~SettingsBackend() {
+    const std::lock_guard<std::mutex> lock(aliveGuard_->mutex);
+    aliveGuard_->alive = false;
+}
+
 QString SettingsBackend::translate(const char* text) const {
     if (text == nullptr || text[0] == '\0') {
         return QString();
@@ -1396,6 +1400,7 @@ bool SettingsBackend::applyAll() {
             emit toastRequested(translate("Failed to save settings. Please check if Fcitx5 is running."));
             return false;
         }
+        initialValues_ = values_;
     }
 
     if (appRules_ != initialAppRules_) {
@@ -1412,9 +1417,12 @@ bool SettingsBackend::applyAll() {
             });
         }
         if (!dbusClient_.setSubConfigList(QStringLiteral("app_rules"), QStringLiteral("Rules"), payload)) {
+            fcitxOffline_ = !dbusClient_.isConnected();
+            emit stateChanged();
             emit toastRequested(translate("Failed to save some settings. Please check if Fcitx5 is running."));
             return false;
         }
+        initialAppRules_ = appRules_;
     }
 
     if (macros_ != initialMacros_) {
@@ -1428,9 +1436,12 @@ bool SettingsBackend::applyAll() {
             });
         }
         if (!dbusClient_.setSubConfigList(QStringLiteral("lotus-macro"), QStringLiteral("Macro"), payload)) {
+            fcitxOffline_ = !dbusClient_.isConnected();
+            emit stateChanged();
             emit toastRequested(translate("Failed to save some settings. Please check if Fcitx5 is running."));
             return false;
         }
+        initialMacros_ = macros_;
     }
 
     if (keymapBindings_ != initialKeymapBindings_) {
@@ -1444,16 +1455,15 @@ bool SettingsBackend::applyAll() {
             });
         }
         if (!dbusClient_.setSubConfigList(QStringLiteral("custom_keymap"), QStringLiteral("CustomKeymap"), payload)) {
+            fcitxOffline_ = !dbusClient_.isConnected();
+            emit stateChanged();
             emit toastRequested(translate("Failed to save some settings. Please check if Fcitx5 is running."));
             return false;
         }
+        initialKeymapBindings_ = keymapBindings_;
     }
 
-    initialValues_          = values_;
-    initialAppRules_        = appRules_;
-    initialMacros_          = macros_;
     initialDictionaryWords_ = dictionaryWords_;
-    initialKeymapBindings_  = keymapBindings_;
     recomputeDerivedState();
     emit stateChanged();
     emit toastRequested(translate("Settings saved"));
@@ -1915,10 +1925,10 @@ void SettingsBackend::scanDesktopEntries() {
     desktopApps_.clear();
 
     QStringList searchPaths = {
-        QStringLiteral("/usr/share/applications"),
         QDir::home().filePath(QStringLiteral(".local/share/applications")),
-        QStringLiteral("/var/lib/flatpak/exports/share/applications"),
         QDir::home().filePath(QStringLiteral(".local/share/flatpak/exports/share/applications")),
+        QStringLiteral("/usr/share/applications"),
+        QStringLiteral("/var/lib/flatpak/exports/share/applications"),
         QStringLiteral("/var/lib/snapd/desktop/applications"),
     };
     const QStringList xdgDirs = qEnvironmentVariable("XDG_DATA_DIRS").split(QLatin1Char(':'), Qt::SkipEmptyParts);
@@ -2473,10 +2483,21 @@ bool SettingsBackend::importBackup(const QString& fileUrl, const QVariantMap& co
         return false;
     }
 
-    const QJsonObject obj = doc.object();
-    QStringList       failed;
-    bool              dictRestored   = false;
-    bool              configReloaded = false;
+    const QJsonObject obj       = doc.object();
+    const bool        needsDbus = (components.value(QStringLiteral("config"), false).toBool() && obj.value(QStringLiteral("config")).isObject()) ||
+        (components.value(QStringLiteral("rules"), false).toBool() && obj.value(QStringLiteral("rules")).isArray()) ||
+        (components.value(QStringLiteral("macros"), false).toBool() && obj.value(QStringLiteral("macros")).isArray()) ||
+        (components.value(QStringLiteral("keymaps"), false).toBool() && obj.value(QStringLiteral("keymaps")).isArray());
+    if (needsDbus && !dbusClient_.isConnected()) {
+        fcitxOffline_ = true;
+        emit stateChanged();
+        emit toastRequested(translate("Failed to save settings. Please check if Fcitx5 is running."));
+        return false;
+    }
+
+    QStringList failed;
+    bool        dictRestored   = false;
+    bool        configReloaded = false;
 
     if (components.value(QStringLiteral("dictionary"), false).toBool() && obj.contains(QStringLiteral("dictionary"))) {
         const QJsonValue dictVal = obj.value(QStringLiteral("dictionary"));
@@ -2487,7 +2508,7 @@ bool SettingsBackend::importBackup(const QString& fileUrl, const QVariantMap& co
             words.reserve(arr.size());
             for (const QJsonValue& v : arr) {
                 const QString w = v.toString().trimmed();
-                if (!w.isEmpty()) {
+                if (!w.isEmpty() && isValidWord(w)) {
                     words.append(w);
                 }
             }
@@ -2564,19 +2585,21 @@ void SettingsBackend::exportDebugInfo(const QString& fileUrl) {
         configSnapshot = cfg.values;
         hasConfig      = true;
     }
-    const bool                offline = fcitxOffline_;
-    const QString             version = appVersion();
-    QPointer<SettingsBackend> self(this);
+    const bool                        offline = fcitxOffline_;
+    const QString                     version = appVersion();
+    const std::shared_ptr<AliveGuard> guard   = aliveGuard_;
 
-    std::thread([self, path, version, configSnapshot, hasConfig, offline]() {
-        const QString report = collectDebugReport(version, configSnapshot, hasConfig, offline);
-        const bool    ok     = writeRawTextAtomic(path, report.toUtf8());
-        if (self) {
+    std::thread([this, guard, path, version, configSnapshot, hasConfig, offline]() {
+        const QString                     report = collectDebugReport(version, configSnapshot, hasConfig, offline);
+        const bool                        ok     = writeRawTextAtomic(path, report.toUtf8());
+        const std::lock_guard<std::mutex> lock(guard->mutex);
+        if (guard->alive) {
             QMetaObject::invokeMethod(
-                self.data(),
-                [self, ok]() {
-                    if (self) {
-                        emit self->toastRequested(ok ? self->translate("Debug info exported") : self->translate("Failed to export debug info"));
+                this,
+                [this, guard, ok]() {
+                    const std::lock_guard<std::mutex> innerLock(guard->mutex);
+                    if (guard->alive) {
+                        emit toastRequested(ok ? translate("Debug info exported") : translate("Failed to export debug info"));
                     }
                 },
                 Qt::QueuedConnection);
