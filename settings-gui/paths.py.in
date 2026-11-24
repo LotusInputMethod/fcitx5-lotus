@@ -1,7 +1,0 @@
-# SPDX-FileCopyrightText: 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com>
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
-"""Installation paths configured at build time."""
-
-LOCALE_DIR = "@CMAKE_INSTALL_FULL_LOCALEDIR@"
-DICTIONARY_PATH = "@CMAKE_INSTALL_FULL_DATADIR@/fcitx5/lotus/vietnamese.cm.dict"

@@ -1,52 +1,42 @@
-find_package(Python3 COMPONENTS Interpreter REQUIRED)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Quick QuickControls2 DBus Widgets)
+find_package(Intl QUIET)
 
-set(SETTINGS_GUI_INSTALL_DIR "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/settings-gui")
-set(SETTINGS_GUI_FULL_PATH "${CMAKE_INSTALL_FULL_DATADIR}/${PROJECT_NAME}/settings-gui")
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
 
-option(LOTUS_BYTECOMPILE_PYTHON "Byte-compile Python scripts during install" ON)
-
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/version.py.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/version.py"
-    @ONLY
+set(LOTUS_SETTINGS_SOURCES
+    cpp/main.cpp
+    cpp/i18n_bridge.h
+    cpp/i18n_bridge.cpp
+    cpp/theme_bridge.h
+    cpp/theme_bridge.cpp
+    cpp/dbus_client.h
+    cpp/dbus_client.cpp
+    cpp/settings_backend.h
+    cpp/settings_backend.cpp
+    lotus_settings.qrc
 )
 
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/paths.py.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/paths.py"
-    @ONLY
+add_executable(fcitx5-lotus-settings ${LOTUS_SETTINGS_SOURCES})
+
+target_compile_features(fcitx5-lotus-settings PRIVATE cxx_std_20)
+
+target_compile_definitions(fcitx5-lotus-settings PRIVATE
+    LOTUS_VERSION="${PROJECT_VERSION}"
+    LOCALE_DIR="${CMAKE_INSTALL_FULL_LOCALEDIR}"
+    DICTIONARY_PATH="${FCITX_INSTALL_PKGDATADIR}/lotus/vietnamese.cm.dict"
 )
 
-install(DIRECTORY core adw_ui
-        DESTINATION "${SETTINGS_GUI_INSTALL_DIR}"
-        FILES_MATCHING PATTERN "*.py" PATTERN "*.svg")
+target_link_libraries(fcitx5-lotus-settings PRIVATE
+    Qt6::Quick
+    Qt6::QuickControls2
+    Qt6::DBus
+    Qt6::Widgets
+    $<$<BOOL:${Intl_FOUND}>:Intl::Intl>
+)
 
-install(FILES i18n.py "${CMAKE_CURRENT_BINARY_DIR}/version.py" "${CMAKE_CURRENT_BINARY_DIR}/paths.py"
-        DESTINATION "${SETTINGS_GUI_INSTALL_DIR}")
-
-install(FILES main.py
-        DESTINATION "${SETTINGS_GUI_INSTALL_DIR}"
-        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
-
-set(LAUNCHER_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/fcitx5-lotus-settings")
-
-file(WRITE "${LAUNCHER_SCRIPT}"
-"#!/bin/sh
-exec \"${SETTINGS_GUI_FULL_PATH}/main.py\" \"$@\"
-")
-
-install(PROGRAMS "${LAUNCHER_SCRIPT}"
+install(TARGETS fcitx5-lotus-settings
         DESTINATION "${CMAKE_INSTALL_BINDIR}")
-
-if(LOTUS_BYTECOMPILE_PYTHON)
-    install(CODE "
-        message(STATUS \"Byte-compiling Python scripts...\")
-        execute_process(
-            COMMAND \"${Python3_EXECUTABLE}\" -m compileall -q -o 0 -o 1 -d \"${SETTINGS_GUI_FULL_PATH}\"
-                \"\$ENV{DESTDIR}${SETTINGS_GUI_FULL_PATH}\"
-        )
-    ")
-endif()
 
 fcitx5_translate_desktop_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/org.fcitx.Fcitx5.Addon.Lotus.Settings.desktop.in"

@@ -11,6 +11,9 @@
   GPL-3.0-or-later.
 - **fcitx5-bamboo** — <https://github.com/fcitx/fcitx5-bamboo> — the fcitx5 addon whose glue the
   forked addon layer follows, Copyright (C) 2022-2022 CSSlayer <wengxt@gmail.com>, LGPL-2.1.
+- **dux-qml-common** — the QML Material/DMS UI component library (`DCommon`) adapted for Qt 6.2+
+  compatibility in `settings-gui/qml/DCommon/`, Copyright (C) 2025-2026 Avenge Media LLC, MIT
+  license. The MIT text is preserved at [`settings-gui/qml/DCommon/LICENSE`](settings-gui/qml/DCommon/LICENSE).
 
 ## This repository
 

@@ -1,0 +1,3 @@
+pragma Singleton
+
+TimingTokens {}
