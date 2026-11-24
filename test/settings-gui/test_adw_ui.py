@@ -627,9 +627,11 @@ class MacroEditorPageTests(unittest.TestCase):
         self.assertTrue(key_col.has_css_class("macro-key-col"))
         self.assertTrue(key_badge.has_css_class("macro-key-badge"))
 
-        # Suffix controls only contain Edit and Delete (no Up/Down reorder buttons)
-        suffix_controls = branch_row._children[1]
-        self.assertEqual(len(suffix_controls._children), 2)
+        # Suffix contains only Delete (clicking the row itself opens Edit)
+        self.assertEqual(len(branch_row._children), 2)
+        suffix_btn = branch_row._children[1]
+        self.assertTrue(suffix_btn.has_css_class("destructive-action"))
+        self.assertEqual(suffix_btn.get_tooltip_text(), "Remove")
 
         # Spacious Edit Macro Adw.Dialog supports multi-line text, $TIME/$DATE chips, validation & sorting
         page._open_macro_dialog(1)

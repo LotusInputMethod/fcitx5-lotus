@@ -15,7 +15,6 @@ from adw_ui.utils import (
     bool_to_str,
     make_delete_button,
     make_empty_row,
-    make_icon_button,
     register_css,
     remove_rows_from_group,
     save_dbus_values,
@@ -527,19 +526,7 @@ class MacroEditorPage(StagedPage):
         prefix_box.append(arrow)
 
         row.add_prefix(prefix_box)
-
-        controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
-        controls.set_valign(Gtk.Align.CENTER)
-        controls.append(
-            make_icon_button(
-                "document-edit-symbolic",
-                _("Edit"),
-                on_clicked=lambda _b, idx=orig_idx: self._open_macro_dialog(idx),
-            )
-        )
-        controls.append(make_delete_button(lambda _b, idx=orig_idx: self._remove_macro(idx)))
-
-        row.add_suffix(controls)
+        row.add_suffix(make_delete_button(lambda _b, idx=orig_idx: self._remove_macro(idx)))
         return row
 
     def _remove_macro(self, index: int):
