@@ -27,7 +27,7 @@ I18nBridge::I18nBridge(QObject* parent) : QObject(parent) {
     isRtl_ = (QLocale().textDirection() == Qt::RightToLeft);
 }
 
-QString I18nBridge::tr(const QString& text) const {
+QString I18nBridge::tr(const QString& text) {
     if (text.isEmpty()) {
         return text;
     }

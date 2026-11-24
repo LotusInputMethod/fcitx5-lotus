@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <libintl.h>
 #include <pwd.h>
 #include <thread>
@@ -43,14 +44,14 @@
 #endif
 
 namespace {
-    constexpr int  kMaxDelayMs        = 1000;
-    constexpr int  kResetPreviewCount = 4;
-    constexpr int  kLogTailLines      = 200;
-    constexpr int  kCmdTimeoutMs      = 5000;
-    constexpr int  kDiagnoseTimeoutMs = 10000;
-    constexpr char kTextDomain[]      = "fcitx5-lotus";
+    constexpr int         kMaxDelayMs        = 1000;
+    constexpr int         kResetPreviewCount = 4;
+    constexpr int         kLogTailLines      = 200;
+    constexpr int         kCmdTimeoutMs      = 5000;
+    constexpr int         kDiagnoseTimeoutMs = 10000;
+    constexpr const char* kTextDomain        = "fcitx5-lotus";
 
-    enum AppModeId : int {
+    enum class AppModeId : std::int8_t {
         ModeDefault     = -1,
         ModeOff         = 0,
         ModeSmooth      = 1,
@@ -69,13 +70,13 @@ namespace {
     };
 
     constexpr std::array<ModeDef, 7> kModeDefs = {{
-        {"Smooth", "ShortcutSmooth", "ShowModeSmooth", "Uinput (Smooth)", "1"},
-        {"SuperSmooth", "ShortcutSuperSmooth", "ShowModeSuperSmooth", "Uinput (Super Smooth)", "a"},
-        {"SurroundingText", "ShortcutSurroundingText", "ShowModeSurroundingText", "Surrounding Text", "4"},
-        {"Preedit", "ShortcutPreedit", "ShowModePreedit", "Preedit", "q"},
-        {"Emoji", "ShortcutEmoji", "ShowModeEmoji", "Emoji Picker", "w"},
-        {"Off", "ShortcutOff", "ShowModeOff", "OFF", "e"},
-        {"Default", "ShortcutDefault", "ShowModeDefault", "Default Typing", "r"},
+        {.name = "Smooth", .shortcutKey = "ShortcutSmooth", .showKey = "ShowModeSmooth", .title = "Uinput (Smooth)", .defaultKey = "1"},
+        {.name = "SuperSmooth", .shortcutKey = "ShortcutSuperSmooth", .showKey = "ShowModeSuperSmooth", .title = "Uinput (Super Smooth)", .defaultKey = "a"},
+        {.name = "SurroundingText", .shortcutKey = "ShortcutSurroundingText", .showKey = "ShowModeSurroundingText", .title = "Surrounding Text", .defaultKey = "4"},
+        {.name = "Preedit", .shortcutKey = "ShortcutPreedit", .showKey = "ShowModePreedit", .title = "Preedit", .defaultKey = "q"},
+        {.name = "Emoji", .shortcutKey = "ShortcutEmoji", .showKey = "ShowModeEmoji", .title = "Emoji Picker", .defaultKey = "w"},
+        {.name = "Off", .shortcutKey = "ShortcutOff", .showKey = "ShowModeOff", .title = "OFF", .defaultKey = "e"},
+        {.name = "Default", .shortcutKey = "ShortcutDefault", .showKey = "ShowModeDefault", .title = "Default Typing", .defaultKey = "r"},
     }};
 
     constexpr const char*            kDefaultModeOrder = "Smooth,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default";
@@ -86,35 +87,35 @@ namespace {
     };
 
     constexpr std::array<KeyValuePair, 29> kBambooActions = {{
-        {"XoaDauThanh", "Xóa dấu thanh"},
-        {"DauSac", "Dấu sắc"},
-        {"DauHuyen", "Dấu huyền"},
-        {"DauHoi", "Dấu hỏi"},
-        {"DauNga", "Dấu ngã"},
-        {"DauNang", "Dấu nặng"},
-        {"A_Â", "a -> â"},
-        {"E_Ê", "e -> ê"},
-        {"O_Ô", "o -> ô"},
-        {"AEO_ÂÊÔ", "a/e/o -> â/ê/ô"},
-        {"UOA_ƯƠĂ", "u/o/a -> ư/ơ/ă"},
-        {"D_Đ", "d -> đ"},
-        {"UO_ƯƠ", "u/o -> ư/ơ"},
-        {"A_Ă", "a -> ă"},
-        {"__ă", "ă"},
-        {"_Ă", "Ă"},
-        {"__â", "â"},
-        {"_Â", "Â"},
-        {"__ê", "ê"},
-        {"_Ê", "Ê"},
-        {"__ô", "ô"},
-        {"_Ô", "Ô"},
-        {"__ư", "ư"},
-        {"_Ư", "Ư"},
-        {"__ơ", "ơ"},
-        {"_Ơ", "Ơ"},
-        {"__đ", "đ"},
-        {"_Đ", "Đ"},
-        {"UOA_ƯƠĂ__Ư", "u/o/a -> ư/ơ/ă, ư"},
+        {.key = "XoaDauThanh", .value = "Xóa dấu thanh"},
+        {.key = "DauSac", .value = "Dấu sắc"},
+        {.key = "DauHuyen", .value = "Dấu huyền"},
+        {.key = "DauHoi", .value = "Dấu hỏi"},
+        {.key = "DauNga", .value = "Dấu ngã"},
+        {.key = "DauNang", .value = "Dấu nặng"},
+        {.key = "A_Â", .value = "a -> â"},
+        {.key = "E_Ê", .value = "e -> ê"},
+        {.key = "O_Ô", .value = "o -> ô"},
+        {.key = "AEO_ÂÊÔ", .value = "a/e/o -> â/ê/ô"},
+        {.key = "UOA_ƯƠĂ", .value = "u/o/a -> ư/ơ/ă"},
+        {.key = "D_Đ", .value = "d -> đ"},
+        {.key = "UO_ƯƠ", .value = "u/o -> ư/ơ"},
+        {.key = "A_Ă", .value = "a -> ă"},
+        {.key = "__ă", .value = "ă"},
+        {.key = "_Ă", .value = "Ă"},
+        {.key = "__â", .value = "â"},
+        {.key = "_Â", .value = "Â"},
+        {.key = "__ê", .value = "ê"},
+        {.key = "_Ê", .value = "Ê"},
+        {.key = "__ô", .value = "ô"},
+        {.key = "_Ô", .value = "Ô"},
+        {.key = "__ư", .value = "ư"},
+        {.key = "_Ư", .value = "Ư"},
+        {.key = "__ơ", .value = "ơ"},
+        {.key = "_Ơ", .value = "Ơ"},
+        {.key = "__đ", .value = "đ"},
+        {.key = "_Đ", .value = "Đ"},
+        {.key = "UOA_ƯƠĂ__Ư", .value = "u/o/a -> ư/ơ/ă, ư"},
     }};
 
     struct PresetDef {
@@ -124,105 +125,120 @@ namespace {
 
     const std::vector<PresetDef>& presetDefinitions() {
         static const std::vector<PresetDef> kPresets = {
-            {"Telex",
-             {
-                 {"z", "XoaDauThanh"},
-                 {"s", "DauSac"},
-                 {"f", "DauHuyen"},
-                 {"r", "DauHoi"},
-                 {"x", "DauNga"},
-                 {"j", "DauNang"},
-                 {"a", "A_Â"},
-                 {"e", "E_Ê"},
-                 {"o", "O_Ô"},
-                 {"w", "UOA_ƯƠĂ"},
-                 {"d", "D_Đ"},
-             }},
-            {"VNI",
-             {
-                 {"0", "XoaDauThanh"},
-                 {"1", "DauSac"},
-                 {"2", "DauHuyen"},
-                 {"3", "DauHoi"},
-                 {"4", "DauNga"},
-                 {"5", "DauNang"},
-                 {"6", "AEO_ÂÊÔ"},
-                 {"7", "UO_ƯƠ"},
-                 {"8", "A_Ă"},
-                 {"9", "D_Đ"},
-             }},
-            {"VIQR",
-             {
-                 {"0", "XoaDauThanh"},
-                 {"'", "DauSac"},
-                 {"`", "DauHuyen"},
-                 {"?", "DauHoi"},
-                 {"~", "DauNga"},
-                 {".", "DauNang"},
-                 {"^", "AEO_ÂÊÔ"},
-                 {"+", "UO_ƯƠ"},
-                 {"*", "UO_ƯƠ"},
-                 {"(", "A_Ă"},
-                 {"d", "D_Đ"},
-             }},
-            {"Microsoft layout",
-             {
-                 {"8", "DauSac"},
-                 {"5", "DauHuyen"},
-                 {"6", "DauHoi"},
-                 {"7", "DauNga"},
-                 {"9", "DauNang"},
-                 {"1", "__ă"},
-                 {"!", "_Ă"},
-                 {"2", "__â"},
-                 {"@", "_Â"},
-                 {"3", "__ê"},
-                 {"#", "_Ê"},
-                 {"4", "__ô"},
-                 {"$", "_Ô"},
-                 {"0", "__đ"},
-                 {")", "_Đ"},
-             }},
-            {"Telex + VNI",
-             {
-                 {"z", "XoaDauThanh"}, {"s", "DauSac"}, {"f", "DauHuyen"}, {"r", "DauHoi"},  {"x", "DauNga"},      {"j", "DauNang"}, {"a", "A_Â"},
-                 {"e", "E_Ê"},         {"o", "O_Ô"},    {"w", "UOA_ƯƠĂ"},  {"d", "D_Đ"},     {"0", "XoaDauThanh"}, {"1", "DauSac"},  {"2", "DauHuyen"},
-                 {"3", "DauHoi"},      {"4", "DauNga"}, {"5", "DauNang"},  {"6", "AEO_ÂÊÔ"}, {"7", "UO_ƯƠ"},       {"8", "A_Ă"},     {"9", "D_Đ"},
-             }},
-            {"Telex + VNI + VIQR",
-             {
-                 {"z", "XoaDauThanh"}, {"s", "DauSac"},  {"f", "DauHuyen"}, {"r", "DauHoi"},      {"x", "DauNga"}, {"j", "DauNang"},  {"a", "A_Â"},      {"e", "E_Ê"},
-                 {"o", "O_Ô"},         {"w", "UOA_ƯƠĂ"}, {"d", "D_Đ"},      {"0", "XoaDauThanh"}, {"1", "DauSac"}, {"2", "DauHuyen"}, {"3", "DauHoi"},   {"4", "DauNga"},
-                 {"5", "DauNang"},     {"6", "AEO_ÂÊÔ"}, {"7", "UO_ƯƠ"},    {"8", "A_Ă"},         {"9", "D_Đ"},    {"'", "DauSac"},   {"`", "DauHuyen"}, {"?", "DauHoi"},
-                 {"~", "DauNga"},      {".", "DauNang"}, {"^", "AEO_ÂÊÔ"},  {"+", "UO_ƯƠ"},       {"*", "UO_ƯƠ"},  {"(", "A_Ă"},      {"\\", "D_Đ"},
-             }},
-            {"VNI Bàn phím tiếng Pháp",
-             {
-                 {"&", "XoaDauThanh"},
-                 {"é", "DauSac"},
-                 {"\"", "DauHuyen"},
-                 {"'", "DauHoi"},
-                 {"(", "DauNga"},
-                 {"-", "DauNang"},
-                 {"è", "AEO_ÂÊÔ"},
-                 {"_", "UO_ƯƠ"},
-                 {"ç", "A_Ă"},
-                 {"à", "D_Đ"},
-             }},
-            {"Telex W",
-             {
-                 {"z", "XoaDauThanh"},
-                 {"s", "DauSac"},
-                 {"f", "DauHuyen"},
-                 {"r", "DauHoi"},
-                 {"x", "DauNga"},
-                 {"j", "DauNang"},
-                 {"a", "A_Â"},
-                 {"e", "E_Ê"},
-                 {"o", "O_Ô"},
-                 {"w", "UOA_ƯƠĂ__Ư"},
-                 {"d", "D_Đ"},
-             }},
+            {.name = "Telex",
+             .rules =
+                 {
+                     {.key = "z", .value = "XoaDauThanh"},
+                     {.key = "s", .value = "DauSac"},
+                     {.key = "f", .value = "DauHuyen"},
+                     {.key = "r", .value = "DauHoi"},
+                     {.key = "x", .value = "DauNga"},
+                     {.key = "j", .value = "DauNang"},
+                     {.key = "a", .value = "A_Â"},
+                     {.key = "e", .value = "E_Ê"},
+                     {.key = "o", .value = "O_Ô"},
+                     {.key = "w", .value = "UOA_ƯƠĂ"},
+                     {.key = "d", .value = "D_Đ"},
+                 }},
+            {.name = "VNI",
+             .rules =
+                 {
+                     {.key = "0", .value = "XoaDauThanh"},
+                     {.key = "1", .value = "DauSac"},
+                     {.key = "2", .value = "DauHuyen"},
+                     {.key = "3", .value = "DauHoi"},
+                     {.key = "4", .value = "DauNga"},
+                     {.key = "5", .value = "DauNang"},
+                     {.key = "6", .value = "AEO_ÂÊÔ"},
+                     {.key = "7", .value = "UO_ƯƠ"},
+                     {.key = "8", .value = "A_Ă"},
+                     {.key = "9", .value = "D_Đ"},
+                 }},
+            {.name = "VIQR",
+             .rules =
+                 {
+                     {.key = "0", .value = "XoaDauThanh"},
+                     {.key = "'", .value = "DauSac"},
+                     {.key = "`", .value = "DauHuyen"},
+                     {.key = "?", .value = "DauHoi"},
+                     {.key = "~", .value = "DauNga"},
+                     {.key = ".", .value = "DauNang"},
+                     {.key = "^", .value = "AEO_ÂÊÔ"},
+                     {.key = "+", .value = "UO_ƯƠ"},
+                     {.key = "*", .value = "UO_ƯƠ"},
+                     {.key = "(", .value = "A_Ă"},
+                     {.key = "d", .value = "D_Đ"},
+                 }},
+            {.name = "Microsoft layout",
+             .rules =
+                 {
+                     {.key = "8", .value = "DauSac"},
+                     {.key = "5", .value = "DauHuyen"},
+                     {.key = "6", .value = "DauHoi"},
+                     {.key = "7", .value = "DauNga"},
+                     {.key = "9", .value = "DauNang"},
+                     {.key = "1", .value = "__ă"},
+                     {.key = "!", .value = "_Ă"},
+                     {.key = "2", .value = "__â"},
+                     {.key = "@", .value = "_Â"},
+                     {.key = "3", .value = "__ê"},
+                     {.key = "#", .value = "_Ê"},
+                     {.key = "4", .value = "__ô"},
+                     {.key = "$", .value = "_Ô"},
+                     {.key = "0", .value = "__đ"},
+                     {.key = ")", .value = "_Đ"},
+                 }},
+            {.name = "Telex + VNI",
+             .rules =
+                 {
+                     {.key = "z", .value = "XoaDauThanh"}, {.key = "s", .value = "DauSac"},   {.key = "f", .value = "DauHuyen"}, {.key = "r", .value = "DauHoi"},
+                     {.key = "x", .value = "DauNga"},      {.key = "j", .value = "DauNang"},  {.key = "a", .value = "A_Â"},      {.key = "e", .value = "E_Ê"},
+                     {.key = "o", .value = "O_Ô"},         {.key = "w", .value = "UOA_ƯƠĂ"},  {.key = "d", .value = "D_Đ"},      {.key = "0", .value = "XoaDauThanh"},
+                     {.key = "1", .value = "DauSac"},      {.key = "2", .value = "DauHuyen"}, {.key = "3", .value = "DauHoi"},   {.key = "4", .value = "DauNga"},
+                     {.key = "5", .value = "DauNang"},     {.key = "6", .value = "AEO_ÂÊÔ"},  {.key = "7", .value = "UO_ƯƠ"},    {.key = "8", .value = "A_Ă"},
+                     {.key = "9", .value = "D_Đ"},
+                 }},
+            {.name = "Telex + VNI + VIQR",
+             .rules =
+                 {
+                     {.key = "z", .value = "XoaDauThanh"}, {.key = "s", .value = "DauSac"},   {.key = "f", .value = "DauHuyen"}, {.key = "r", .value = "DauHoi"},
+                     {.key = "x", .value = "DauNga"},      {.key = "j", .value = "DauNang"},  {.key = "a", .value = "A_Â"},      {.key = "e", .value = "E_Ê"},
+                     {.key = "o", .value = "O_Ô"},         {.key = "w", .value = "UOA_ƯƠĂ"},  {.key = "d", .value = "D_Đ"},      {.key = "0", .value = "XoaDauThanh"},
+                     {.key = "1", .value = "DauSac"},      {.key = "2", .value = "DauHuyen"}, {.key = "3", .value = "DauHoi"},   {.key = "4", .value = "DauNga"},
+                     {.key = "5", .value = "DauNang"},     {.key = "6", .value = "AEO_ÂÊÔ"},  {.key = "7", .value = "UO_ƯƠ"},    {.key = "8", .value = "A_Ă"},
+                     {.key = "9", .value = "D_Đ"},         {.key = "'", .value = "DauSac"},   {.key = "`", .value = "DauHuyen"}, {.key = "?", .value = "DauHoi"},
+                     {.key = "~", .value = "DauNga"},      {.key = ".", .value = "DauNang"},  {.key = "^", .value = "AEO_ÂÊÔ"},  {.key = "+", .value = "UO_ƯƠ"},
+                     {.key = "*", .value = "UO_ƯƠ"},       {.key = "(", .value = "A_Ă"},      {.key = "\\", .value = "D_Đ"},
+                 }},
+            {.name = "VNI Bàn phím tiếng Pháp",
+             .rules =
+                 {
+                     {.key = "&", .value = "XoaDauThanh"},
+                     {.key = "é", .value = "DauSac"},
+                     {.key = "\"", .value = "DauHuyen"},
+                     {.key = "'", .value = "DauHoi"},
+                     {.key = "(", .value = "DauNga"},
+                     {.key = "-", .value = "DauNang"},
+                     {.key = "è", .value = "AEO_ÂÊÔ"},
+                     {.key = "_", .value = "UO_ƯƠ"},
+                     {.key = "ç", .value = "A_Ă"},
+                     {.key = "à", .value = "D_Đ"},
+                 }},
+            {.name = "Telex W",
+             .rules =
+                 {
+                     {.key = "z", .value = "XoaDauThanh"},
+                     {.key = "s", .value = "DauSac"},
+                     {.key = "f", .value = "DauHuyen"},
+                     {.key = "r", .value = "DauHoi"},
+                     {.key = "x", .value = "DauNga"},
+                     {.key = "j", .value = "DauNang"},
+                     {.key = "a", .value = "A_Â"},
+                     {.key = "e", .value = "E_Ê"},
+                     {.key = "o", .value = "O_Ô"},
+                     {.key = "w", .value = "UOA_ƯƠĂ__Ư"},
+                     {.key = "d", .value = "D_Đ"},
+                 }},
         };
         return kPresets;
     }
@@ -352,7 +368,7 @@ namespace {
                     return s;
                 }
             }
-            return QString();
+            return {};
         }
         if (val.metaType() == QMetaType::fromType<QVariantList>()) {
             const QVariantList list = val.toList();
@@ -363,22 +379,22 @@ namespace {
 
     int normalizeAppMode(int mode) {
         if (mode == 2 || mode == 7) {
-            return ModeSmooth;
+            return static_cast<int>(AppModeId::ModeSmooth);
         }
-        switch (mode) {
-            case ModeOff:
-            case ModeSmooth:
-            case ModeSuperSmooth:
-            case ModeSurrounding:
-            case ModePreedit:
-            case ModeEmoji: return mode;
-            default: return ModeOff;
+        switch (static_cast<AppModeId>(mode)) {
+            case AppModeId::ModeOff:
+            case AppModeId::ModeSmooth:
+            case AppModeId::ModeSuperSmooth:
+            case AppModeId::ModeSurrounding:
+            case AppModeId::ModePreedit:
+            case AppModeId::ModeEmoji: return mode;
+            default: return static_cast<int>(AppModeId::ModeOff);
         }
     }
 
     QString resolveLocalFilePath(const QString& fileUrlOrPath) {
         if (fileUrlOrPath.isEmpty()) {
-            return QString();
+            return {};
         }
         const QUrl url(fileUrlOrPath);
         if (url.isLocalFile()) {
@@ -463,7 +479,7 @@ namespace {
     }
 
     QStringList sortedWordCopy(QStringList list) {
-        std::sort(list.begin(), list.end());
+        std::ranges::sort(list);
         return list;
     }
 
@@ -637,12 +653,12 @@ namespace {
             return QStringLiteral("F") + QString::number(qtKey - Qt::Key_F1 + 1);
         }
         if (qtKey >= Qt::Key_0 && qtKey <= Qt::Key_9) {
-            return QString(QChar::fromLatin1(static_cast<char>('0' + (qtKey - Qt::Key_0))));
+            return {QChar::fromLatin1(static_cast<char>('0' + (qtKey - Qt::Key_0)))};
         }
         if (qtKey >= Qt::Key_A && qtKey <= Qt::Key_Z) {
             const bool upper = (qtModifiers & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)) != 0;
             const char base  = static_cast<char>((upper ? 'A' : 'a') + (qtKey - Qt::Key_A));
-            return QString(QChar::fromLatin1(base));
+            return {QChar::fromLatin1(base)};
         }
 
         if (text.size() == 1 && text.at(0).isPrint()) {
@@ -652,13 +668,13 @@ namespace {
     }
 
     void sortAppRules(QVariantList& rules) {
-        std::sort(rules.begin(), rules.end(), [](const QVariant& a, const QVariant& b) {
+        std::ranges::sort(rules, [](const QVariant& a, const QVariant& b) {
             return a.toMap().value(QStringLiteral("app")).toString().toLower() < b.toMap().value(QStringLiteral("app")).toString().toLower();
         });
     }
 
     void sortMacros(QVariantList& macros) {
-        std::sort(macros.begin(), macros.end(), [](const QVariant& a, const QVariant& b) {
+        std::ranges::sort(macros, [](const QVariant& a, const QVariant& b) {
             const QString ka  = a.toMap().value(QStringLiteral("key")).toString();
             const QString kb  = b.toMap().value(QStringLiteral("key")).toString();
             const int     cmp = QString::compare(ka, kb, Qt::CaseInsensitive);
@@ -680,8 +696,8 @@ namespace {
             proc.waitForFinished(500);
             return QStringLiteral("(timed out after %1s)").arg(timeoutMs / 1000);
         }
-        const QString out = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
-        const QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+        QString out = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+        QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
         if (!out.isEmpty() && !err.isEmpty()) {
             return out + QLatin1Char('\n') + err;
         }
@@ -744,9 +760,7 @@ namespace {
         sections.append(sysLines.join(QLatin1Char('\n')));
 
         QString configText;
-        if (fcitxOffline) {
-            configText = QStringLiteral("(empty or Fcitx5 not running)");
-        } else if (hasConfig) {
+        if (!fcitxOffline && hasConfig) {
             const QJsonObject obj = QJsonObject::fromVariantMap(configValues);
             configText            = QString::fromUtf8(QJsonDocument(obj).toJson(QJsonDocument::Indented)).trimmed();
         } else {
@@ -811,16 +825,16 @@ SettingsBackend::SettingsBackend(I18nBridge* i18n, QObject* parent) : QObject(pa
 }
 
 SettingsBackend::~SettingsBackend() {
-    const std::lock_guard<std::mutex> lock(aliveGuard_->mutex);
+    const std::scoped_lock lock(aliveGuard_->mutex);
     aliveGuard_->alive = false;
 }
 
 QString SettingsBackend::translate(const char* text) const {
-    if (text == nullptr || text[0] == '\0') {
-        return QString();
+    if (text == nullptr || *text == '\0') {
+        return {};
     }
     if (i18n_ != nullptr) {
-        return i18n_->tr(QString::fromUtf8(text));
+        return I18nBridge::tr(QString::fromUtf8(text));
     }
     return QString::fromUtf8(dgettext(kTextDomain, text));
 }
@@ -830,7 +844,7 @@ QString SettingsBackend::translate(const QString& text) const {
         return text;
     }
     if (i18n_ != nullptr) {
-        return i18n_->tr(text);
+        return I18nBridge::tr(text);
     }
     const QByteArray utf8 = text.toUtf8();
     return QString::fromUtf8(dgettext(kTextDomain, utf8.constData()));
@@ -852,7 +866,7 @@ QString SettingsBackend::validationMessage() const {
     return validationMessage_;
 }
 
-QString SettingsBackend::appVersion() const {
+QString SettingsBackend::appVersion() {
     return QStringLiteral(LOTUS_VERSION);
 }
 
@@ -877,7 +891,7 @@ QVariantList SettingsBackend::dictionaryWords() const {
 }
 
 int SettingsBackend::totalWordCount() const {
-    return dictionaryWords_.size();
+    return static_cast<int>(dictionaryWords_.size());
 }
 
 QVariantList SettingsBackend::keymapBindings() const {
@@ -949,7 +963,7 @@ QVariant SettingsBackend::defaultTypedValue(const QString& key) const {
     return QString();
 }
 
-QVariant SettingsBackend::normalizeConfigValue(const QString& key, const QVariant& raw) const {
+QVariant SettingsBackend::normalizeConfigValue(const QString& key, const QVariant& raw) {
     if (booleanKeys().contains(key)) {
         const bool fallback = fallbackDefaults().value(key, false).toBool();
         return asBool(raw, fallback);
@@ -964,7 +978,7 @@ QVariant SettingsBackend::normalizeConfigValue(const QString& key, const QVarian
     return raw.toString();
 }
 
-QVariant SettingsBackend::toWireValue(const QString& key, const QVariant& typedVal) const {
+QVariant SettingsBackend::toWireValue(const QString& key, const QVariant& typedVal) {
     if (booleanKeys().contains(key)) {
         return asBool(typedVal) ? QStringLiteral("True") : QStringLiteral("False");
     }
@@ -1022,7 +1036,7 @@ void SettingsBackend::loadAppRules() {
         if (app.isEmpty()) {
             continue;
         }
-        const int mode      = normalizeAppMode(asInt(item.value(QStringLiteral("Mode")), ModeSmooth));
+        const int mode      = normalizeAppMode(asInt(item.value(QStringLiteral("Mode")), static_cast<int>(AppModeId::ModeSmooth)));
         const int commit    = std::clamp(asInt(item.value(QStringLiteral("CommitInterval")), 0), 0, kMaxDelayMs);
         const int backspace = std::clamp(asInt(item.value(QStringLiteral("BackspaceInterval")), 0), 0, kMaxDelayMs);
         const int post      = std::clamp(asInt(item.value(QStringLiteral("PostDelay")), 0), 0, kMaxDelayMs);
@@ -1165,7 +1179,7 @@ void SettingsBackend::rebuildModeList() {
 void SettingsBackend::recomputeDerivedState() {
     dictDirtyInitial_   = sortedWordCopy(dictionaryWords_) != sortedWordCopy(initialDictionaryWords_);
     dictDirtyDefault_   = QFileInfo::exists(localDictPath()) || (sortedWordCopy(dictionaryWords_) != sortedWordCopy(globalDictionaryWords_));
-    dictHasInvalidWord_ = std::any_of(dictionaryWords_.cbegin(), dictionaryWords_.cend(), [this](const QString& w) { return !isValidWord(w); });
+    dictHasInvalidWord_ = std::ranges::any_of(dictionaryWords_, [](const QString& w) { return !isValidWord(w); });
 
     hasUnsavedChanges_ =
         (values_ != initialValues_) || (appRules_ != initialAppRules_) || (macros_ != initialMacros_) || dictDirtyInitial_ || (keymapBindings_ != initialKeymapBindings_);
@@ -1185,7 +1199,7 @@ void SettingsBackend::recomputeDerivedState() {
         }
     }
 
-    const bool hasInvalidMacro = std::any_of(macros_.cbegin(), macros_.cend(), [](const QVariant& itemVar) { return itemVar.toMap().value(QStringLiteral("invalid")).toBool(); });
+    const bool hasInvalidMacro = std::ranges::any_of(macros_, [](const QVariant& itemVar) { return itemVar.toMap().value(QStringLiteral("invalid")).toBool(); });
     if (hasInvalidMacro) {
         errors.append(translate("Macro keys cannot contain spaces or special characters."));
     }
@@ -1247,7 +1261,7 @@ QVariantList SettingsBackend::getEnumOptions(const QString& key) const {
             const QVariantMap enumMap = enumVar.toMap();
             if (!enumMap.isEmpty()) {
                 QStringList idxKeys = enumMap.keys();
-                std::sort(idxKeys.begin(), idxKeys.end(), [](const QString& a, const QString& b) {
+                std::ranges::sort(idxKeys, [](const QString& a, const QString& b) {
                     bool      okA = false;
                     bool      okB = false;
                     const int nA  = a.toInt(&okA);
@@ -1259,8 +1273,13 @@ QVariantList SettingsBackend::getEnumOptions(const QString& key) const {
                 });
                 QVariantList out;
                 for (const QString& idxKey : std::as_const(idxKeys)) {
-                    const QString raw   = enumMap.value(idxKey).toString();
-                    const QString label = enumI18n.contains(idxKey) ? enumI18n.value(idxKey).toString() : (translateLabels ? translate(raw) : raw);
+                    const QString raw = enumMap.value(idxKey).toString();
+                    QString       label;
+                    if (enumI18n.contains(idxKey)) {
+                        label = enumI18n.value(idxKey).toString();
+                    } else {
+                        label = translateLabels ? translate(raw) : raw;
+                    }
                     out.append(makeOption(raw, label));
                 }
                 return out;
@@ -1492,7 +1511,7 @@ void SettingsBackend::cancelAll() {
     emit stateChanged();
 }
 
-QStringList SettingsBackend::sectionConfigKeys(const QString& sectionId) const {
+QStringList SettingsBackend::sectionConfigKeys(const QString& sectionId) {
     if (sectionId == QLatin1String("input")) {
         return {QStringLiteral("InputMethod"), QStringLiteral("Mode"), QStringLiteral("OutputCharset")};
     }
@@ -1613,15 +1632,9 @@ bool SettingsBackend::isModeMenuModifiedFromDefault() const {
         return true;
     }
 
-    for (const ModeDef& def : kModeDefs) {
-        if (isConfigKeyModifiedFromDefault(QString::fromLatin1(def.showKey))) {
-            return true;
-        }
-        if (isConfigKeyModifiedFromDefault(QString::fromLatin1(def.shortcutKey))) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(kModeDefs, [this](const ModeDef& def) {
+        return isConfigKeyModifiedFromDefault(QString::fromLatin1(def.showKey)) || isConfigKeyModifiedFromDefault(QString::fromLatin1(def.shortcutKey));
+    });
 }
 
 bool SettingsBackend::isDictionaryModifiedFromDefault() const {
@@ -1649,7 +1662,7 @@ bool SettingsBackend::isSectionModifiedFromDefault(const QString& sectionId) con
         return !keymapBindings_.isEmpty();
     }
     const QStringList keys = sectionConfigKeys(sectionId);
-    return std::any_of(keys.cbegin(), keys.cend(), [this](const QString& k) { return isConfigKeyModifiedFromDefault(k); });
+    return std::ranges::any_of(keys, [this](const QString& k) { return isConfigKeyModifiedFromDefault(k); });
 }
 
 QString SettingsBackend::formatShortcutDisplay(const QString& shortcut) const {
@@ -2027,7 +2040,7 @@ void SettingsBackend::scanDesktopEntries() {
                 }
             }
 
-            ParsedEntry entry{keys, name, icon};
+            ParsedEntry entry{.keys = keys, .name = name, .icon = icon};
             if (isHidden) {
                 hiddenEntries.append(entry);
             } else {
@@ -2043,7 +2056,7 @@ void SettingsBackend::scanDesktopEntries() {
                     desktopIconCache_.insert(k, entry.icon);
                 }
                 if (!desktopApps_.contains(k)) {
-                    desktopApps_.insert(k, DesktopAppEntry{entry.name, entry.icon});
+                    desktopApps_.insert(k, DesktopAppEntry{.name = entry.name, .icon = entry.icon});
                 }
             }
         }
@@ -2095,12 +2108,12 @@ QString SettingsBackend::resolveAppIconName(const QString& appId) const {
         iconName = lower;
     }
     if (iconName == QLatin1String("application-x-executable")) {
-        return QString();
+        return {};
     }
     if (QFileInfo::exists(iconName) || QIcon::hasThemeIcon(iconName)) {
         return iconName;
     }
-    return QString();
+    return {};
 }
 
 void SettingsBackend::addAppRule(const QString& appId) {
@@ -2117,7 +2130,7 @@ void SettingsBackend::addAppRule(const QString& appId) {
         {QStringLiteral("app"), cleaned},
         {QStringLiteral("displayName"), resolveAppDisplayName(cleaned)},
         {QStringLiteral("iconName"), resolveAppIconName(cleaned)},
-        {QStringLiteral("mode"), static_cast<int>(ModeSmooth)},
+        {QStringLiteral("mode"), static_cast<int>(AppModeId::ModeSmooth)},
         {QStringLiteral("commit"), 0},
         {QStringLiteral("backspace"), 0},
         {QStringLiteral("post"), 0},
@@ -2133,14 +2146,14 @@ void SettingsBackend::updateAppRule(const QString& appId, int mode, int commit, 
     const int normBackspace = std::clamp(backspace, 0, kMaxDelayMs);
     const int normPost      = std::clamp(post, 0, kMaxDelayMs);
 
-    for (int i = 0; i < appRules_.size(); ++i) {
-        QVariantMap rule = appRules_.at(i).toMap();
+    for (auto& appRule : appRules_) {
+        QVariantMap rule = appRule.toMap();
         if (rule.value(QStringLiteral("app")).toString() == appId) {
             rule.insert(QStringLiteral("mode"), normMode);
             rule.insert(QStringLiteral("commit"), normCommit);
             rule.insert(QStringLiteral("backspace"), normBackspace);
             rule.insert(QStringLiteral("post"), normPost);
-            appRules_[i] = rule;
+            appRule = rule;
             recomputeDerivedState();
             emit stateChanged();
             return;
@@ -2159,12 +2172,12 @@ void SettingsBackend::removeAppRule(const QString& appId) {
     }
 }
 
-bool SettingsBackend::isValidMacroKey(const QString& key) const {
+bool SettingsBackend::isValidMacroKey(const QString& key) {
     if (key.isEmpty()) {
         return false;
     }
     const QList<uint> ucs4 = key.toUcs4();
-    return std::all_of(ucs4.cbegin(), ucs4.cend(), [](uint cp) { return QChar::isLetterOrNumber(cp); });
+    return std::ranges::all_of(ucs4, [](uint cp) { return QChar::isLetterOrNumber(cp); });
 }
 
 void SettingsBackend::upsertMacro(const QString& oldKey, const QString& newKey, const QString& val) {
@@ -2204,12 +2217,12 @@ void SettingsBackend::removeMacro(const QString& key) {
     }
 }
 
-bool SettingsBackend::isValidWord(const QString& word) const {
+bool SettingsBackend::isValidWord(const QString& word) {
     const QString trimmed = word.trimmed();
     if (trimmed.isEmpty()) {
         return false;
     }
-    return std::none_of(trimmed.cbegin(), trimmed.cend(), [](QChar ch) { return ch.isSpace(); });
+    return std::ranges::none_of(trimmed, [](QChar ch) { return ch.isSpace(); });
 }
 
 void SettingsBackend::addWord(const QString& word) {
@@ -2284,11 +2297,11 @@ void SettingsBackend::upsertKeymap(const QString& key, const QString& actionCode
     if (trimmedKey.isEmpty() || actionCode.isEmpty()) {
         return;
     }
-    for (int i = 0; i < keymapBindings_.size(); ++i) {
-        QVariantMap km = keymapBindings_.at(i).toMap();
+    for (auto& keymapBinding : keymapBindings_) {
+        QVariantMap km = keymapBinding.toMap();
         if (km.value(QStringLiteral("key")).toString() == trimmedKey) {
             km.insert(QStringLiteral("value"), actionCode);
-            keymapBindings_[i] = km;
+            keymapBinding = km;
             recomputeDerivedState();
             emit stateChanged();
             return;
@@ -2506,7 +2519,7 @@ bool SettingsBackend::importBackup(const QString& fileUrl, const QVariantMap& co
             QStringList      words;
             const QJsonArray arr = dictVal.toArray();
             words.reserve(arr.size());
-            for (const QJsonValue& v : arr) {
+            for (const auto& v : arr) {
                 const QString w = v.toString().trimmed();
                 if (!w.isEmpty() && isValidWord(w)) {
                     words.append(w);
@@ -2590,14 +2603,14 @@ void SettingsBackend::exportDebugInfo(const QString& fileUrl) {
     const std::shared_ptr<AliveGuard> guard   = aliveGuard_;
 
     std::thread([this, guard, path, version, configSnapshot, hasConfig, offline]() {
-        const QString                     report = collectDebugReport(version, configSnapshot, hasConfig, offline);
-        const bool                        ok     = writeRawTextAtomic(path, report.toUtf8());
-        const std::lock_guard<std::mutex> lock(guard->mutex);
+        const QString          report = collectDebugReport(version, configSnapshot, hasConfig, offline);
+        const bool             ok     = writeRawTextAtomic(path, report.toUtf8());
+        const std::scoped_lock lock(guard->mutex);
         if (guard->alive) {
             QMetaObject::invokeMethod(
                 this,
                 [this, guard, ok]() {
-                    const std::lock_guard<std::mutex> innerLock(guard->mutex);
+                    const std::scoped_lock innerLock(guard->mutex);
                     if (guard->alive) {
                         emit toastRequested(ok ? translate("Debug info exported") : translate("Failed to export debug info"));
                     }
@@ -2607,9 +2620,9 @@ void SettingsBackend::exportDebugInfo(const QString& fileUrl) {
     }).detach();
 }
 
-QString SettingsBackend::formatKeyEvent(int qtKey, int qtModifiers, const QString& text, bool allowSingleKey, bool singleKeyOnly) const {
+QString SettingsBackend::formatKeyEvent(int qtKey, int qtModifiers, const QString& text, bool allowSingleKey, bool singleKeyOnly) {
     if (qtKey == Qt::Key_Escape || qtKey == Qt::Key_unknown || qtKey == 0) {
-        return QString();
+        return {};
     }
 
     switch (qtKey) {
@@ -2621,13 +2634,13 @@ QString SettingsBackend::formatKeyEvent(int qtKey, int qtModifiers, const QStrin
         case Qt::Key_Super_L:
         case Qt::Key_Super_R:
         case Qt::Key_Hyper_L:
-        case Qt::Key_Hyper_R: return QString();
+        case Qt::Key_Hyper_R: return {};
         default: break;
     }
 
     QString baseKey = qtKeyToFcitxKeysym(qtKey, qtModifiers, text);
     if (baseKey.isEmpty()) {
-        return QString();
+        return {};
     }
 
     if (singleKeyOnly) {
@@ -2636,7 +2649,7 @@ QString SettingsBackend::formatKeyEvent(int qtKey, int qtModifiers, const QStrin
 
     const bool hasNonShiftMod = (qtModifiers & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)) != 0;
     if (!allowSingleKey && !hasNonShiftMod && !isSpecialSingleKey(baseKey)) {
-        return QString();
+        return {};
     }
 
     const bool isAsciiAlpha = (baseKey.size() == 1 && baseKey.at(0).unicode() < 128 && baseKey.at(0).isLetter());
@@ -2645,16 +2658,16 @@ QString SettingsBackend::formatKeyEvent(int qtKey, int qtModifiers, const QStrin
     }
 
     QStringList mods;
-    if (qtModifiers & Qt::ControlModifier) {
+    if ((qtModifiers & Qt::ControlModifier) != 0U) {
         mods.append(QStringLiteral("Control"));
     }
-    if (qtModifiers & Qt::AltModifier) {
+    if ((qtModifiers & Qt::AltModifier) != 0U) {
         mods.append(QStringLiteral("Alt"));
     }
-    if (qtModifiers & Qt::MetaModifier) {
+    if ((qtModifiers & Qt::MetaModifier) != 0U) {
         mods.append(QStringLiteral("Super"));
     }
-    if ((qtModifiers & Qt::ShiftModifier) && ((hasNonShiftMod && isAsciiAlpha) || !hotkeyUiUnshiftMap().contains(baseKey))) {
+    if (((qtModifiers & Qt::ShiftModifier) != 0U) && ((hasNonShiftMod && isAsciiAlpha) || !hotkeyUiUnshiftMap().contains(baseKey))) {
         mods.append(QStringLiteral("Shift"));
     }
 
@@ -2662,7 +2675,7 @@ QString SettingsBackend::formatKeyEvent(int qtKey, int qtModifiers, const QStrin
     return mods.join(QLatin1Char('+'));
 }
 
-QStringList SettingsBackend::prettyHotkeyParts(const QString& hotkeyStr) const {
+QStringList SettingsBackend::prettyHotkeyParts(const QString& hotkeyStr) {
     if (hotkeyStr.isEmpty()) {
         return {};
     }

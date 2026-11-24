@@ -26,14 +26,14 @@ class LotusDBusClient {
 
     LotusDBusClient();
 
-    bool         isConnected() const;
-    bool         reconnect();
+    [[nodiscard]] bool isConnected() const;
+    bool               reconnect();
 
-    ConfigData   getConfig();
-    bool         setConfig(const QVariantMap& values);
-    bool         saveValues(const QVariantMap& updates);
-    QVariantList getSubConfigList(const QString& subPath, const QString& rootKey);
-    bool         setSubConfigList(const QString& subPath, const QString& rootKey, const QVariantList& items);
+    ConfigData         getConfig();
+    bool               setConfig(const QVariantMap& values);
+    bool               saveValues(const QVariantMap& updates);
+    QVariantList       getSubConfigList(const QString& subPath, const QString& rootKey);
+    bool               setSubConfigList(const QString& subPath, const QString& rootKey, const QVariantList& items);
 
   private:
     ConfigData                      fetchRawConfig(const QString& uri);

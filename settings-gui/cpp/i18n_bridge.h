@@ -23,12 +23,12 @@ class I18nBridge : public QObject {
     /**
      * @brief Translates an English msgid string using the fcitx5-lotus gettext domain.
      */
-    Q_INVOKABLE QString tr(const QString& text) const;
+    Q_INVOKABLE [[nodiscard]] static QString tr(const QString& text);
 
     /**
      * @brief Returns true when the active locale uses right-to-left layout.
      */
-    bool isRtl() const;
+    [[nodiscard]] bool isRtl() const;
 
   private:
     bool isRtl_ = false;

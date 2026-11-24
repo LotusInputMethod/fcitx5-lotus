@@ -157,7 +157,7 @@ bool LotusDBusClient::reconnect() {
         return false;
     }
     const QDBusConnectionInterface* busIface = bus.interface();
-    if (!busIface || !busIface->isServiceRegistered(kService).value()) {
+    if ((busIface == nullptr) || !busIface->isServiceRegistered(kService).value()) {
         return false;
     }
 
@@ -257,7 +257,7 @@ QVariantList LotusDBusClient::getSubConfigList(const QString& subPath, const QSt
     if (rootVal.metaType() == QMetaType::fromType<QVariantMap>()) {
         const QVariantMap dict = rootVal.toMap();
         QStringList       keys = dict.keys();
-        std::sort(keys.begin(), keys.end(), [](const QString& a, const QString& b) {
+        std::ranges::sort(keys, [](const QString& a, const QString& b) {
             bool      okA = false;
             bool      okB = false;
             const int nA  = a.toInt(&okA);

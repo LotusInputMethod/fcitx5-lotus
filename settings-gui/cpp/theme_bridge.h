@@ -49,32 +49,32 @@ class ThemeBridge : public QObject {
   public:
     explicit ThemeBridge(QObject* parent = nullptr);
 
-    bool   isDark() const;
-    bool   isLightMode() const;
-    QColor surface() const;
-    QColor surfaceText() const;
-    QColor surfaceVariant() const;
-    QColor surfaceVariantText() const;
-    QColor surfaceContainer() const;
-    QColor surfaceContainerLow() const;
-    QColor surfaceContainerHigh() const;
-    QColor surfaceContainerHighest() const;
-    QColor primary() const;
-    QColor primaryText() const;
-    QColor primaryContainer() const;
-    QColor onPrimary() const;
-    QColor onPrimaryContainer() const;
-    QColor secondary() const;
-    QColor secondaryContainer() const;
-    QColor onSecondaryContainer() const;
-    QColor outline() const;
-    QColor outlineVariant() const;
-    QColor error() const;
-    QColor errorContainer() const;
-    QColor onError() const;
-    QColor onErrorContainer() const;
-    QColor warning() const;
-    QColor accent() const;
+    [[nodiscard]] bool   isDark() const;
+    [[nodiscard]] bool   isLightMode() const;
+    [[nodiscard]] QColor surface() const;
+    [[nodiscard]] QColor surfaceText() const;
+    [[nodiscard]] QColor surfaceVariant() const;
+    [[nodiscard]] QColor surfaceVariantText() const;
+    [[nodiscard]] QColor surfaceContainer() const;
+    [[nodiscard]] QColor surfaceContainerLow() const;
+    [[nodiscard]] QColor surfaceContainerHigh() const;
+    [[nodiscard]] QColor surfaceContainerHighest() const;
+    [[nodiscard]] QColor primary() const;
+    [[nodiscard]] QColor primaryText() const;
+    [[nodiscard]] QColor primaryContainer() const;
+    [[nodiscard]] QColor onPrimary() const;
+    [[nodiscard]] QColor onPrimaryContainer() const;
+    [[nodiscard]] QColor secondary() const;
+    [[nodiscard]] QColor secondaryContainer() const;
+    [[nodiscard]] QColor onSecondaryContainer() const;
+    [[nodiscard]] QColor outline() const;
+    [[nodiscard]] QColor outlineVariant() const;
+    [[nodiscard]] QColor error() const;
+    [[nodiscard]] QColor errorContainer() const;
+    [[nodiscard]] QColor onError() const;
+    [[nodiscard]] QColor onErrorContainer() const;
+    [[nodiscard]] QColor warning() const;
+    [[nodiscard]] QColor accent() const;
 
   signals:
     void themeChanged();
@@ -82,11 +82,10 @@ class ThemeBridge : public QObject {
   protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
-  private slots:
-    void onPortalSettingChanged(const QString& ns, const QString& key, const QDBusVariant& value);
-    void onQt6ctFileChanged(const QString& path);
-
   private:
+    Q_SLOT void         onPortalSettingChanged(const QString& ns, const QString& key, const QDBusVariant& value);
+    Q_SLOT void         onQt6ctFileChanged(const QString& path);
+
     void                queryPortalColorScheme();
     void                setupQt6ctWatcher();
     void                reloadFromQt6ct();

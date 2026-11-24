@@ -26,10 +26,10 @@
 
 namespace {
     QColor blendColor(const QColor& a, const QColor& b, qreal t) {
-        const qreal clamped = std::clamp(t, 0.0, 1.0);
-        const qreal inv     = 1.0 - clamped;
-        return QColor::fromRgbF(a.redF() * inv + b.redF() * clamped, a.greenF() * inv + b.greenF() * clamped, a.blueF() * inv + b.blueF() * clamped,
-                                a.alphaF() * inv + b.alphaF() * clamped);
+        const float clamped = static_cast<float>(std::clamp(t, 0.0, 1.0));
+        const float inv     = 1.0F - clamped;
+        return QColor::fromRgbF((a.redF() * inv) + (b.redF() * clamped), (a.greenF() * inv) + (b.greenF() * clamped), (a.blueF() * inv) + (b.blueF() * clamped),
+                                (a.alphaF() * inv) + (b.alphaF() * clamped));
     }
 
     int parsePortalColorScheme(const QVariant& raw) {
@@ -59,7 +59,7 @@ namespace {
         if (!okR || !okG || !okB) {
             return {};
         }
-        return QColor(std::clamp(r, 0, 255), std::clamp(g, 0, 255), std::clamp(b, 0, 255));
+        return {std::clamp(r, 0, 255), std::clamp(g, 0, 255), std::clamp(b, 0, 255)};
     }
 
     bool loadKdeColorScheme(const QString& path, QPalette& outPal) {
@@ -129,8 +129,8 @@ ThemeBridge::ThemeBridge(QObject* parent) : QObject(parent) {
         app->installEventFilter(this);
     }
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
-    if (auto* guiApp = qobject_cast<QGuiApplication*>(QCoreApplication::instance())) {
-        if (QStyleHints* hints = guiApp->styleHints()) {
+    if (qobject_cast<QGuiApplication*>(QCoreApplication::instance()) != nullptr) {
+        if (QStyleHints* hints = QGuiApplication::styleHints()) {
             connect(hints, &QStyleHints::colorSchemeChanged, this, [this](Qt::ColorScheme scheme) {
                 if (scheme == Qt::ColorScheme::Dark) {
                     portalColorScheme_ = 1;
@@ -169,7 +169,7 @@ void ThemeBridge::setupQt6ctWatcher() {
     if (!QFileInfo::exists(qt6ctConfigPath_)) {
         return;
     }
-    qt6ctWatcher_ = new QFileSystemWatcher(this);
+    qt6ctWatcher_ = new QFileSystemWatcher(this); // NOLINT(cppcoreguidelines-owning-memory)
     qt6ctWatcher_->addPath(qt6ctConfigPath_);
     connect(qt6ctWatcher_, &QFileSystemWatcher::fileChanged, this, &ThemeBridge::onQt6ctFileChanged);
     reloadFromQt6ct();
@@ -264,7 +264,14 @@ void ThemeBridge::updateFromPalette(const QPalette& pal) {
 
     const bool   paletteDark = windowColor.lightnessF() < 0.5;
     const bool   hasQt6ct    = !qt6ctSchemePath_.isEmpty() && QFileInfo::exists(qt6ctSchemePath_);
-    const bool   dark        = hasQt6ct ? paletteDark : ((portalColorScheme_ == 1) ? true : ((portalColorScheme_ == 2) ? false : paletteDark));
+    bool         dark        = paletteDark;
+    if (!hasQt6ct) {
+        if (portalColorScheme_ == 1) {
+            dark = true;
+        } else if (portalColorScheme_ == 2) {
+            dark = false;
+        }
+    }
 
     if (dark != paletteDark) {
         if (dark) {

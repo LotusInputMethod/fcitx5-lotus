@@ -66,15 +66,15 @@ int main(int argc, char* argv[]) {
     ThemeBridge     themeBridge;
     SettingsBackend settingsBackend(&i18nBridge);
 
-    app.setApplicationName(QStringLiteral("fcitx5-lotus-settings"));
-    app.setApplicationDisplayName(i18nBridge.tr(QStringLiteral("Lotus Settings")));
-    app.setApplicationVersion(QStringLiteral(LOTUS_VERSION));
-    app.setOrganizationDomain(QStringLiteral("fcitx.org"));
-    app.setWindowIcon(QIcon::fromTheme(QStringLiteral("fcitx-lotus")));
+    QApplication::setApplicationName(QStringLiteral("fcitx5-lotus-settings"));
+    QApplication::setApplicationDisplayName(I18nBridge::tr(QStringLiteral("Lotus Settings")));
+    QApplication::setApplicationVersion(QStringLiteral(LOTUS_VERSION));
+    QApplication::setOrganizationDomain(QStringLiteral("fcitx.org"));
+    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("fcitx-lotus")));
     QGuiApplication::setDesktopFileName(QStringLiteral("org.fcitx.Fcitx5.Addon.Lotus.Settings"));
 
     QQmlApplicationEngine engine;
-    engine.addImageProvider(QStringLiteral("theme"), new ThemeIconProvider());
+    engine.addImageProvider(QStringLiteral("theme"), new ThemeIconProvider()); // NOLINT(cppcoreguidelines-owning-memory)
 
     QUrl             mainUrl(QStringLiteral("qrc:/lotus/qml/Main.qml"));
 
@@ -116,5 +116,5 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    return app.exec();
+    return QApplication::exec();
 }

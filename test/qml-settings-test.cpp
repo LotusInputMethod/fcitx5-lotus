@@ -318,33 +318,37 @@ namespace {
         check("factory default ShortcutSmooth", vals.value(QStringLiteral("ShortcutSmooth")).toString() == QString::fromStdString(*cfg.shortcutSmooth));
     }
 
-    void testKeyAndHotkeyFormatting(const SettingsBackend& backend) {
-        check("formatKeyEvent ignores Escape", backend.formatKeyEvent(Qt::Key_Escape, Qt::NoModifier, QString(), true).isEmpty());
-        check("formatKeyEvent ignores bare Control", backend.formatKeyEvent(Qt::Key_Control, Qt::ControlModifier, QString(), true).isEmpty());
-        check("formatKeyEvent ignores bare Shift", backend.formatKeyEvent(Qt::Key_Shift, Qt::ShiftModifier, QString(), true).isEmpty());
-        check("formatKeyEvent singleKeyOnly digit", backend.formatKeyEvent(Qt::Key_1, Qt::NoModifier, QStringLiteral("1"), false, true) == QLatin1String("1"));
-        check("formatKeyEvent singleKeyOnly alpha", backend.formatKeyEvent(Qt::Key_A, Qt::NoModifier, QStringLiteral("a"), false, true) == QLatin1String("a"));
-        check("formatKeyEvent rejects plain letter when allowSingleKey=false", backend.formatKeyEvent(Qt::Key_A, Qt::NoModifier, QStringLiteral("a"), false).isEmpty());
-        check("formatKeyEvent accepts plain letter when allowSingleKey=true", backend.formatKeyEvent(Qt::Key_A, Qt::NoModifier, QStringLiteral("a"), true) == QLatin1String("a"));
-        check("formatKeyEvent allows grave as special single key", backend.formatKeyEvent(Qt::Key_QuoteLeft, Qt::NoModifier, QStringLiteral("`"), false) == QLatin1String("grave"));
-        check("formatKeyEvent allows F1 as special single key", backend.formatKeyEvent(Qt::Key_F1, Qt::NoModifier, QString(), false) == QLatin1String("F1"));
-        check("formatKeyEvent Control+Shift+S", backend.formatKeyEvent(Qt::Key_S, Qt::ControlModifier | Qt::ShiftModifier, QString(), false) == QLatin1String("Control+Shift+S"));
+    void testKeyAndHotkeyFormatting() {
+        check("formatKeyEvent ignores Escape", SettingsBackend::formatKeyEvent(Qt::Key_Escape, Qt::NoModifier, QString(), true).isEmpty());
+        check("formatKeyEvent ignores bare Control", SettingsBackend::formatKeyEvent(Qt::Key_Control, Qt::ControlModifier, QString(), true).isEmpty());
+        check("formatKeyEvent ignores bare Shift", SettingsBackend::formatKeyEvent(Qt::Key_Shift, Qt::ShiftModifier, QString(), true).isEmpty());
+        check("formatKeyEvent singleKeyOnly digit", SettingsBackend::formatKeyEvent(Qt::Key_1, Qt::NoModifier, QStringLiteral("1"), false, true) == QLatin1String("1"));
+        check("formatKeyEvent singleKeyOnly alpha", SettingsBackend::formatKeyEvent(Qt::Key_A, Qt::NoModifier, QStringLiteral("a"), false, true) == QLatin1String("a"));
+        check("formatKeyEvent rejects plain letter when allowSingleKey=false", SettingsBackend::formatKeyEvent(Qt::Key_A, Qt::NoModifier, QStringLiteral("a"), false).isEmpty());
+        check("formatKeyEvent accepts plain letter when allowSingleKey=true",
+              SettingsBackend::formatKeyEvent(Qt::Key_A, Qt::NoModifier, QStringLiteral("a"), true) == QLatin1String("a"));
+        check("formatKeyEvent allows grave as special single key",
+              SettingsBackend::formatKeyEvent(Qt::Key_QuoteLeft, Qt::NoModifier, QStringLiteral("`"), false) == QLatin1String("grave"));
+        check("formatKeyEvent allows F1 as special single key", SettingsBackend::formatKeyEvent(Qt::Key_F1, Qt::NoModifier, QString(), false) == QLatin1String("F1"));
+        check("formatKeyEvent Control+Shift+S",
+              SettingsBackend::formatKeyEvent(Qt::Key_S, Qt::ControlModifier | Qt::ShiftModifier, QString(), false) == QLatin1String("Control+Shift+S"));
         check("formatKeyEvent Control+Alt+grave",
-              backend.formatKeyEvent(Qt::Key_QuoteLeft, Qt::ControlModifier | Qt::AltModifier, QString(), false) == QLatin1String("Control+Alt+grave"));
+              SettingsBackend::formatKeyEvent(Qt::Key_QuoteLeft, Qt::ControlModifier | Qt::AltModifier, QString(), false) == QLatin1String("Control+Alt+grave"));
         check("formatKeyEvent shifted asciitilde omits redundant Shift",
-              backend.formatKeyEvent(Qt::Key_AsciiTilde, Qt::ShiftModifier, QStringLiteral("~"), true) == QLatin1String("asciitilde"));
+              SettingsBackend::formatKeyEvent(Qt::Key_AsciiTilde, Qt::ShiftModifier, QStringLiteral("~"), true) == QLatin1String("asciitilde"));
 
-        check("prettyHotkeyParts empty", backend.prettyHotkeyParts(QString()).isEmpty());
-        check("prettyHotkeyParts grave", backend.prettyHotkeyParts(QStringLiteral("grave")) == QStringList{QStringLiteral("`")});
+        check("prettyHotkeyParts empty", SettingsBackend::prettyHotkeyParts(QString()).isEmpty());
+        check("prettyHotkeyParts grave", SettingsBackend::prettyHotkeyParts(QStringLiteral("grave")) == QStringList{QStringLiteral("`")});
         check("prettyHotkeyParts Control+Shift+S",
-              backend.prettyHotkeyParts(QStringLiteral("Control+Shift+S")) == (QStringList{QStringLiteral("Ctrl"), QStringLiteral("Shift"), QStringLiteral("S")}));
+              SettingsBackend::prettyHotkeyParts(QStringLiteral("Control+Shift+S")) == (QStringList{QStringLiteral("Ctrl"), QStringLiteral("Shift"), QStringLiteral("S")}));
         check("prettyHotkeyParts Control+Alt+Super+space",
-              backend.prettyHotkeyParts(QStringLiteral("Control+Alt+Super+space")) ==
+              SettingsBackend::prettyHotkeyParts(QStringLiteral("Control+Alt+Super+space")) ==
                   (QStringList{QStringLiteral("Ctrl"), QStringLiteral("Alt"), QStringLiteral("Super"), QStringLiteral("Space")}));
-        check("prettyHotkeyParts asciitilde adds Shift", backend.prettyHotkeyParts(QStringLiteral("asciitilde")) == (QStringList{QStringLiteral("Shift"), QStringLiteral("`")}));
-        check("prettyHotkeyParts plus literal", backend.prettyHotkeyParts(QStringLiteral("+")) == QStringList{QStringLiteral("+")});
-        check("prettyHotkeyParts Control++", backend.prettyHotkeyParts(QStringLiteral("Control++")) == (QStringList{QStringLiteral("Ctrl"), QStringLiteral("+")}));
-        check("prettyHotkeyParts Shift_L", backend.prettyHotkeyParts(QStringLiteral("Shift_L")) == QStringList{QStringLiteral("L-Shift")});
+        check("prettyHotkeyParts asciitilde adds Shift",
+              SettingsBackend::prettyHotkeyParts(QStringLiteral("asciitilde")) == (QStringList{QStringLiteral("Shift"), QStringLiteral("`")}));
+        check("prettyHotkeyParts plus literal", SettingsBackend::prettyHotkeyParts(QStringLiteral("+")) == QStringList{QStringLiteral("+")});
+        check("prettyHotkeyParts Control++", SettingsBackend::prettyHotkeyParts(QStringLiteral("Control++")) == (QStringList{QStringLiteral("Ctrl"), QStringLiteral("+")}));
+        check("prettyHotkeyParts Shift_L", SettingsBackend::prettyHotkeyParts(QStringLiteral("Shift_L")) == QStringList{QStringLiteral("L-Shift")});
     }
 
     void testDuplicateShortcutValidation(SettingsBackend& backend) {
@@ -372,13 +376,13 @@ namespace {
     }
 
     void testMacros(SettingsBackend& backend) {
-        check("isValidMacroKey accepts ASCII alphanumeric", backend.isValidMacroKey(QStringLiteral("kg2")));
-        check("isValidMacroKey accepts Unicode letters", backend.isValidMacroKey(QStringLiteral("từ1")));
-        check("isValidMacroKey rejects empty", !backend.isValidMacroKey(QString()));
-        check("isValidMacroKey rejects space", !backend.isValidMacroKey(QStringLiteral("a b")));
-        check("isValidMacroKey rejects hyphen", !backend.isValidMacroKey(QStringLiteral("a-b")));
-        check("isValidMacroKey rejects underscore", !backend.isValidMacroKey(QStringLiteral("a_b")));
-        check("isValidMacroKey rejects punctuation", !backend.isValidMacroKey(QStringLiteral("a!")));
+        check("isValidMacroKey accepts ASCII alphanumeric", SettingsBackend::isValidMacroKey(QStringLiteral("kg2")));
+        check("isValidMacroKey accepts Unicode letters", SettingsBackend::isValidMacroKey(QStringLiteral("từ1")));
+        check("isValidMacroKey rejects empty", !SettingsBackend::isValidMacroKey(QString()));
+        check("isValidMacroKey rejects space", !SettingsBackend::isValidMacroKey(QStringLiteral("a b")));
+        check("isValidMacroKey rejects hyphen", !SettingsBackend::isValidMacroKey(QStringLiteral("a-b")));
+        check("isValidMacroKey rejects underscore", !SettingsBackend::isValidMacroKey(QStringLiteral("a_b")));
+        check("isValidMacroKey rejects punctuation", !SettingsBackend::isValidMacroKey(QStringLiteral("a!")));
 
         backend.upsertMacro(QString(), QStringLiteral("zz"), QStringLiteral("last"));
         backend.upsertMacro(QString(), QStringLiteral("aa"), QStringLiteral("first"));
@@ -411,12 +415,12 @@ namespace {
     }
 
     void testDictionary(SettingsBackend& backend) {
-        check("isValidWord accepts plain word", backend.isValidWord(QStringLiteral("lotus")));
-        check("isValidWord accepts trimmed word", backend.isValidWord(QStringLiteral("  tiếng  ")));
-        check("isValidWord rejects empty", !backend.isValidWord(QString()));
-        check("isValidWord rejects whitespace", !backend.isValidWord(QStringLiteral("   ")));
-        check("isValidWord rejects spaces", !backend.isValidWord(QStringLiteral("two words")));
-        check("isValidWord rejects tabs", !backend.isValidWord(QStringLiteral("a\tb")));
+        check("isValidWord accepts plain word", SettingsBackend::isValidWord(QStringLiteral("lotus")));
+        check("isValidWord accepts trimmed word", SettingsBackend::isValidWord(QStringLiteral("  tiếng  ")));
+        check("isValidWord rejects empty", !SettingsBackend::isValidWord(QString()));
+        check("isValidWord rejects whitespace", !SettingsBackend::isValidWord(QStringLiteral("   ")));
+        check("isValidWord rejects spaces", !SettingsBackend::isValidWord(QStringLiteral("two words")));
+        check("isValidWord rejects tabs", !SettingsBackend::isValidWord(QStringLiteral("a\tb")));
 
         const int initialCount = backend.totalWordCount();
         backend.addWord(QStringLiteral("customlotusword"));
@@ -581,8 +585,8 @@ namespace {
 
         qputenv("LC_ALL", "C");
         I18nBridge i18n;
-        check("I18nBridge empty string stays empty", i18n.tr(QString()).isEmpty());
-        check("I18nBridge translates non-empty key", !i18n.tr(QStringLiteral("General")).isEmpty());
+        check("I18nBridge empty string stays empty", I18nBridge::tr(QString()).isEmpty());
+        check("I18nBridge translates non-empty key", !I18nBridge::tr(QStringLiteral("General")).isEmpty());
         check("I18nBridge C locale is not RTL", !i18n.isRtl());
     }
 
@@ -619,7 +623,7 @@ int main(int argc, char* argv[]) {
         check("SettingsBackend starts offline when org.fcitx.Fcitx5 is absent", backend.fcitxOffline());
 
         testFactoryDefaults(backend);
-        testKeyAndHotkeyFormatting(backend);
+        testKeyAndHotkeyFormatting();
         testDuplicateShortcutValidation(backend);
         testMacros(backend);
         testDictionary(backend);
