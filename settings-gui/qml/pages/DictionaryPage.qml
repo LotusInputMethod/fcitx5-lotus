@@ -179,43 +179,49 @@ Item {
                         Repeater {
                             model: wordsModel
 
-                            Rectangle {
+                            DW.StyledButton {
                                 id: wordChip
                                 required property string wordText
                                 required property bool invalidWord
 
-                                implicitWidth: Math.min(wordFlow.width, chipRow.implicitWidth + DC.Style.spacingS + DC.Style.spacingXS)
+                                implicitWidth: Math.min(wordFlow.width, wordLabel.implicitWidth + DC.Style.spacingM * 2)
                                 implicitHeight: DC.Style.buttonHeightXS
                                 radius: DC.Style.cornerRadiusS
-                                color: invalidWord ? DC.Style.errorContainer : DC.Style.floatingWindowFieldColor
+                                color: invalidWord
+                                    ? DC.Style.errorContainer
+                                    : (chipState.hovered ? DC.Style.withAlpha(DC.Style.error, 0.12) : DC.Style.floatingWindowFieldColor)
                                 border.width: DC.Style.outlineWidth
-                                border.color: invalidWord ? DC.Style.error : DC.Style.floatingWindowFieldBorderColor
+                                border.color: (invalidWord || chipState.hovered) ? DC.Style.error : DC.Style.floatingWindowFieldBorderColor
+                                Accessible.role: Accessible.Button
+                                Accessible.name: wordText + " — " + I18n.tr("Remove")
+                                onClicked: Backend.removeWord(wordChip.wordText)
 
-                                Row {
-                                    id: chipRow
+                                DW.FocusRing {
+                                    visible: wordChip.visualFocus
+                                    border.color: DC.Style.focusRingColor
+                                    radius: wordChip.radius
+                                }
+
+                                DW.StyledText {
+                                    id: wordLabel
                                     anchors.centerIn: parent
-                                    spacing: DC.Style.spacingXS
+                                    width: Math.min(implicitWidth, Math.max(40, wordFlow.width - DC.Style.spacingM * 2))
+                                    text: wordChip.wordText
+                                    font.pixelSize: DC.Style.fontSizeSmall
+                                    font.weight: DC.Style.fontWeightMedium
+                                    color: wordChip.invalidWord
+                                        ? DC.Style.onErrorContainer
+                                        : (chipState.hovered ? DC.Style.error : DC.Style.surfaceText)
+                                    elide: Text.ElideRight
+                                    wrapMode: Text.NoWrap
+                                }
 
-                                    DW.StyledText {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: Math.min(implicitWidth, Math.max(40, wordFlow.width - DC.Style.spacingXL * 2))
-                                        text: wordChip.wordText
-                                        font.pixelSize: DC.Style.fontSizeSmall
-                                        font.weight: DC.Style.fontWeightMedium
-                                        color: wordChip.invalidWord ? DC.Style.onErrorContainer : DC.Style.surfaceText
-                                        elide: Text.ElideRight
-                                        wrapMode: Text.NoWrap
-                                    }
-
-                                    DW.DActionButton {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        buttonSize: 22
-                                        iconName: "close"
-                                        iconSize: DC.Style.iconSizeSmall
-                                        iconColor: wordChip.invalidWord ? DC.Style.onErrorContainer : DC.Style.onSurfaceVariant
-                                        tooltipText: I18n.tr("Remove")
-                                        onClicked: Backend.removeWord(wordChip.wordText)
-                                    }
+                                DW.StateLayer {
+                                    id: chipState
+                                    cornerRadius: wordChip.radius
+                                    control: wordChip
+                                    stateColor: DC.Style.error
+                                    tooltipText: I18n.tr("Remove")
                                 }
                             }
                         }
