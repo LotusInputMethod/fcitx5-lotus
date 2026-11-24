@@ -74,6 +74,10 @@ stdenv.mkDerivation (finalAttrs: {
 
   doCheck = true;
 
+  preCheck = ''
+    export NIXPKGS_QT6_QML_IMPORT_PATH=${qt6.qtdeclarative}/${qt6.qtbase.qtQmlPrefix}
+  '';
+
   cmakeFlags = [
     "-DLOTUS_ALT_EXECUTABLE_PREFIX=/nix/store/"
     "-DLOTUS_SETFACL_EXECUTABLE=${acl}/bin/setfacl"

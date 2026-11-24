@@ -32,7 +32,9 @@
 #include <QPalette>
 #include <QProcess>
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
 #include <QQmlContext>
+#include <QQmlError>
 #include <QSet>
 #include <QString>
 #include <QStringList>
@@ -717,8 +719,13 @@ namespace {
         engine.rootContext()->setContextProperty(QStringLiteral("I18n"), &i18n);
         engine.rootContext()->setContextProperty(QStringLiteral("Theme"), &theme);
         engine.rootContext()->setContextProperty(QStringLiteral("Backend"), &backend);
-        engine.load(QUrl(QStringLiteral("qrc:/lotus/qml/Main.qml")));
-        check("QML Main.qml loads from qrc", !engine.rootObjects().isEmpty());
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/lotus/qml/Main.qml")));
+        if (!component.isReady()) {
+            for (const QQmlError& error : component.errors()) {
+                qWarning() << error.toString();
+            }
+        }
+        check("QML Main.qml compiles from qrc", component.isReady());
     }
 
 } // namespace

@@ -22,7 +22,6 @@ Rectangle {
         id: labelMetrics
         font: label.font
         text: label.text
-        renderType: label.renderType
     }
 
     StyledText {
