@@ -225,6 +225,19 @@ Item {
         onItemRemoved: root.delegateRevision++
     }
 
+    Connections {
+        target: typeof repeater.model === "object" && repeater.model !== null && !Array.isArray(repeater.model) && typeof repeater.model.rowsMoved === "function" ? repeater.model : null
+        ignoreUnknownSignals: true
+        function onRowsMoved() {
+            root.animateLayout = false;
+            root.order = root.identityOrder();
+            Qt.callLater(root.layout);
+        }
+        function onModelReset() {
+            root.reset();
+        }
+    }
+
     Instantiator {
         model: root.count
         QtObject {
