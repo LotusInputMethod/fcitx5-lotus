@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Smooth targets clients with autocomplete: the addon commits the anchor U+00B7 right before the
+// Smooth targets clients with autocomplete: the addon commits the anchor U+200B right before the
 // burst and deletes one extra character. Super Smooth targets clients without autocomplete and uses
 // the plain backspace burst.
 #include "engine-fixture.h"
@@ -71,7 +71,7 @@ int main() {
             return false;
         }
 
-        const std::vector<std::string>  anchorOnly{"\u00B7"};
+        const std::vector<std::string>  anchorOnly{"\u200B"};
         const std::vector<std::string>  noCommits{};
         const std::vector<std::string>& expectedStart = expectAnchor ? anchorOnly : noCommits;
         if (context->commits() != expectedStart) {
@@ -89,7 +89,7 @@ int main() {
             return false;
         }
 
-        const std::vector<std::string>  smoothFinal{"\u00B7", "á"};
+        const std::vector<std::string>  smoothFinal{"\u200B", "á"};
         const std::vector<std::string>  superFinal{"á"};
         const std::vector<std::string>& expectedFinal = expectAnchor ? smoothFinal : superFinal;
         if (context->commits() != expectedFinal) {
