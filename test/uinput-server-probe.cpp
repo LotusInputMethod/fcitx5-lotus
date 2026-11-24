@@ -9,13 +9,14 @@
 #include "test-utils.h"
 
 #include <cstdio>
+#include <source_location>
 
 namespace {
     int  failures = 0;
 
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the uinput probe must reflect whether the keyboard server is reachable");
+            reportFailure(name, "holds", "did not hold", "the uinput probe must reflect whether the keyboard server is reachable", location);
             ++failures;
         }
     }

@@ -10,6 +10,7 @@
 
 #include <cstdio>
 #include <memory>
+#include <source_location>
 #include <string>
 #include <variant>
 
@@ -26,18 +27,19 @@ namespace {
 
     int  failures = 0;
 
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the flattener must render compositions exactly like bamboo-core/flattener.go");
+            reportFailure(name, "holds", "did not hold", "the flattener must render compositions exactly like bamboo-core/flattener.go", location);
             ++failures;
         }
     }
 
-    void checkCanvas(const char* name, const Composition& composition, lotus::ModeSet mode, std::u32string_view expected) {
+    void checkCanvas(const char* name, const Composition& composition, lotus::ModeSet mode, std::u32string_view expected,
+                     const std::source_location& location = std::source_location::current()) {
         const std::u32string actual = lotus::flatten(composition, mode);
         if (actual != expected) {
             reportFailure(name, std::to_string(expected.size()) + " code points", std::to_string(actual.size()) + " code points",
-                          "the flattened canvas must match the expectation ported from the Go tests");
+                          "the flattened canvas must match the expectation ported from the Go tests", location);
             ++failures;
         }
     }

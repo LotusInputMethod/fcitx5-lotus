@@ -18,6 +18,7 @@
 #include <fcitx/event.h>
 #include <fcitx/inputmethodentry.h>
 
+#include <source_location>
 #include <string>
 #include <string_view>
 
@@ -32,12 +33,12 @@
  * @return True when event.accepted() matches requireAccepted.
  */
 inline bool sendKey(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, fcitx::KeySym symbol, bool requireAccepted,
-                    std::string_view meaning = "unexpected key outcome") {
+                    std::string_view meaning = "unexpected key outcome", const std::source_location& location = std::source_location::current()) {
     fcitx::KeyEvent event(&context, fcitx::Key(symbol), false);
     engine.keyEvent(entry, event);
     if (event.accepted() != requireAccepted) {
         reportFailure("process key " + std::to_string(symbol), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                      "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()), meaning);
+                      "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()), meaning, location);
         return false;
     }
     return true;
@@ -45,12 +46,12 @@ inline bool sendKey(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& e
 
 /** @brief sendKey overload for callers that build the Key themselves (modifier state, ...). */
 inline bool sendKey(fcitx::LotusEngine& engine, const fcitx::InputMethodEntry& entry, TestInputContext& context, const fcitx::Key& key, bool requireAccepted,
-                    std::string_view meaning = "unexpected key outcome") {
+                    std::string_view meaning = "unexpected key outcome", const std::source_location& location = std::source_location::current()) {
     fcitx::KeyEvent event(&context, key, false);
     engine.keyEvent(entry, event);
     if (event.accepted() != requireAccepted) {
         reportFailure("process key " + std::to_string(key.sym()), "accepted=" + std::to_string(static_cast<int>(requireAccepted)),
-                      "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()), meaning);
+                      "accepted=" + std::to_string(static_cast<int>(event.accepted())) + ", commits=" + std::to_string(context.commits().size()), meaning, location);
         return false;
     }
     return true;

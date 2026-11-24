@@ -8,18 +8,19 @@
 #include "common-executable-path.h"
 #include "test-utils.h"
 
+#include <source_location>
 #include <string>
 #include <string_view>
 
 namespace {
 
-    bool expect(std::string_view exe, std::string_view expectedPath, std::string_view prefix, bool want) {
+    bool expect(std::string_view exe, std::string_view expectedPath, std::string_view prefix, bool want, const std::source_location& location = std::source_location::current()) {
         const bool got = isAllowedExecutablePath(exe, expectedPath, prefix);
         if (got == want) {
             return true;
         }
         reportFailure("isAllowedExecutablePath(\"" + std::string(exe) + "\", \"" + std::string(expectedPath) + "\", \"" + std::string(prefix) + "\")", want ? "true" : "false",
-                      got ? "true" : "false", "the executable path policy accepted or rejected a peer incorrectly");
+                      got ? "true" : "false", "the executable path policy accepted or rejected a peer incorrectly", location);
         return false;
     }
 

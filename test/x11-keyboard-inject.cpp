@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <source_location>
 #include <span>
 #include <thread>
 
@@ -20,9 +21,9 @@
 namespace {
     int  failures = 0;
 
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the Xtest backend must inject ordered keys with the mandated interval and restore the keymap");
+            reportFailure(name, "holds", "did not hold", "the Xtest backend must inject ordered keys with the mandated interval and restore the keymap", location);
             ++failures;
         }
     }

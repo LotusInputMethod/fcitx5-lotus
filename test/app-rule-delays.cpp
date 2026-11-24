@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <source_location>
 #include <string>
 
 namespace {
@@ -23,11 +24,12 @@ namespace {
             " backspace=" + std::to_string(setting.backspaceInterval) + " post=" + std::to_string(setting.postDelay);
     }
 
-    bool expectSetting(const fcitx::LotusEngine& engine, const std::string& app, const fcitx::LotusAppRuleSetting& expected, const std::string& meaning) {
+    bool expectSetting(const fcitx::LotusEngine& engine, const std::string& app, const fcitx::LotusAppRuleSetting& expected, const std::string& meaning,
+                       const std::source_location& location = std::source_location::current()) {
         const auto actual = engine.getAppRuleSetting(app);
         if (actual.mode != expected.mode || actual.commitInterval != expected.commitInterval || actual.backspaceInterval != expected.backspaceInterval ||
             actual.postDelay != expected.postDelay) {
-            reportFailure("app rule for " + app, settingText(expected), settingText(actual), meaning);
+            reportFailure("app rule for " + app, settingText(expected), settingText(actual), meaning, location);
             return false;
         }
         return true;

@@ -18,6 +18,7 @@
 #include <array>
 
 #include <cstdio>
+#include <source_location>
 #include <string>
 #include <string_view>
 
@@ -45,11 +46,11 @@ namespace {
 
     int  failures = 0;
 
-    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected) {
+    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
         if (actual == expected) {
             return;
         }
-        reportFailure(name, hexOf(expected), hexOf(actual), "the rebuild path must reproduce the composition the Go engine rebuilds");
+        reportFailure(name, hexOf(expected), hexOf(actual), "the rebuild path must reproduce the composition the Go engine rebuilds", location);
         ++failures;
     }
 

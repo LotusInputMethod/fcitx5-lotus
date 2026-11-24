@@ -19,6 +19,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <source_location>
 #include <span>
 #include <string>
 #include <thread>
@@ -114,9 +115,9 @@ namespace {
         emitEvent(bus, path, "org.a11y.atspi.Event.Window", event, "", 0);
     }
 
-    bool check(const char* name, bool condition) {
+    bool check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "accessibility focus and window events must drive the app rules reliably");
+            reportFailure(name, "holds", "did not hold", "accessibility focus and window events must drive the app rules reliably", location);
         }
         return condition;
     }

@@ -9,13 +9,14 @@
 #include "test-utils.h"
 
 #include <cstdio>
+#include <source_location>
 
 namespace {
     int  failures = 0;
 
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "mouse clicks must be routed per mode: only Preedit defers to the client");
+            reportFailure(name, "holds", "did not hold", "mouse clicks must be routed per mode: only Preedit defers to the client", location);
             ++failures;
         }
     }

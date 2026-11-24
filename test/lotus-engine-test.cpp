@@ -22,6 +22,7 @@
 #include <cstdio>
 #include <memory>
 #include <optional>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -51,18 +52,18 @@ namespace {
         return flags.remove(lotus::EngineFlag::StdToneStyle);
     }
 
-    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected) {
+    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
         if (actual == expected) {
             return;
         }
-        reportFailure(name, hexOf(expected), hexOf(actual), "engine behaviour must match the expectations ported from the Go tests");
+        reportFailure(name, hexOf(expected), hexOf(actual), "engine behaviour must match the expectations ported from the Go tests", location);
         ++failures;
     }
 
-    void checkValid(const char* name, Engine& engine, bool inputIsFullComplete, bool expected) {
+    void checkValid(const char* name, Engine& engine, bool inputIsFullComplete, bool expected, const std::source_location& location = std::source_location::current()) {
         const bool actual = engine.isValid(inputIsFullComplete);
         if (actual != expected) {
-            reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "IsValid must agree with the Go engine's validity for the composed word");
+            reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "IsValid must agree with the Go engine's validity for the composed word", location);
             ++failures;
         }
     }

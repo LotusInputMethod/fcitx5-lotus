@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,12 +23,13 @@ namespace {
 
     int  failures = 0;
 
-    void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual, std::string_view meaning) {
+    void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual, std::string_view meaning,
+               const std::source_location& location = std::source_location::current()) {
         if (ok) {
             return;
         }
         ++failures;
-        reportFailure(step, expected, actual, meaning);
+        reportFailure(step, expected, actual, meaning, location);
     }
 
     std::string triggers(const std::vector<EmojiEntry>& entries) {
