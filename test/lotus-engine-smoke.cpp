@@ -16,13 +16,9 @@
 #include <string>
 
 namespace {
-
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "the engine must expose the structure the ported Go tests rely on", location);
-            ++failures;
         }
     }
 
@@ -30,7 +26,6 @@ namespace {
         const std::u32string actual = engine.processedString(lotus::Mode::VietnameseMode | lotus::Mode::FullText);
         if (actual != expected) {
             reportFailure(name, hexOf(expected), hexOf(actual), "the engine must process the smoke strings into the expected preedit", location);
-            ++failures;
         }
     }
 
@@ -94,10 +89,5 @@ int run_engine_smoke() {
         check("empty engine is valid like Go", engine.isValid(true));
     }
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus engine smoke: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus engine smoke: all checks passed");
 }

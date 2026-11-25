@@ -24,13 +24,9 @@ namespace {
     using lotus::Tone;
     using lotus::Transformation;
     using lotus::TransformationPtr;
-
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "the flattener must render compositions exactly like bamboo-core/flattener.go", location);
-            ++failures;
         }
     }
 
@@ -40,7 +36,6 @@ namespace {
         if (actual != expected) {
             reportFailure(name, std::to_string(expected.size()) + " code points", std::to_string(actual.size()) + " code points",
                           "the flattened canvas must match the expectation ported from the Go tests", location);
-            ++failures;
         }
     }
 
@@ -130,10 +125,5 @@ int run_flattener() {
     check("split marks previous size", marks.previous.size() == 2U);
     check("split marks last size", marks.last.size() == 1U);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus flattener: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus flattener: all checks passed");
 }

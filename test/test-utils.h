@@ -20,8 +20,11 @@ inline std::string_view baseNameOf(std::string_view path) {
     return pos == std::string_view::npos ? path : path.substr(pos + 1);
 }
 
+/** @brief Failed checks counted by reportFailure in the current process. */
+inline int g_failedChecks = 0;
+
 /**
- * @brief Prints a failed expectation as Location/Step/Expected/Actual/Meaning on stderr.
+ * @brief Counts a failed expectation and prints it as Location/Step/Expected/Actual/Meaning on stderr.
  * @param step Test step that failed.
  * @param expected Expected value.
  * @param actual Observed value.
@@ -30,12 +33,28 @@ inline std::string_view baseNameOf(std::string_view path) {
  */
 inline void reportFailure(std::string_view step, std::string_view expected, std::string_view actual, std::string_view meaning,
                           const std::source_location& location = std::source_location::current()) {
+    ++g_failedChecks;
     const std::string_view file = baseNameOf(location.file_name());
     std::fprintf(stderr, "%.*s:%u: FAILED\n", static_cast<int>(file.size()), file.data(), static_cast<unsigned>(location.line()));
     std::fprintf(stderr, "    Step: %.*s\n", static_cast<int>(step.size()), step.data());
     std::fprintf(stderr, "    Expected: %.*s\n", static_cast<int>(expected.size()), expected.data());
     std::fprintf(stderr, "    Actual: %.*s\n", static_cast<int>(actual.size()), actual.data());
     std::fprintf(stderr, "    Meaning: %.*s\n", static_cast<int>(meaning.size()), meaning.data());
+}
+
+/**
+ * @brief Prints the run outcome and returns the process exit code.
+ * @param passed Message printed when no check failed, without trailing newline.
+ * @return 0 when no check failed, 1 otherwise.
+ */
+inline int checkExitCode(std::string_view passed = "") {
+    if (g_failedChecks != 0) {
+        std::printf("%d failure(s)\n", g_failedChecks);
+        return 1;
+    }
+    if (!passed.empty())
+        std::printf("%.*s\n", static_cast<int>(passed.size()), passed.data());
+    return 0;
 }
 
 /**

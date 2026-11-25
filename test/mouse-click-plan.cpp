@@ -12,12 +12,9 @@
 #include <source_location>
 
 namespace {
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "mouse clicks must be routed per mode: only Preedit defers to the client", location);
-            ++failures;
         }
     }
 } // namespace
@@ -28,10 +25,5 @@ int main() {
     check("super smooth clears the buffers", mouseClickAction(fcitx::LotusMode::SuperSmooth) == MouseClickAction::ClearBuffers);
     check("off clears the buffers", mouseClickAction(fcitx::LotusMode::Off) == MouseClickAction::ClearBuffers);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus mouse click plan: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus mouse click plan: all checks passed");
 }

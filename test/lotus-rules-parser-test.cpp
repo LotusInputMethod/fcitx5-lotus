@@ -26,13 +26,9 @@ namespace {
     using lotus::matchDsl;
     using lotus::parseRules;
     using lotus::parseTonelessRules;
-
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "the parsed rules must match the expectations ported from bamboo-core/rules_parser_test.go", location);
-            ++failures;
         }
     }
 
@@ -43,7 +39,6 @@ namespace {
         if (!ok) {
             reportFailure(std::string(name) + " (index " + std::to_string(index) + ")", "the parsed rule carries the ported key, mark and target", "the parsed rule diverges",
                           "the rule parser must reproduce the Go rule tables exactly", location);
-            ++failures;
         }
     }
 
@@ -52,7 +47,6 @@ namespace {
         if (!ok) {
             reportFailure(name, "the parsed rule appends the ported key and target", "the parsed rule diverges", "the rule parser must reproduce the Go rule tables exactly",
                           location);
-            ++failures;
         }
     }
 
@@ -170,10 +164,5 @@ int run_rules_parser() {
         check("custom has no built-in definition", lotus::cachedInputMethod(lotus::InputMethodId::Custom).rules.empty());
     }
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus rules parser: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus rules parser: all checks passed");
 }

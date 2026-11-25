@@ -18,14 +18,11 @@
 
 namespace {
 
-    int  failures = 0;
-
     void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual, std::string_view meaning,
                const std::source_location& location = std::source_location::current()) {
         if (ok) {
             return;
         }
-        ++failures;
         reportFailure(step, expected, actual, meaning, location);
     }
 
@@ -165,8 +162,5 @@ int main() {
     check(!hasTmpLitter(root), "no tmp litter", "none", hasTmpLitter(root) ? "found" : "none", "the atomic save must not leave temporary files behind");
 
     std::filesystem::remove_all(root, ec);
-    if (failures == 0) {
-        std::cout << "emoji history unit: all checks passed\n";
-    }
-    return failures == 0 ? 0 : 1;
+    return checkExitCode("emoji history unit: all checks passed");
 }

@@ -12,13 +12,9 @@
 #include <string>
 
 namespace {
-
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "the golden corpus must stay parseable and keep its column layout", location);
-            ++failures;
         }
     }
 
@@ -76,10 +72,8 @@ int run_golden_smoke() {
     check("hex decode empty", fromHex("").empty());
     check("hex parse", hexValue("ff08") == 0xFF08U);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
+    if (checkExitCode() != 0)
         return 1;
-    }
     std::printf("lotus golden smoke: charset=%zu core=%zu key_processor=%zu rows\n", charset.size(), core.size(), wrapper.size());
     return 0;
 }

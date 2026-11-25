@@ -17,12 +17,9 @@
 #include <unistd.h>
 
 namespace {
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "program name resolution must follow the app-rule platform rules", location);
-            ++failures;
         }
     }
 
@@ -53,10 +50,5 @@ int main() {
     check("empty name falls back to the focused program", resolveProgramName("", "code") == "code");
     check("both unknown", resolveProgramName("wayland", "").empty());
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus program name: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus program name: all checks passed");
 }

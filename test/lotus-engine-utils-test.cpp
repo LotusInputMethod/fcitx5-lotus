@@ -35,13 +35,9 @@ namespace {
     using lotus::Tone;
     using lotus::Transformation;
     using lotus::TransformationPtr;
-
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "engine utils must behave exactly like the Go helpers they port", location);
-            ++failures;
         }
     }
 
@@ -51,7 +47,6 @@ namespace {
         if (actual != expected) {
             reportFailure(name, std::to_string(expected.size()) + " code points", std::to_string(actual.size()) + " code points",
                           "the flattened canvas must match the expectation ported from the Go tests", location);
-            ++failures;
         }
     }
 
@@ -351,10 +346,5 @@ int run_engine_utils() {
         check("ưo pattern rejects empty", !lotus::matchesUhO(U""));
     }
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus engine utils: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus engine utils: all checks passed");
 }

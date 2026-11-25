@@ -22,13 +22,9 @@ namespace {
     using lotus::utils::addToneToChar;
     using lotus::utils::findToneFromChar;
     using lotus::utils::isVowel;
-
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "the C++ port must behave exactly like bamboo-core's utils", location);
-            ++failures;
         }
     }
 
@@ -68,10 +64,5 @@ int run_utils() {
     check("toLower", toLower(U"ĐƯỜNG TiẾNG") == U"đường tiếng");
     check("toUpper", toUpper(U"đường") == U"ĐƯỜNG");
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus utils: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus utils: all checks passed");
 }

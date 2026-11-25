@@ -19,20 +19,15 @@
 #include <vector>
 
 namespace {
-
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "macro table and dictionary behaviour must match the Go tests", location);
-            ++failures;
         }
     }
 
     void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
         if (actual != expected) {
             reportFailure(name, lotus::utf8::encode(expected), lotus::utf8::encode(actual), "macro table lookups must return the value the Go tests expect", location);
-            ++failures;
         }
     }
 
@@ -135,10 +130,5 @@ int run_macro_dictionary() {
     case_dictionary_load_from_text_lowercases();
     case_dictionary_load_from_text_skips_empty_lines();
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus macro dictionary: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus macro dictionary: all checks passed");
 }
