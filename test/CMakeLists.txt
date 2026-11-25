@@ -43,15 +43,17 @@ target_compile_definitions(lotus_test_pch PRIVATE
 )
 target_precompile_headers(lotus_test_pch PRIVATE ${LOTUS_PCH_HEADERS})
 
+string(MD5 LOTUS_CTEST_SOCKET_NAMESPACE "${PROJECT_BINARY_DIR}")
+
 # Helper to compile a standalone headless integration test linked with the
 # Lotus engine core.
 #
 # Usage:
-#   add_lotus_headless_test(TARGET <target_name> SOURCES <source_files...> LABELS "<labels>" [INCLUDE_DIRECTORIES <dirs...>] [LINK_LIBRARIES <libs...>])
+#   add_lotus_headless_test(TARGET <target_name> SOURCES <source_files...> LABELS "<labels>" [INCLUDE_DIRECTORIES <dirs...>] [LINK_LIBRARIES <libs...>] [USES_KB_SOCKET])
 # Example:
 #   add_lotus_headless_test(TARGET my_test SOURCES my-test.cpp LABELS "integration;myfeature")
 function(add_lotus_headless_test)
-    set(options)
+    set(options USES_KB_SOCKET)
     set(oneValueArgs TARGET)
     set(multiValueArgs SOURCES INCLUDE_DIRECTORIES LINK_LIBRARIES LABELS)
     cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -91,6 +93,11 @@ function(add_lotus_headless_test)
     endif()
     add_test(NAME ${ARG_TARGET} COMMAND ${ARG_TARGET})
     set_tests_properties(${ARG_TARGET} PROPERTIES LABELS "${ARG_LABELS}" TIMEOUT 20)
+    if(ARG_USES_KB_SOCKET)
+        set_tests_properties(${ARG_TARGET} PROPERTIES
+            RESOURCE_LOCK lotus_kb_socket
+            ENVIRONMENT "LOTUS_SOCKET_NAMESPACE=ctest-${LOTUS_CTEST_SOCKET_NAMESPACE}")
+    endif()
 endfunction()
 
 # One binary runs every engine unit test group via "--run <fn>"; ctest keeps
@@ -131,17 +138,17 @@ add_lotus_headless_test(TARGET preedit_smoke_client SOURCES preedit-smoke-client
 add_lotus_headless_test(TARGET preedit_smoke_server SOURCES preedit-smoke-server.cpp LABELS "integration;preedit")
 add_lotus_headless_test(TARGET app_rule_reset SOURCES app-rule-reset.cpp LABELS "integration;apprule")
 add_lotus_headless_test(TARGET app_rule_delays SOURCES app-rule-delays.cpp LABELS "integration;apprule")
-add_lotus_headless_test(TARGET app_rule_delay_wire SOURCES app-rule-delay-wire.cpp LABELS "integration;apprule")
-add_lotus_headless_test(TARGET smooth_buffered_key_replay SOURCES smooth-buffered-key-replay.cpp LABELS "integration;smooth")
-add_lotus_headless_test(TARGET focus_bounce_word_survival SOURCES focus-bounce-word-survival.cpp LABELS "integration;smooth")
-add_lotus_headless_test(TARGET focus_out_mid_replacement SOURCES focus-out-mid-replacement.cpp LABELS "integration;smooth")
-add_lotus_headless_test(TARGET uinput_auto_restore SOURCES uinput-auto-restore.cpp LABELS "integration;uinput")
-add_lotus_headless_test(TARGET anchor_key_protocol SOURCES anchor-key-protocol.cpp LABELS "integration;smooth")
-add_lotus_headless_test(TARGET uinput_server_probe SOURCES uinput-server-probe.cpp LABELS "unit;server")
+add_lotus_headless_test(TARGET app_rule_delay_wire SOURCES app-rule-delay-wire.cpp LABELS "integration;apprule" USES_KB_SOCKET)
+add_lotus_headless_test(TARGET smooth_buffered_key_replay SOURCES smooth-buffered-key-replay.cpp LABELS "integration;smooth" USES_KB_SOCKET)
+add_lotus_headless_test(TARGET focus_bounce_word_survival SOURCES focus-bounce-word-survival.cpp LABELS "integration;smooth" USES_KB_SOCKET)
+add_lotus_headless_test(TARGET focus_out_mid_replacement SOURCES focus-out-mid-replacement.cpp LABELS "integration;smooth" USES_KB_SOCKET)
+add_lotus_headless_test(TARGET uinput_auto_restore SOURCES uinput-auto-restore.cpp LABELS "integration;uinput" USES_KB_SOCKET)
+add_lotus_headless_test(TARGET anchor_key_protocol SOURCES anchor-key-protocol.cpp LABELS "integration;smooth" USES_KB_SOCKET)
+add_lotus_headless_test(TARGET uinput_server_probe SOURCES uinput-server-probe.cpp LABELS "unit;server" USES_KB_SOCKET)
 add_lotus_headless_test(TARGET preedit_backspace SOURCES preedit-backspace.cpp LABELS "integration;preedit")
-add_lotus_headless_test(TARGET mode_dot_anchor SOURCES mode-dot-anchor.cpp LABELS "integration;uinput")
-add_lotus_headless_test(TARGET replacement_delays SOURCES replacement-delays.cpp LABELS "integration;smooth")
-add_lotus_headless_test(TARGET merged_replacement_commit SOURCES merged-replacement-commit.cpp LABELS "integration;smooth")
+add_lotus_headless_test(TARGET mode_dot_anchor SOURCES mode-dot-anchor.cpp LABELS "integration;uinput" USES_KB_SOCKET)
+add_lotus_headless_test(TARGET replacement_delays SOURCES replacement-delays.cpp LABELS "integration;smooth" USES_KB_SOCKET)
+add_lotus_headless_test(TARGET merged_replacement_commit SOURCES merged-replacement-commit.cpp LABELS "integration;smooth" USES_KB_SOCKET)
 add_lotus_headless_test(TARGET dict_reload SOURCES dict-reload.cpp LABELS "integration;dictionary")
 add_lotus_headless_test(TARGET config_enum_names SOURCES config-enum-names.cpp LABELS "unit;config")
 add_lotus_headless_test(
@@ -169,14 +176,14 @@ set_tests_properties(status_icon_gnome PROPERTIES LABELS "integration;icons" TIM
 add_lotus_headless_test(TARGET key_buffer SOURCES key-buffer.cpp LABELS "unit;buffer")
 add_lotus_headless_test(TARGET auto_capitalize_reset SOURCES auto-capitalize-reset.cpp LABELS "integration;capitalize")
 add_lotus_headless_test(TARGET auto_capitalize_shortcut SOURCES auto-capitalize-shortcut.cpp LABELS "integration;capitalize")
-add_lotus_headless_test(TARGET dbus_deferred_commit SOURCES dbus-deferred-commit.cpp LABELS "integration;dbus")
+add_lotus_headless_test(TARGET dbus_deferred_commit SOURCES dbus-deferred-commit.cpp LABELS "integration;dbus" USES_KB_SOCKET)
 add_lotus_headless_test(TARGET modifier_key_bypasses_surrounding_text SOURCES modifier-key-bypasses-surrounding-text.cpp LABELS "integration;surrounding")
 add_lotus_headless_test(TARGET surrounding_text_typing SOURCES surrounding-text-typing.cpp LABELS "integration;surrounding")
-add_lotus_headless_test(TARGET runtime_safety SOURCES runtime-safety.cpp LABELS "integration;raii")
+add_lotus_headless_test(TARGET runtime_safety SOURCES runtime-safety.cpp LABELS "integration;raii" USES_KB_SOCKET)
 add_lotus_headless_test(TARGET emoji_history_page_navigation SOURCES emoji-history-page-navigation.cpp LABELS "integration;emoji")
 add_lotus_headless_test(TARGET emoji_search_history SOURCES emoji-search-history.cpp LABELS "unit;emoji")
 add_lotus_headless_test(TARGET emoji_history_unit SOURCES emoji-history-unit.cpp LABELS "unit;emoji")
-add_lotus_headless_test(TARGET kb_sender SOURCES kb-sender.cpp LABELS "unit;socket")
+add_lotus_headless_test(TARGET kb_sender SOURCES kb-sender.cpp LABELS "unit;socket" USES_KB_SOCKET)
 add_lotus_headless_test(TARGET program_name SOURCES program-name.cpp LABELS "unit;apprule")
 add_lotus_headless_test(TARGET mouse_click_plan SOURCES mouse-click-plan.cpp LABELS "unit;preedit")
 add_lotus_headless_test(TARGET unicode_cluster SOURCES unicode-cluster-test.cpp LABELS "unit;unicode")
@@ -190,14 +197,6 @@ if(XVFB_RUN)
 endif()
 add_lotus_headless_test(TARGET window_focus_tracker SOURCES window-focus-tracker.cpp LABELS "integration;apprule;dbus")
 target_compile_definitions(window_focus_tracker PRIVATE LOTUS_TEST_DBUS_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/dbus-session.conf")
-set_tests_properties(kb_sender PROPERTIES
-    RESOURCE_LOCK lotus_kb_socket
-    ENVIRONMENT "LOTUS_SOCKET_NAMESPACE=ctest-${LOTUS_CTEST_SOCKET_NAMESPACE}")
-
-string(MD5 LOTUS_CTEST_SOCKET_NAMESPACE "${PROJECT_BINARY_DIR}")
-set_tests_properties(smooth_buffered_key_replay focus_bounce_word_survival focus_out_mid_replacement uinput_auto_restore anchor_key_protocol uinput_server_probe mode_dot_anchor replacement_delays app_rule_delay_wire dbus_deferred_commit merged_replacement_commit runtime_safety
-    PROPERTIES RESOURCE_LOCK lotus_kb_socket
-    ENVIRONMENT "LOTUS_SOCKET_NAMESPACE=ctest-${LOTUS_CTEST_SOCKET_NAMESPACE}")
 
 add_executable(executable_path_match
     executable-path-match.cpp
