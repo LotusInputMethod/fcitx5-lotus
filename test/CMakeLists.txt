@@ -208,5 +208,41 @@ set_tests_properties(executable_path_match PROPERTIES
     TIMEOUT 20
 )
 
-# Headless Python unit tests for the settings-gui, one CTest entry per module.
-add_subdirectory(settings-gui)
+add_executable(qml_settings_test
+    qml-settings-test.cpp
+    ${PROJECT_SOURCE_DIR}/settings-gui/lotus_settings.qrc
+    ${PROJECT_SOURCE_DIR}/settings-gui/cpp/settings_backend.cpp
+    ${PROJECT_SOURCE_DIR}/settings-gui/cpp/dbus_client.cpp
+    ${PROJECT_SOURCE_DIR}/settings-gui/cpp/theme_bridge.cpp
+    ${PROJECT_SOURCE_DIR}/settings-gui/cpp/i18n_bridge.cpp
+)
+set_target_properties(qml_settings_test PROPERTIES AUTOMOC ON AUTORCC ON)
+target_compile_features(qml_settings_test PRIVATE cxx_std_20)
+target_include_directories(qml_settings_test PRIVATE
+    ${PROJECT_SOURCE_DIR}/settings-gui/cpp
+    ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/common
+)
+target_compile_definitions(qml_settings_test PRIVATE
+    LOTUS_VERSION="${PROJECT_VERSION}"
+    LOCALE_DIR="${CMAKE_INSTALL_FULL_LOCALEDIR}"
+    DICTIONARY_PATH="${PROJECT_SOURCE_DIR}/data/dictionaries/vietnamese.cm.dict"
+    LOTUS_TEST_DBUS_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/dbus-session.conf"
+)
+target_link_libraries(qml_settings_test PRIVATE
+    Qt6::Quick
+    Qt6::QuickControls2
+    Qt6::DBus
+    Qt6::Widgets
+    Fcitx5::Core
+    Fcitx5::Config
+    Lotus::Engine
+    Threads::Threads
+    $<$<BOOL:${Intl_FOUND}>:Intl::Intl>
+)
+add_test(NAME qml_settings_test COMMAND qml_settings_test)
+set_tests_properties(qml_settings_test PROPERTIES
+    LABELS "unit;settings-gui"
+    TIMEOUT 60
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=;QT_IM_MODULE="
+)

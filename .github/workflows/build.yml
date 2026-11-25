@@ -65,14 +65,14 @@ jobs:
       - name: Install dependencies (glibc)
         if: matrix.install == 'arch'
         run: |
-          pacman -Syu --noconfirm base-devel clang cmake ninja extra-cmake-modules libuv git libinput libevdev libnotify dbus systemd-libs python libxcb wayland xorg-server-xvfb
+          pacman -Syu --noconfirm base-devel clang cmake ninja extra-cmake-modules libuv git libinput libevdev libnotify dbus systemd-libs libxcb wayland xorg-server-xvfb qt6-base qt6-declarative qt6-svg
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5-lotus"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5"
       - name: Install dependencies (musl)
         if: matrix.install == 'alpine'
         run: |
-          apk add --no-cache build-base cmake ninja extra-cmake-modules libuv-dev git libinput-dev libevdev-dev libnotify-dev dbus dbus-dev python3 zlib-dev gettext-dev util-linux-dev tar clang linux-headers libxcb-dev wayland-dev xvfb-run
+          apk add --no-cache build-base cmake ninja extra-cmake-modules libuv-dev git libinput-dev libevdev-dev libnotify-dev dbus dbus-dev zlib-dev gettext-dev util-linux-dev tar clang linux-headers libxcb-dev wayland-dev xvfb-run qt6-qtbase-dev qt6-qtdeclarative-dev qt6-qtsvg
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5-lotus"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/fcitx5"
@@ -128,12 +128,12 @@ jobs:
           fi
           if [ -z "$changed" ] || printf '%s\n' "$changed" | grep -qE '\.(h|hpp)$'; then
               echo "clang-tidy: checking the whole project"
-              run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*' -header-filter='/fcitx5-lotus/(src|server|common|lotus|test)/' '/fcitx5-lotus/(src|server|common|lotus|test)/'
+              run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*' -header-filter='/fcitx5-lotus/(src|server|common|lotus|settings-gui/cpp|test)/' '/fcitx5-lotus/(src|server|common|lotus|settings-gui/cpp|test)/'
           else
               cpp_changed="$(printf '%s\n' "$changed" | grep -E '\.cpp$' || true)"
               if [ -n "$cpp_changed" ]; then
                   echo "clang-tidy: checking the changed translation units"
-                  printf '%s\n' "$cpp_changed" | xargs run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*' -header-filter='/fcitx5-lotus/(src|server|common|lotus|test)/'
+                  printf '%s\n' "$cpp_changed" | xargs run-clang-tidy -p build -j "$(nproc)" -quiet -warnings-as-errors='*' -header-filter='/fcitx5-lotus/(src|server|common|lotus|settings-gui/cpp|test)/'
               else
                   echo "clang-tidy: no translation unit changed"
               fi
@@ -143,17 +143,3 @@ jobs:
         uses: github/codeql-action/analyze@v4.39.4
         with:
           checkout_path: fcitx5-lotus
-
-  python-lint:
-    name: Python lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Run Ruff Lint check
-        uses: astral-sh/ruff-action@v4.1.0
-        with:
-          args: 'check settings-gui test/settings-gui'
-      - name: Run Ruff Format check
-        uses: astral-sh/ruff-action@v4.1.0
-        with:
-          args: 'format --check settings-gui test/settings-gui'

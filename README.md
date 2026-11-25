@@ -67,10 +67,10 @@ Nếu bạn muốn tự biên dịch bộ gõ từ mã nguồn để đóng góp
 
 ### Yêu cầu hệ thống
 
-- **Debian/Ubuntu:** `sudo apt-get install cmake extra-cmake-modules libdbus-1-dev libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev libevdev-dev libinput-dev libnotify-dev libudev-dev libxcb1-dev libxcb-xtest0-dev libwayland-dev libwayland-bin g++ hicolor-icon-theme pkg-config fcitx5-modules-dev python3-qtpy python3-dbus acl`
-- **Fedora/RHEL:** `sudo dnf install cmake dbus-devel extra-cmake-modules fcitx5-devel libevdev-devel libinput-devel libnotify-devel libudev-devel libxcb-devel gcc-c++ hicolor-icon-theme systemd-devel python3-pyside6 python3-QtPy python3-dbus acl wayland-devel`
-- **openSUSE:** `sudo zypper install cmake dbus-1-devel kf6-extra-cmake-modules fcitx5-devel libevdev-devel libinput-devel libnotify-devel libxcb-devel systemd-devel gcc-c++ hicolor-icon-theme systemd-devel python3-pyside6 python3-QtPy python3-dbus-python acl wayland-devel`
-- **Arch:** `sudo pacman -S --needed cmake extra-cmake-modules gcc git python make pkgconf acl fcitx5 libevdev libinput libnotify libxcb hicolor-icon-theme python-qtpy python-dbus wayland`
+- **Debian/Ubuntu:** `sudo apt-get install cmake extra-cmake-modules libdbus-1-dev libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev libevdev-dev libinput-dev libnotify-dev libudev-dev libxcb1-dev libxcb-xtest0-dev libwayland-dev libwayland-bin g++ hicolor-icon-theme pkg-config fcitx5-modules-dev qt6-base-dev qt6-declarative-dev qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts qml6-module-qtquick-templates qml6-module-qtquick-window qml6-module-qtquick-dialogs qml6-module-qtqml qml6-module-qtqml-models qml6-module-qtqml-workerscript libqt6svg6 acl`
+- **Fedora/RHEL:** `sudo dnf install cmake dbus-devel extra-cmake-modules fcitx5-devel libevdev-devel libinput-devel libnotify-devel libudev-devel libxcb-devel gcc-c++ hicolor-icon-theme systemd-devel qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtdeclarative qt6-qtsvg acl wayland-devel`
+- **openSUSE:** `sudo zypper install cmake dbus-1-devel kf6-extra-cmake-modules fcitx5-devel libevdev-devel libinput-devel libnotify-devel libxcb-devel systemd-devel gcc-c++ hicolor-icon-theme qt6-base-devel qt6-declarative-devel qt6-declarative-imports libQt6Svg6 acl wayland-devel`
+- **Arch:** `sudo pacman -S --needed cmake extra-cmake-modules gcc git make pkgconf acl fcitx5 libevdev libinput libnotify libxcb hicolor-icon-theme qt6-base qt6-declarative qt6-svg wayland`
 
 ### Cài đặt
 
@@ -176,6 +176,7 @@ Các thư viện bên thứ ba (bao gồm các thành phần theo giấy phép M
 - **[bamboo-core](https://github.com/BambooEngine/bamboo-core)** — engine gõ tiếng Việt gốc bằng Go, MIT, © 2018 Luong Thanh Lam. Bản MIT được giữ tại [`lotus/LICENSE.bamboo-core`](lotus/LICENSE.bamboo-core).
 - **[VMK](https://github.com/thanhpy2009/VMK)** — dự án mà addon này fork trực tiếp, GPL-3.0-or-later.
 - **[fcitx5-bamboo](https://github.com/fcitx/fcitx5-bamboo)** — addon fcitx5 mà phần glue được dựa theo, LGPL-2.1.
+- **dux-qml-common (`DCommon`)** — bộ component giao diện QML được tinh chỉnh cho Qt 6.2+ tại [`settings-gui/qml/DCommon/`](settings-gui/qml/DCommon/), MIT, © 2025-2026 Avenge Media LLC. Bản MIT được giữ tại [`settings-gui/qml/DCommon/LICENSE`](settings-gui/qml/DCommon/LICENSE).
 
 Phần C++ của engine (`lotus/`) là bản port từ bamboo-core và phát hành dưới GPL-3.0-or-later. Danh sách ghi công đầy đủ có trong [`CREDITS`](CREDITS) và trong mục **About** của ứng dụng.
 

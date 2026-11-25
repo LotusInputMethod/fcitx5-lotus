@@ -6,7 +6,7 @@ Tài liệu này là nguồn duy nhất cho quy tắc code của fcitx5-lotus. K
 
 - C/C++: `clang-format` theo `.clang-format`; `clang-tidy` theo `.clang-tidy`, **0 cảnh báo trong code của repo**.
 - `NOLINT` phải ghi rõ check và lý do, ví dụ `// NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)`.
-- Python (`settings-gui`): `ruff check` + `ruff format` (cấu hình ở `pyproject.toml`).
+- QML (`settings-gui`): `qmllint`, tương thích Qt 6.2+.
 
 ## 2. Chuẩn ngôn ngữ
 

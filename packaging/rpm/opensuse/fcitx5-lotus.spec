@@ -22,7 +22,10 @@ BuildRequires:  systemd-devel
 BuildRequires:  wayland-devel
 
 BuildRequires:  sysuser-tools
-BuildRequires:  python3
+BuildRequires:  cmake(Qt6Quick)
+BuildRequires:  cmake(Qt6QuickControls2)
+BuildRequires:  cmake(Qt6DBus)
+BuildRequires:  cmake(Qt6Widgets)
 Requires(pre):  sysuser-shadow >= 3.1
 
 %if %{with tests}
@@ -32,9 +35,8 @@ BuildRequires:  xvfb-run
 
 %{?systemd_ordering}
 Requires:       fcitx5
-Requires:       python3-QtPy
-Requires:       (python3-PyQt6 or python3-pyside6)
-Requires:       python3-dbus-python
+Requires:       qt6-declarative-imports
+Requires:       libQt6Svg6
 Requires:       acl
 
 %description
@@ -42,10 +44,9 @@ Vietnamese input method for fcitx5
 
 %prep
 %setup -q
-find . -type f -name '*.py' -exec sed -i '1s|^#!.*env python3|#!/usr/bin/python3|' {} +
 
 %build
-%cmake -DLOTUS_BYTECOMPILE_PYTHON:BOOL=OFF -DBUILD_TESTING:BOOL=%{with tests}
+%cmake -DBUILD_TESTING:BOOL=%{with tests}
 %cmake_build
 cd %{_builddir}/%{name}-%{version}
 %sysusers_generate_pre build/misc/user-lotus.conf lotus lotus.conf
@@ -53,7 +54,6 @@ cd %{_builddir}/%{name}-%{version}
 %install
 %cmake_install
 %find_lang %{name}
-%py3_compile %{buildroot}%{_datadir}/fcitx5-lotus
 
 %check
 %if %{with tests}
@@ -80,7 +80,6 @@ cd %{_builddir}/%{name}-%{version}
 
 %{_datadir}/fcitx5/lotus/
 
-%{_datadir}/fcitx5-lotus/
 %{_datadir}/applications/org.fcitx.Fcitx5.Addon.Lotus.Settings.desktop
 %{_datadir}/metainfo/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
 

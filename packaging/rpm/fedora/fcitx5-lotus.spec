@@ -20,8 +20,10 @@ BuildRequires:  dbus-devel
 BuildRequires:  libxcb-devel
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  wayland-devel
-
-BuildRequires:  python3-devel
+BuildRequires:  cmake(Qt6Quick)
+BuildRequires:  cmake(Qt6QuickControls2)
+BuildRequires:  cmake(Qt6DBus)
+BuildRequires:  cmake(Qt6Widgets)
 
 %if %{with tests}
 BuildRequires:  dbus-daemon
@@ -30,9 +32,8 @@ BuildRequires:  xorg-x11-server-Xvfb
 
 %{?systemd_ordering}
 Requires:       fcitx5
-Requires:       python3-QtPy
-Requires:       (python3-pyqt6 or python3-pyside6)
-Requires:       python3-dbus
+Requires:       qt6-qtdeclarative
+Requires:       qt6-qtsvg
 Requires:       acl
 
 %description
@@ -42,13 +43,12 @@ Vietnamese input method for fcitx5
 %setup -q
 
 %build
-%cmake -DLOTUS_BYTECOMPILE_PYTHON:BOOL=OFF -DBUILD_TESTING:BOOL=%{with tests}
+%cmake -DBUILD_TESTING:BOOL=%{with tests}
 %cmake_build
 
 %install
 %cmake_install
 %find_lang %{name}
-%py_byte_compile %{__python3} %{buildroot}%{_datadir}/fcitx5-lotus
 
 %check
 %if %{with tests}
@@ -74,7 +74,6 @@ Vietnamese input method for fcitx5
 %{_datadir}/fcitx5/inputmethod/lotus.conf
 
 %{_datadir}/fcitx5/lotus/
-%{_datadir}/fcitx5-lotus/
 %{_datadir}/applications/org.fcitx.Fcitx5.Addon.Lotus.Settings.desktop
 %{_datadir}/metainfo/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
 

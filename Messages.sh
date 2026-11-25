@@ -5,8 +5,10 @@ xgettext \
 --from-code=UTF-8 \
 --keyword=_ \
 --keyword=N_ \
+--keyword=translate \
+--keyword=tr \
 -o /tmp/lotus-cpp.pot \
-$(find . \( -name "*.cpp" -o -name "*.h" \))
+$(find src settings-gui/cpp \( -name "*.cpp" -o -name "*.h" \) | sort)
 
 xgettext \
 --language=appdata \
@@ -15,12 +17,11 @@ xgettext \
 org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in
 
 xgettext \
---language=Python \
+--language=JavaScript \
 --from-code=UTF-8 \
---keyword=_ \
---keyword=N_ \
--o /tmp/lotus-python.pot \
-$(find . -name "*.py")
+--keyword=tr \
+-o /tmp/lotus-qml.pot \
+$(find settings-gui/qml -name "*.qml" | sort)
 
 xgettext \
 --language=Desktop \
@@ -47,7 +48,7 @@ msgcat \
 /tmp/lotus-cpp.pot \
 /tmp/lotus-xml.pot \
 /tmp/lotus-conf.pot \
-/tmp/lotus-python.pot \
+/tmp/lotus-qml.pot \
 /tmp/lotus-desktop.pot \
 -o po/fcitx5-lotus.pot
 
