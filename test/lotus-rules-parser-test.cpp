@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <optional>
+#include <source_location>
 #include <string>
 
 namespace {
@@ -28,27 +29,29 @@ namespace {
 
     int  failures = 0;
 
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the parsed rules must match the expectations ported from bamboo-core/rules_parser_test.go");
+            reportFailure(name, "holds", "did not hold", "the parsed rules must match the expectations ported from bamboo-core/rules_parser_test.go", location);
             ++failures;
         }
     }
 
-    void checkMarkRule(const char* name, const std::vector<Rule>& rules, std::size_t index, char32_t key, Mark mark, char32_t effectOn) {
+    void checkMarkRule(const char* name, const std::vector<Rule>& rules, std::size_t index, char32_t key, Mark mark, char32_t effectOn,
+                       const std::source_location& location = std::source_location::current()) {
         const bool ok = index < rules.size() && rules[index].key == key && rules[index].effectType == EffectType::MarkTransformation && rules[index].mark() == mark &&
             rules[index].effectOn == effectOn;
         if (!ok) {
             reportFailure(std::string(name) + " (index " + std::to_string(index) + ")", "the parsed rule carries the ported key, mark and target", "the parsed rule diverges",
-                          "the rule parser must reproduce the Go rule tables exactly");
+                          "the rule parser must reproduce the Go rule tables exactly", location);
             ++failures;
         }
     }
 
-    void checkAppendRule(const char* name, const Rule& rule, char32_t key, char32_t effectOn) {
+    void checkAppendRule(const char* name, const Rule& rule, char32_t key, char32_t effectOn, const std::source_location& location = std::source_location::current()) {
         const bool ok = rule.key == key && rule.effectType == EffectType::Appending && rule.effectOn == effectOn;
         if (!ok) {
-            reportFailure(name, "the parsed rule appends the ported key and target", "the parsed rule diverges", "the rule parser must reproduce the Go rule tables exactly");
+            reportFailure(name, "the parsed rule appends the ported key and target", "the parsed rule diverges", "the rule parser must reproduce the Go rule tables exactly",
+                          location);
             ++failures;
         }
     }

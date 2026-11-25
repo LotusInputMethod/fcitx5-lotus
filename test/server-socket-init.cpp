@@ -11,6 +11,7 @@
 #include "test-utils.h"
 
 #include <cstdio>
+#include <source_location>
 #include <string>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -19,9 +20,9 @@ namespace {
 
     int  failures = 0;
 
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "socket lifecycle errors must be detected and reported, never used deaf");
+            reportFailure(name, "holds", "did not hold", "socket lifecycle errors must be detected and reported, never used deaf", location);
             ++failures;
         }
     }

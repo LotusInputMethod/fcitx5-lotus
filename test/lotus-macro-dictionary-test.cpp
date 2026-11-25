@@ -13,6 +13,7 @@
 #include "utf8.h"
 
 #include <cstdio>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,16 +22,16 @@ namespace {
 
     int  failures = 0;
 
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "macro table and dictionary behaviour must match the Go tests");
+            reportFailure(name, "holds", "did not hold", "macro table and dictionary behaviour must match the Go tests", location);
             ++failures;
         }
     }
 
-    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected) {
+    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
         if (actual != expected) {
-            reportFailure(name, lotus::utf8::encode(expected), lotus::utf8::encode(actual), "macro table lookups must return the value the Go tests expect");
+            reportFailure(name, lotus::utf8::encode(expected), lotus::utf8::encode(actual), "macro table lookups must return the value the Go tests expect", location);
             ++failures;
         }
     }

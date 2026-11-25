@@ -22,6 +22,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <source_location>
 #include <string>
 
 namespace {
@@ -54,10 +55,10 @@ namespace {
     }
 
     bool expectPreedit(fcitx::LotusEngine& engine, fcitx::Instance* instance, const std::string& keys, const std::string& expected, const std::string& step,
-                       const std::string& meaning) {
+                       const std::string& meaning, const std::source_location& location = std::source_location::current()) {
         const auto actual = typePreedit(engine, instance, keys);
         if (actual != expected) {
-            reportFailure(step, expected, actual, meaning);
+            reportFailure(step, expected, actual, meaning, location);
             return false;
         }
         return true;

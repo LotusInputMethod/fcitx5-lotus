@@ -17,15 +17,16 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <source_location>
 #include <string>
 
 namespace {
 
     int  failures = 0;
 
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "config enum names must keep resolving legacy user strings and stay untranslated");
+            reportFailure(name, "holds", "did not hold", "config enum names must keep resolving legacy user strings and stay untranslated", location);
             ++failures;
         }
     }

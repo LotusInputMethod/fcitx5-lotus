@@ -8,15 +8,16 @@
 #include "test-utils.h"
 
 #include <cstdio>
+#include <source_location>
 #include <string>
 
 namespace {
 
     int  failures = 0;
 
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the golden corpus must stay parseable and keep its column layout");
+            reportFailure(name, "holds", "did not hold", "the golden corpus must stay parseable and keep its column layout", location);
             ++failures;
         }
     }

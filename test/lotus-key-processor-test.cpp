@@ -31,6 +31,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <memory>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -77,27 +78,27 @@ namespace {
         return out;
     }
 
-    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected) {
+    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
         if (actual == expected) {
             return;
         }
-        reportFailure(name, hexOf(expected), hexOf(actual), "key processing must match the expectations ported from the Go tests");
+        reportFailure(name, hexOf(expected), hexOf(actual), "key processing must match the expectations ported from the Go tests", location);
         ++failures;
     }
 
-    void checkStr(const char* name, std::string_view actual, std::string_view expected) {
+    void checkStr(const char* name, std::string_view actual, std::string_view expected, const std::source_location& location = std::source_location::current()) {
         if (actual == expected) {
             return;
         }
-        reportFailure(name, expected, actual, "string results must match the Go engine's output");
+        reportFailure(name, expected, actual, "string results must match the Go engine's output", location);
         ++failures;
     }
 
-    void checkBool(const char* name, bool actual, bool expected) {
+    void checkBool(const char* name, bool actual, bool expected, const std::source_location& location = std::source_location::current()) {
         if (actual == expected) {
             return;
         }
-        reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "boolean results must match the Go engine's behaviour");
+        reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "boolean results must match the Go engine's behaviour", location);
         ++failures;
     }
 

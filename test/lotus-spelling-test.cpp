@@ -12,6 +12,7 @@
 #include "test-utils.h"
 
 #include <cstdio>
+#include <source_location>
 #include <string_view>
 #include <vector>
 
@@ -19,27 +20,28 @@ namespace {
 
     int  failures = 0;
 
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the spelling tables must answer lookups exactly like bamboo-core/spelling.go");
+            reportFailure(name, "holds", "did not hold", "the spelling tables must answer lookups exactly like bamboo-core/spelling.go", location);
             ++failures;
         }
     }
 
-    void checkContains(const char* name, const std::vector<int>& indexes, int expected) {
+    void checkContains(const char* name, const std::vector<int>& indexes, int expected, const std::source_location& location = std::source_location::current()) {
         for (int index : indexes) {
             if (index == expected) {
                 return;
             }
         }
-        reportFailure(name, "the expected row is among the matches", "the expected row is missing", "lookup must report every matching row of the generated table");
+        reportFailure(name, "the expected row is among the matches", "the expected row is missing", "lookup must report every matching row of the generated table", location);
         ++failures;
     }
 
-    void checkCvc(const char* name, std::u32string_view firstConsonant, std::u32string_view vowel, std::u32string_view lastConsonant, bool expected) {
+    void checkCvc(const char* name, std::u32string_view firstConsonant, std::u32string_view vowel, std::u32string_view lastConsonant, bool expected,
+                  const std::source_location& location = std::source_location::current()) {
         const bool actual = lotus::isValidCVC(firstConsonant, vowel, lastConsonant, true);
         if (actual != expected) {
-            reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "isValidCVC must accept exactly the branches of Go's implementation");
+            reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "isValidCVC must accept exactly the branches of Go's implementation", location);
             ++failures;
         }
     }
