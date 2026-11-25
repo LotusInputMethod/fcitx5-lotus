@@ -14,13 +14,9 @@
 #include <string_view>
 
 namespace {
-
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "the uinput keyboard must expose exactly the key set the server injects with", location);
-            ++failures;
         }
     }
 
@@ -46,12 +42,7 @@ int runUinputDevice() {
     check("anchor key enabled", libevdev_has_event_code(device.get(), EV_KEY, KEY_PAUSE) != 0);
     check("no unrelated event type", libevdev_has_event_type(device.get(), EV_REL) == 0);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus uinput device: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus uinput device: all checks passed");
 }
 
 int main() {

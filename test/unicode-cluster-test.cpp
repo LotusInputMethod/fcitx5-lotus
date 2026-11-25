@@ -18,15 +18,11 @@ namespace {
     constexpr std::u32string_view kToHook  = U"t\u00F4\u0309";
     constexpr std::u32string_view kToTilde = U"t\u00F4\u0303";
     constexpr std::u32string_view kToHop   = U"t\u00F4\u0309 h\u01A1\u0323p"; // "tổ hợp"
-
-    int                           failures = 0;
-
     void checkText(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
         if (actual == expected) {
             return;
         }
         reportFailure(name, hexOf(expected, "<empty>"), hexOf(actual, "<empty>"), "the diff must split changes at grapheme cluster boundaries exactly as expected", location);
-        ++failures;
     }
 
     void checkCount(const char* name, size_t actual, size_t expected, const std::source_location& location = std::source_location::current()) {
@@ -34,7 +30,6 @@ namespace {
             return;
         }
         reportFailure(name, std::to_string(expected), std::to_string(actual), "cluster accounting must produce the expected counts", location);
-        ++failures;
     }
 
     void checkMark(const char* name, char32_t codePoint, bool expected, const std::source_location& location = std::source_location::current()) {
@@ -42,7 +37,6 @@ namespace {
             return;
         }
         reportFailure(name, expected ? "true" : "false", isCombiningMark(codePoint) ? "true" : "false", "combining mark classification must match Unicode", location);
-        ++failures;
     }
 
     // A combining mark on its own is not a character: the client deletes it together with the base it
@@ -51,7 +45,6 @@ namespace {
         if (!diff.deletedPart.empty() && isCombiningMark(diff.deletedPart.front())) {
             reportFailure(name, "the deleted part starts at a cluster boundary", "deleted part starts with a combining mark [" + hexOf(diff.deletedPart, "<empty>") + "]",
                           "a combining mark on its own is not a character: the client deletes it together with its base", location);
-            ++failures;
         }
     }
 
@@ -113,10 +106,5 @@ int main() {
     checkMark("U+00F4 (ô) is not a mark", U'\u00F4', false);
     checkMark("a is not a mark", U'a', false);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("unicode cluster: all checks passed\n");
-    return 0;
+    return checkExitCode("unicode cluster: all checks passed");
 }

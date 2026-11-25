@@ -157,34 +157,24 @@ int main() {
         std::printf("%zu ", count);
     }
     std::printf("client=[%s]\n", hexOf(clientText, "<empty>").c_str());
-
-    int failures = 0;
     for (const auto& commit : context->commits()) {
         const std::u32string text = lotus::utf8::decode(commit);
         const bool           bare = !text.empty() && std::ranges::all_of(text, [](char32_t codePoint) { return isCombiningMark(codePoint); });
         if (bare) {
             reportFailure("commit carries a bare combining mark", "every commit contains its base character", hexOf(text, "<empty>"),
                           "a terminal cannot compose a mark that arrives on its own");
-            ++failures;
         }
     }
     const std::u32string expected = U"co\u0301";
     if (clientText != expected) {
         reportFailure("client text after [co1]", hexOf(expected, "<empty>"), hexOf(clientText, "<empty>"), "the terminal must show the composed word, not the raw keys");
-        ++failures;
     }
     for (const auto& forwarded : context->forwarded()) {
         if (forwarded.key().sym() == FcitxKey_1) {
             reportFailure("tone key reaches the client", "the VNI tone key is consumed", "FcitxKey_1 was forwarded", "a forwarded tone key types the raw digit into the terminal");
-            ++failures;
             break;
         }
     }
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("nfd terminal commit: all checks passed\n");
-    return 0;
+    return checkExitCode("nfd terminal commit: all checks passed");
 }

@@ -155,8 +155,6 @@ int main() {
         Case{.keys = "receiver", .want = U"receiver"},
         Case{.keys = "restore", .want = U"restore"},
     };
-
-    int failures = 0;
     for (const char* mode : {"Uinput (Super Smooth)"}) {
         fcitx::RawConfig config;
         config.setValueByPath("Mode", mode);
@@ -186,16 +184,10 @@ int main() {
                     for (const std::string& step : trace) {
                         std::printf("  %s\n", step.c_str());
                     }
-                    ++failures;
                 }
             }
         }
     }
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus uinput auto restore: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus uinput auto restore: all checks passed");
 }

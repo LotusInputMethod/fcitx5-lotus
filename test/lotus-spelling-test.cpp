@@ -17,13 +17,9 @@
 #include <vector>
 
 namespace {
-
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "the spelling tables must answer lookups exactly like bamboo-core/spelling.go", location);
-            ++failures;
         }
     }
 
@@ -34,7 +30,6 @@ namespace {
             }
         }
         reportFailure(name, "the expected row is among the matches", "the expected row is missing", "lookup must report every matching row of the generated table", location);
-        ++failures;
     }
 
     void checkCvc(const char* name, std::u32string_view firstConsonant, std::u32string_view vowel, std::u32string_view lastConsonant, bool expected,
@@ -42,7 +37,6 @@ namespace {
         const bool actual = lotus::isValidCVC(firstConsonant, vowel, lastConsonant, true);
         if (actual != expected) {
             reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "isValidCVC must accept exactly the branches of Go's implementation", location);
-            ++failures;
         }
     }
 
@@ -85,10 +79,5 @@ int run_spelling() {
     checkCvc("unknown coda", U"", U"a", U"zzz", false);
     checkCvc("empty split is rejected", U"", U"", U"", false);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus spelling: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus spelling: all checks passed");
 }

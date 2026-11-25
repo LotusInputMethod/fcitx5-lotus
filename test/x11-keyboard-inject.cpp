@@ -19,12 +19,9 @@
 #include <xcb/xtest.h>
 
 namespace {
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "the Xtest backend must inject ordered keys with the mandated interval and restore the keymap", location);
-            ++failures;
         }
     }
 
@@ -151,10 +148,5 @@ int main() {
     xcb_destroy_window(conn, window);
     xcb_disconnect(conn);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus x11 keyboard: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus x11 keyboard: all checks passed");
 }

@@ -21,13 +21,9 @@
 #include <string>
 
 namespace {
-
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "config enum names must keep resolving legacy user strings and stay untranslated", location);
-            ++failures;
         }
     }
 
@@ -104,12 +100,7 @@ int runConfigEnumNames() {
     check("input method list has Custom last", lastName != nullptr && *lastName == "Custom");
     check("enum names are not translated", description.valueByPath("EnumI18n/0") == nullptr);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("config enum names: all checks passed\n");
-    return 0;
+    return checkExitCode("config enum names: all checks passed");
 }
 
 int main() {

@@ -18,13 +18,9 @@
 using namespace lotus::data;
 
 namespace {
-
-    int  failures = 0;
-
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
             reportFailure(name, "holds", "did not hold", "the generated data tables must stay identical to the Go sources they were generated from", location);
-            ++failures;
         }
     }
 
@@ -110,10 +106,5 @@ int run_data() {
     check("letters has no digit", !std::ranges::binary_search(kLetters, U'0'));
     check("letters has no bang", !std::ranges::binary_search(kLetters, U'!'));
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus data: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus data: all checks passed");
 }
