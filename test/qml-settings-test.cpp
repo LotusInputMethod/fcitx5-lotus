@@ -54,12 +54,9 @@
 
 namespace {
 
-    int  g_failures = 0;
-
-    bool check(const char* name, bool condition) {
+    bool check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "settings-gui C++ backend/bridge behavior must hold");
-            ++g_failures;
+            reportFailure(name, "holds", "did not hold", "settings-gui C++ backend/bridge behavior must hold", location);
         }
         return condition;
     }
@@ -781,12 +778,7 @@ int main(int argc, char* argv[]) {
 
         testSectionResetApplyAndBackupV2(backend, mockServer.controller(), tempDir.path());
 
-        if (g_failures != 0) {
-            std::printf("qml settings test: %d failure(s)\n", g_failures);
-            return 1;
-        }
-        std::printf("qml settings test: all checks passed\n");
-        return 0;
+        return checkExitCode("qml settings test: all checks passed");
     } catch (const std::exception& error) {
         reportFailure("unexpected exception", "no exception escapes the test", error.what(), "an escaped exception would terminate settings-gui tests");
         return 1;

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 /**
- * @file test-util.h
+ * @file test-utils.h
  * @brief Failure reporting and code point formatting.
  */
 #pragma once
