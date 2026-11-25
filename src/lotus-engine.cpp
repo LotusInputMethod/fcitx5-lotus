@@ -621,6 +621,9 @@ namespace fcitx {
         }
 
         auto* state = ic->propertyFor(&factory_);
+        if (state != nullptr) {
+            state->trackShiftModifier(keyEvent);
+        }
 
         if (ic->capabilityFlags().testAny(CapabilityFlag::Password)) {
             if (state != nullptr) {

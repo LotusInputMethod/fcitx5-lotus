@@ -1079,7 +1079,6 @@ namespace fcitx {
     }
 
     void LotusState::keyEvent(KeyEvent& keyEvent) {
-        trackShiftModifier(keyEvent);
         if (handleKeyEventGuards(keyEvent))
             return;
 
@@ -1604,10 +1603,16 @@ namespace fcitx {
     // Shift_R. Releasing either key clears shiftHeld_ even if the
     // other Shift key is still physically held.
     void LotusState::trackShiftModifier(const KeyEvent& keyEvent) {
-        const KeySym sym = keyEvent.rawKey().sym();
+        const KeySym sym   = keyEvent.rawKey().sym();
+        bool         shift = shiftHeld_;
         if (sym == FcitxKey_Shift_L || sym == FcitxKey_Shift_R) {
-            shiftHeld_ = !keyEvent.isRelease();
-            LotusWlrVirtualKeyboard::instance().setUserShift(shiftHeld_);
+            shift = !keyEvent.isRelease();
+        } else if (!keyEvent.isRelease()) {
+            shift = keyEvent.rawKey().states().test(KeyState::Shift);
+        }
+        if (shift != shiftHeld_) {
+            shiftHeld_ = shift;
+            LotusWlrVirtualKeyboard::instance().setUserShift(shift);
         }
     }
 

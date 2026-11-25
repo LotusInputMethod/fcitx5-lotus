@@ -594,7 +594,9 @@ namespace fcitx {
             }
             // Always put the compositor keymap back, even when a later chunk
             // failed, so a broken burst cannot leave the text keymap behind.
-            restoreCompositorKeymap();
+            if (!restoreCompositorKeymap()) {
+                LOTUS_WARN("wlr-virtual-keyboard: compositor keymap not restored");
+            }
         }
         setShift(userShift_.load(std::memory_order_acquire), false);
         if (wl_display_roundtrip(display_.get()) < 0) {
