@@ -2,6 +2,7 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(LIBINPUT REQUIRED IMPORTED_TARGET libinput)
 pkg_check_modules(LIBUDEV  REQUIRED IMPORTED_TARGET libudev)
+pkg_check_modules(LIBEVDEV REQUIRED IMPORTED_TARGET libevdev)
 
 add_executable(fcitx5-lotus-server lotus-server.cpp lotus-server-socket.cpp lotus-logger.cpp lotus-abstract-socket.cpp lotus-uinput-device.cpp)
 

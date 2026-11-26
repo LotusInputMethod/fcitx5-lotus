@@ -1,5 +1,7 @@
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Quick QuickControls2 DBus Widgets)
+find_package(Intl QUIET)
 
 set(LOTUS_SETTINGS_SOURCES
     cpp/main.cpp

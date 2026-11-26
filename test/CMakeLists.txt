@@ -151,25 +151,28 @@ add_lotus_headless_test(TARGET replacement_delays SOURCES replacement-delays.cpp
 add_lotus_headless_test(TARGET merged_replacement_commit SOURCES merged-replacement-commit.cpp LABELS "integration;smooth" USES_KB_SOCKET)
 add_lotus_headless_test(TARGET dict_reload SOURCES dict-reload.cpp LABELS "integration;dictionary")
 add_lotus_headless_test(TARGET config_enum_names SOURCES config-enum-names.cpp LABELS "unit;config")
-add_lotus_headless_test(
-    TARGET uinput_device
-    SOURCES
-        uinput-device.cpp
-        ${PROJECT_SOURCE_DIR}/server/lotus-uinput-device.cpp
-    LABELS "unit;server"
-    INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/server
-    LINK_LIBRARIES PkgConfig::LIBEVDEV
-)
-add_lotus_headless_test(
-    TARGET server_socket_init
-    SOURCES
-        server-socket-init.cpp
-        ${PROJECT_SOURCE_DIR}/server/lotus-server-socket.cpp
-        ${PROJECT_SOURCE_DIR}/server/lotus-logger.cpp
-        ${PROJECT_SOURCE_DIR}/server/lotus-abstract-socket.cpp
-    LABELS "unit;server"
-    INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/server ${PROJECT_SOURCE_DIR}/common
-)
+if(BUILD_UINPUT)
+    pkg_check_modules(LIBEVDEV REQUIRED IMPORTED_TARGET libevdev)
+    add_lotus_headless_test(
+        TARGET uinput_device
+        SOURCES
+            uinput-device.cpp
+            ${PROJECT_SOURCE_DIR}/server/lotus-uinput-device.cpp
+        LABELS "unit;server"
+        INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/server
+        LINK_LIBRARIES PkgConfig::LIBEVDEV
+    )
+    add_lotus_headless_test(
+        TARGET server_socket_init
+        SOURCES
+            server-socket-init.cpp
+            ${PROJECT_SOURCE_DIR}/server/lotus-server-socket.cpp
+            ${PROJECT_SOURCE_DIR}/server/lotus-logger.cpp
+            ${PROJECT_SOURCE_DIR}/server/lotus-abstract-socket.cpp
+        LABELS "unit;server"
+        INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/server ${PROJECT_SOURCE_DIR}/common
+    )
+endif()
 add_lotus_headless_test(TARGET status_icon SOURCES status-icon.cpp LABELS "integration;icons")
 add_test(NAME status_icon_gnome COMMAND status_icon gnome)
 set_tests_properties(status_icon_gnome PROPERTIES LABELS "integration;icons" TIMEOUT 20)
@@ -208,41 +211,46 @@ set_tests_properties(executable_path_match PROPERTIES
     TIMEOUT 20
 )
 
-add_executable(qml_settings_test
-    qml-settings-test.cpp
-    ${PROJECT_SOURCE_DIR}/settings-gui/lotus_settings.qrc
-    ${PROJECT_SOURCE_DIR}/settings-gui/cpp/settings_backend.cpp
-    ${PROJECT_SOURCE_DIR}/settings-gui/cpp/dbus_client.cpp
-    ${PROJECT_SOURCE_DIR}/settings-gui/cpp/theme_bridge.cpp
-    ${PROJECT_SOURCE_DIR}/settings-gui/cpp/i18n_bridge.cpp
-)
-set_target_properties(qml_settings_test PROPERTIES AUTOMOC ON AUTORCC ON)
-target_compile_features(qml_settings_test PRIVATE cxx_std_20)
-target_include_directories(qml_settings_test PRIVATE
-    ${PROJECT_SOURCE_DIR}/settings-gui/cpp
-    ${PROJECT_SOURCE_DIR}/src
-    ${PROJECT_SOURCE_DIR}/common
-)
-target_compile_definitions(qml_settings_test PRIVATE
-    LOTUS_VERSION="${PROJECT_VERSION}"
-    LOCALE_DIR="${CMAKE_INSTALL_FULL_LOCALEDIR}"
-    DICTIONARY_PATH="${PROJECT_SOURCE_DIR}/data/dictionaries/vietnamese.cm.dict"
-    LOTUS_TEST_DBUS_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/dbus-session.conf"
-)
-target_link_libraries(qml_settings_test PRIVATE
-    Qt6::Quick
-    Qt6::QuickControls2
-    Qt6::DBus
-    Qt6::Widgets
-    Fcitx5::Core
-    Fcitx5::Config
-    Lotus::Engine
-    Threads::Threads
-    $<$<BOOL:${Intl_FOUND}>:Intl::Intl>
-)
-add_test(NAME qml_settings_test COMMAND qml_settings_test)
-set_tests_properties(qml_settings_test PROPERTIES
-    LABELS "unit;settings-gui"
-    TIMEOUT 60
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=;QT_IM_MODULE="
-)
+if(BUILD_QML_SETTING)
+    find_package(Qt6 6.2 REQUIRED COMPONENTS Quick QuickControls2 DBus Widgets)
+    find_package(Intl QUIET)
+
+    add_executable(qml_settings_test
+        qml-settings-test.cpp
+        ${PROJECT_SOURCE_DIR}/settings-gui/lotus_settings.qrc
+        ${PROJECT_SOURCE_DIR}/settings-gui/cpp/settings_backend.cpp
+        ${PROJECT_SOURCE_DIR}/settings-gui/cpp/dbus_client.cpp
+        ${PROJECT_SOURCE_DIR}/settings-gui/cpp/theme_bridge.cpp
+        ${PROJECT_SOURCE_DIR}/settings-gui/cpp/i18n_bridge.cpp
+    )
+    set_target_properties(qml_settings_test PROPERTIES AUTOMOC ON AUTORCC ON)
+    target_compile_features(qml_settings_test PRIVATE cxx_std_20)
+    target_include_directories(qml_settings_test PRIVATE
+        ${PROJECT_SOURCE_DIR}/settings-gui/cpp
+        ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/common
+    )
+    target_compile_definitions(qml_settings_test PRIVATE
+        LOTUS_VERSION="${PROJECT_VERSION}"
+        LOCALE_DIR="${CMAKE_INSTALL_FULL_LOCALEDIR}"
+        DICTIONARY_PATH="${PROJECT_SOURCE_DIR}/data/dictionaries/vietnamese.cm.dict"
+        LOTUS_TEST_DBUS_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/dbus-session.conf"
+    )
+    target_link_libraries(qml_settings_test PRIVATE
+        Qt6::Quick
+        Qt6::QuickControls2
+        Qt6::DBus
+        Qt6::Widgets
+        Fcitx5::Core
+        Fcitx5::Config
+        Lotus::Engine
+        Threads::Threads
+        $<$<BOOL:${Intl_FOUND}>:Intl::Intl>
+    )
+    add_test(NAME qml_settings_test COMMAND qml_settings_test)
+    set_tests_properties(qml_settings_test PROPERTIES
+        LABELS "unit;settings-gui"
+        TIMEOUT 60
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=;QT_IM_MODULE="
+    )
+endif()
