@@ -75,6 +75,7 @@ namespace fcitx {
             30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 57,
         });
         constexpr uint32_t kShiftMod = 1;
+        constexpr uint32_t kLockMod  = 2;
 
         struct RegistryData {
             wl_seat*                         seat    = nullptr;
@@ -152,7 +153,10 @@ namespace fcitx {
     }
 
     void LotusWlrVirtualKeyboard::disconnect() {
-        setShift(false);
+        if (keyboard_ && keymapSet_) {
+            zwp_virtual_keyboard_v1_modifiers(keyboard_.get(), 0, 0, 0, 0);
+            wl_display_flush(display_.get());
+        }
         // Proxies first, then the display that owns the underlying connection.
         keyboard_.reset();
         keymapObserver_.reset();
@@ -485,20 +489,34 @@ namespace fcitx {
         zwp_virtual_keyboard_v1_key(keyboard_.get(), time_++, evdevKey, WL_KEYBOARD_KEY_STATE_RELEASED);
     }
 
-    void LotusWlrVirtualKeyboard::setShift(bool down, bool flush) {
+    void LotusWlrVirtualKeyboard::syncModifiers(bool flush) {
         if (!keyboard_ || !keymapSet_) {
             return;
         }
-        zwp_virtual_keyboard_v1_modifiers(keyboard_.get(), down ? kShiftMod : 0, 0, 0, 0);
+        const uint32_t depressed = userShift_.load(std::memory_order_acquire) ? kShiftMod : 0U;
+        const uint32_t locked    = userCapsLock_.load(std::memory_order_acquire) ? kLockMod : 0U;
+        zwp_virtual_keyboard_v1_modifiers(keyboard_.get(), depressed, 0, locked, 0);
         if (flush) {
             wl_display_flush(display_.get());
         }
     }
 
     void LotusWlrVirtualKeyboard::setUserShift(bool down) {
-        userShift_.store(down, std::memory_order_release);
+        if (userShift_.exchange(down, std::memory_order_acq_rel) == down) {
+            return;
+        }
         std::scoped_lock lock(deviceMutex_);
-        setShift(down);
+        syncModifiers();
+    }
+
+    void LotusWlrVirtualKeyboard::setUserModifiers(bool shiftDown, bool capsLockOn) {
+        const bool prevShift = userShift_.exchange(shiftDown, std::memory_order_acq_rel);
+        const bool prevCaps  = userCapsLock_.exchange(capsLockOn, std::memory_order_acq_rel);
+        if (prevShift == shiftDown && prevCaps == capsLockOn) {
+            return;
+        }
+        std::scoped_lock lock(deviceMutex_);
+        syncModifiers();
     }
 
     bool LotusWlrVirtualKeyboard::consumeEcho(uint32_t code, uint32_t time) {
@@ -568,11 +586,17 @@ namespace fcitx {
         };
         size_t pos = 0;
         if (cps.empty()) {
+            const bool needSync = !keymapIsCompositor_ || !keymapSet_;
             // Movement-only bursts stay on the compositor keymap so its xkb state is not recreated.
             if (!restoreCompositorKeymap()) {
                 ok = uploadKeymap(nullptr, 0);
             }
             if (ok) {
+                if (needSync) {
+                    // Restore Shift and locked CapsLock before tapping Backspace so the seat never
+                    // broadcasts (0, 0, 0, 0) to dbus/GTK clients.
+                    syncModifiers(false);
+                }
                 moveKeys();
             }
         } else {
@@ -596,7 +620,7 @@ namespace fcitx {
             // failed, so a broken burst cannot leave the text keymap behind.
             restoreCompositorKeymap();
         }
-        setShift(userShift_.load(std::memory_order_acquire), false);
+        syncModifiers(false);
         if (wl_display_roundtrip(display_.get()) < 0) {
             ok = false;
         }

@@ -49,6 +49,10 @@ namespace fcitx {
         return ucs4 == ' ' || ucs4 == '\t' || ucs4 == '\n' || ucs4 == '\r' || ucs4 == 0 || (ucs4 >= 58 && ucs4 <= 64);
     }
 
+    bool isEchoFrontend(std::string_view frontend) {
+        return frontend == "dbus" || frontend == "fcitx4" || frontend == "x11" || frontend == "xim";
+    }
+
     LotusState::LotusState(LotusEngine* engine, InputContext* ic) : engine_(*engine), ic_(*ic) {
         setEngine();
     }
@@ -468,6 +472,41 @@ namespace fcitx {
         finishReplacement(event);
         return true;
     }
+    uint32_t LotusState::computeCommitPreDelay(int commitMs) const {
+        const bool commitPending = deferredCommitPending_ || !deferredCommitText_.empty() || !commitBatch_.empty();
+        uint32_t   preDelay      = 0;
+        if (lastCommitTime_.time_since_epoch().count() > 0) {
+            const auto now = std::chrono::steady_clock::now();
+            if (const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastCommitTime_).count(); elapsedMs < commitMs) {
+                preDelay = static_cast<uint32_t>(commitMs - elapsedMs);
+            }
+        }
+        if (commitPending) {
+            preDelay = std::max<uint32_t>(preDelay, static_cast<uint32_t>(commitMs));
+        }
+        return preDelay;
+    }
+
+    void LotusState::commitOrInjectText(std::u32string_view text) {
+        if (text.empty()) {
+            return;
+        }
+        if (vkUsable() && !isEchoFrontend(getFrontendName(&ic_))) {
+            auto&             wlr       = LotusWlrVirtualKeyboard::instance();
+            const std::string addedUtf8 = lotus::utf8::encode(text);
+            const int         commitMs  = clampDelay(appRuleSetting_.commitInterval > 0 ? appRuleSetting_.commitInterval : *engine_.config().defaultCommitInterval);
+            const uint32_t    preDelay  = computeCommitPreDelay(commitMs);
+            auto              emitNow   = [&wlr, addedUtf8] { return wlr.emit(0, addedUtf8, true, false); };
+            if (preDelay > 0) {
+                wlr.runAfter(static_cast<int>(preDelay), emitNow);
+                return;
+            }
+            if (emitNow()) {
+                return;
+            }
+        }
+        lotus::fcitx_text::commit(&ic_, text, lastCommitTime_);
+    }
     void LotusState::performReplacement(DiffPart diffPart) {
         LOTUS_INFO("Perform replacement: " + lotus::utf8::encode(diffPart.deletedPart) + " -> " + lotus::utf8::encode(diffPart.addedPart)); //NOLINT
         echoTriggerPending_ = false;
@@ -491,23 +530,11 @@ namespace fcitx {
         const int    commitMs = clampDelay(appRuleSetting_.commitInterval > 0 ? appRuleSetting_.commitInterval : *engine_.config().defaultCommitInterval);
         const auto   interval =
             static_cast<uint32_t>(clampDelay(appRuleSetting_.backspaceInterval > 0 ? appRuleSetting_.backspaceInterval : *engine_.config().defaultBackspaceInterval));
-        const auto postDelay = static_cast<uint32_t>(clampDelay(appRuleSetting_.postDelay > 0 ? appRuleSetting_.postDelay : *engine_.config().defaultPostDelay));
+        const auto        postDelay = static_cast<uint32_t>(clampDelay(appRuleSetting_.postDelay > 0 ? appRuleSetting_.postDelay : *engine_.config().defaultPostDelay));
 
-        const bool commitPending = deferredCommitPending_ || !deferredCommitText_.empty() || !commitBatch_.empty();
-        uint32_t   preDelay      = 0;
-        if (lastCommitTime_.time_since_epoch().count() > 0) {
-            auto now       = std::chrono::steady_clock::now();
-            auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastCommitTime_).count();
-            if (elapsedMs < commitMs) {
-                preDelay = static_cast<uint32_t>(commitMs - elapsedMs);
-            }
-        }
-        if (commitPending) {
-            preDelay = std::max<uint32_t>(preDelay, static_cast<uint32_t>(commitMs));
-        }
-
+        uint32_t          preDelay     = computeCommitPreDelay(commitMs);
         const std::string frontend     = getFrontendName(&ic_);
-        const bool        echoFrontend = frontend == "dbus" || frontend == "fcitx4" || frontend == "x11" || frontend == "xim";
+        const bool        echoFrontend = isEchoFrontend(frontend);
         const std::string addedUtf8    = lotus::utf8::encode(diffPart.addedPart);
         const bool        x11Backend   = !vkUsable() && x11Usable();
         bool              echoDriven   = false;
@@ -738,6 +765,10 @@ namespace fcitx {
             return;
         }
         const std::u32string keyText(1, static_cast<char32_t>(keyCodePoint));
+        // Wayland keymap uploads reset the virtual keyboard's modifiers, so forwarded keys can lose
+        // Shift on the compositor/fcitx5 seat. Deliver printable Shift-held characters directly instead.
+        const auto           rawStates             = keyEvent.rawKey().states();
+        const bool           bypassForwardForShift = vkUsable() && (isShiftHeld() || rawStates.test(KeyState::Shift) || rawStates.test(KeyState::CapsLock));
 
         bool                 processed = lotusEngine_->processKey(engineKeyValue(currentSym), lotus::keyStatesFromBits(static_cast<uint32_t>(keyEvent.rawKey().states())));
 
@@ -750,8 +781,12 @@ namespace fcitx {
                 keyEvent.filterAndAccept();
             } else {
                 bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
-                if (!diffPart.addedPart.empty() && (keyText != diffPart.addedPart || wasAutoCapitalized)) {
-                    lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
+                if (!diffPart.addedPart.empty() && (keyText != diffPart.addedPart || wasAutoCapitalized || bypassForwardForShift)) {
+                    if (bypassForwardForShift) {
+                        commitOrInjectText(diffPart.addedPart);
+                    } else {
+                        lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
+                    }
                     keyEvent.filterAndAccept();
                 } else {
                     keyEvent.forward();
@@ -771,7 +806,12 @@ namespace fcitx {
                 hasHistory_ = false;
                 (*lotusEngine_).reset();
                 oldPreBuffer_.clear();
-                keyEvent.forward();
+                if (bypassForwardForShift) {
+                    commitOrInjectText(keyText);
+                    keyEvent.filterAndAccept();
+                } else {
+                    keyEvent.forward();
+                }
             }
             return;
         }
@@ -786,8 +826,12 @@ namespace fcitx {
             bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
             if (!diffPart.addedPart.empty()) {
                 oldPreBuffer_ = preeditStr;
-                if (wasAutoCapitalized || diffPart.addedPart != keyText) {
-                    lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
+                if (wasAutoCapitalized || bypassForwardForShift || diffPart.addedPart != keyText) {
+                    if (bypassForwardForShift) {
+                        commitOrInjectText(diffPart.addedPart);
+                    } else {
+                        lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
+                    }
                     keyEvent.filterAndAccept();
                     isCommit = true;
                 }
@@ -1080,6 +1124,10 @@ namespace fcitx {
 
     void LotusState::keyEvent(KeyEvent& keyEvent) {
         trackShiftModifier(keyEvent);
+        if (!keyEvent.rawKey().isModifier()) {
+            const auto rawStates = keyEvent.rawKey().states();
+            LotusWlrVirtualKeyboard::instance().setUserModifiers(isShiftHeld() || rawStates.test(KeyState::Shift), rawStates.test(KeyState::CapsLock));
+        }
         if (handleKeyEventGuards(keyEvent))
             return;
 
@@ -1600,19 +1648,21 @@ namespace fcitx {
         trackingModifierTap_ = false;
     }
 
-    // Known limitation: a single boolean tracks both Shift_L and
-    // Shift_R. Releasing either key clears shiftHeld_ even if the
-    // other Shift key is still physically held.
     void LotusState::trackShiftModifier(const KeyEvent& keyEvent) {
-        const KeySym sym = keyEvent.rawKey().sym();
-        if (sym == FcitxKey_Shift_L || sym == FcitxKey_Shift_R) {
-            shiftHeld_ = !keyEvent.isRelease();
-            LotusWlrVirtualKeyboard::instance().setUserShift(shiftHeld_);
+        const KeySym sym     = keyEvent.rawKey().sym();
+        const bool   pressed = !keyEvent.isRelease();
+        if (sym == FcitxKey_Shift_L) {
+            shiftLeftHeld_ = pressed;
+            LotusWlrVirtualKeyboard::instance().setUserShift(isShiftHeld());
+        } else if (sym == FcitxKey_Shift_R) {
+            shiftRightHeld_ = pressed;
+            LotusWlrVirtualKeyboard::instance().setUserShift(isShiftHeld());
         }
     }
 
     void LotusState::forgetShiftState() {
-        shiftHeld_ = false;
+        shiftLeftHeld_  = false;
+        shiftRightHeld_ = false;
         LotusWlrVirtualKeyboard::instance().setUserShift(false);
     }
 
