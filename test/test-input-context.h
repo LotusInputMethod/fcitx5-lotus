@@ -70,7 +70,7 @@
  *
  * CMake Registration (test/CMakeLists.txt):
  * @code
- * add_lotus_headless_test(my_test my-test.cpp "integration;myfeature")
+ * add_lotus_headless_test(TARGET my_test SOURCES my-test.cpp LABELS "integration;myfeature")
  * @endcode
  */
 class TestInputContext final : public fcitx::InputContext {

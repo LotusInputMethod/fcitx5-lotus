@@ -50,6 +50,6 @@ int main() {
         return runUinputDevice();
     } catch (const std::exception& error) {
         reportFailure("unexpected exception", "no exception escapes the test", error.what(), "an escaped exception would crash the server instead of failing one check");
-        return 1;
+        return checkExitCode();
     }
 }

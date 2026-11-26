@@ -90,5 +90,5 @@ int main() {
         reportFailure("verify final replay commits", "commits=['·']['á']['·']['ã']", commitList(*context), meaning);
         return 1;
     }
-    return 0;
+    return checkExitCode("lotus smooth buffered key replay: all checks passed");
 }

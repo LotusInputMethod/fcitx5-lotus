@@ -73,5 +73,5 @@ int main() {
                       "emoji candidate navigation crossed pages instead of wrapping within the current page");
         return 1;
     }
-    return 0;
+    return checkExitCode("lotus emoji history page navigation: all checks passed");
 }

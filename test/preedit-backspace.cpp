@@ -63,6 +63,5 @@ int main() {
     if (!sendKey(engine, entry, *context, FcitxKey_BackSpace, false, "backspace must edit the composition, not commit it"))
         return 1;
 
-    std::printf("lotus preedit backspace: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus preedit backspace: all checks passed");
 }

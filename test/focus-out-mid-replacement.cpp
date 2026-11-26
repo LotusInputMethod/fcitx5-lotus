@@ -82,6 +82,5 @@ int main() {
     if (!sendKey(engine, entry, *context, FcitxKey_q, false, "after recovery a plain letter must echo to the app again"))
         return 1;
 
-    std::printf("lotus focus-out mid replacement: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus focus-out mid replacement: all checks passed");
 }

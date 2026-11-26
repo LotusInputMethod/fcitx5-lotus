@@ -9,7 +9,6 @@
 #include "test-utils.h"
 
 #include <array>
-#include <cstdio>
 #include <cstdlib>
 #include <span>
 #include <string>
@@ -32,7 +31,6 @@ int main(int argc, char** argv) {
     TestInputContext        context(&testInstance.instance);
     fcitx::InputMethodEntry entry("lotus", "Lotus", "vi", "lotus");
     context.focusIn();
-    bool                                            ok = true;
 
     const std::array<std::array<const char*, 2>, 3> modes{
         {
@@ -66,10 +64,9 @@ int main(int argc, char** argv) {
                 if (actual != expected) {
                     reportFailure(std::string(mode) + "/" + theme + "/" + (lotusIcons ? "Lotus" : "text") + " tray icon", expected, actual,
                                   "tray icon selection must follow the mode, theme and icon preference rules");
-                    ok = false;
                 }
             }
         }
     }
-    return ok ? 0 : 1;
+    return checkExitCode("lotus status icon: all checks passed");
 }

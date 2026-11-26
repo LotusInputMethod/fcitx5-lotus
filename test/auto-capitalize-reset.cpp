@@ -9,7 +9,6 @@
 #include "test-utils.h"
 
 #include <chrono>
-#include <cstdio>
 #include <memory>
 #include <string>
 #include <thread>
@@ -86,6 +85,5 @@ int main() {
         return 1;
     }
 
-    std::printf("lotus auto capitalize reset: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus auto capitalize reset: all checks passed");
 }

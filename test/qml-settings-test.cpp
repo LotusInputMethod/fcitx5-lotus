@@ -781,7 +781,7 @@ int main(int argc, char* argv[]) {
         return checkExitCode("qml settings test: all checks passed");
     } catch (const std::exception& error) {
         reportFailure("unexpected exception", "no exception escapes the test", error.what(), "an escaped exception would terminate settings-gui tests");
-        return 1;
+        return checkExitCode();
     }
 }
 
