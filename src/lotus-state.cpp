@@ -33,9 +33,10 @@
 #include <sys/un.h>
 
 namespace fcitx {
-    constexpr int     kMaxScanLength         = 15;
-    constexpr int64_t kReplacementAckSlackMs = 200;
-    constexpr int64_t kMouseClickWatchdogMs  = 200; ///< Time a client gets to reset itself after a click
+    constexpr int     kMaxScanLength              = 15;
+    constexpr int64_t kReplacementAckSlackMs      = 200;
+    constexpr int64_t kMouseClickWatchdogMs       = 200; ///< Time a client gets to reset itself after a click
+    constexpr int64_t kMinEchoCommitOrderWindowMs = 50;  ///< Keep printable keys on D-Bus right after commitString so forward() cannot overtake it
 
     constexpr int     kMinDelayMs = 1;
     constexpr int     kMaxDelayMs = 1000;
@@ -487,6 +488,16 @@ namespace fcitx {
         return preDelay;
     }
 
+    bool LotusState::isRecentEchoCommit() const {
+        if (!isEchoFrontend(getFrontendName(&ic_)) || lastCommitTime_.time_since_epoch().count() <= 0) {
+            return false;
+        }
+        const int     commitMs = clampDelay(appRuleSetting_.commitInterval > 0 ? appRuleSetting_.commitInterval : *engine_.config().defaultCommitInterval);
+        const int64_t windowMs = std::max<int64_t>(commitMs, kMinEchoCommitOrderWindowMs);
+        const auto    elapsed  = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - lastCommitTime_).count();
+        return elapsed < windowMs;
+    }
+
     void LotusState::commitOrInjectText(std::u32string_view text) {
         if (text.empty()) {
             return;
@@ -765,10 +776,13 @@ namespace fcitx {
             return;
         }
         const std::u32string keyText(1, static_cast<char32_t>(keyCodePoint));
-        // Wayland keymap uploads reset the virtual keyboard's modifiers, so forwarded keys can lose
-        // Shift on the compositor/fcitx5 seat. Deliver printable Shift-held characters directly instead.
-        const auto           rawStates             = keyEvent.rawKey().states();
-        const bool           bypassForwardForShift = vkUsable() && (isShiftHeld() || rawStates.test(KeyState::Shift) || rawStates.test(KeyState::CapsLock));
+        // Wayland keymap uploads reset the virtual keyboard's modifiers (including Shift and locked
+        // CapsLock), so forwarded keys can lose uppercase state on the compositor/fcitx5 seat; and
+        // on echo frontends (e.g. dbus), a fast forwarded key can overtake a just-sent commitString.
+        // Deliver printable characters directly in both cases.
+        const auto           rawStates               = keyEvent.rawKey().states();
+        const bool           bypassForwardForCaseMod = vkUsable() && (isShiftHeld() || rawStates.test(KeyState::Shift) || rawStates.test(KeyState::CapsLock));
+        const bool           deliverDirectly         = bypassForwardForCaseMod || isRecentEchoCommit();
 
         bool                 processed = lotusEngine_->processKey(engineKeyValue(currentSym), lotus::keyStatesFromBits(static_cast<uint32_t>(keyEvent.rawKey().states())));
 
@@ -781,8 +795,8 @@ namespace fcitx {
                 keyEvent.filterAndAccept();
             } else {
                 bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
-                if (!diffPart.addedPart.empty() && (keyText != diffPart.addedPart || wasAutoCapitalized || bypassForwardForShift)) {
-                    if (bypassForwardForShift) {
+                if (!diffPart.addedPart.empty() && (keyText != diffPart.addedPart || wasAutoCapitalized || deliverDirectly)) {
+                    if (deliverDirectly) {
                         commitOrInjectText(diffPart.addedPart);
                     } else {
                         lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);
@@ -806,7 +820,7 @@ namespace fcitx {
                 hasHistory_ = false;
                 (*lotusEngine_).reset();
                 oldPreBuffer_.clear();
-                if (bypassForwardForShift) {
+                if (deliverDirectly) {
                     commitOrInjectText(keyText);
                     keyEvent.filterAndAccept();
                 } else {
@@ -826,8 +840,8 @@ namespace fcitx {
             bool wasAutoCapitalized = (currentSym != keyEvent.rawKey().sym());
             if (!diffPart.addedPart.empty()) {
                 oldPreBuffer_ = preeditStr;
-                if (wasAutoCapitalized || bypassForwardForShift || diffPart.addedPart != keyText) {
-                    if (bypassForwardForShift) {
+                if (wasAutoCapitalized || deliverDirectly || diffPart.addedPart != keyText) {
+                    if (deliverDirectly) {
                         commitOrInjectText(diffPart.addedPart);
                     } else {
                         lotus::fcitx_text::commit(&ic_, diffPart.addedPart, lastCommitTime_);

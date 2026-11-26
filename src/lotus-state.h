@@ -369,6 +369,13 @@ namespace fcitx {
         [[nodiscard]] uint32_t computeCommitPreDelay(int commitMs) const;
 
         /**
+         * @brief Reports whether an echo frontend (dbus/x11/xim/fcitx4) committed recently enough that a
+         *        forwarded key could overtake the commit on the way to the client.
+         * @return True while subsequent printable keys should share the commit channel.
+         */
+        [[nodiscard]] bool isRecentEchoCommit() const;
+
+        /**
          * @brief Delivers direct non-replacement text when keyEvent.forward() cannot be relied upon.
          * @param text Unicode text to commit or inject.
          */
