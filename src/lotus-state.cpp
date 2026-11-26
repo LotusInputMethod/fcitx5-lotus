@@ -769,7 +769,20 @@ namespace fcitx {
             keyEvent.forward();
             return;
         }
-
+        const auto rawStates       = keyEvent.rawKey().states();
+        KeyStates  effectiveStates = rawStates;
+        // Wayland virtual-keyboard keymap uploads can cause the compositor's keyboard_grab
+        // to drop Shift from subsequent rawKey events while physical Shift is still held.
+        if (vkUsable() && isShiftHeld() && !rawStates.test(KeyState::Shift)) {
+            effectiveStates |= KeyState::Shift;
+            if (rawStates.test(KeyState::CapsLock)) {
+                if (currentSym >= FcitxKey_A && currentSym <= FcitxKey_Z) {
+                    currentSym = static_cast<KeySym>(currentSym + (FcitxKey_a - FcitxKey_A));
+                }
+            } else if (currentSym >= FcitxKey_a && currentSym <= FcitxKey_z) {
+                currentSym = static_cast<KeySym>(currentSym - (FcitxKey_a - FcitxKey_A));
+            }
+        }
         const uint32_t keyCodePoint = Key::keySymToUnicode(currentSym);
         if (keyCodePoint == 0U) {
             keyEvent.forward();
@@ -780,11 +793,10 @@ namespace fcitx {
         // CapsLock), so forwarded keys can lose uppercase state on the compositor/fcitx5 seat; and
         // on echo frontends (e.g. dbus), a fast forwarded key can overtake a just-sent commitString.
         // Deliver printable characters directly in both cases.
-        const auto           rawStates               = keyEvent.rawKey().states();
-        const bool           bypassForwardForCaseMod = vkUsable() && (isShiftHeld() || rawStates.test(KeyState::Shift) || rawStates.test(KeyState::CapsLock));
+        const bool           bypassForwardForCaseMod = vkUsable() && (isShiftHeld() || effectiveStates.test(KeyState::Shift) || effectiveStates.test(KeyState::CapsLock));
         const bool           deliverDirectly         = bypassForwardForCaseMod || isRecentEchoCommit();
 
-        bool                 processed = lotusEngine_->processKey(engineKeyValue(currentSym), lotus::keyStatesFromBits(static_cast<uint32_t>(keyEvent.rawKey().states())));
+        bool                 processed = lotusEngine_->processKey(engineKeyValue(currentSym), lotus::keyStatesFromBits(static_cast<uint32_t>(effectiveStates)));
 
         const std::u32string commitStr = pullCommitString();
         if (!commitStr.empty()) {

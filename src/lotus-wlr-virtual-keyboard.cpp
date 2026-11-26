@@ -321,6 +321,8 @@ namespace fcitx {
         keycodes += std::to_string(KEY_BACKSPACE + 8U);
         keycodes += ";\n    <LFSH> = ";
         keycodes += std::to_string(KEY_LEFTSHIFT + 8U);
+        keycodes += ";\n    <CAPS> = ";
+        keycodes += std::to_string(KEY_CAPSLOCK + 8U);
         keycodes += ";\n    <LEFT> = ";
         keycodes += std::to_string(KEY_LEFT + 8U);
         keycodes += ";\n    <DELE> = ";
@@ -328,9 +330,11 @@ namespace fcitx {
         keycodes += ";\n";
         symbols += "    key <BKSP> { [ BackSpace ] };\n";
         symbols += "    key <LFSH> { [ Shift_L ] };\n";
+        symbols += "    key <CAPS> { [ Caps_Lock ] };\n";
         symbols += "    key <LEFT> { [ Left ] };\n";
         symbols += "    key <DELE> { [ Delete ] };\n";
         symbols += "    modifier_map Shift { <LFSH> };\n";
+        symbols += "    modifier_map Lock { <CAPS> };\n";
         for (size_t i = 0; i < n; ++i) {
             const uint32_t xkb = kTextKeys[i] + 8U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             keycodes += "    <K";
@@ -346,16 +350,16 @@ namespace fcitx {
                 symbols += '0';
             }
             symbols += std::to_string(i);
-            symbols += "> { type = \"TWO_LEVEL\", [ ";
+            // Consume Shift and Lock in LOTUS_LITERAL so libxkbcommon never auto-capitalizes
+            // injected lowercase symbols when CapsLock is active on the seat.
+            symbols += "> { type = \"LOTUS_LITERAL\", [ ";
             const uint32_t cp = cps[i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            appendXkbSymName(symbols, cp);
-            symbols += ", ";
             appendXkbSymName(symbols, cp);
             symbols += " ] };\n";
         }
 
         std::string keymap;
-        keymap.reserve(256 + keycodes.size() + symbols.size());
+        keymap.reserve(512 + keycodes.size() + symbols.size());
         keymap += "xkb_keymap {\n";
         keymap += "xkb_keycodes \"lotus-wlr-virtual-keyboard\" {\n";
         keymap += "    minimum = 8;\n";
@@ -364,7 +368,16 @@ namespace fcitx {
         keymap += ";\n";
         keymap += keycodes;
         keymap += "};\n";
-        keymap += "xkb_types \"complete\" { include \"complete\" };\n";
+        keymap += "xkb_types \"complete\" {\n";
+        keymap += "    include \"complete\"\n";
+        keymap += "    type \"LOTUS_LITERAL\" {\n";
+        keymap += "        modifiers = Shift + Lock;\n";
+        keymap += "        map[Shift] = Level1;\n";
+        keymap += "        map[Lock] = Level1;\n";
+        keymap += "        map[Shift+Lock] = Level1;\n";
+        keymap += "        level_name[Level1] = \"Base\";\n";
+        keymap += "    };\n";
+        keymap += "};\n";
         keymap += "xkb_compatibility \"complete\" { include \"complete\" };\n";
         keymap += "xkb_symbols \"lotus_vk\" {\n";
         keymap += "    name[Group1] = \"lotus-wlr-virtual-keyboard\";\n";
