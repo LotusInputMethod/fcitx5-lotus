@@ -63,6 +63,5 @@ int run_numeric_macro_case() {
                       "a numeric macro key must not lose the letter case of its expansion (regression #370)");
         return 1;
     }
-    std::printf("numeric macro case preservation: all checks passed\n");
-    return 0;
+    return checkExitCode("numeric macro case preservation: all checks passed");
 }

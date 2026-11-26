@@ -41,5 +41,5 @@ int main() {
         return 1;
     }
 
-    return 0;
+    return checkExitCode("lotus modifier key bypasses surrounding text: all checks passed");
 }

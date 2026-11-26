@@ -98,5 +98,5 @@ int main() {
         return 1;
     }
 
-    return 0;
+    return checkExitCode("lotus app rule reset: all checks passed");
 }

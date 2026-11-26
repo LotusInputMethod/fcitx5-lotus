@@ -7,7 +7,6 @@
 #include "golden-reader.h"
 #include "test-utils.h"
 
-#include <cstdio>
 #include <source_location>
 #include <string>
 
@@ -72,8 +71,6 @@ int run_golden_smoke() {
     check("hex decode empty", fromHex("").empty());
     check("hex parse", hexValue("ff08") == 0xFF08U);
 
-    if (checkExitCode() != 0)
-        return 1;
-    std::printf("lotus golden smoke: charset=%zu core=%zu key_processor=%zu rows\n", charset.size(), core.size(), wrapper.size());
-    return 0;
+    return checkExitCode("lotus golden smoke: charset=" + std::to_string(charset.size()) + " core=" + std::to_string(core.size()) +
+                         " key_processor=" + std::to_string(wrapper.size()) + " rows");
 }

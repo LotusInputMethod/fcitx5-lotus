@@ -103,6 +103,5 @@ int main() {
     if (!runMode("Uinput (Smooth)", true) || !runMode("Uinput (Super Smooth)", false)) {
         return 1;
     }
-    std::printf("lotus mode dot anchor: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus mode dot anchor: all checks passed");
 }

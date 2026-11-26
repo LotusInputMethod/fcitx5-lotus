@@ -41,5 +41,5 @@ int main() {
                       "without the Preedit capability the composition must render in the server preedit only");
         return 1;
     }
-    return 0;
+    return checkExitCode("lotus preedit smoke server: all checks passed");
 }

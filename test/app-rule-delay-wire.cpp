@@ -82,5 +82,5 @@ int main() {
     }
     if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor must be swallowed to finish the replacement"))
         return 1;
-    return 0;
+    return checkExitCode("lotus app rule delay wire: all checks passed");
 }

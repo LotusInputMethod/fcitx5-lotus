@@ -101,5 +101,5 @@ int main() {
     }
     if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor of the replayed replacement must be swallowed"))
         return 1;
-    return 0;
+    return checkExitCode("lotus replacement delays: all checks passed");
 }

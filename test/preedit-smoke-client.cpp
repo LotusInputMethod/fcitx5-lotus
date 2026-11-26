@@ -43,5 +43,5 @@ int main() {
                       "the client preedit must carry the composed word while the server preedit stays empty");
         return 1;
     }
-    return 0;
+    return checkExitCode("lotus preedit smoke client: all checks passed");
 }

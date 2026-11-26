@@ -32,23 +32,22 @@ int main() {
     constexpr std::string_view kNixStore  = "/nix/store/";
     constexpr std::string_view kStorePeer = "/nix/store/abc123-fcitx5-5.1.13/bin/fcitx5";
 
-    bool                       ok = true;
     // Exact match wins, with or without a configured prefix.
-    ok &= expect(kFcitx5, kFcitx5, "", true);
-    ok &= expect(kFcitx5, kFcitx5, kNixStore, true);
+    expect(kFcitx5, kFcitx5, "", true);
+    expect(kFcitx5, kFcitx5, kNixStore, true);
     // Store path accepted only when the prefix is configured.
-    ok &= expect(kStorePeer, kFcitx5, kNixStore, true);
-    ok &= expect(kStorePeer, kFcitx5, "", false);
+    expect(kStorePeer, kFcitx5, kNixStore, true);
+    expect(kStorePeer, kFcitx5, "", false);
     // Wrong directory, wrong program name, and prefix that is not a directory boundary.
-    ok &= expect("/nix/store/abc123-fcitx5-5.1.13/other/fcitx5", kFcitx5, kNixStore, false);
-    ok &= expect("/nix/store/abc123-fcitx5-5.1.13/bin/fcitx6", kFcitx5, kNixStore, false);
-    ok &= expect("/nix/storeabc/bin/fcitx5", kFcitx5, kNixStore, false);
-    ok &= expect("/usr/libexec/fcitx5", kFcitx5, kNixStore, false);
+    expect("/nix/store/abc123-fcitx5-5.1.13/other/fcitx5", kFcitx5, kNixStore, false);
+    expect("/nix/store/abc123-fcitx5-5.1.13/bin/fcitx6", kFcitx5, kNixStore, false);
+    expect("/nix/storeabc/bin/fcitx5", kFcitx5, kNixStore, false);
+    expect("/usr/libexec/fcitx5", kFcitx5, kNixStore, false);
     // Empty inputs are never allowed.
-    ok &= expect("", kFcitx5, kNixStore, false);
-    ok &= expect(kFcitx5, "", kNixStore, false);
+    expect("", kFcitx5, kNixStore, false);
+    expect(kFcitx5, "", kNixStore, false);
     // The server program name has a different basename and still matches its own store path.
-    ok &= expect("/nix/store/abc-lotus/bin/fcitx5-lotus-server", kServer, kNixStore, true);
-    ok &= expect("/nix/store/abc-lotus/bin/fcitx5", kServer, kNixStore, false);
-    return ok ? 0 : 1;
+    expect("/nix/store/abc-lotus/bin/fcitx5-lotus-server", kServer, kNixStore, true);
+    expect("/nix/store/abc-lotus/bin/fcitx5", kServer, kNixStore, false);
+    return checkExitCode("executable path match: all checks passed");
 }

@@ -108,6 +108,6 @@ int main() {
         return runConfigEnumNames();
     } catch (const std::exception& error) {
         reportFailure("unexpected exception", "no exception escapes the test", error.what(), "an escaped exception would crash fcitx5 instead of failing one check");
-        return 1;
+        return checkExitCode();
     }
 }

@@ -10,7 +10,6 @@
 #include "utf8.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <set>
 #include <source_location>
 #include <string>
@@ -72,8 +71,5 @@ int run_encoder() {
     check("golden covers every charset", charsetsSeen.size() == 17U);
     check("golden has entries", kCharsetGolden.size() > 1000U);
 
-    if (checkExitCode() != 0)
-        return 1;
-    std::printf("lotus encoder: all checks passed (%zu golden rows, %zu charsets)\n", kCharsetGolden.size(), charsetsSeen.size());
-    return 0;
+    return checkExitCode("lotus encoder: all checks passed (" + std::to_string(kCharsetGolden.size()) + " golden rows, " + std::to_string(charsetsSeen.size()) + " charsets)");
 }
