@@ -60,7 +60,7 @@ int main() {
         return 1;
 
     // Smooth commits the dot anchor at replacement start; the buffered key must not be committed yet.
-    const std::vector<std::string> anchorOnly{"\u200B"};
+    const std::vector<std::string> anchorOnly{"\u202F"};
     if (!sendKey(engine, entry, *context, FcitxKey_x, true, "the buffered key must be swallowed while the replacement runs") || context->commits() != anchorOnly) {
         reportFailure("buffer key x before deletion completes", "commits=['·'] only", commitList(*context), "buffered key x was emitted before the first replacement completed");
         return 1;
@@ -82,7 +82,7 @@ int main() {
     if (!sendKey(engine, entry, *context, FcitxKey_Pause, true, "the anchor of the replayed replacement must be swallowed"))
         return 1;
 
-    const std::vector<std::string> expected{"\u200B", "á", "\u200B", "ã"};
+    const std::vector<std::string> expected{"\u202F", "á", "\u202F", "ã"};
     if (context->commits() != expected) {
         const auto meaning = "the buffered key replay did not produce the expected final commits; "
                              "first-backspaces=" +
