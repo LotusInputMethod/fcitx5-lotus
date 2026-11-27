@@ -10,6 +10,7 @@
 
 #include <cstdio>
 #include <memory>
+#include <source_location>
 #include <string>
 #include <variant>
 
@@ -23,22 +24,18 @@ namespace {
     using lotus::Tone;
     using lotus::Transformation;
     using lotus::TransformationPtr;
-
-    int  failures = 0;
-
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the flattener must render compositions exactly like bamboo-core/flattener.go");
-            ++failures;
+            reportFailure(name, "holds", "did not hold", "the flattener must render compositions exactly like bamboo-core/flattener.go", location);
         }
     }
 
-    void checkCanvas(const char* name, const Composition& composition, lotus::ModeSet mode, std::u32string_view expected) {
+    void checkCanvas(const char* name, const Composition& composition, lotus::ModeSet mode, std::u32string_view expected,
+                     const std::source_location& location = std::source_location::current()) {
         const std::u32string actual = lotus::flatten(composition, mode);
         if (actual != expected) {
             reportFailure(name, std::to_string(expected.size()) + " code points", std::to_string(actual.size()) + " code points",
-                          "the flattened canvas must match the expectation ported from the Go tests");
-            ++failures;
+                          "the flattened canvas must match the expectation ported from the Go tests", location);
         }
     }
 
@@ -128,10 +125,5 @@ int run_flattener() {
     check("split marks previous size", marks.previous.size() == 2U);
     check("split marks last size", marks.last.size() == 1U);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus flattener: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus flattener: all checks passed");
 }

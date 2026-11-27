@@ -11,18 +11,15 @@
 #include "test-utils.h"
 
 #include <cstdio>
+#include <source_location>
 #include <string>
 #include <sys/socket.h>
 #include <unistd.h>
 
 namespace {
-
-    int  failures = 0;
-
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "socket lifecycle errors must be detected and reported, never used deaf");
-            ++failures;
+            reportFailure(name, "holds", "did not hold", "socket lifecycle errors must be detected and reported, never used deaf", location);
         }
     }
 
@@ -49,12 +46,7 @@ int runServerSocketInit() {
 
     check("listen on invalid fd fails", !listenServerSocket(-1, "test socket"));
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("server socket init: all checks passed\n");
-    return 0;
+    return checkExitCode("server socket init: all checks passed");
 }
 
 int main() {

@@ -10,16 +10,13 @@
 
 #include <cstdio>
 #include <exception>
+#include <source_location>
 #include <string_view>
 
 namespace {
-
-    int  failures = 0;
-
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the uinput keyboard must expose exactly the key set the server injects with");
-            ++failures;
+            reportFailure(name, "holds", "did not hold", "the uinput keyboard must expose exactly the key set the server injects with", location);
         }
     }
 
@@ -45,12 +42,7 @@ int runUinputDevice() {
     check("anchor key enabled", libevdev_has_event_code(device.get(), EV_KEY, KEY_PAUSE) != 0);
     check("no unrelated event type", libevdev_has_event_type(device.get(), EV_REL) == 0);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus uinput device: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus uinput device: all checks passed");
 }
 
 int main() {
@@ -58,6 +50,6 @@ int main() {
         return runUinputDevice();
     } catch (const std::exception& error) {
         reportFailure("unexpected exception", "no exception escapes the test", error.what(), "an escaped exception would crash the server instead of failing one check");
-        return 1;
+        return checkExitCode();
     }
 }

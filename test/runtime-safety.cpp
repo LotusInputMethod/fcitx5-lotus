@@ -65,7 +65,6 @@ namespace {
 
 int main() {
     configureTestPaths("fcitx5-lotus-runtime-safety");
-    bool ok = true;
 
     // Step 1: $TIME follows TZ, so the local time is still read from the zone of the process and
     // not from a fixed or shared time.
@@ -73,13 +72,11 @@ int main() {
     const std::string hourUtc   = hourInZone("UTC0");
     if (hourAhead.size() != 2 || hourUtc.size() != 2) {
         reportFailure("$TIME hour", "two digits in both zones", "[" + hourAhead + "] and [" + hourUtc + "]", "$TIME must render the hour of the configured zone with two digits");
-        ok = false;
     } else {
         const int difference = ((std::stoi(hourAhead) - std::stoi(hourUtc)) + 24) % 24;
         if (difference != 7) {
             reportFailure("$TIME hour", "UTC-7 (local time UTC+7) ahead of UTC0 by 7 hours", "difference=" + std::to_string(difference),
                           "$TIME must render the local time of the configured TZ, not UTC or a fixed zone");
-            ok = false;
         }
     }
 
@@ -130,7 +127,6 @@ int main() {
     if (afterWords != before) {
         reportFailure("descriptor count over 50 keys", std::to_string(before) + " open descriptors", std::to_string(afterWords) + " open descriptors",
                       "the kbSocket transport must not leak a descriptor while it replaces words");
-        ok = false;
     }
 
     // Step 3: the icon of the status area probes the dark mode with popen, whose pipe must be
@@ -140,11 +136,7 @@ int main() {
     if (afterProbe != before) {
         reportFailure("descriptor count over the theme probe", std::to_string(before) + " open descriptors", std::to_string(afterProbe) + " open descriptors",
                       "the dark-mode probe must close the pipe of the subprocess it spawns");
-        ok = false;
     }
 
-    if (ok) {
-        std::cout << "runtime safety: all checks passed (open descriptors " << before << ")\n";
-    }
-    return ok ? 0 : 1;
+    return checkExitCode("runtime safety: all checks passed (open descriptors " + std::to_string(before) + ")");
 }

@@ -1,7 +1,7 @@
 %bcond_without tests
 
 Name:           fcitx5-lotus
-Version:        7.0.1
+Version:        7.0.2
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -20,8 +20,10 @@ BuildRequires:  dbus-devel
 BuildRequires:  libxcb-devel
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  wayland-devel
-
-BuildRequires:  python3-devel
+BuildRequires:  cmake(Qt6Quick)
+BuildRequires:  cmake(Qt6QuickControls2)
+BuildRequires:  cmake(Qt6DBus)
+BuildRequires:  cmake(Qt6Widgets)
 
 %if %{with tests}
 BuildRequires:  dbus-daemon
@@ -30,9 +32,8 @@ BuildRequires:  xorg-x11-server-Xvfb
 
 %{?systemd_ordering}
 Requires:       fcitx5
-Requires:       python3-QtPy
-Requires:       (python3-pyqt6 or python3-pyside6)
-Requires:       python3-dbus
+Requires:       qt6-qtdeclarative
+Requires:       qt6-qtsvg
 Requires:       acl
 
 %description
@@ -42,13 +43,12 @@ Vietnamese input method for fcitx5
 %setup -q
 
 %build
-%cmake -DLOTUS_BYTECOMPILE_PYTHON:BOOL=OFF -DBUILD_TESTING:BOOL=%{with tests}
+%cmake -DBUILD_TESTING:BOOL=%{with tests}
 %cmake_build
 
 %install
 %cmake_install
 %find_lang %{name}
-%py_byte_compile %{__python3} %{buildroot}%{_datadir}/fcitx5-lotus
 
 %check
 %if %{with tests}
@@ -74,7 +74,6 @@ Vietnamese input method for fcitx5
 %{_datadir}/fcitx5/inputmethod/lotus.conf
 
 %{_datadir}/fcitx5/lotus/
-%{_datadir}/fcitx5-lotus/
 %{_datadir}/applications/org.fcitx.Fcitx5.Addon.Lotus.Settings.desktop
 %{_datadir}/metainfo/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
 
@@ -126,6 +125,6 @@ fi
 %systemd_postun_with_restart fcitx5-lotus-server@.service
 
 %changelog
-* Tue Nov 24 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 7.0.1-1
-- Fix the issue of an extra anchor text remaining after replacement
-- Fix keymap stuck in Wayland
+* Fri Nov 27 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 7.0.2-1
+- Fix some issues with dbus key order
+- Fix Shift and Caps Lock stuck in Wayland

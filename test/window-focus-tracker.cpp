@@ -19,6 +19,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <source_location>
 #include <span>
 #include <string>
 #include <thread>
@@ -114,9 +115,9 @@ namespace {
         emitEvent(bus, path, "org.a11y.atspi.Event.Window", event, "", 0);
     }
 
-    bool check(const char* name, bool condition) {
+    bool check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "accessibility focus and window events must drive the app rules reliably");
+            reportFailure(name, "holds", "did not hold", "accessibility focus and window events must drive the app rules reliably", location);
         }
         return condition;
     }
@@ -176,11 +177,9 @@ int main(int argc, char* argv[]) {
     }
     auto&      loop         = instance.instance.eventLoop();
     int        phase        = 0;
-    int        result       = 0;
     auto       phaseStarted = std::chrono::steady_clock::now();
     const auto expect       = [&](const char* name, bool condition) {
         if (!check(name, condition)) {
-            result = 1;
             loop.exit();
         }
         return condition;
@@ -295,10 +294,7 @@ int main(int argc, char* argv[]) {
                     return false;
                 }
                 break;
-            default:
-                result = 1;
-                loop.exit();
-                return false;
+            default: loop.exit(); return false;
         }
         source->setTime(fcitx::now(CLOCK_MONOTONIC) + (static_cast<uint64_t>(kPollInterval.count()) * 1000));
         source->setOneShot();
@@ -306,8 +302,5 @@ int main(int argc, char* argv[]) {
     });
     loop.exec();
     tracker.stop();
-    if (result == 0) {
-        std::printf("lotus window focus tracker: all checks passed\n");
-    }
-    return result;
+    return checkExitCode("lotus window focus tracker: all checks passed");
 }

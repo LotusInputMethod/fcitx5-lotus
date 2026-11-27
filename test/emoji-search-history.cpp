@@ -13,21 +13,18 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <iostream>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace {
-
-    int  failures = 0;
-
-    void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual, std::string_view meaning) {
+    void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual, std::string_view meaning,
+               const std::source_location& location = std::source_location::current()) {
         if (ok) {
             return;
         }
-        ++failures;
-        reportFailure(step, expected, actual, meaning);
+        reportFailure(step, expected, actual, meaning, location);
     }
 
     std::string triggers(const std::vector<EmojiEntry>& entries) {
@@ -128,10 +125,5 @@ int main() {
               "duplicate triggers must keep insertion order so tie-breaking is deterministic");
     }
 
-    if (failures > 0) {
-        std::cerr << "FAILURES: " << failures << "\n";
-        return 1;
-    }
-    std::cout << "emoji-search-history: all checks passed\n";
-    return 0;
+    return checkExitCode("emoji-search-history: all checks passed");
 }

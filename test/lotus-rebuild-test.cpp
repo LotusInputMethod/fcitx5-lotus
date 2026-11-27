@@ -18,6 +18,7 @@
 #include <array>
 
 #include <cstdio>
+#include <source_location>
 #include <string>
 #include <string_view>
 
@@ -42,15 +43,11 @@ namespace {
         std::u32string_view input;
         std::u32string_view want;
     };
-
-    int  failures = 0;
-
-    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected) {
+    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
         if (actual == expected) {
             return;
         }
-        reportFailure(name, hexOf(expected), hexOf(actual), "the rebuild path must reproduce the composition the Go engine rebuilds");
-        ++failures;
+        reportFailure(name, hexOf(expected), hexOf(actual), "the rebuild path must reproduce the composition the Go engine rebuilds", location);
     }
 
     // Go's RebuildCompositionFromText(text, stdStyle) followed by Flatten(composition, VietnameseMode).
@@ -199,10 +196,5 @@ int run_rebuild() {
     case_rebuild_engine_from_text_with_punctuation_and_space();
     case_rebuild_matches_process_string();
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus rebuild: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus rebuild: all checks passed");
 }

@@ -123,6 +123,5 @@ int main() {
         return 1;
     }
 
-    std::printf("lotus merged replacement commit: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus merged replacement commit: all checks passed");
 }

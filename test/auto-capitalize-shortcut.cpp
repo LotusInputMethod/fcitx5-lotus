@@ -148,6 +148,5 @@ int main() {
         }
     }
 
-    std::printf("lotus auto capitalize shortcut: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus auto capitalize shortcut: all checks passed");
 }

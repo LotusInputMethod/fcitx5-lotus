@@ -10,19 +10,15 @@
 #include "utf8.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <set>
+#include <source_location>
 #include <string>
 #include <vector>
 
 namespace {
-
-    int  failures = 0;
-
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the encoder must produce the same bytes as the Go engine for every charset");
-            ++failures;
+            reportFailure(name, "holds", "did not hold", "the encoder must produce the same bytes as the Go engine for every charset", location);
         }
     }
 
@@ -70,16 +66,10 @@ int run_encoder() {
         if (actual != fromHex(row.fields[2])) {
             reportFailure("golden " + row.fields[0] + " " + row.fields[1], std::to_string(fromHex(row.fields[2]).size()) + " bytes", std::to_string(actual.size()) + " bytes",
                           "every charset entry must match the bytes the Go engine produced");
-            ++failures;
         }
     }
     check("golden covers every charset", charsetsSeen.size() == 17U);
     check("golden has entries", kCharsetGolden.size() > 1000U);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus encoder: all checks passed (%zu golden rows, %zu charsets)\n", kCharsetGolden.size(), charsetsSeen.size());
-    return 0;
+    return checkExitCode("lotus encoder: all checks passed (" + std::to_string(kCharsetGolden.size()) + " golden rows, " + std::to_string(charsetsSeen.size()) + " charsets)");
 }

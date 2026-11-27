@@ -19,7 +19,7 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstring>
-#include <iostream>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -54,37 +54,38 @@ class KbSocketListener {
     KbSocketListener(KbSocketListener&&)                 = delete;
     KbSocketListener& operator=(KbSocketListener&&)      = delete;
 
-    bool              receive(KbMsg& msg, std::string_view meaning, std::string_view requestTimeoutExpected = "request within 5000 ms") {
+    bool              receive(KbMsg& msg, std::string_view meaning, std::string_view requestTimeoutExpected = "request within 5000 ms",
+                              const std::source_location& location = std::source_location::current()) {
         int remainingTimeout = kDefaultTimeoutMs;
 
         while (remainingTimeout > 0) {
             if (!client_.isValid()) {
                 if (!fd_.isValid()) {
-                    reportFailure("wait for replacement socket connection", "valid listener descriptor", "listener descriptor is invalid", meaning);
+                    reportFailure("wait for replacement socket connection", "valid listener descriptor", "listener descriptor is invalid", meaning, location);
                     return false;
                 }
 
                 pollfd     pfd{.fd = fd_.get(), .events = POLLIN, .revents = 0};
                 const auto pollResult = poll(&pfd, 1, remainingTimeout);
                 if (pollResult == 0) {
-                    reportFailure("wait for replacement socket connection", "connection request within timeout", "poll timed out", meaning);
+                    reportFailure("wait for replacement socket connection", "connection request within timeout", "poll timed out", meaning, location);
                     return false;
                 }
                 if (pollResult < 0) {
                     if (errno == EINTR)
                         continue;
-                    reportFailure("wait for replacement socket connection", "poll succeeds", "poll failed: " + std::string(std::strerror(errno)), meaning);
+                    reportFailure("wait for replacement socket connection", "poll succeeds", "poll failed: " + std::string(std::strerror(errno)), meaning, location);
                     return false;
                 }
                 if ((static_cast<unsigned>(pfd.revents) & POLLIN) == 0) {
-                    reportFailure("wait for replacement socket connection", "POLLIN revents", "revents=" + std::to_string(pfd.revents), meaning);
+                    reportFailure("wait for replacement socket connection", "POLLIN revents", "revents=" + std::to_string(pfd.revents), meaning, location);
                     return false;
                 }
                 client_ = FdGuard(accept(fd_.get(), nullptr, nullptr));
                 if (!client_.isValid()) {
                     if (errno == EINTR || errno == EAGAIN)
                         continue;
-                    reportFailure("accept replacement socket connection", "accept succeeds", "accept failed: " + std::string(std::strerror(errno)), meaning);
+                    reportFailure("accept replacement socket connection", "accept succeeds", "accept failed: " + std::string(std::strerror(errno)), meaning, location);
                     return false;
                 }
             }
@@ -92,13 +93,13 @@ class KbSocketListener {
             pollfd     pfd{.fd = client_.get(), .events = POLLIN | POLLHUP | POLLRDHUP, .revents = 0};
             const auto pollResult = poll(&pfd, 1, remainingTimeout);
             if (pollResult == 0) {
-                reportFailure("wait for replacement request", requestTimeoutExpected, "poll timed out", meaning);
+                reportFailure("wait for replacement request", requestTimeoutExpected, "poll timed out", meaning, location);
                 return false;
             }
             if (pollResult < 0) {
                 if (errno == EINTR)
                     continue;
-                reportFailure("wait for replacement request", "poll succeeds", "poll failed: " + std::string(std::strerror(errno)), meaning);
+                reportFailure("wait for replacement request", "poll succeeds", "poll failed: " + std::string(std::strerror(errno)), meaning, location);
                 return false;
             }
             if ((static_cast<unsigned>(pfd.revents) & (static_cast<unsigned>(POLLHUP) | static_cast<unsigned>(POLLRDHUP))) != 0 &&
@@ -111,7 +112,7 @@ class KbSocketListener {
             if (received < 0) {
                 if (errno == EINTR)
                     continue;
-                reportFailure("receive replacement request", std::to_string(sizeof(msg)) + " bytes", "recv failed: " + std::string(std::strerror(errno)), meaning);
+                reportFailure("receive replacement request", std::to_string(sizeof(msg)) + " bytes", "recv failed: " + std::string(std::strerror(errno)), meaning, location);
                 return false;
             }
             if (received == 0) {
@@ -120,13 +121,13 @@ class KbSocketListener {
                 continue;
             }
             if (std::cmp_not_equal(received, sizeof(msg))) {
-                reportFailure("receive replacement request", std::to_string(sizeof(msg)) + " bytes", "recv returned " + std::to_string(received) + " bytes", meaning);
+                reportFailure("receive replacement request", std::to_string(sizeof(msg)) + " bytes", "recv returned " + std::to_string(received) + " bytes", meaning, location);
                 return false;
             }
             return true;
         }
 
-        reportFailure("wait for replacement request", requestTimeoutExpected, "timeout exceeded", meaning);
+        reportFailure("wait for replacement request", requestTimeoutExpected, "timeout exceeded", meaning, location);
         return false;
     }
 
@@ -173,9 +174,9 @@ class KbSocketListener {
         client_.reset();
     }
 
-    void fail(std::string_view operation) {
+    void fail(std::string_view operation, const std::source_location& location = std::source_location::current()) {
         reportFailure(std::string(operation) + " replacement socket", "operation succeeds", std::string(operation) + " failed: " + std::strerror(errno),
-                      "the test cannot observe replacement requests");
+                      "the test cannot observe replacement requests", location);
         fd_.reset();
     }
 

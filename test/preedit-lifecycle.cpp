@@ -117,5 +117,5 @@ int main() {
         return 1;
     }
 
-    return 0; // All lifecycle invariants verified successfully
+    return checkExitCode("lotus preedit lifecycle: all checks passed");
 }

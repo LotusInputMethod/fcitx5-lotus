@@ -12,19 +12,16 @@
 #include "test-utils.h"
 
 #include <cstdint>
-#include <iostream>
+#include <source_location>
 #include <string>
 #include <string_view>
 
 namespace {
-
-    int  failures = 0;
-
-    void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual, std::string_view meaning) {
+    void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual, std::string_view meaning,
+               const std::source_location& location = std::source_location::current()) {
         if (ok)
             return;
-        ++failures;
-        reportFailure(step, expected, actual, meaning);
+        reportFailure(step, expected, actual, meaning, location);
     }
 
     std::string entryStr(const KeyEntry& e) {
@@ -73,10 +70,5 @@ int main() {
         check(buf.empty(), "clear", "empty", "not empty", "clear() must discard the pending replay immediately");
     }
 
-    if (failures > 0) {
-        std::cerr << "FAILURES: " << failures << "\n";
-        return 1;
-    }
-    std::cout << "key-buffer: all checks passed\n";
-    return 0;
+    return checkExitCode("key-buffer: all checks passed");
 }

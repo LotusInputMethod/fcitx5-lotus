@@ -1,6 +1,6 @@
-fcitx5-lotus (7.0.1-1) unstable; urgency=medium
+fcitx5-lotus (7.0.2-1) unstable; urgency=medium
 
-  * Fix the issue of an extra anchor text remaining after replacement
-  * Fix keymap stuck in Wayland
+  * Fix some issues with dbus key order
+  * Fix Shift and Caps Lock stuck in Wayland
 
- -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Tue, 24 Nov 2026 00:56:00 +0700
+ -- Nguyen Hoang Ky <nhktmdzhg@gmail.com>  Fri, 27 Nov 2026 22:18:00 +0700

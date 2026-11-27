@@ -29,10 +29,10 @@
 */
 #define UNIX_PATH_MAX sizeof(((struct sockaddr_un*)0)->sun_path)
 
-/** @brief Anchor character typed before a Smooth replacement burst (U+00B7 MIDDLE DOT). */
-inline constexpr char32_t kDotAnchorCodePoint = 0x00B7;
+/** @brief Anchor character typed before a Smooth replacement burst (U+200B ZERO WIDTH SPACE). */
+inline constexpr char32_t kDotAnchorCodePoint = 0x202F;
 /** @brief UTF-32 text of the anchor character. */
-inline constexpr std::u32string_view kDotAnchorText = U"\u00B7";
+inline constexpr std::u32string_view kDotAnchorText = U"\u202F";
 
 // Forward declaration: the header only passes InputContext pointers around.
 namespace fcitx {

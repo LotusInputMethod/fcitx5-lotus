@@ -93,14 +93,12 @@ int main() {
     };
 
     Typer typer{.engine = &engine, .entry = &entry, .context = context.get(), .text = {}};
-    int   failures = 0;
     for (const Case& test : cases) {
         const std::string got = typer.type(test.keys);
         if (got != test.want) {
             reportFailure("Surrounding Text typing '" + std::string(test.keys) + "'", test.want, got,
                           "every commit and deleteSurroundingText must keep the simulated client text consistent with the engine");
-            ++failures;
         }
     }
-    return failures == 0 ? 0 : 1;
+    return checkExitCode();
 }

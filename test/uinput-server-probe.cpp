@@ -9,14 +9,12 @@
 #include "test-utils.h"
 
 #include <cstdio>
+#include <source_location>
 
 namespace {
-    int  failures = 0;
-
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the uinput probe must reflect whether the keyboard server is reachable");
-            ++failures;
+            reportFailure(name, "holds", "did not hold", "the uinput probe must reflect whether the keyboard server is reachable", location);
         }
     }
 } // namespace
@@ -35,10 +33,5 @@ int main() {
     sender.close();
     check("a dropped connection is re-established", sender.ensureConnected());
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus uinput server probe: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus uinput server probe: all checks passed");
 }

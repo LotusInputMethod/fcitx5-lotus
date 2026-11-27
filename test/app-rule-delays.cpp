@@ -13,7 +13,7 @@
 
 #include <filesystem>
 #include <fstream>
-#include <iostream>
+#include <source_location>
 #include <string>
 
 namespace {
@@ -23,11 +23,12 @@ namespace {
             " backspace=" + std::to_string(setting.backspaceInterval) + " post=" + std::to_string(setting.postDelay);
     }
 
-    bool expectSetting(const fcitx::LotusEngine& engine, const std::string& app, const fcitx::LotusAppRuleSetting& expected, const std::string& meaning) {
+    bool expectSetting(const fcitx::LotusEngine& engine, const std::string& app, const fcitx::LotusAppRuleSetting& expected, const std::string& meaning,
+                       const std::source_location& location = std::source_location::current()) {
         const auto actual = engine.getAppRuleSetting(app);
         if (actual.mode != expected.mode || actual.commitInterval != expected.commitInterval || actual.backspaceInterval != expected.backspaceInterval ||
             actual.postDelay != expected.postDelay) {
-            reportFailure("app rule for " + app, settingText(expected), settingText(actual), meaning);
+            reportFailure("app rule for " + app, settingText(expected), settingText(actual), meaning, location);
             return false;
         }
         return true;
@@ -59,13 +60,12 @@ int main() {
     config.setValueByPath("InputMethod", "Telex");
     engine.setConfig(config);
 
-    bool ok = true;
-    ok &= expectSetting(engine, "test", {.mode = fcitx::LotusMode::Smooth, .commitInterval = 40, .backspaceInterval = 20, .postDelay = 25},
-                        "app=mode,commit,backspace,post must be parsed field by field");
-    ok &= expectSetting(engine, "legacy", {.mode = fcitx::LotusMode::Smooth}, "legacy mode id 2 must resolve to Smooth");
-    ok &= expectSetting(engine, "partial", {.mode = fcitx::LotusMode::SuperSmooth, .commitInterval = 15}, "omitted trailing delay fields must stay zero");
-    ok &= expectSetting(engine, "bare", {.mode = fcitx::LotusMode::Preedit}, "a mode-only rule must keep the parsed mode");
-    ok &= expectSetting(engine, "malformed", {.mode = fcitx::LotusMode::Preedit}, "a malformed line must be skipped");
-    ok &= expectSetting(engine, "khong-co-rule", {.mode = fcitx::LotusMode::Preedit}, "an app without a rule must inherit the global mode");
-    return ok ? 0 : 1;
+    expectSetting(engine, "test", {.mode = fcitx::LotusMode::Smooth, .commitInterval = 40, .backspaceInterval = 20, .postDelay = 25},
+                  "app=mode,commit,backspace,post must be parsed field by field");
+    expectSetting(engine, "legacy", {.mode = fcitx::LotusMode::Smooth}, "legacy mode id 2 must resolve to Smooth");
+    expectSetting(engine, "partial", {.mode = fcitx::LotusMode::SuperSmooth, .commitInterval = 15}, "omitted trailing delay fields must stay zero");
+    expectSetting(engine, "bare", {.mode = fcitx::LotusMode::Preedit}, "a mode-only rule must keep the parsed mode");
+    expectSetting(engine, "malformed", {.mode = fcitx::LotusMode::Preedit}, "a malformed line must be skipped");
+    expectSetting(engine, "khong-co-rule", {.mode = fcitx::LotusMode::Preedit}, "an app without a rule must inherit the global mode");
+    return checkExitCode("lotus app rule delays: all checks passed");
 }

@@ -8,6 +8,7 @@
 #include "test-utils.h"
 
 #include <cstdio>
+#include <source_location>
 #include <string>
 
 namespace {
@@ -17,40 +18,33 @@ namespace {
     constexpr std::u32string_view kToHook  = U"t\u00F4\u0309";
     constexpr std::u32string_view kToTilde = U"t\u00F4\u0303";
     constexpr std::u32string_view kToHop   = U"t\u00F4\u0309 h\u01A1\u0323p"; // "tổ hợp"
-
-    int                           failures = 0;
-
-    void                          checkText(const char* name, std::u32string_view actual, std::u32string_view expected) {
+    void checkText(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
         if (actual == expected) {
             return;
         }
-        reportFailure(name, hexOf(expected, "<empty>"), hexOf(actual, "<empty>"), "the diff must split changes at grapheme cluster boundaries exactly as expected");
-        ++failures;
+        reportFailure(name, hexOf(expected, "<empty>"), hexOf(actual, "<empty>"), "the diff must split changes at grapheme cluster boundaries exactly as expected", location);
     }
 
-    void checkCount(const char* name, size_t actual, size_t expected) {
+    void checkCount(const char* name, size_t actual, size_t expected, const std::source_location& location = std::source_location::current()) {
         if (actual == expected) {
             return;
         }
-        reportFailure(name, std::to_string(expected), std::to_string(actual), "cluster accounting must produce the expected counts");
-        ++failures;
+        reportFailure(name, std::to_string(expected), std::to_string(actual), "cluster accounting must produce the expected counts", location);
     }
 
-    void checkMark(const char* name, char32_t codePoint, bool expected) {
+    void checkMark(const char* name, char32_t codePoint, bool expected, const std::source_location& location = std::source_location::current()) {
         if (isCombiningMark(codePoint) == expected) {
             return;
         }
-        reportFailure(name, expected ? "true" : "false", isCombiningMark(codePoint) ? "true" : "false", "combining mark classification must match Unicode");
-        ++failures;
+        reportFailure(name, expected ? "true" : "false", isCombiningMark(codePoint) ? "true" : "false", "combining mark classification must match Unicode", location);
     }
 
     // A combining mark on its own is not a character: the client deletes it together with the base it
     // attaches to, so the deleted part must never start with one.
-    void checkStartsAtClusterBoundary(const char* name, const DiffPart& diff) {
+    void checkStartsAtClusterBoundary(const char* name, const DiffPart& diff, const std::source_location& location = std::source_location::current()) {
         if (!diff.deletedPart.empty() && isCombiningMark(diff.deletedPart.front())) {
             reportFailure(name, "the deleted part starts at a cluster boundary", "deleted part starts with a combining mark [" + hexOf(diff.deletedPart, "<empty>") + "]",
-                          "a combining mark on its own is not a character: the client deletes it together with its base");
-            ++failures;
+                          "a combining mark on its own is not a character: the client deletes it together with its base", location);
         }
     }
 
@@ -112,10 +106,5 @@ int main() {
     checkMark("U+00F4 (ô) is not a mark", U'\u00F4', false);
     checkMark("a is not a mark", U'a', false);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("unicode cluster: all checks passed\n");
-    return 0;
+    return checkExitCode("unicode cluster: all checks passed");
 }

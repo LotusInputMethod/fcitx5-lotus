@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Smooth targets clients with autocomplete: the addon commits the anchor U+00B7 right before the
+// Smooth targets clients with autocomplete: the addon commits the anchor U+202F right before the
 // burst and deletes one extra character. Super Smooth targets clients without autocomplete and uses
 // the plain backspace burst.
 #include "engine-fixture.h"
@@ -71,7 +71,7 @@ int main() {
             return false;
         }
 
-        const std::vector<std::string>  anchorOnly{"\u00B7"};
+        const std::vector<std::string>  anchorOnly{"\u202F"};
         const std::vector<std::string>  noCommits{};
         const std::vector<std::string>& expectedStart = expectAnchor ? anchorOnly : noCommits;
         if (context->commits() != expectedStart) {
@@ -89,7 +89,7 @@ int main() {
             return false;
         }
 
-        const std::vector<std::string>  smoothFinal{"\u00B7", "á"};
+        const std::vector<std::string>  smoothFinal{"\u202F", "á"};
         const std::vector<std::string>  superFinal{"á"};
         const std::vector<std::string>& expectedFinal = expectAnchor ? smoothFinal : superFinal;
         if (context->commits() != expectedFinal) {
@@ -103,6 +103,5 @@ int main() {
     if (!runMode("Uinput (Smooth)", true) || !runMode("Uinput (Super Smooth)", false)) {
         return 1;
     }
-    std::printf("lotus mode dot anchor: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus mode dot anchor: all checks passed");
 }

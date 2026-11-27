@@ -1,0 +1,6 @@
+[fcitx5-lotus]
+name=fcitx5-lotus — Fedora $releasever
+baseurl=https://fcitx5-lotus.pages.dev/rpm/fedora/$releasever/$basearch/
+enabled=1
+gpgcheck=1
+gpgkey=https://fcitx5-lotus.pages.dev/pubkey.gpg

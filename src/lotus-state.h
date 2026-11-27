@@ -161,7 +161,8 @@ namespace fcitx {
         int64_t                               deletionInterruptedAt_ = 0;     ///< when deactivate() cut an in-flight replacement (0 = none)
         bool                                  deferredFocusOut_      = false; ///< uinput focus-out reset waiting for activate()
         bool                                  trackingModifierTap_   = false; ///< Selected modifier held, waiting for consecutive keyup
-        bool                                  shiftHeld_             = false; ///< Live Shift press state tracked from key events
+        bool                                  shiftLeftHeld_         = false; ///< Live Shift_L press state tracked from key events
+        bool                                  shiftRightHeld_        = false; ///< Live Shift_R press state tracked from key events
         bool                                  macroSkip_             = false; ///< Macro disabled for the current word
         bool                                  isLibreoffice_         = false;
         int64_t                               replacementDeadlineMs_ = 0; ///< ms by which every injected backspace must be echoed (0 = no replacement in flight)
@@ -361,6 +362,26 @@ namespace fcitx {
         void finishReplacementNow();
 
         /**
+         * @brief Computes the pre-delay needed before virtual keyboard injection to let pending commits land.
+         * @param commitMs Configured commit interval in milliseconds.
+         * @return Delay in milliseconds (0 when no pending commit needs waiting).
+         */
+        [[nodiscard]] uint32_t computeCommitPreDelay(int commitMs) const;
+
+        /**
+         * @brief Reports whether an echo frontend (dbus/x11/xim/fcitx4) committed recently enough that a
+         *        forwarded key could overtake the commit on the way to the client.
+         * @return True while subsequent printable keys should share the commit channel.
+         */
+        [[nodiscard]] bool isRecentEchoCommit() const;
+
+        /**
+         * @brief Delivers direct non-replacement text when keyEvent.forward() cannot be relied upon.
+         * @param text Unicode text to commit or inject.
+         */
+        void commitOrInjectText(std::u32string_view text);
+
+        /**
          * @brief Performs text replacement via virtual-keyboard-unstable-v1 when
          * the compositor supports it, otherwise via uinput.
          * @param diffPart pairs of deleted part and added part
@@ -498,6 +519,14 @@ namespace fcitx {
          * @param keyEvent The Shift_L/Shift_R press or release event.
          */
         void trackShiftModifier(const KeyEvent& keyEvent);
+
+        /**
+         * @brief Whether either Shift_L or Shift_R is currently held.
+         * @return True while at least one Shift key is held.
+         */
+        [[nodiscard]] bool isShiftHeld() const noexcept {
+            return shiftLeftHeld_ || shiftRightHeld_;
+        }
 
         /**
          * @brief Forgets the tracked Shift state, e.g. after a focus-out may have swallowed a release.

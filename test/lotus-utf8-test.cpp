@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdio>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,40 +20,33 @@ namespace {
 
     using lotus::utf8::decode;
     using lotus::utf8::encode;
-
-    int  failures = 0;
-
-    void expectCodePoints(const char* name, std::string_view input, const std::vector<char32_t>& expected) {
+    void expectCodePoints(const char* name, std::string_view input, const std::vector<char32_t>& expected, const std::source_location& location = std::source_location::current()) {
         const auto actual = decode(input);
         if (actual.size() != expected.size() || !std::equal(actual.begin(), actual.end(), expected.begin())) {
             const std::u32string actualText(actual.begin(), actual.end());
             const std::u32string expectedText(expected.begin(), expected.end());
-            reportFailure(name, hexOf(expectedText), hexOf(actualText), "decode must match Go's for range string: invalid bytes become one U+FFFD per consumed byte");
-            ++failures;
+            reportFailure(name, hexOf(expectedText), hexOf(actualText), "decode must match Go's for range string: invalid bytes become one U+FFFD per consumed byte", location);
         }
     }
 
-    void expectSize(const char* name, std::size_t actual, std::size_t expected) {
+    void expectSize(const char* name, std::size_t actual, std::size_t expected, const std::source_location& location = std::source_location::current()) {
         if (actual != expected) {
-            reportFailure(name, std::to_string(expected), std::to_string(actual), "string metrics must agree with the decoded code point count");
-            ++failures;
+            reportFailure(name, std::to_string(expected), std::to_string(actual), "string metrics must agree with the decoded code point count", location);
         }
     }
 
-    void expectEncode(const char* name, std::u32string_view input, std::string_view expected) {
+    void expectEncode(const char* name, std::u32string_view input, std::string_view expected, const std::source_location& location = std::source_location::current()) {
         const std::string actual = encode(input);
         if (actual != expected) {
             reportFailure(name, std::to_string(expected.size()) + " bytes", std::to_string(actual.size()) + " bytes",
-                          "encode must produce the bytes Go's string(rune) produces, mapping out-of-range runes and surrogate halves to U+FFFD");
-            ++failures;
+                          "encode must produce the bytes Go's string(rune) produces, mapping out-of-range runes and surrogate halves to U+FFFD", location);
         }
     }
 
-    void expectRoundTrip(const char* name, std::string_view input) {
+    void expectRoundTrip(const char* name, std::string_view input, const std::source_location& location = std::source_location::current()) {
         const std::string back = encode(decode(input));
         if (back != input) {
-            reportFailure(name, "the input unchanged", "the string changed", "decode followed by encode must preserve the input byte-for-byte");
-            ++failures;
+            reportFailure(name, "the input unchanged", "the string changed", "decode followed by encode must preserve the input byte-for-byte", location);
         }
     }
 
@@ -103,10 +97,5 @@ int run_utf8() {
     expectRoundTrip("round trip vowels", lotus::utf8::encode(kVowels));
     expectSize("vowels count", lotus::utf8::length(lotus::utf8::encode(kVowels)), kVowels.size());
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus utf8: all checks passed\n");
-    return 0;
+    return checkExitCode("lotus utf8: all checks passed");
 }

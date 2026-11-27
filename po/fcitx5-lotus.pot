@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 16:21+0700\n"
+"POT-Creation-Date: 2026-11-24 23:28+0700\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,58 +17,81 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: settings-gui/ui/main_window.py:153
-msgid "&Apply"
+#: settings-gui/cpp/settings_backend.cpp:1573
+msgid "%1 bindings"
 msgstr ""
 
-#: settings-gui/ui/main_window.py:148
-msgid "&Cancel"
+#: settings-gui/cpp/settings_backend.cpp:1540
+msgid "%1 macros"
 msgstr ""
 
-#: settings-gui/ui/main_window.py:158
-msgid "&OK"
+#: settings-gui/cpp/settings_backend.cpp:1526
+msgid "%1 rules (%2)"
 msgstr ""
 
-#: settings-gui/ui/main_window.py:142
-msgid "&Reset"
+#: settings-gui/cpp/settings_backend.cpp:1563
+msgid "%1 words"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1560
+msgid "%1 words (+%2 / -%3)"
 msgstr ""
 
 #: src/lotus-config.h:161 src/lotus-config.h:162 src/lotus-config.h:163
 msgid "(ms, 0 = default)"
 msgstr ""
 
-#: settings-gui/ui/pages/keymap_editor.py:446
-msgid ". Are you sure?"
-msgstr ""
-
-#: settings-gui/ui/pages/macro_editor.py:202
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:61
 msgid "Abbreviation"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:180
-msgid "Abbreviation (e.g. kg)"
-msgstr ""
-
-#: settings-gui/ui/main_window.py:230
+#: settings-gui/qml/Main.qml:35 settings-gui/qml/Main.qml:220
+#: settings-gui/qml/Main.qml:251
 msgid "About"
 msgstr ""
 
-#: settings-gui/ui/pages/keymap_editor.py:287
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:83
 msgid "Action"
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:118
-#: settings-gui/ui/pages/dict_editor.py:362
-#: settings-gui/ui/pages/keymap_editor.py:275
-#: settings-gui/ui/pages/keymap_editor.py:435
-#: settings-gui/ui/pages/macro_editor.py:188
-#: settings-gui/ui/pages/macro_editor.py:468 test/settings-gui/test_i18n.py:94
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:110
+#: settings-gui/qml/dialogs/AddWordDialog.qml:64
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:156
+#: settings-gui/qml/pages/ApplicationsPage.qml:209
+#: settings-gui/qml/pages/ApplicationsPage.qml:566
+#: settings-gui/qml/pages/DictionaryPage.qml:148
+#: settings-gui/qml/pages/KeymapPage.qml:209
+#: settings-gui/qml/pages/MacrosPage.qml:273
 msgid "Add"
 msgstr ""
 
-#: settings-gui/ui/pages/keymap_editor.py:276
-#: settings-gui/ui/pages/keymap_editor.py:435
-msgid "Add Keymap"
+#: settings-gui/qml/pages/ApplicationsPage.qml:524
+msgid "Add Application"
+msgstr ""
+
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:15
+#: settings-gui/qml/pages/KeymapPage.qml:211
+msgid "Add Binding"
+msgstr ""
+
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:17
+#: settings-gui/qml/pages/MacrosPage.qml:275
+msgid "Add Macro"
+msgstr ""
+
+#: settings-gui/qml/pages/ApplicationsPage.qml:211
+msgid "Add Rule"
+msgstr ""
+
+#: settings-gui/qml/dialogs/AddWordDialog.qml:13
+#: settings-gui/qml/pages/DictionaryPage.qml:150
+msgid "Add Word"
+msgstr ""
+
+#: settings-gui/qml/pages/AboutPage.qml:114
+#: settings-gui/qml/pages/BackupPage.qml:83
+#: settings-gui/qml/pages/BackupPage.qml:97
+msgid "All Files (*)"
 msgstr ""
 
 #: src/lotus-config.h:213
@@ -83,7 +106,11 @@ msgstr ""
 msgid "Allow dd To Produce đ When Auto Restore Invalid Words Is On"
 msgstr ""
 
-#: settings-gui/ui/helpers.py:30
+#: settings-gui/qml/pages/TypingPage.qml:66
+msgid "Allow dd to produce đ when Auto Restore Invalid Words is enabled."
+msgstr ""
+
+#: settings-gui/qml/pages/MacrosPage.qml:157
 msgid ""
 "Allow macros to work when the input mode is OFF.\n"
 "When disabled, macros are only available in active typing modes."
@@ -105,32 +132,29 @@ msgstr ""
 msgid "App: "
 msgstr ""
 
-#: settings-gui/ui/main_window.py:223
-msgid "Appearance"
-msgstr ""
-
-#: settings-gui/ui/pages/backup.py:74 settings-gui/ui/pages/backup.py:200
-#: settings-gui/ui/pages/backup.py:265
+#: settings-gui/cpp/settings_backend.cpp:1190
+#: settings-gui/cpp/settings_backend.cpp:1369
+#: settings-gui/cpp/settings_backend.cpp:1533
+#: settings-gui/cpp/settings_backend.cpp:2273
 msgid "Application Rules"
 msgstr ""
 
-#: settings-gui/ui/pages/mode_manager.py:192 settings-gui/ui/main_window.py:218
+#: settings-gui/qml/Main.qml:30
 msgid "Applications"
 msgstr ""
 
-#: settings-gui/ui/pages/keymap_editor.py:249
-msgid "Apply Preset"
+#: settings-gui/qml/components/FloatingActionBar.qml:78
+#: settings-gui/qml/pages/KeymapPage.qml:160
+#: settings-gui/qml/pages/KeymapPage.qml:349
+msgid "Apply"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:236
-msgid ""
-"Are you sure you want to restore selected components? This will overwrite "
-"current configuration."
+#: settings-gui/qml/components/UnsavedCloseDialog.qml:71
+msgid "Apply & Close"
 msgstr ""
 
-#: settings-gui/ui/pages/dynamic_settings.py:92
-msgid ""
-"Assign hotkeys to open the mode menu or quickly cycle through enabled modes."
+#: settings-gui/qml/pages/KeymapPage.qml:334
+msgid "Apply Preset?"
 msgstr ""
 
 #: src/lotus-config.h:67
@@ -149,7 +173,7 @@ msgstr ""
 msgid "Auto capitalize after sentence-ending punctuation (. ! ? Enter)"
 msgstr ""
 
-#: settings-gui/ui/helpers.py:19
+#: settings-gui/qml/pages/MacrosPage.qml:143
 msgid ""
 "Automatically match expansion case to trigger key case.\n"
 "\n"
@@ -159,7 +183,7 @@ msgid ""
 "- KG -> KHÔ GÀ"
 msgstr ""
 
-#: settings-gui/ui/helpers.py:26
+#: settings-gui/qml/pages/TypingPage.qml:54
 msgid ""
 "Automatically revert the typed sequence if the resulting word is not in the "
 "dictionary.\n"
@@ -167,33 +191,64 @@ msgid ""
 "mixed text."
 msgstr ""
 
+#: settings-gui/cpp/settings_backend.cpp:1357
+msgid "Backend"
+msgstr ""
+
 #: src/lotus-config.h:162
 msgid "Backspace Interval"
 msgstr ""
 
-#: settings-gui/ui/main_window.py:224
+#: settings-gui/qml/Main.qml:34
 msgid "Backup"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:55
-msgid "Backup & Restore"
+#: settings-gui/cpp/settings_backend.cpp:2158
+msgid "Backup exported"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:167
-msgid "Backup exported to:\n"
+#: settings-gui/cpp/settings_backend.cpp:2329
+msgid "Backup restored"
 msgstr ""
 
-#: settings-gui/ui/pages/about.py:179
-msgid ""
-"Based on upstream work originally licensed under <b>LGPL-2.1-or-later</b>."
-"<br>Includes third-party components licensed under the <b>MIT License</b>."
+#: settings-gui/cpp/settings_backend.cpp:1371
+msgid "Behavior"
 msgstr ""
 
-#: settings-gui/ui/main_window.py:287
-msgid "Cannot Save"
+#: settings-gui/cpp/settings_backend.cpp:1381
+msgid "Bindings"
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:252
+#: settings-gui/qml/pages/AboutPage.qml:251
+msgid "Blank Issue / Question"
+msgstr ""
+
+#: settings-gui/qml/pages/AboutPage.qml:249
+msgid "Bug Report"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1561
+msgid "Built-in dictionary (%1 words)"
+msgstr ""
+
+#: settings-gui/qml/pages/BackupPage.qml:180
+msgid "Bundle"
+msgstr ""
+
+#: settings-gui/qml/components/FloatingActionBar.qml:71
+#: settings-gui/qml/components/HotkeyCaptureDialog.qml:213
+#: settings-gui/qml/components/SectionResetDialog.qml:104
+#: settings-gui/qml/components/UnsavedCloseDialog.qml:54
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:105
+#: settings-gui/qml/dialogs/AddWordDialog.qml:59
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:151
+#: settings-gui/qml/pages/ApplicationsPage.qml:561
+#: settings-gui/qml/pages/BackupPage.qml:286
+#: settings-gui/qml/pages/KeymapPage.qml:344
+msgid "Cancel"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1015
 msgid ""
 "Cannot save dictionary because loading failed earlier. Please fix the file "
 "format first."
@@ -203,67 +258,77 @@ msgstr ""
 msgid "Capitalize Macro"
 msgstr ""
 
+#: settings-gui/qml/pages/TypingPage.qml:122
+msgid ""
+"Capitalize the next word after sentence-ending punctuation (. ! ? Enter)."
+msgstr ""
+
 #: src/lotus-engine.cpp:175
 msgid "Charset"
 msgstr ""
 
-#: settings-gui/ui/pages/dynamic_settings.py:89
-msgid ""
-"Choose whether Lotus types replacements through the system keyboard "
-"injection instead of the uinput service."
+#: settings-gui/qml/DCommon/Widgets/DTextField.qml:596
+msgid "Clear"
 msgstr ""
 
-#: settings-gui/ui/components.py:257
-msgid "Clear hotkey"
+#: settings-gui/qml/DCommon/Widgets/DWindowHeader.qml:120
+msgid "Close"
 msgstr ""
 
 #: src/lotus-config.h:161
 msgid "Commit Interval"
 msgstr ""
 
+#: settings-gui/qml/pages/BackupPage.qml:135
+msgid "Components"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1379
+msgid "Configuration"
+msgstr ""
+
 #: settings-gui/org.fcitx.Fcitx5.Addon.Lotus.Settings.desktop.in:3
 msgid "Configure Fcitx5 Lotus Input Method"
 msgstr ""
 
-#: settings-gui/ui/pages/dynamic_settings.py:79
-msgid "Configure basic input method settings and behaviors."
-msgstr ""
-
-#: settings-gui/ui/pages/keymap_editor.py:443
-msgid "Confirm"
-msgstr ""
-
-#: settings-gui/ui/pages/mode_manager.py:523
-msgid "Confirm Remove"
-msgstr ""
-
-#: settings-gui/ui/main_window.py:238
-msgid "Confirm Reset"
-msgstr ""
-
-#: settings-gui/ui/pages/backup.py:234
-msgid "Confirm Restore"
+#: settings-gui/qml/pages/AboutPage.qml:212
+msgid "Contributors"
 msgstr ""
 
 #: src/lotus-config.h:56
 msgid "Ctrl"
 msgstr ""
 
-#: src/lotus-config.h:197 src/lotus-engine.cpp:208 src/lotus-engine.cpp:371
+#: settings-gui/cpp/settings_backend.cpp:1495
+msgid "Custom"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1375
+#: settings-gui/cpp/settings_backend.cpp:2311 src/lotus-config.h:197
+#: src/lotus-engine.cpp:208 src/lotus-engine.cpp:371
 msgid "Custom Dictionary"
 msgstr ""
 
-#: src/lotus-config.h:158 src/lotus-config.h:198 src/lotus-config.h:222
+#: settings-gui/cpp/settings_backend.cpp:1230
+#: settings-gui/cpp/settings_backend.cpp:2287 src/lotus-config.h:158
+#: src/lotus-config.h:198 src/lotus-config.h:222
 msgid "Custom Keymap"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:73 settings-gui/ui/pages/backup.py:199
-#: settings-gui/ui/pages/backup.py:261
-msgid "Custom Keymaps"
+#: settings-gui/qml/pages/ApplicationsPage.qml:100
+msgid "Custom Timing"
 msgstr ""
 
-#: settings-gui/ui/pages/dynamic_settings.py:81
-msgid "Customize the look and feel of the Lotus status icons and theme."
+#: settings-gui/cpp/settings_backend.cpp:1566
+msgid "Custom Words"
+msgstr ""
+
+#: settings-gui/qml/pages/BackupPage.qml:47
+msgid "Custom excluded dictionary words"
+msgstr ""
+
+#: settings-gui/qml/pages/BackupPage.qml:42
+msgid "Custom key-to-action mappings"
 msgstr ""
 
 #: src/lotus-config.h:178
@@ -278,11 +343,19 @@ msgstr ""
 msgid "Date Format ($DATE in macro)"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:166
-msgid "Date Format:"
+#: settings-gui/qml/pages/AboutPage.qml:114
+msgid "Debug Log (*.log *.txt)"
 msgstr ""
 
-#: settings-gui/ui/pages/mode_manager.py:486
+#: settings-gui/cpp/settings_backend.cpp:2362
+msgid "Debug info exported"
+msgstr ""
+
+#: settings-gui/qml/components/TimingStepper.qml:76
+msgid "Decrease"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1495
 msgid "Default"
 msgstr ""
 
@@ -298,20 +371,45 @@ msgstr ""
 msgid "Default Post Delay"
 msgstr ""
 
+#: settings-gui/cpp/settings_backend.cpp:1367
+msgid "Default Timing"
+msgstr ""
+
 #: src/lotus-mode-menu.cpp:52
 msgid "Default Typing"
 msgstr ""
 
-#: settings-gui/ui/pages/about.py:137
-msgid "Developed by"
+#: settings-gui/qml/pages/AboutPage.qml:275
+msgid "Diagnostics"
 msgstr ""
 
-#: settings-gui/ui/main_window.py:220
+#: settings-gui/qml/Main.qml:32
 msgid "Dictionary"
 msgstr ""
 
-#: src/lotus-config.h:37 src/lotus-config.h:44 src/lotus-config.h:56
+#: settings-gui/qml/pages/DictionaryPage.qml:170
+msgid "Dictionary Empty"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1017
+msgid "Dictionary words should not contain spaces."
+msgstr ""
+
+#: settings-gui/qml/components/HotkeyCaptureDialog.qml:199
+msgid "Disable"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1453 src/lotus-config.h:37
+#: src/lotus-config.h:44 src/lotus-config.h:56
 msgid "Disabled"
+msgstr ""
+
+#: settings-gui/qml/components/UnsavedCloseDialog.qml:62
+msgid "Discard"
+msgstr ""
+
+#: settings-gui/qml/components/ToastBanner.qml:111
+msgid "Dismiss"
 msgstr ""
 
 #: src/lotus-config.h:190
@@ -322,19 +420,38 @@ msgstr ""
 msgid "Double Space to Period"
 msgstr ""
 
-#: settings-gui/ui/pages/dynamic_settings.py:251
-msgid ""
-"Drag the handle on the left to reorder modes in the menu. Use checkboxes to "
-"toggle visibility, and click the buttons to reassign shortcuts."
+#: settings-gui/qml/DCommon/Widgets/DDragHandle.qml:22
+#: settings-gui/qml/DCommon/Widgets/DDragHandle.qml:24
+msgid "Drag to reorder"
 msgstr ""
 
-#: settings-gui/ui/pages/dynamic_settings.py:564
-#, python-brace-format
+#: settings-gui/qml/pages/ShortcutsPage.qml:252
+msgid "Duplicate key '{}'"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1001
+#, c++-format
 msgid "Duplicate shortcut '{}' used for multiple enabled modes."
+msgstr ""
+
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:17
+msgid "Edit Macro"
 msgstr ""
 
 #: src/lotus-config.h:31
 msgid "Emoji Picker"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1573
+msgid "Empty (0 bindings)"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1546
+msgid "Empty (0 macros)"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1564
+msgid "Empty (0 words)"
 msgstr ""
 
 #: src/lotus-config.h:184
@@ -345,142 +462,241 @@ msgstr ""
 msgid "Enable Spell Check Using Dictionary"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:170 settings-gui/ui/pages/backup.py:220
-#: settings-gui/ui/pages/backup.py:280 settings-gui/ui/pages/backup.py:303
-#: settings-gui/ui/pages/dict_editor.py:250
-#: settings-gui/ui/pages/dict_editor.py:289 settings-gui/ui/main_window.py:298
-msgid "Error"
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:16
+msgid "Enter a trigger key and select its action:"
+msgstr ""
+
+#: settings-gui/qml/dialogs/AddWordDialog.qml:14
+msgid "Enter a word without spaces:"
+msgstr ""
+
+#: settings-gui/qml/pages/ApplicationsPage.qml:525
+msgid "Enter binary name or window class (e.g. discord, code):"
+msgstr ""
+
+#: settings-gui/qml/components/HotkeyCaptureDialog.qml:190
+msgid "Escape to cancel · Backspace to disable"
 msgstr ""
 
 #: src/lotus-config.h:37 src/lotus-config.h:44
 msgid "Everywhere"
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:358
-msgid "Exists"
+#: settings-gui/qml/pages/MacrosPage.qml:129
+msgid "Expand shorthand abbreviations while typing"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:202
-msgid "Expanded Text"
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:131
+msgid "Expanded text..."
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:126
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:96
+msgid "Expansion"
+msgstr ""
+
+#: settings-gui/qml/pages/BackupPage.qml:80
 msgid "Export Backup"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:85
-msgid "Export Backup..."
+#: settings-gui/qml/pages/AboutPage.qml:111
+#: settings-gui/qml/pages/AboutPage.qml:289
+msgid "Export Debug Information"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:60
-msgid "Export/Import Settings"
+#: settings-gui/qml/pages/BackupPage.qml:89
+msgid "Export failed"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:170
-msgid "Failed to export backup:\n"
+#: settings-gui/cpp/settings_backend.cpp:2134
+msgid "Export failed: cannot read custom dictionary."
 msgstr ""
 
-#: settings-gui/ui/pages/dynamic_settings.py:210
-msgid "Failed to load configuration."
+#: settings-gui/qml/pages/AboutPage.qml:118
+msgid "Exporting debug information..."
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:188
-#, python-brace-format
-msgid ""
-"Failed to load dictionary completely: {}\n"
-"Saving is disabled to prevent data loss."
+#: settings-gui/qml/pages/AboutPage.qml:293
+#: settings-gui/qml/pages/BackupPage.qml:195
+msgid "Export…"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:220
-msgid "Failed to open backup file:\n"
+#: settings-gui/cpp/settings_backend.cpp:2154
+msgid "Failed to export backup."
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:303
-msgid "Failed to restore backup:\n"
+#: settings-gui/cpp/settings_backend.cpp:2336
+#: settings-gui/cpp/settings_backend.cpp:2337
+#: settings-gui/cpp/settings_backend.cpp:2362
+msgid "Failed to export debug info"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:281
-msgid ""
-"Failed to restore the following components:\n"
-"- "
+#: settings-gui/cpp/settings_backend.cpp:2178
+#: settings-gui/cpp/settings_backend.cpp:2234
+msgid "Failed to read backup: %1"
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:289
-#, python-brace-format
-msgid "Failed to save dictionary: {}"
+#: settings-gui/cpp/settings_backend.cpp:1630
+msgid "Failed to reset custom dictionary. Please check if Fcitx5 is running."
 msgstr ""
 
-#: settings-gui/ui/main_window.py:299
+#: settings-gui/cpp/settings_backend.cpp:2323
+msgid "Failed to restore: %1"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1187
+msgid "Failed to save Application Rules. Saved: %1"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1259
+#: settings-gui/cpp/settings_backend.cpp:1264
+msgid "Failed to save Custom Dictionary. Saved: %1"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1227
+msgid "Failed to save Custom Keymap. Saved: %1"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1240
+#: settings-gui/cpp/settings_backend.cpp:1248
+msgid "Failed to save General & Typing. Saved: %1"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1207
+msgid "Failed to save Macros. Saved: %1"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1155
+#: settings-gui/cpp/settings_backend.cpp:2253
 msgid "Failed to save settings. Please check if Fcitx5 is running."
-msgstr ""
-
-#: settings-gui/ui/pages/about.py:144
-msgid "Fcitx5 Lotus Contributors"
 msgstr ""
 
 #: settings-gui/org.fcitx.Fcitx5.Addon.Lotus.Settings.desktop.in:2
 msgid "Fcitx5 Lotus Settings"
 msgstr ""
 
-#: settings-gui/ui/pages/dynamic_settings.py:83
-msgid "Fine-tune spelling corrections and advanced typing options."
+#: settings-gui/cpp/settings_backend.cpp:2094
+#: settings-gui/cpp/settings_backend.cpp:2110
+msgid "Fcitx5 is not running. Cannot export settings."
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:184
-msgid "Full text (e.g. khô gà)"
+#: settings-gui/qml/components/OfflineBanner.qml:58
+msgid "Fcitx5 is not running. Settings cannot be loaded or saved."
 msgstr ""
 
-#: settings-gui/ui/main_window.py:216
+#: settings-gui/qml/pages/AboutPage.qml:250
+msgid "Feature Request"
+msgstr ""
+
+#: settings-gui/qml/pages/MacrosPage.qml:219
+msgid "Format used for the $DATE dynamic placeholder"
+msgstr ""
+
+#: settings-gui/qml/pages/MacrosPage.qml:195
+msgid "Format used for the $TIME dynamic placeholder"
+msgstr ""
+
+#: settings-gui/qml/Main.qml:27
 msgid "General"
 msgstr ""
 
-#: settings-gui/ui/pages/mode_manager.py:199
-msgid "Global Default Mode:"
+#: settings-gui/cpp/settings_backend.cpp:2266
+msgid "General & Typing"
+msgstr ""
+
+#: settings-gui/qml/pages/AboutPage.qml:211
+msgid "GitHub Repository"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1504
+msgid "Hidden"
+msgstr ""
+
+#: settings-gui/qml/DCommon/Widgets/DTextField.qml:582
+msgid "Hide password"
 msgstr ""
 
 #: src/lotus-config.h:223
 msgid "Icon Color"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:89
-msgid "Import Backup..."
+#: settings-gui/qml/pages/BackupPage.qml:95
+msgid "Import Backup"
+msgstr ""
+
+#: settings-gui/qml/pages/BackupPage.qml:280
+msgid "Import failed"
+msgstr ""
+
+#: settings-gui/qml/pages/BackupPage.qml:216
+msgid "Import…"
+msgstr ""
+
+#: settings-gui/qml/components/TimingStepper.qml:169
+msgid "Increase"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1351
+msgid "Input"
 msgstr ""
 
 #: src/lotus-config.h:175
 msgid "Input Method"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:214
-msgid "Invalid backup file: No recognizable components found."
+#: settings-gui/qml/pages/ApplicationsPage.qml:404
+msgid "Input Mode"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:98
-msgid "Items found in backup:"
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:119
+msgid "Insert $DATE dynamic placeholder"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:128 settings-gui/ui/pages/backup.py:178
-msgid "JSON Backup (*.json);;All Files (*)"
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:107
+msgid "Insert $TIME dynamic placeholder"
+msgstr ""
+
+#: settings-gui/qml/pages/TypingPage.qml:134
+msgid "Insert a period followed by a space when pressing Space twice."
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:2172
+#: settings-gui/cpp/settings_backend.cpp:2185
+#: settings-gui/cpp/settings_backend.cpp:2228
+#: settings-gui/cpp/settings_backend.cpp:2241
+msgid "Invalid backup file"
+msgstr ""
+
+#: settings-gui/qml/pages/BackupPage.qml:83
+#: settings-gui/qml/pages/BackupPage.qml:97
+msgid "JSON Backup (*.json)"
 msgstr ""
 
 #: src/lotus-config.h:150
 msgid "Key"
 msgstr ""
 
-#: settings-gui/ui/pages/keymap_editor.py:267
-msgid "Key (Example: s)"
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:71
+msgid "Key (e.g. s)"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:193
-msgid "Key:"
+#: settings-gui/cpp/settings_backend.cpp:1573
+msgid "Key Bindings"
 msgstr ""
 
-#: settings-gui/ui/pages/keymap_editor.py:218
-#: settings-gui/ui/main_window.py:221
+#: settings-gui/qml/Main.qml:33
 msgid "Keymap"
+msgstr ""
+
+#: settings-gui/qml/pages/AboutPage.qml:321
+msgid "Licenses"
 msgstr ""
 
 #: src/lotus-config.h:67
 msgid "Light"
+msgstr ""
+
+#: settings-gui/qml/pages/KeymapPage.qml:142
+msgid "Load bindings from a built-in layout"
 msgstr ""
 
 #: org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in:7
@@ -491,7 +707,7 @@ msgstr ""
 msgid "Lotus - Off"
 msgstr ""
 
-#: settings-gui/ui/main_window.py:33
+#: settings-gui/qml/Main.qml:40 settings-gui/qml/Main.qml:116
 msgid "Lotus Settings"
 msgstr ""
 
@@ -513,98 +729,159 @@ msgstr ""
 msgid "Macro"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:61
-msgid "Macro in Off Mode"
+#: settings-gui/cpp/settings_backend.cpp:1546
+msgid "Macro Entries"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:414
-#: settings-gui/ui/pages/macro_editor.py:459
+#: settings-gui/qml/pages/BackupPage.qml:37
+msgid "Macro behavior and shorthand expansions"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1010
 msgid "Macro keys cannot contain spaces or special characters."
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:72 settings-gui/ui/pages/backup.py:198
-#: settings-gui/ui/pages/backup.py:255 settings-gui/ui/pages/macro_editor.py:52
-#: settings-gui/ui/main_window.py:219
+#: settings-gui/cpp/settings_backend.cpp:1210
+#: settings-gui/cpp/settings_backend.cpp:1373
+#: settings-gui/cpp/settings_backend.cpp:2280
 msgid "Macros"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:113
-msgid "Macros support dynamic placeholders: $TIME and $DATE."
+#: settings-gui/cpp/settings_backend.cpp:1363
+msgid "Main Shortcuts"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:71 settings-gui/ui/pages/backup.py:197
-#: settings-gui/ui/pages/backup.py:251
-msgid "Main Settings"
+#: settings-gui/qml/pages/BackupPage.qml:27
+msgid "Main input method, typing rules, shortcuts, and appearance"
 msgstr ""
 
-#: settings-gui/ui/pages/dynamic_settings.py:84
-msgid "Manage input mode shortcuts, display order, and fast cycling."
+#: settings-gui/qml/DCommon/Widgets/DWindowHeader.qml:110
+msgid "Maximize"
+msgstr ""
+
+#: settings-gui/qml/DCommon/Widgets/DWindowHeader.qml:102
+msgid "Minimize"
 msgstr ""
 
 #: src/lotus-config.h:160 src/lotus-config.h:174
 msgid "Mode"
 msgstr ""
 
+#: settings-gui/qml/pages/ShortcutsPage.qml:129
+msgid "Mode Menu"
+msgstr ""
+
 #: src/lotus-config.h:177
 msgid "Mode Menu Hotkey"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1365
+msgid "Mode Menu Switching"
 msgstr ""
 
 #: src/lotus-config.h:217
 msgid "Mode Order"
 msgstr ""
 
-#: settings-gui/ui/pages/about.py:86
-msgid "Modern, fast, and stable Vietnamese input method for Linux."
+#: settings-gui/qml/pages/AboutPage.qml:185
+msgid "Modern Vietnamese Input Method for Linux"
 msgstr ""
 
 #: src/lotus-config.h:187
 msgid "Modifier to Skip Macro for Next Word"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:84
-msgid "Modifier to Skip Macro for Next Word:"
+#: settings-gui/qml/pages/ApplicationsPage.qml:231
+msgid "No Application Rules"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:220
-msgid "Move Down"
+#: settings-gui/qml/pages/KeymapPage.qml:231
+msgid "No Bindings"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:218
-msgid "Move Up"
+#: settings-gui/qml/pages/MacrosPage.qml:295
+msgid "No Macros Defined"
 msgstr ""
 
-#: settings-gui/ui/pages/dynamic_settings.py:283
-msgid "No interface settings available yet."
+#: settings-gui/qml/pages/ApplicationsPage.qml:230
+msgid "No Matching Apps"
+msgstr ""
+
+#: settings-gui/qml/pages/KeymapPage.qml:230
+msgid "No Matching Bindings"
+msgstr ""
+
+#: settings-gui/qml/pages/MacrosPage.qml:294
+msgid "No Matching Macros"
+msgstr ""
+
+#: settings-gui/qml/pages/DictionaryPage.qml:169
+msgid "No Matching Words"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:2100
+msgid "No custom dictionary file to export."
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:2220
+msgid "No matching components found in backup"
 msgstr ""
 
 #: src/lotus-config.h:37 src/lotus-config.h:44
 msgid "Non-Start"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:135
-#: settings-gui/ui/pages/macro_editor.py:158 settings-gui/ui/components.py:341
-#: settings-gui/ui/components.py:459
+#: settings-gui/cpp/settings_backend.cpp:1088
+#: settings-gui/cpp/settings_backend.cpp:1095
+#: settings-gui/cpp/settings_backend.cpp:1187
+#: settings-gui/cpp/settings_backend.cpp:1207
+#: settings-gui/cpp/settings_backend.cpp:1227
+#: settings-gui/cpp/settings_backend.cpp:1240
+#: settings-gui/cpp/settings_backend.cpp:1248
+#: settings-gui/cpp/settings_backend.cpp:1259
+#: settings-gui/cpp/settings_backend.cpp:1264
+#: settings-gui/cpp/settings_backend.cpp:1480
 msgid "None"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1533
+msgid "None (0 rules)"
 msgstr ""
 
 #: src/lotus-config.h:31
 msgid "OFF"
 msgstr ""
 
-#: settings-gui/ui/pages/about.py:160
-msgid "Open Source Licenses"
+#: settings-gui/cpp/settings_backend.cpp:1463
+msgid "Off"
 msgstr ""
 
-#: settings-gui/ui/pages/keymap_editor.py:244
-msgid "Original Input Method:"
+#: settings-gui/cpp/settings_backend.cpp:1463
+msgid "On"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1495
+msgid "Order"
 msgstr ""
 
 #: src/lotus-config.h:176
 msgid "Output Charset"
 msgstr ""
 
+#: settings-gui/qml/pages/BackupPage.qml:273
+msgid "Overwrite selected components: %1?"
+msgstr ""
+
 #: src/lotus-state.cpp:204
 msgid "Page "
+msgstr ""
+
+#: settings-gui/qml/pages/BackupPage.qml:32
+msgid "Per-application input modes and timing overrides"
+msgstr ""
+
+#: settings-gui/qml/pages/TypingPage.qml:98
+msgid "Place tone marks on newer vowel positions (oà, uý instead of òa, úy)."
 msgstr ""
 
 #: src/lotus-config.h:163
@@ -615,7 +892,7 @@ msgstr ""
 msgid "Preedit"
 msgstr ""
 
-#: settings-gui/ui/helpers.py:38
+#: settings-gui/qml/pages/GeneralPage.qml:181
 msgid ""
 "Prefer injecting keys through the system instead of the uinput service: the "
 "wlroots virtual keyboard on Wayland and Xtest on X11.\n"
@@ -627,7 +904,15 @@ msgstr ""
 msgid "Prefer system keyboard injection when available"
 msgstr ""
 
-#: settings-gui/ui/helpers.py:34
+#: settings-gui/qml/pages/KeymapPage.qml:141
+msgid "Preset"
+msgstr ""
+
+#: settings-gui/qml/components/HotkeyCaptureDialog.qml:144
+msgid "Press a single key…"
+msgstr ""
+
+#: settings-gui/qml/pages/MacrosPage.qml:171
 msgid ""
 "Press and release the selected modifier key before typing to skip macro "
 "expansion for the next word.\n"
@@ -635,96 +920,133 @@ msgid ""
 "is cancelled."
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:144
-#: settings-gui/ui/pages/keymap_editor.py:301
-#: settings-gui/ui/pages/macro_editor.py:216
-#: settings-gui/ui/pages/mode_manager.py:173
+#: settings-gui/qml/components/HotkeyCaptureDialog.qml:144
+msgid "Press shortcut…"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1353
+msgid "Quick Keys"
+msgstr ""
+
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:138
+#: settings-gui/qml/pages/DictionaryPage.qml:196
+#: settings-gui/qml/pages/DictionaryPage.qml:224
+#: settings-gui/qml/pages/KeymapPage.qml:302
 msgid "Remove"
 msgstr ""
 
-#: settings-gui/ui/pages/mode_manager.py:524
-msgid "Remove rules for this application?"
+#: settings-gui/qml/pages/ApplicationsPage.qml:486
+msgid "Remove Rule"
 msgstr ""
 
-#: settings-gui/ui/pages/keymap_editor.py:302
-msgid "Remove selected row"
+#: settings-gui/qml/pages/ApplicationsPage.qml:490
+msgid "Remove application rule"
 msgstr ""
 
-#: settings-gui/ui/pages/about.py:105
-msgid "Report Bug"
+#: settings-gui/qml/pages/KeymapPage.qml:163
+msgid "Replace bindings with the selected preset"
 msgstr ""
 
-#: settings-gui/ui/pages/about.py:116
-msgid "Request Feature"
+#: settings-gui/qml/pages/AboutPage.qml:235
+msgid "Report an Issue"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:103
-msgid "Restore Selected Now"
+#: settings-gui/qml/components/SectionResetDialog.qml:109
+msgid "Reset"
 msgstr ""
 
-#: settings-gui/ui/main_window.py:239
-msgid "Restore all settings to defaults?"
+#: settings-gui/qml/DCommon/Widgets/DWindowHeader.qml:110
+#: settings-gui/qml/pages/BackupPage.qml:291
+msgid "Restore"
+msgstr ""
+
+#: settings-gui/qml/components/SectionResetDialog.qml:20
+msgid "Restore All Defaults"
+msgstr ""
+
+#: settings-gui/qml/pages/BackupPage.qml:272
+msgid "Restore Backup?"
+msgstr ""
+
+#: settings-gui/qml/components/SectionResetDialog.qml:19
+msgid "Restore Defaults — {}"
+msgstr ""
+
+#: settings-gui/qml/components/SectionResetDialog.qml:23
+msgid "Restore all modified settings to their factory defaults?"
+msgstr ""
+
+#: settings-gui/qml/components/SectionHeader.qml:67
+msgid "Restore section defaults"
+msgstr ""
+
+#: settings-gui/qml/pages/BackupPage.qml:217
+msgid "Restore selected components from a JSON backup file"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1653
+msgid "Restored defaults for %1"
+msgstr ""
+
+#: settings-gui/qml/components/OfflineBanner.qml:66
+msgid "Retry"
+msgstr ""
+
+#: settings-gui/qml/pages/ApplicationsPage.qml:555
+msgid "Rule already exists"
 msgstr ""
 
 #: src/lotus-config.h:166
 msgid "Rules"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:63
-msgid ""
-"Save or restore configuration via JSON files. Select components to include:"
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:156
+msgid "Save"
 msgstr ""
 
-#: settings-gui/ui/pages/mode_manager.py:160
+#: settings-gui/qml/pages/BackupPage.qml:196
+msgid "Save selected components to a JSON backup file"
+msgstr ""
+
+#: settings-gui/qml/pages/AboutPage.qml:290
+msgid ""
+"Save system details, Lotus config, uinput logs, and fcitx5-diagnose output"
+msgstr ""
+
+#: settings-gui/qml/pages/ApplicationsPage.qml:204
 msgid "Search applications..."
 msgstr ""
 
-#: settings-gui/ui/pages/keymap_editor.py:234
+#: settings-gui/qml/pages/KeymapPage.qml:204
 msgid "Search keys..."
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:93
+#: settings-gui/qml/pages/MacrosPage.qml:268
 msgid "Search macros..."
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:95
+#: settings-gui/qml/pages/DictionaryPage.qml:140
 msgid "Search words..."
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:99
-#: settings-gui/ui/pages/keymap_editor.py:238
-#: settings-gui/ui/pages/macro_editor.py:230
-msgid "Search:"
+#: settings-gui/qml/DCommon/Widgets/DDropdown.qml:588
+msgid "Search..."
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:176
-msgid "Select Backup File"
+#: settings-gui/cpp/settings_backend.cpp:2088
+msgid "Select at least one component to export"
 msgstr ""
 
-#: settings-gui/ui/pages/mode_manager.py:232
-msgid "Select an application"
-msgstr ""
-
-#: settings-gui/ui/pages/backup.py:120
-msgid "Select at least one item to export."
-msgstr ""
-
-#: settings-gui/ui/pages/backup.py:229
-msgid "Select at least one item to restore."
-msgstr ""
-
-#: settings-gui/ui/pages/backup.py:289
-msgid ""
-"Selected components restored. Fcitx5 restart may be required for some "
-"changes."
+#: settings-gui/qml/pages/BackupPage.qml:222
+msgid "Select at least one component to import"
 msgstr ""
 
 #: src/lotus-engine.cpp:212
 msgid "Settings"
 msgstr ""
 
-#: settings-gui/ui/main_window.py:307
-msgid "Settings saved."
+#: settings-gui/cpp/settings_backend.cpp:1272
+msgid "Settings saved"
 msgstr ""
 
 #: src/lotus-config.h:56
@@ -759,7 +1081,7 @@ msgstr ""
 msgid "Shortcut for Uinput (Super Smooth)"
 msgstr ""
 
-#: settings-gui/ui/main_window.py:222
+#: settings-gui/qml/Main.qml:29
 msgid "Shortcuts"
 msgstr ""
 
@@ -769,6 +1091,10 @@ msgstr ""
 
 #: src/lotus-config.h:209
 msgid "Show Emoji Picker"
+msgstr ""
+
+#: settings-gui/qml/pages/DictionaryPage.qml:235
+msgid "Show More (%1)"
 msgstr ""
 
 #: src/lotus-config.h:210
@@ -791,35 +1117,60 @@ msgstr ""
 msgid "Show Uinput (Super Smooth)"
 msgstr ""
 
+#: settings-gui/qml/DCommon/Widgets/DTextField.qml:582
+msgid "Show password"
+msgstr ""
+
 #: src/lotus-engine.cpp:202 src/lotus-engine.cpp:367
 msgid "Spell Check"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:167 settings-gui/ui/pages/backup.py:288
-#: settings-gui/ui/main_window.py:307
-msgid "Success"
+#: settings-gui/cpp/settings_backend.cpp:1359
+msgid "Spelling"
 msgstr ""
 
 #: src/lotus-config.h:31
 msgid "Surrounding Text"
 msgstr ""
 
-#: settings-gui/ui/pages/keymap_editor.py:444
-msgid "This operation will replace all existing keys with "
+#: settings-gui/qml/components/SectionResetDialog.qml:22
+msgid "The following settings will be reset to their factory defaults:"
 msgstr ""
 
-#: settings-gui/ui/pages/about.py:167
-msgid ""
-"This project is licensed under the <b>GNU General Public License v3.0 or "
-"later (GPL-3.0-or-later)</b>."
+#: settings-gui/qml/pages/KeymapPage.qml:335
+msgid "This operation will replace all existing keys with %1. Are you sure?"
 msgstr ""
 
 #: src/lotus-config.h:218
 msgid "Time Format ($TIME in macro)"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:143
-msgid "Time Format:"
+#: settings-gui/qml/pages/ApplicationsPage.qml:439
+msgid "Timing Overrides (0 = inherit default)"
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1361
+msgid "Tone & Punctuation"
+msgstr ""
+
+#: settings-gui/qml/pages/DictionaryPage.qml:121
+msgid "Total words"
+msgstr ""
+
+#: settings-gui/qml/pages/TypingPage.qml:146
+msgid "Transform -- into an em-dash (—)."
+msgstr ""
+
+#: settings-gui/qml/pages/GeneralPage.qml:144
+msgid "Transform [ to ơ, ] to ư, { to Ơ, and } to Ư."
+msgstr ""
+
+#: settings-gui/cpp/settings_backend.cpp:1355
+msgid "Tray Icon"
+msgstr ""
+
+#: settings-gui/qml/dialogs/AddKeymapDialog.qml:70
+msgid "Trigger Key"
 msgstr ""
 
 #: src/lotus-engine.cpp:1054
@@ -834,7 +1185,7 @@ msgstr ""
 msgid "Type w to Produce ư"
 msgstr ""
 
-#: settings-gui/ui/main_window.py:217
+#: settings-gui/qml/Main.qml:28
 msgid "Typing"
 msgstr ""
 
@@ -852,17 +1203,16 @@ msgid ""
 "your distribution and init system."
 msgstr ""
 
-#: settings-gui/ui/pages/keymap_editor.py:435
-#: settings-gui/ui/pages/macro_editor.py:468
-msgid "Update"
-msgstr ""
-
-#: settings-gui/ui/pages/keymap_editor.py:435
-msgid "Update Keymap"
+#: settings-gui/qml/components/UnsavedCloseDialog.qml:23
+msgid "Unsaved Changes"
 msgstr ""
 
 #: src/lotus-config.h:195
 msgid "Use Lotus Status Icons"
+msgstr ""
+
+#: settings-gui/qml/pages/KeymapPage.qml:128
+msgid "Use custom key-to-action bindings when Input Method is Custom"
 msgstr ""
 
 #: src/lotus-config.h:192
@@ -873,52 +1223,49 @@ msgstr ""
 msgid "Value"
 msgstr ""
 
-#: settings-gui/ui/pages/macro_editor.py:195
-msgid "Value:"
-msgstr ""
-
-#: settings-gui/ui/pages/about.py:71
-#, python-brace-format
-msgid "Version {}"
-msgstr ""
-
 #: org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml.in.in:8
 msgid "Vietnamese input method (Lotus)"
 msgstr ""
 
-#: settings-gui/ui/pages/backup.py:120 settings-gui/ui/pages/backup.py:229
-#: settings-gui/ui/pages/dict_editor.py:186
-msgid "Warning"
+#: settings-gui/cpp/settings_backend.cpp:1504
+msgid "Visible"
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:317
-#: settings-gui/ui/pages/dict_editor.py:349
-msgid "Warning: Dictionary words should not contain spaces."
+#: settings-gui/qml/dialogs/AddWordDialog.qml:27
+msgid "Word already exists"
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:114
-msgid "Word (e.g. khongdau)"
+#: settings-gui/cpp/settings_backend.cpp:1377
+msgid "Words"
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:122
-msgid "Word:"
+#: settings-gui/qml/dialogs/AddWordDialog.qml:26
+msgid "Words cannot contain spaces"
 msgstr ""
 
-#: settings-gui/ui/pages/dict_editor.py:79
+#: settings-gui/qml/pages/DictionaryPage.qml:94
 msgid ""
-"Words in the custom dictionary will be excluded from 'Auto Restore Invalid "
-"Words'. Use this for names, technical terms, or words not yet in the built-"
-"in dictionary."
+"Words in the custom dictionary are excluded from 'Auto Restore Invalid "
+"Words'. Use this for names, technical terms, or words missing from the built-"
+"in list."
 msgstr ""
 
-#: settings-gui/ui/helpers.py:17
+#: settings-gui/qml/pages/TypingPage.qml:110
 msgid "You can type tone marks at the end of the word or anywhere inside."
 msgstr ""
 
-#: settings-gui/ui/components.py:455
-msgid "[ Press Key... ]"
+#: settings-gui/qml/components/UnsavedCloseDialog.qml:24
+msgid "You have unsaved settings. Save before closing?"
 msgstr ""
 
-#: settings-gui/ui/components.py:327
-msgid "[ Recording... ]"
+#: settings-gui/qml/pages/ApplicationsPage.qml:553
+msgid "e.g. app-name"
+msgstr ""
+
+#: settings-gui/qml/dialogs/AddWordDialog.qml:51
+msgid "e.g. khongdau"
+msgstr ""
+
+#: settings-gui/qml/dialogs/MacroEditDialog.qml:71
+msgid "e.g. vn, branch, cnow"
 msgstr ""

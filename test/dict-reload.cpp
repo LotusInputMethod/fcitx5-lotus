@@ -20,8 +20,8 @@
 
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <memory>
+#include <source_location>
 #include <string>
 
 namespace {
@@ -54,10 +54,10 @@ namespace {
     }
 
     bool expectPreedit(fcitx::LotusEngine& engine, fcitx::Instance* instance, const std::string& keys, const std::string& expected, const std::string& step,
-                       const std::string& meaning) {
+                       const std::string& meaning, const std::source_location& location = std::source_location::current()) {
         const auto actual = typePreedit(engine, instance, keys);
         if (actual != expected) {
-            reportFailure(step, expected, actual, meaning);
+            reportFailure(step, expected, actual, meaning, location);
             return false;
         }
         return true;
@@ -86,25 +86,23 @@ int main() {
     config.setValueByPath("AutoNonVnRestore", "True");
     engine.setConfig(config);
 
-    bool ok = true;
-
     // Step 1: "đcu" is not in the dictionary yet, so the word falls back to the raw keys.
-    ok &= expectPreedit(engine, &testInstance.instance, "ddcu", "ddcu", "type ddcu with dictionary without the word",
-                        "a non-Vietnamese word outside the dictionary must be restored to the raw keystrokes");
+    expectPreedit(engine, &testInstance.instance, "ddcu", "ddcu", "type ddcu with dictionary without the word",
+                  "a non-Vietnamese word outside the dictionary must be restored to the raw keystrokes");
 
     // Step 2: the settings GUI writes the new word and re-applies the configuration.
     writeDictionary(root, "đcu\n");
     engine.setConfig(config);
 
     // Step 3: the word added on disk must be honoured without restarting fcitx5.
-    ok &= expectPreedit(engine, &testInstance.instance, "ddcu", "đcu", "type ddcu after adding the word and re-applying the configuration",
-                        "applying a configuration must reload the custom dictionary");
+    expectPreedit(engine, &testInstance.instance, "ddcu", "đcu", "type ddcu after adding the word and re-applying the configuration",
+                  "applying a configuration must reload the custom dictionary");
 
     // Step 4: removing the word again must be honoured as well.
     writeDictionary(root, "chào\n");
     engine.setConfig(config);
-    ok &= expectPreedit(engine, &testInstance.instance, "ddcu", "ddcu", "type ddcu after removing the word and re-applying the configuration",
-                        "reloading the dictionary must replace its content, not merge");
+    expectPreedit(engine, &testInstance.instance, "ddcu", "ddcu", "type ddcu after removing the word and re-applying the configuration",
+                  "reloading the dictionary must replace its content, not merge");
 
-    return ok ? 0 : 1;
+    return checkExitCode("lotus dict reload: all checks passed");
 }

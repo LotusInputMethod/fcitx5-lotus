@@ -17,16 +17,13 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <source_location>
 #include <string>
 
 namespace {
-
-    int  failures = 0;
-
-    void check(const char* name, bool condition) {
+    void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
         if (!condition) {
-            reportFailure(name, "holds", "did not hold", "config enum names must keep resolving legacy user strings and stay untranslated");
-            ++failures;
+            reportFailure(name, "holds", "did not hold", "config enum names must keep resolving legacy user strings and stay untranslated", location);
         }
     }
 
@@ -103,12 +100,7 @@ int runConfigEnumNames() {
     check("input method list has Custom last", lastName != nullptr && *lastName == "Custom");
     check("enum names are not translated", description.valueByPath("EnumI18n/0") == nullptr);
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("config enum names: all checks passed\n");
-    return 0;
+    return checkExitCode("config enum names: all checks passed");
 }
 
 int main() {
@@ -116,6 +108,6 @@ int main() {
         return runConfigEnumNames();
     } catch (const std::exception& error) {
         reportFailure("unexpected exception", "no exception escapes the test", error.what(), "an escaped exception would crash fcitx5 instead of failing one check");
-        return 1;
+        return checkExitCode();
     }
 }

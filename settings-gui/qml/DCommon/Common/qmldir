@@ -1,0 +1,15 @@
+module DCommon.Common
+singleton Appearance 1.0 Appearance.qml
+singleton Fonts 1.0 Fonts.qml
+singleton Host 1.0 Host.qml
+singleton I18n 1.0 I18n.qml
+singleton Log 1.0 Log.qml
+singleton Paths 1.0 Paths.qml
+singleton Style 1.0 Style.qml
+singleton SpringSolver 1.0 SpringSolver.qml
+singleton Timing 1.0 Timing.qml
+DAnim 1.0 DAnim.qml
+DColorAnim 1.0 DColorAnim.qml
+ElevationShadow 1.0 ElevationShadow.qml
+SpringMotion 1.0 SpringMotion.qml
+TimingTokens 1.0 TimingTokens.qml

@@ -1,7 +1,7 @@
 %bcond_without tests
 
 Name:           fcitx5-lotus
-Version:        7.0.1
+Version:        7.0.2
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -22,7 +22,10 @@ BuildRequires:  systemd-devel
 BuildRequires:  wayland-devel
 
 BuildRequires:  sysuser-tools
-BuildRequires:  python3
+BuildRequires:  cmake(Qt6Quick)
+BuildRequires:  cmake(Qt6QuickControls2)
+BuildRequires:  cmake(Qt6DBus)
+BuildRequires:  cmake(Qt6Widgets)
 Requires(pre):  sysuser-shadow >= 3.1
 
 %if %{with tests}
@@ -32,9 +35,8 @@ BuildRequires:  xvfb-run
 
 %{?systemd_ordering}
 Requires:       fcitx5
-Requires:       python3-QtPy
-Requires:       (python3-PyQt6 or python3-pyside6)
-Requires:       python3-dbus-python
+Requires:       qt6-declarative-imports
+Requires:       libQt6Svg6
 Requires:       acl
 
 %description
@@ -42,10 +44,9 @@ Vietnamese input method for fcitx5
 
 %prep
 %setup -q
-find . -type f -name '*.py' -exec sed -i '1s|^#!.*env python3|#!/usr/bin/python3|' {} +
 
 %build
-%cmake -DLOTUS_BYTECOMPILE_PYTHON:BOOL=OFF -DBUILD_TESTING:BOOL=%{with tests}
+%cmake -DBUILD_TESTING:BOOL=%{with tests}
 %cmake_build
 cd %{_builddir}/%{name}-%{version}
 %sysusers_generate_pre build/misc/user-lotus.conf lotus lotus.conf
@@ -53,7 +54,6 @@ cd %{_builddir}/%{name}-%{version}
 %install
 %cmake_install
 %find_lang %{name}
-%py3_compile %{buildroot}%{_datadir}/fcitx5-lotus
 
 %check
 %if %{with tests}
@@ -80,7 +80,6 @@ cd %{_builddir}/%{name}-%{version}
 
 %{_datadir}/fcitx5/lotus/
 
-%{_datadir}/fcitx5-lotus/
 %{_datadir}/applications/org.fcitx.Fcitx5.Addon.Lotus.Settings.desktop
 %{_datadir}/metainfo/org.fcitx.Fcitx5.Addon.Lotus.metainfo.xml
 
@@ -133,6 +132,6 @@ fi
 %service_del_postun fcitx5-lotus-server@.service
 
 %changelog
-* Tue Nov 24 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 7.0.1-1
-- Fix the issue of an extra anchor text remaining after replacement
-- Fix keymap stuck in Wayland
+* Fri Nov 27 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 7.0.2-1
+- Fix some issues with dbus key order
+- Fix Shift and Caps Lock stuck in Wayland
