@@ -502,14 +502,28 @@ namespace fcitx {
         if (text.empty()) {
             return;
         }
-        if (vkUsable() && !isEchoFrontend(getFrontendName(&ic_))) {
-            auto&             wlr       = LotusWlrVirtualKeyboard::instance();
-            const std::string addedUtf8 = lotus::utf8::encode(text);
-            const int         commitMs  = clampDelay(appRuleSetting_.commitInterval > 0 ? appRuleSetting_.commitInterval : *engine_.config().defaultCommitInterval);
-            const uint32_t    preDelay  = computeCommitPreDelay(commitMs);
-            auto              emitNow   = [&wlr, addedUtf8] { return wlr.emit(0, addedUtf8, true, false); };
+        const std::string frontend     = getFrontendName(&ic_);
+        const bool        echoFrontend = isEchoFrontend(frontend);
+        const std::string addedUtf8    = lotus::utf8::encode(text);
+        const int         commitMs     = clampDelay(appRuleSetting_.commitInterval > 0 ? appRuleSetting_.commitInterval : *engine_.config().defaultCommitInterval);
+        const uint32_t    preDelay     = computeCommitPreDelay(commitMs);
+        if (!echoFrontend && vkUsable()) {
+            auto& wlr     = LotusWlrVirtualKeyboard::instance();
+            auto  emitNow = [&wlr, addedUtf8] { return wlr.emit(0, addedUtf8, true, false); };
             if (preDelay > 0) {
                 wlr.runAfter(static_cast<int>(preDelay), emitNow);
+                return;
+            }
+            if (emitNow()) {
+                return;
+            }
+        } else if (!echoFrontend && x11Usable()) {
+            auto&      x11 = LotusX11Keyboard::instance();
+            const auto interval =
+                static_cast<uint32_t>(clampDelay(appRuleSetting_.backspaceInterval > 0 ? appRuleSetting_.backspaceInterval : *engine_.config().defaultBackspaceInterval));
+            auto emitNow = [&x11, addedUtf8, interval] { return x11.emit(0, addedUtf8, static_cast<int>(interval), false); };
+            if (preDelay > 0) {
+                x11.runAfter(static_cast<int>(preDelay), emitNow);
                 return;
             }
             if (emitNow()) {
