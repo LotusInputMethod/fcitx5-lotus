@@ -1,7 +1,7 @@
 %bcond_without tests
 
 Name:           fcitx5-lotus
-Version:        7.0.1
+Version:        7.0.2
 Release:        1
 Summary:        Vietnamese input method for fcitx5
 License:        GPL-3.0-or-later
@@ -125,6 +125,6 @@ fi
 %systemd_postun_with_restart fcitx5-lotus-server@.service
 
 %changelog
-* Tue Nov 24 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 7.0.1-1
-- Fix the issue of an extra anchor text remaining after replacement
-- Fix keymap stuck in Wayland
+* Fri Nov 27 2026 Nguyen Hoang Ky <nhktmdzhg@gmail.com> - 7.0.2-1
+- Fix some issues with dbus key order
+- Fix Shift and Caps Lock stuck in Wayland
