@@ -150,6 +150,12 @@ namespace fcitx {
         void setUserShift(bool down);
 
         /**
+         * @brief Keeps the virtual keyboard's Shift and locked CapsLock in sync with the user's state.
+         * @param shiftDown True while the user holds Shift.
+         * @param capsLockOn True while CapsLock is locked on.
+         */
+        void setUserModifiers(bool shiftDown, bool capsLockOn);
+        /**
          * @brief Hands a delayed task to the shared runner.
          * @param delayMs Delay in milliseconds.
          * @param task Task to run on the worker thread.
@@ -192,7 +198,7 @@ namespace fcitx {
         void                                      storeCompositorKeymap(uint32_t format, int fd, uint32_t size);
         static void                               compositorKeymap(void* data, wl_keyboard* keyboard, uint32_t format, int32_t fd, uint32_t size);
         void                                      tap(uint32_t evdevKey, bool track);
-        void                                      setShift(bool down, bool flush = true);
+        void                                      syncModifiers(bool flush = true);
         bool                                      emitImpl(int count, std::string_view utf8, bool trackEcho, bool anchorDot);
         void                                      disconnect();
 
@@ -214,6 +220,7 @@ namespace fcitx {
         bool                                      keymapIsCompositor_     = false;
         bool                                      supported_              = false;
         std::atomic<bool>                         userShift_              = false;
+        std::atomic<bool>                         userCapsLock_           = false;
         std::deque<std::pair<uint32_t, uint32_t>> echo_;
         std::mutex                                deviceMutex_; ///< Serialises the Wayland device: all device, keymap and fd state below requires it
 
