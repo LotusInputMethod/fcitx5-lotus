@@ -20,15 +20,12 @@
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "macro table and dictionary behaviour must match the Go tests", location);
-        }
+        ::check(name, condition, "macro table and dictionary behaviour must match the Go tests", location);
     }
 
-    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
-        if (actual != expected) {
-            reportFailure(name, lotus::utf8::encode(expected), lotus::utf8::encode(actual), "macro table lookups must return the value the Go tests expect", location);
-        }
+    // Vietnamese macro values: UTF-8 text, not checkU32()'s hex.
+    void checkText(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
+        ::check(actual == expected, name, lotus::utf8::encode(expected), lotus::utf8::encode(actual), "macro table lookups must return the value the Go tests expect", location);
     }
 
     // TestMacroTableEmpty.
@@ -51,11 +48,11 @@ namespace {
 
         const auto vnValue = table.get(U"VN");
         check("Get(VN) got [missing] expected [found] (case-insensitive)", vnValue.has_value());
-        checkU32("Get(VN) got [Việt Nam] expected [Việt Nam] (case-insensitive)", vnValue.value_or(U""), U"Việt Nam");
+        checkText("Get(VN) got [Việt Nam] expected [Việt Nam] (case-insensitive)", vnValue.value_or(U""), U"Việt Nam");
 
         const auto vnLower = table.get(U"vn");
         check("Get(vn) got [missing] expected [found]", vnLower.has_value());
-        checkU32("Get(vn) got [Việt Nam] expected [Việt Nam]", vnLower.value_or(U""), U"Việt Nam");
+        checkText("Get(vn) got [Việt Nam] expected [Việt Nam]", vnLower.value_or(U""), U"Việt Nam");
 
         check("Get(empty key) got [found] expected [missing]", !table.get(U"").has_value());
 

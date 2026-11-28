@@ -13,20 +13,10 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <source_location>
 #include <string>
-#include <string_view>
 #include <vector>
 
 namespace {
-    void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual, std::string_view meaning,
-               const std::source_location& location = std::source_location::current()) {
-        if (ok) {
-            return;
-        }
-        reportFailure(step, expected, actual, meaning, location);
-    }
-
     std::string triggers(const std::vector<EmojiEntry>& entries) {
         std::string out;
         out.reserve(entries.size() * 12);

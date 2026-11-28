@@ -49,8 +49,6 @@ namespace {
     constexpr uint32_t kOptSpellCheckWithDicts = 1U << 2U;
     constexpr uint32_t kOptMacroEnabled        = 1U << 3U;
 
-    int                failures = 0;
-
     // Engine flags of the Go tests: EstdFlags without the W2U / std tone style / free tone marking bit.
     lotus::EngineFlags withoutW2u() {
         lotus::EngineFlags flags = lotus::kEstdFlags;
@@ -79,27 +77,15 @@ namespace {
     }
 
     void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
-        if (actual == expected) {
-            return;
-        }
-        reportFailure(name, hexOf(expected), hexOf(actual), "key processing must match the expectations ported from the Go tests", location);
-        ++failures;
+        ::checkU32(name, actual, expected, "key processing must match the expectations ported from the Go tests", location);
     }
 
     void checkStr(const char* name, std::string_view actual, std::string_view expected, const std::source_location& location = std::source_location::current()) {
-        if (actual == expected) {
-            return;
-        }
-        reportFailure(name, expected, actual, "string results must match the Go engine's output", location);
-        ++failures;
+        ::check(actual == expected, name, expected, actual, "string results must match the Go engine's output", location);
     }
 
     void checkBool(const char* name, bool actual, bool expected, const std::source_location& location = std::source_location::current()) {
-        if (actual == expected) {
-            return;
-        }
-        reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "boolean results must match the Go engine's behaviour", location);
-        ++failures;
+        ::check(actual == expected, name, boolText(expected), boolText(actual), "boolean results must match the Go engine's behaviour", location);
     }
 
     // Go's newTestEngine(dict, spellCheckWithDicts).
@@ -170,7 +156,6 @@ namespace {
             if (got != c.want) {
                 reportFailure("determineMacroCase(" + hexOf(c.in) + ")", "MacroCase " + std::to_string(static_cast<int>(c.want)),
                               "MacroCase " + std::to_string(static_cast<int>(got)), "macro case detection must match the Go implementation");
-                ++failures;
             }
         }
     }
@@ -368,7 +353,6 @@ namespace {
             if (got != c.want) {
                 reportFailure("toUpper(" + hexOf(std::u32string(1, c.in)) + ") with bracket mode", hexOf(std::u32string(1, c.want)), hexOf(std::u32string(1, got)),
                               "bracket mode must transform opening and closing brackets symmetrically");
-                ++failures;
             }
         }
     }
@@ -574,15 +558,14 @@ namespace {
             engine.options().autoNonVnRestore = c.autoRestore;
             typeKeys(engine, "chaof");
             engine.processKey(lotus::kFcitxSpace, {});
-            const std::string name = "matrix auto=" + std::string(c.autoRestore ? "true" : "false") + " dict=" + std::string(c.withDicts ? "true" : "false") + ": [chaof] commit";
+            const std::string name = "matrix auto=" + std::string(boolText(c.autoRestore)) + " dict=" + std::string(boolText(c.withDicts)) + ": [chaof] commit";
             checkU32(name.c_str(), engine.takeCommit(), c.wantChaofCommit);
 
             engine                            = newTestEngine(dict, c.withDicts);
             engine.options().autoNonVnRestore = c.autoRestore;
             typeKeys(engine, "boawjm");
             engine.processKey(lotus::kFcitxSpace, {});
-            const std::string boawjmName =
-                "matrix auto=" + std::string(c.autoRestore ? "true" : "false") + " dict=" + std::string(c.withDicts ? "true" : "false") + ": [boawjm] commit";
+            const std::string boawjmName = "matrix auto=" + std::string(boolText(c.autoRestore)) + " dict=" + std::string(boolText(c.withDicts)) + ": [boawjm] commit";
             checkU32(boawjmName.c_str(), engine.takeCommit(), c.wantBoawjm);
         }
     }
@@ -733,7 +716,7 @@ namespace {
                 KeyProcessor engine = newTestEngine(dict, withDicts);
                 typeKeys(engine, c.keys);
                 engine.processKey(lotus::kFcitxSpace, {});
-                const std::string name = "horn elongation dict=" + std::string(withDicts ? "true" : "false") + ": [" + std::string(c.keys) + "] commit";
+                const std::string name = "horn elongation dict=" + std::string(boolText(withDicts)) + ": [" + std::string(c.keys) + "] commit";
                 checkU32(name.c_str(), engine.takeCommit(), c.want);
             }
         }
@@ -772,7 +755,7 @@ namespace {
             KeyProcessor engine = newTestEngine(dict, withDicts);
             typeKeys(engine, "uwfaa");
             engine.processKey(lotus::kFcitxSpace, {});
-            const std::string name = "horn elongation dict=" + std::string(withDicts ? "true" : "false") + ": [uwfaa] commit";
+            const std::string name = "horn elongation dict=" + std::string(boolText(withDicts)) + ": [uwfaa] commit";
             checkU32(name.c_str(), engine.takeCommit(), U"uwfaa ");
         }
     }
@@ -865,7 +848,7 @@ namespace {
             }
         }
         std::printf("checked=%ld mismatches=%d\n", checked, mismatches);
-        failures += mismatches;
+        addSilentFailures(mismatches, shown);
         return checked;
     }
 
@@ -909,10 +892,5 @@ int run_key_processor() {
     case_horn_elongation_dict_edges();
     const long goldenRows = replayGolden();
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus key processor: all checks passed (35 cases + golden %ld rows)\n", goldenRows);
-    return 0;
+    return checkExitCode("lotus key processor: all checks passed (35 cases + golden " + std::to_string(goldenRows) + " rows)");
 }

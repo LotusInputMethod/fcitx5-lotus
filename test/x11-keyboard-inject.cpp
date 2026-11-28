@@ -20,9 +20,7 @@
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the Xtest backend must inject ordered keys with the mandated interval and restore the keymap", location);
-        }
+        ::check(name, condition, "the Xtest backend must inject ordered keys with the mandated interval and restore the keymap", location);
     }
 
     xcb_keycode_t keycodeFor(xcb_connection_t* conn, xcb_keysym_t keysym) {

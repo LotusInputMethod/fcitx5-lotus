@@ -4,7 +4,7 @@
 //
 /**
  * @file test-utils.h
- * @brief Failure reporting and code point formatting.
+ * @brie Failure reporting and code point formatting.
  */
 #pragma once
 
@@ -15,7 +15,7 @@
 #include <string_view>
 
 /** @brief Strips directories from a path. */
-inline std::string_view baseNameOf(std::string_view path) {
+[[nodiscard]] inline std::string_view baseNameOf(std::string_view path) {
     const auto pos = path.find_last_of('/');
     return pos == std::string_view::npos ? path : path.substr(pos + 1);
 }
@@ -47,7 +47,7 @@ inline void reportFailure(std::string_view step, std::string_view expected, std:
  * @param passed Message printed when no check failed, without trailing newline.
  * @return 0 when no check failed, 1 otherwise.
  */
-inline int checkExitCode(std::string_view passed = "") {
+[[nodiscard]] inline int checkExitCode(std::string_view passed = "") {
     if (g_failedChecks != 0) {
         std::printf("%d failure(s)\n", g_failedChecks);
         return 1;
@@ -63,7 +63,7 @@ inline int checkExitCode(std::string_view passed = "") {
  * @param empty Placeholder returned when text is empty (default: no placeholder).
  * @return Space separated hexadecimal list, or the placeholder.
  */
-inline std::string hexOf(std::u32string_view text, std::string_view empty = "") {
+[[nodiscard]] inline std::string hexOf(std::u32string_view text, std::string_view empty = "") {
     if (text.empty())
         return std::string(empty);
     std::string          out;
@@ -73,4 +73,36 @@ inline std::string hexOf(std::u32string_view text, std::string_view empty = "") 
         out += buffer.data();
     }
     return out;
+}
+
+/** @brief Checks a bare boolean expectation. */
+inline bool check(std::string_view name, bool condition, std::string_view meaning = "", const std::source_location& location = std::source_location::current()) {
+    if (!condition)
+        reportFailure(name, "true", "false", meaning, location);
+    return condition;
+}
+
+/** @brief Checks an expectation with expected and actual values, in reportFailure()'s printing order. */
+inline bool check(bool ok, std::string_view step, std::string_view expected, std::string_view actual, std::string_view meaning,
+                  const std::source_location& location = std::source_location::current()) {
+    if (!ok)
+        reportFailure(step, expected, actual, meaning, location);
+    return ok;
+}
+
+/** @brief Checks that two code point views are equal, reporting both sides as hex (actual first). */
+inline void checkU32(std::string_view name, std::u32string_view actual, std::u32string_view expected, std::string_view meaning = "",
+                     const std::source_location& location = std::source_location::current()) {
+    if (actual != expected)
+        reportFailure(name, hexOf(expected, "<empty>"), hexOf(actual, "<empty>"), meaning, location);
+}
+
+/** @brief Renders a bool as "true" or "false". */
+[[nodiscard]] inline const char* boolText(bool value) {
+    return value ? "true" : "false";
+}
+
+/** @brief Counts golden mismatches the print cap kept silent as failed checks. */
+inline void addSilentFailures(int mismatches, int shown) {
+    g_failedChecks += mismatches - shown;
 }

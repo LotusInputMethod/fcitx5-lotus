@@ -12,9 +12,7 @@
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the golden corpus must stay parseable and keep its column layout", location);
-        }
+        ::check(name, condition, "the golden corpus must stay parseable and keep its column layout", location);
     }
 
     // LOTUS_GOLDEN_DIR redirects the smoke check to a locally generated sweep; the compiled in

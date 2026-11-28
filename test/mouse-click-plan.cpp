@@ -13,9 +13,7 @@
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "mouse clicks must be routed per mode: only Preedit defers to the client", location);
-        }
+        ::check(name, condition, "mouse clicks must be routed per mode: only Preedit defers to the client", location);
     }
 } // namespace
 

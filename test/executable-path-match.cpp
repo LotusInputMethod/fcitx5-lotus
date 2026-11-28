@@ -19,8 +19,8 @@ namespace {
         if (got == want) {
             return true;
         }
-        reportFailure("isAllowedExecutablePath(\"" + std::string(exe) + "\", \"" + std::string(expectedPath) + "\", \"" + std::string(prefix) + "\")", want ? "true" : "false",
-                      got ? "true" : "false", "the executable path policy accepted or rejected a peer incorrectly", location);
+        reportFailure("isAllowedExecutablePath(\"" + std::string(exe) + "\", \"" + std::string(expectedPath) + "\", \"" + std::string(prefix) + "\")", boolText(want),
+                      boolText(got), "the executable path policy accepted or rejected a peer incorrectly", location);
         return false;
     }
 

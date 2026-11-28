@@ -23,9 +23,7 @@ namespace {
     using lotus::utils::findToneFromChar;
     using lotus::utils::isVowel;
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the C++ port must behave exactly like bamboo-core's utils", location);
-        }
+        ::check(name, condition, "the C++ port must behave exactly like bamboo-core's utils", location);
     }
 
     constexpr std::u32string_view kAllVowels = U"aàáảãạăằắẳẵặâầấẩẫậeèéẻẽẹêềếểễệiìíỉĩịoòóỏõọôồốổỗộơờớởỡợuùúủũụưừứửữựyỳýỷỹỵ";

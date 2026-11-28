@@ -22,9 +22,7 @@
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "config enum names must keep resolving legacy user strings and stay untranslated", location);
-        }
+        ::check(name, condition, "config enum names must keep resolving legacy user strings and stay untranslated", location);
     }
 
     /** @brief Reads a whole file as text. */

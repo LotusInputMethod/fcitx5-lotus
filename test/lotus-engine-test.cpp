@@ -39,8 +39,6 @@ namespace {
     constexpr lotus::ModeSet kEnglish            = lotus::toMask(Mode::EnglishMode);
     constexpr lotus::ModeSet kVietnameseFullText = lotus::toMask(Mode::VietnameseMode) | lotus::toMask(Mode::FullText);
 
-    int                      failures = 0;
-
     // Engine flags of the Go tests: EstdFlags without the W2U / std tone style bit.
     lotus::EngineFlags withoutW2u() {
         lotus::EngineFlags flags = lotus::kEstdFlags;
@@ -53,19 +51,12 @@ namespace {
     }
 
     void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
-        if (actual == expected) {
-            return;
-        }
-        reportFailure(name, hexOf(expected), hexOf(actual), "engine behaviour must match the expectations ported from the Go tests", location);
-        ++failures;
+        ::checkU32(name, actual, expected, "engine behaviour must match the expectations ported from the Go tests", location);
     }
 
     void checkValid(const char* name, Engine& engine, bool inputIsFullComplete, bool expected, const std::source_location& location = std::source_location::current()) {
         const bool actual = engine.isValid(inputIsFullComplete);
-        if (actual != expected) {
-            reportFailure(name, expected ? "true" : "false", actual ? "true" : "false", "IsValid must agree with the Go engine's validity for the composed word", location);
-            ++failures;
-        }
+        ::check(actual == expected, name, boolText(expected), boolText(actual), "IsValid must agree with the Go engine's validity for the composed word", location);
     }
 
     // Go's newStdEngine: Telex + EstdFlags + BracketTransformEverywhere.
@@ -536,13 +527,10 @@ namespace {
             const std::u32string got = engine.processedString(kVietnamese);
             if (got != want) {
                 reportFailure("Process [" + hexOf(typed) + "]", hexOf(want), hexOf(got), "free CV spelling must compose the word the rime rules allow");
-                ++failures;
             }
             const bool valid = engine.isValid(true);
             if (valid != wantValid) {
-                reportFailure("IsValid(true) for [" + hexOf(typed) + "]", wantValid ? "true" : "false", valid ? "true" : "false",
-                              "the composed word must keep the validity the Go engine reports");
-                ++failures;
+                reportFailure("IsValid(true) for [" + hexOf(typed) + "]", boolText(wantValid), boolText(valid), "the composed word must keep the validity the Go engine reports");
             }
         };
 
@@ -703,7 +691,7 @@ namespace {
             }
         }
         std::printf("checked=%ld mismatches=%d\n", checked, mismatches);
-        failures += mismatches;
+        addSilentFailures(mismatches, shown);
         return checked;
     }
 
@@ -759,10 +747,5 @@ int run_engine() {
     case_horn_vowel_elongation();
     const long goldenRows = replayGolden();
 
-    if (failures != 0) {
-        std::printf("%d failure(s)\n", failures);
-        return 1;
-    }
-    std::printf("lotus engine: all checks passed (47 cases + golden %ld rows)\n", goldenRows);
-    return 0;
+    return checkExitCode("lotus engine: all checks passed (47 cases + golden " + std::to_string(goldenRows) + " rows)");
 }

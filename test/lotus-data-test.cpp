@@ -19,9 +19,7 @@ using namespace lotus::data;
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the generated data tables must stay identical to the Go sources they were generated from", location);
-        }
+        ::check(name, condition, "the generated data tables must stay identical to the Go sources they were generated from", location);
     }
 
     template <typename Table>

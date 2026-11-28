@@ -55,10 +55,7 @@
 namespace {
 
     bool check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "settings-gui C++ backend/bridge behavior must hold", location);
-        }
-        return condition;
+        return ::check(name, condition, "settings-gui C++ backend/bridge behavior must hold", location);
     }
 
     QVariant unwrapMockDbusValue(const QVariant& value);

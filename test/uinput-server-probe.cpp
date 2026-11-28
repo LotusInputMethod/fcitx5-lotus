@@ -13,9 +13,7 @@
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the uinput probe must reflect whether the keyboard server is reachable", location);
-        }
+        ::check(name, condition, "the uinput probe must reflect whether the keyboard server is reachable", location);
     }
 } // namespace
 

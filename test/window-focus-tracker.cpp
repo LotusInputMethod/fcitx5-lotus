@@ -116,10 +116,7 @@ namespace {
     }
 
     bool check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "accessibility focus and window events must drive the app rules reliably", location);
-        }
-        return condition;
+        return ::check(name, condition, "accessibility focus and window events must drive the app rules reliably", location);
     }
 } // namespace
 
