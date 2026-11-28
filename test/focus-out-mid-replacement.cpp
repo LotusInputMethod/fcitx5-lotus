@@ -9,7 +9,10 @@
 #include "test-input-context.h"
 
 #include <chrono>
+#include <fcitx-utils/log.h>
+#include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -67,7 +70,17 @@ int main() {
     // Past the ack deadline the replacement must finish and the queued key must be replayed. The
     // next activation is what checks the deadline.
     std::this_thread::sleep_for(std::chrono::milliseconds(600));
+    std::ostringstream trace;
+    fcitx::Log::setLogRule("lotus=5");
+    fcitx::Log::setLogStream(trace);
     gainFocus(engine, entry, *context);
+    fcitx::Log::setLogStream(std::cerr);
+    fcitx::Log::logStream(); // Rebind this thread's log buffer before trace goes out of scope.
+    const std::string log = trace.str();
+    if (log.find("backspaces_received=1 backspaces_expected=3 queued=1") == std::string::npos || log.find("Buffered key replay: dequeued=1 remaining=0") == std::string::npos) {
+        reportFailure("trace overdue replacement", "one of three echoes and one queued key replayed", log, "the diagnostic must capture the counts before recovery resets them");
+        return 1;
+    }
 
     std::string committed;
     for (const auto& commit : context->commits())

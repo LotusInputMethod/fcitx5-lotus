@@ -244,6 +244,9 @@ namespace fcitx {
          */
         void rearmReplacementDeadline();
 
+        /// @brief Formats the backend, generation and echo counts for an in-flight replacement.
+        [[nodiscard]] std::string replacementProgress() const;
+
         /**
          * @brief Emits the echo-driven burst through the backend that was selected for it.
          * @param count Number of BackSpace events.
@@ -482,6 +485,9 @@ namespace fcitx {
          * @brief Delivers text that is still waiting for the deferred timer, then the current batch.
          */
         void deliverPendingCommits();
+
+        /// @brief Records whether a pressed key was queued or dropped while waiting for a replacement or commit.
+        void bufferKey(KeyEntry entry, std::string_view phase);
 
         /**
          * @brief Replays keystrokes buffered during replacement.

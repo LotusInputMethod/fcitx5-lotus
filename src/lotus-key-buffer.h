@@ -36,11 +36,17 @@ class LOTUS_EXPORT KeyBuffer {
      */
     [[nodiscard]] bool empty() const;
 
+    /// @brief Number of keys still waiting for replay.
+    [[nodiscard]] size_t size() const {
+        return deque_.size();
+    }
+
     /**
-     * @brief Appends a keystroke; silently dropped when the buffer is full.
+     * @brief Appends a keystroke if there is room.
      * @param entry Key entry pushed into deque
+     * @return True if queued, false if the buffer was full.
      */
-    void push(KeyEntry entry);
+    bool push(KeyEntry entry);
 
     /**
      * @brief Removes and returns the oldest keystroke.

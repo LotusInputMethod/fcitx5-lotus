@@ -184,6 +184,23 @@ When reporting a bug, please provide:
 - Log or screenshot (if any) (Log via `fcitx5-diagnose` command)
 - Environment (desktop environment, terminal, etc.)
 
+For intermittent typing errors, enable tracing on the running Fcitx instance. Use sample text because the trace can contain what you type.
+
+```sh
+busctl --user call org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1 SetLogRule s 'lotus=5,key_trace=5'
+```
+
+Reproduce the issue in the affected application, then turn off tracing.
+
+```sh
+busctl --user call org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1 SetLogRule s 'lotus=0,key_trace=0'
+```
+
+If Fcitx logs to the systemd journal, read the trace with `journalctl --user -b _COMM=fcitx5 --since '5 minutes ago'`.
+Include the application, the keys you pressed and the text you actually saw.
+In Smooth modes, compare `backspaces_received` with `backspaces_expected` at the Pause anchor or timeout. Queue diagnostics show
+which keys Lotus buffered or dropped and how many it dequeued on each replay.
+
 ## Feature Requests
 
 Before proposing a new feature:

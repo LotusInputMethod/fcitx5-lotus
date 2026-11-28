@@ -134,6 +134,7 @@ body:
       label: Log của fcitx5
       description: |
         Log của fcitx5 (Chạy lệnh `fcitx5 --verbose lotus=4` ở terminal trong quá trình tái hiện lỗi)
+        [Smooth / Telex typing trace](https://github.com/LotusInputMethod/fcitx5-lotus/blob/dev/CONTRIBUTING.en.md#bug-reporting)
       render: shell
 
   - type: textarea
