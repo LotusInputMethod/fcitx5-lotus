@@ -203,7 +203,7 @@ namespace fcitx {
         }
         watchCompositorKeymap();
         keyboard_.reset(zwp_virtual_keyboard_manager_v1_create_virtual_keyboard(manager_.get(), seat_.get()));
-        if (!keyboard_) {
+        if (!keyboard_ || wl_display_roundtrip(display_.get()) < 0) {
             disconnect();
             return false;
         }
@@ -626,6 +626,12 @@ namespace fcitx {
                 }
                 for (size_t i = (anchored && pos == 0) ? 1 : 0; i < n; ++i) {
                     tap(kTextKeys[i], trackEcho); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                }
+                // Drain key taps under the temporary keymap before overwriting it with
+                // the next chunk or restoring the compositor keymap.
+                if (wl_display_roundtrip(display_.get()) < 0) {
+                    ok = false;
+                    break;
                 }
                 pos += n;
             }
