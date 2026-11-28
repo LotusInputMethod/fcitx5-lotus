@@ -17,16 +17,12 @@
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the engine must expose the structure the ported Go tests rely on", location);
-        }
+        ::check(name, condition, "the engine must expose the structure the ported Go tests rely on", location);
     }
 
     void checkPreedit(const char* name, lotus::Engine& engine, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
         const std::u32string actual = engine.processedString(lotus::Mode::VietnameseMode | lotus::Mode::FullText);
-        if (actual != expected) {
-            reportFailure(name, hexOf(expected), hexOf(actual), "the engine must process the smoke strings into the expected preedit", location);
-        }
+        ::check(actual == expected, name, hexOf(expected), hexOf(actual), "the engine must process the smoke strings into the expected preedit", location);
     }
 
     void type(lotus::Engine& engine, std::u32string_view text) {

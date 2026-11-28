@@ -12,18 +12,9 @@
 #include "test-utils.h"
 
 #include <cstdint>
-#include <source_location>
 #include <string>
-#include <string_view>
 
 namespace {
-    void check(bool ok, const std::string& step, const std::string& expected, const std::string& actual, std::string_view meaning,
-               const std::source_location& location = std::source_location::current()) {
-        if (ok)
-            return;
-        reportFailure(step, expected, actual, meaning, location);
-    }
-
     std::string entryStr(const KeyEntry& e) {
         return "(" + std::to_string(e.sym) + "," + std::to_string(e.state) + ")";
     }

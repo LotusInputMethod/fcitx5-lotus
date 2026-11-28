@@ -7,6 +7,7 @@
 // written replacements for the Go regular expressions. Every expectation is derived from the Go code
 // with the data tables generated from it; the "uo" + "w" and the "uwow" states are the ones of
 // test/golden/engine_core.tsv (curated-10 and curated-48).
+#include "canvas-check.h"
 #include "composition.h"
 #include "engine_utils.h"
 #include "flattener.h"
@@ -36,18 +37,7 @@ namespace {
     using lotus::Transformation;
     using lotus::TransformationPtr;
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "engine utils must behave exactly like the Go helpers they port", location);
-        }
-    }
-
-    void checkCanvas(const char* name, const Composition& composition, lotus::ModeSet mode, std::u32string_view expected,
-                     const std::source_location& location = std::source_location::current()) {
-        const std::u32string actual = lotus::flatten(composition, mode);
-        if (actual != expected) {
-            reportFailure(name, std::to_string(expected.size()) + " code points", std::to_string(actual.size()) + " code points",
-                          "the flattened canvas must match the expectation ported from the Go tests", location);
-        }
+        ::check(name, condition, "engine utils must behave exactly like the Go helpers they port", location);
     }
 
     TransformationPtr makeEffect(const TransformationPtr& target, EffectType type, std::variant<Mark, Tone> effect) {

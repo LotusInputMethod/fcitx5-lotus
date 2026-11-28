@@ -4,6 +4,7 @@
 //
 // Hand built compositions covering every branch of bamboo-core/flattener.go (mark, tone, raw mark,
 // English mode, virtual keys, ToneLess/MarkLess/LowerCase) plus the composition split helpers.
+#include "canvas-check.h"
 #include "composition.h"
 #include "flattener.h"
 #include "test-utils.h"
@@ -25,18 +26,7 @@ namespace {
     using lotus::Transformation;
     using lotus::TransformationPtr;
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the flattener must render compositions exactly like bamboo-core/flattener.go", location);
-        }
-    }
-
-    void checkCanvas(const char* name, const Composition& composition, lotus::ModeSet mode, std::u32string_view expected,
-                     const std::source_location& location = std::source_location::current()) {
-        const std::u32string actual = lotus::flatten(composition, mode);
-        if (actual != expected) {
-            reportFailure(name, std::to_string(expected.size()) + " code points", std::to_string(actual.size()) + " code points",
-                          "the flattened canvas must match the expectation ported from the Go tests", location);
-        }
+        ::check(name, condition, "the flattener must render compositions exactly like bamboo-core/flattener.go", location);
     }
 
     TransformationPtr makeEffect(const TransformationPtr& target, EffectType type, std::variant<Mark, Tone> effect) {

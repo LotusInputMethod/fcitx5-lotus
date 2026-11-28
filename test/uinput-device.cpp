@@ -15,9 +15,7 @@
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the uinput keyboard must expose exactly the key set the server injects with", location);
-        }
+        ::check(name, condition, "the uinput keyboard must expose exactly the key set the server injects with", location);
     }
 
 } // namespace

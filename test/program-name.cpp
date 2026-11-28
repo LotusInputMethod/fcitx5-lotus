@@ -18,9 +18,7 @@
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "program name resolution must follow the app-rule platform rules", location);
-        }
+        ::check(name, condition, "program name resolution must follow the app-rule platform rules", location);
     }
 
     std::string readSelfComm() {

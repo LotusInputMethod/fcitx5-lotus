@@ -18,9 +18,7 @@
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "socket lifecycle errors must be detected and reported, never used deaf", location);
-        }
+        ::check(name, condition, "socket lifecycle errors must be detected and reported, never used deaf", location);
     }
 
     std::string testSocketName() {

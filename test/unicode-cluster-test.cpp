@@ -18,34 +18,25 @@ namespace {
     constexpr std::u32string_view kToHook  = U"t\u00F4\u0309";
     constexpr std::u32string_view kToTilde = U"t\u00F4\u0303";
     constexpr std::u32string_view kToHop   = U"t\u00F4\u0309 h\u01A1\u0323p"; // "tổ hợp"
-    void checkText(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
-        if (actual == expected) {
-            return;
-        }
-        reportFailure(name, hexOf(expected, "<empty>"), hexOf(actual, "<empty>"), "the diff must split changes at grapheme cluster boundaries exactly as expected", location);
+    void checkU32(const char* name, std::u32string_view actual, std::u32string_view expected, const std::source_location& location = std::source_location::current()) {
+        ::checkU32(name, actual, expected, "the diff must split changes at grapheme cluster boundaries exactly as expected", location);
     }
 
     void checkCount(const char* name, size_t actual, size_t expected, const std::source_location& location = std::source_location::current()) {
-        if (actual == expected) {
-            return;
-        }
-        reportFailure(name, std::to_string(expected), std::to_string(actual), "cluster accounting must produce the expected counts", location);
+        ::check(actual == expected, name, std::to_string(expected), std::to_string(actual), "cluster accounting must produce the expected counts", location);
     }
 
     void checkMark(const char* name, char32_t codePoint, bool expected, const std::source_location& location = std::source_location::current()) {
-        if (isCombiningMark(codePoint) == expected) {
-            return;
-        }
-        reportFailure(name, expected ? "true" : "false", isCombiningMark(codePoint) ? "true" : "false", "combining mark classification must match Unicode", location);
+        const bool actual = isCombiningMark(codePoint);
+        ::check(actual == expected, name, boolText(expected), boolText(actual), "combining mark classification must match Unicode", location);
     }
 
     // A combining mark on its own is not a character: the client deletes it together with the base it
     // attaches to, so the deleted part must never start with one.
     void checkStartsAtClusterBoundary(const char* name, const DiffPart& diff, const std::source_location& location = std::source_location::current()) {
-        if (!diff.deletedPart.empty() && isCombiningMark(diff.deletedPart.front())) {
-            reportFailure(name, "the deleted part starts at a cluster boundary", "deleted part starts with a combining mark [" + hexOf(diff.deletedPart, "<empty>") + "]",
-                          "a combining mark on its own is not a character: the client deletes it together with its base", location);
-        }
+        const bool ok = diff.deletedPart.empty() || !isCombiningMark(diff.deletedPart.front());
+        ::check(ok, name, "the deleted part starts at a cluster boundary", "deleted part starts with a combining mark [" + hexOf(diff.deletedPart, "<empty>") + "]",
+                "a combining mark on its own is not a character: the client deletes it together with its base", location);
     }
 
 } // namespace
@@ -54,42 +45,42 @@ int main() {
     // A tone added to an existing base still replaces the whole cluster: a client that does not
     // compose across commits (a terminal) needs the base and its mark together.
     const DiffPart appendTone = compareAndSplitU32(kTo, kToHook);
-    checkText("append tone: deleted part", appendTone.deletedPart, U"\u00F4");
-    checkText("append tone: added part", appendTone.addedPart, U"\u00F4\u0309");
+    checkU32("append tone: deleted part", appendTone.deletedPart, U"\u00F4");
+    checkU32("append tone: added part", appendTone.addedPart, U"\u00F4\u0309");
     checkStartsAtClusterBoundary("append tone", appendTone);
 
     // Same shape on a plain base: "co" -> "co" + acute must carry the "o".
     const DiffPart appendTonePlain = compareAndSplitU32(U"co", U"co\u0301");
-    checkText("append tone on [co]: deleted part", appendTonePlain.deletedPart, U"o");
-    checkText("append tone on [co]: added part", appendTonePlain.addedPart, U"o\u0301");
+    checkU32("append tone on [co]: deleted part", appendTonePlain.deletedPart, U"o");
+    checkU32("append tone on [co]: added part", appendTonePlain.addedPart, U"o\u0301");
     checkStartsAtClusterBoundary("append tone on [co]", appendTonePlain);
 
     // Changing the tone must replace the whole cluster, never just its mark.
     const DiffPart changeTone = compareAndSplitU32(kToHook, kToTilde);
-    checkText("change tone: deleted part", changeTone.deletedPart, U"\u00F4\u0309");
-    checkText("change tone: added part", changeTone.addedPart, U"\u00F4\u0303");
+    checkU32("change tone: deleted part", changeTone.deletedPart, U"\u00F4\u0309");
+    checkU32("change tone: added part", changeTone.addedPart, U"\u00F4\u0303");
     checkStartsAtClusterBoundary("change tone", changeTone);
 
     // A replacement that drops the tone also replaces the whole cluster.
     const DiffPart dropTone = compareAndSplitU32(kToHook, U"ta");
-    checkText("drop tone: deleted part", dropTone.deletedPart, U"\u00F4\u0309");
-    checkText("drop tone: added part", dropTone.addedPart, U"a");
+    checkU32("drop tone: deleted part", dropTone.deletedPart, U"\u00F4\u0309");
+    checkU32("drop tone: added part", dropTone.addedPart, U"a");
     checkStartsAtClusterBoundary("drop tone", dropTone);
 
     // First tone on a word without one is still a pure append.
     const DiffPart firstTone = compareAndSplitU32(U"t", kToHook);
-    checkText("first tone: deleted part", firstTone.deletedPart, U"");
-    checkText("first tone: added part", firstTone.addedPart, U"\u00F4\u0309");
+    checkU32("first tone: deleted part", firstTone.deletedPart, U"");
+    checkU32("first tone: added part", firstTone.addedPart, U"\u00F4\u0309");
 
     // No combining marks: the split stays at the first differing code point.
     const DiffPart plain = compareAndSplitU32(U"to", U"ta");
-    checkText("plain: deleted part", plain.deletedPart, U"o");
-    checkText("plain: added part", plain.addedPart, U"a");
+    checkU32("plain: deleted part", plain.deletedPart, U"o");
+    checkU32("plain: added part", plain.addedPart, U"a");
 
     // Identical texts produce an empty diff.
     const DiffPart same = compareAndSplitU32(kToHop, kToHop);
-    checkText("identical: deleted part", same.deletedPart, U"");
-    checkText("identical: added part", same.addedPart, U"");
+    checkU32("identical: deleted part", same.deletedPart, U"");
+    checkU32("identical: added part", same.addedPart, U"");
 
     // The burst count is a cluster count, not a code point count.
     checkCount("clusters of empty", graphemeClusterCount(U""), 0U);

@@ -17,9 +17,7 @@
 
 namespace {
     void check(const char* name, bool condition, const std::source_location& location = std::source_location::current()) {
-        if (!condition) {
-            reportFailure(name, "holds", "did not hold", "the encoder must produce the same bytes as the Go engine for every charset", location);
-        }
+        ::check(name, condition, "the encoder must produce the same bytes as the Go engine for every charset", location);
     }
 
 } // namespace
