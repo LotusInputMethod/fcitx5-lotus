@@ -170,6 +170,17 @@ namespace fcitx {
         replacementDeadlineMs_ = nowMs() + (remaining * static_cast<int64_t>(burstIntervalMs_)) + replacementEchoGrace_;
     }
 
+    std::string LotusState::replacementProgress() const {
+        const char* backend = "uinput";
+        if (injectionBackend_ == InjectionBackend::X11Test) {
+            backend = "xtest";
+        } else if (injectionBackend_ == InjectionBackend::WlrVirtualKeyboard) {
+            backend = "wlr-virtual-keyboard";
+        }
+        return "replacement=" + std::to_string(replacementToken_) + " backend=" + backend + " backspaces_received=" + std::to_string(currentBackspaceCount_) +
+            " backspaces_expected=" + std::to_string(expectedBackspaces_) + " queued=" + std::to_string(bufferedKeys_.size());
+    }
+
     void LotusState::handlePreeditMode(KeyEvent& keyEvent, KeySym currentSym) {
         const uint32_t keyVal = engineKeyValue(currentSym);
         if (lotusEngine_->processKey(keyVal, lotus::keyStatesFromBits(static_cast<uint32_t>(keyEvent.rawKey().states())))) {
@@ -428,6 +439,7 @@ namespace fcitx {
         if (token != replacementToken_ || !g_isDeleting.load(std::memory_order_acquire)) {
             return;
         }
+        LOTUS_DEBUG("Finishing after the last backspace echo: " << replacementProgress());
         finishReplacementNow();
     }
 
@@ -469,6 +481,7 @@ namespace fcitx {
             return false; // Allow intermediate backspaces to reach the app to clear the old text.
         }
         // The anchor closes the burst even if echoes are lost.
+        LOTUS_DEBUG("Received the Pause anchor: " << replacementProgress());
         currentBackspaceCount_ += 1;
         finishReplacement(event);
         return true;
@@ -620,6 +633,7 @@ namespace fcitx {
         replacementDeadlineMs_ = nowMs() + static_cast<int64_t>(preDelay) + injectMs + static_cast<int64_t>(postDelay) + kReplacementAckSlackMs;
         replacementEchoGrace_  = static_cast<int64_t>(interval) + static_cast<int64_t>(postDelay) + kReplacementAckSlackMs;
         burstIntervalMs_       = interval;
+        LOTUS_DEBUG("Waiting for replacement echoes: " << replacementProgress() << " pre_delay_ms=" << preDelay << " interval_ms=" << interval << " post_delay_ms=" << postDelay);
 
         if (injectionBackend_ != InjectionBackend::None) {
             echoTriggerPending_ = true;
@@ -636,6 +650,7 @@ namespace fcitx {
                             return;
                         }
                         if (!state->injectEchoBurst(count)) {
+                            LOTUS_WARN("Failed to inject the scheduled backspaces: " << state->replacementProgress());
                             state->echoTriggerPending_ = false;
                             state->finishReplacementNow();
                         }
@@ -652,7 +667,7 @@ namespace fcitx {
             expectedBackspaces_ = deleteCount;
         }
         sendBackspaceUinput(expectedBackspaces_, preDelay, interval, postDelay);
-        LOTUS_INFO("Send " + std::to_string(expectedBackspaces_) + " backspaces");
+        LOTUS_INFO("Requested uinput backspaces: " << replacementProgress());
     }
 
     bool LotusState::injectEchoBurst(size_t count) {
@@ -1175,7 +1190,7 @@ namespace fcitx {
             const KeySym    bufferedSym   = keyEvent.rawKey().sym();
             const KeyStates bufferedState = keyEvent.rawKey().states();
             if (!Key::keySymToUTF8(bufferedSym).empty()) {
-                bufferedKeys_.push({.sym = bufferedSym, .state = bufferedState});
+                bufferKey({.sym = bufferedSym, .state = bufferedState}, "deferred commit");
                 keyEvent.filterAndAccept();
                 return;
             }
@@ -1243,7 +1258,7 @@ namespace fcitx {
         }
 
         cancelPendingUinput();
-        LOTUS_WARN("Replacement ack timed out, finishing without the remaining backspace echoes");
+        LOTUS_WARN("Replacement ack timed out: " << replacementProgress());
         appendCommit(pendingCommitString_);
         pendingCommitString_.clear();
         expectedBackspaces_    = 0;
@@ -1330,8 +1345,9 @@ namespace fcitx {
                 KeyStates   stateToBuffer = keyEvent.rawKey().states();
                 std::string keyUtf8Check  = Key::keySymToUTF8(symToBuffer);
                 if (!keyUtf8Check.empty()) {
-                    LOTUS_WARN("Typing so fast, add key to queue");
-                    bufferedKeys_.push({.sym = symToBuffer, .state = stateToBuffer});
+                    bufferKey({.sym = symToBuffer, .state = stateToBuffer}, "replacement");
+                } else {
+                    LOTUS_DEBUG("Consumed non-text key during replacement: keysym=" << symToBuffer);
                 }
                 keyEvent.filterAndAccept();
             }
@@ -1511,10 +1527,10 @@ namespace fcitx {
     void LotusState::clearAllBuffers(bool keepSentenceState) {
         cancelMouseClickWatchdog();
         deliverPendingCommits();
-        LOTUS_DEBUG("Clear all buffers");
         if (g_isDeleting.load(std::memory_order_acquire)) {
             return;
         }
+        LOTUS_DEBUG("Clearing all buffers: queued=" << bufferedKeys_.size());
         resetMacroSkip();
         oldPreBuffer_.clear();
         hasHistory_ = false;
@@ -1587,14 +1603,24 @@ namespace fcitx {
         flushCommitBatch();
     }
 
+    void LotusState::bufferKey(KeyEntry entry, std::string_view phase) {
+        const bool queued = bufferedKeys_.push(entry);
+        if (!queued) {
+            LOTUS_WARN("Key buffer full during " << phase << ": dropped incoming key, queued=" << bufferedKeys_.size());
+        }
+        LOTUS_DEBUG((queued ? "Queued key during " : "Dropped key during ") << phase << ": keysym=" << entry.sym << " state=" << entry.state << " queued=" << bufferedKeys_.size());
+    }
+
     void LotusState::replayBufferedKeys() {
-        LOTUS_INFO("Starting replay buffered keys");
+        size_t dequeued = 0;
         while (!bufferedKeys_.empty()) {
             const KeyEntry entry = bufferedKeys_.pop();
-            auto           sym   = static_cast<KeySym>(entry.sym);
+            ++dequeued;
+            auto           sym = static_cast<KeySym>(entry.sym);
             KeyStates      state(entry.state);
             const uint32_t keyCodePoint = Key::keySymToUnicode(sym);
             if (keyCodePoint == 0U) {
+                LOTUS_DEBUG("Skipped non-text key during replay: keysym=" << entry.sym);
                 continue;
             }
             const std::u32string keyText(1, static_cast<char32_t>(keyCodePoint));
@@ -1646,10 +1672,12 @@ namespace fcitx {
                 }
             }
             if (replacementStarted) {
-                return;
+                break;
             }
         }
-        LOTUS_INFO("Replay buffered keys done");
+        if (dequeued > 0) {
+            LOTUS_DEBUG("Buffered key replay: dequeued=" << dequeued << " remaining=" << bufferedKeys_.size());
+        }
     }
 
     bool LotusState::isMacroSkipModifier(KeySym sym) const {

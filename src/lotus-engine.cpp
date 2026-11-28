@@ -752,7 +752,7 @@ namespace fcitx {
         if (uinputMode && g_isDeleting.load(std::memory_order_acquire) && state->expectedBackspaces_ > 0) {
             state->lastDeactivateTime_    = nowMs();
             state->deletionInterruptedAt_ = state->lastDeactivateTime_;
-            LOTUS_INFO("Replacement interrupted by focus out");
+            LOTUS_INFO("Replacement interrupted by focus out: " << state->replacementProgress());
             return;
         }
 

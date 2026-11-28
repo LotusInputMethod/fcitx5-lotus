@@ -13,10 +13,11 @@ bool KeyBuffer::empty() const {
     return deque_.empty();
 }
 
-void KeyBuffer::push(KeyEntry entry) {
+bool KeyBuffer::push(KeyEntry entry) {
     if (deque_.size() >= kMaxEntries)
-        return;
+        return false;
     deque_.push_back(entry);
+    return true;
 }
 
 KeyEntry KeyBuffer::pop() {

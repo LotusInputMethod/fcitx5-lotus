@@ -49,8 +49,11 @@ int main() {
     {
         KeyBuffer buf;
         for (uint32_t i = 0; i < 60; ++i) {
-            buf.push({.sym = i, .state = i * 2});
+            const bool queued = buf.push({.sym = i, .state = i * 2});
+            check(queued == (i < 50), "push at index " + std::to_string(i), i < 50 ? "queued" : "dropped", queued ? "queued" : "dropped",
+                  "diagnostics must distinguish admitted keys from overflow");
         }
+        check(buf.size() == 50, "queue depth at capacity", "50", std::to_string(buf.size()), "dropped keys must not increase the reported replay backlog");
         bool inOrder = true;
         for (uint32_t i = 0; i < 50; ++i) {
             const KeyEntry e = buf.pop();
